@@ -6,6 +6,9 @@ import io.github.rodrigofabreu.signalhub.client.OwnerAuthenticated;
 import io.github.rodrigofabreu.signalhub.producer.AuthenticatedProducer;
 import io.github.rodrigofabreu.signalhub.producer.ProducerAdminResource;
 import io.github.rodrigofabreu.signalhub.producer.ProducerAuthenticated;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.quarkus.runtime.Startup;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
@@ -48,16 +51,25 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
             + " the producer that owns the key.")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
+// Created at startup so its meter is scraped before the first event.
+@Startup
 public class EventResource {
 
   static final String SECURITY_SCHEME = "producerApiKey";
 
   private final EventService events;
   private final AuthenticatedProducer producer;
+  private final Counter published;
 
-  EventResource(EventService events, AuthenticatedProducer producer) {
+  EventResource(EventService events, AuthenticatedProducer producer, MeterRegistry registry) {
     this.events = events;
     this.producer = producer;
+    // Untagged: producer names are the owner's data, and categories or severities are in the
+    // inbox already.
+    this.published =
+        Counter.builder("signalhub.events.published")
+            .description("Events stored and acknowledged")
+            .register(registry);
   }
 
   @POST
@@ -101,6 +113,8 @@ public class EventResource {
   @APIResponse(responseCode = "413", description = "The body is larger than 64 KiB.")
   public Response create(@NotNull @Valid CreateEventRequest request) {
     var event = events.create(producer.get(), request);
+    // Counted once committed: create returns only after the transaction.
+    published.increment();
     var location = UriBuilder.fromResource(EventResource.class).path(event.id().toString()).build();
     return Response.created(location).entity(event).build();
   }

@@ -235,6 +235,7 @@ not published.
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
 | `/q/health` | Both of the above combined. |
 | `/q/openapi` | OpenAPI document (YAML; `?format=json` for JSON). |
+| `/q/metrics` | Prometheus metrics: HTTP, JVM, database pool, events and push delivery. See [Metrics](architecture.md#metrics). |
 | `/q/swagger-ui` | Swagger UI, dev mode only. |
 
 ### Producers and API keys
@@ -616,7 +617,7 @@ flutter build ios --debug --no-codesign
 (cd backend && ./mvnw verify)
 # Container smoke test: the "Backend container" job in .github/workflows/ci.yml
 # starts the stack with `docker compose up --build --wait` and a random admin
-# token, checks liveness, readiness and OpenAPI, registers a producer, checks
+# token, checks liveness, readiness, OpenAPI and metrics, registers a producer, checks
 # that publishing without a valid key gets 401, publishes an event with the key
 # and reads it back after restarting the backend, lists it with the admin
 # token (and expects 401 without it), registers a client that lists the event

@@ -120,6 +120,21 @@ class PushDispatches {
         .executeUpdate();
   }
 
+  /** Rows still to be handled, claimed or not, including retries that are not due yet. */
+  record Backlog(long dispatches, long retries) {}
+
+  @Transactional
+  Backlog backlog() {
+    var row =
+        (Object[])
+            entityManager
+                .createNativeQuery(
+                    "SELECT (SELECT count(*) FROM push_dispatches),"
+                        + " (SELECT count(*) FROM push_retries)")
+                .getSingleResult();
+    return new Backlog(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+  }
+
   /** Removes the retry: the push was delivered, failed for good, or ran out of attempts. */
   @Transactional
   void completeRetry(PushRetry retry) {
