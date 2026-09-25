@@ -612,6 +612,26 @@ answers, an unreachable server) and the command's output and exit statuses.
 CI runs them on Python 3.10 and 3.12, and the Compose smoke test publishes
 with the command against the real backend.
 
+## Integration examples
+
+`examples/` holds small producers (shell, a disk monitor, GitHub Actions, a
+coding-agent hook, a usage-threshold monitor) that use only the public API;
+see [`examples/README.md`](../examples/README.md). They are copied and
+adapted by owners, not installed. After `pip install ./sdk/python`, from the
+repository root:
+
+```sh
+shellcheck examples/*/*.sh
+python -m unittest discover --start-directory examples/tests --verbose
+```
+
+The tests need `sh`, `bash`, `curl` and `jq`, but no server, network or
+credentials: each example runs as a subprocess against an in-process fake of
+the events endpoint on `127.0.0.1`, including the `run:` script of the
+example workflow. The example workflow is linted by actionlint with the
+repository's own, and the Compose smoke test runs the examples against the
+real backend, each as its own producer.
+
 ## Local validation
 
 CI runs:
@@ -625,8 +645,11 @@ python -m unittest discover --start-directory scripts/release --verbose
 # Python SDK, also run with python3.10 in CI
 pip install ./sdk/python && signalhub send --help
 python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python --verbose
-# Lints GitHub Actions workflows (needs Docker):
-docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color
+# Integration examples (need the SDK, curl and jq)
+shellcheck examples/*/*.sh
+python -m unittest discover --start-directory examples/tests --verbose
+# Lints GitHub Actions workflows and the example workflow (needs Docker):
+docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml examples/github-actions/*.yml
 
 # Client (in client/, needs Flutter; the iOS build needs macOS)
 flutter pub get --enforce-lockfile
@@ -654,7 +677,8 @@ flutter build ios --debug --no-codesign
 # the startup summary is logged, and that no secret is, backs up the database,
 # restores it into an empty one and checks that events from before the backup
 # (and only those) are back, the producer key still works and the proxy kept
-# its CA, and that restoring over existing data fails, revokes the producer
+# its CA, and that restoring over existing data fails, runs the integration
+# examples as four new producers and lists their events, revokes the producer
 # key and expects 401, stops PostgreSQL and expects readiness 503, and checks that the image refuses to start without database
 # settings. The "Backend container (upgrade from the latest release)" job starts
 # the latest release tag with a producer, a client and a read event, backs up,

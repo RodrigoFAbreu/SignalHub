@@ -45,6 +45,11 @@ jobs:
         run: |
           python3.10 -m pip install ./sdk/python
           python3.10 -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python
+      # shellcheck comes with the runner image; the tests need curl and jq too.
+      - name: Lint and test the integration examples
+        run: |
+          shellcheck examples/*/*.sh
+          python -m unittest discover --start-directory examples/tests --verbose
 
   workflows:
     name: GitHub Actions lint
@@ -52,7 +57,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       # The actionlint image bundles shellcheck, so `run:` scripts are checked too.
-      - run: docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color
+      # The example workflow of examples/github-actions is checked with the repository's own.
+      - run: docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml examples/github-actions/*.yml
 
   backend:
     name: Backend (build + test)
@@ -382,6 +388,39 @@ jobs:
             | jq --exit-status '.unread == 2'
           docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt \
             | cmp - "$RUNNER_TEMP/proxy-ca.crt"
+      # Unrelated producers, each with its own key, through the same contract.
+      - name: The integration examples publish through the public API
+        env:
+          SIGNALHUB_URL: http://localhost:8080
+        run: |
+          # Sets SIGNALHUB_API_KEY to the key of a new producer.
+          register() {
+            SIGNALHUB_API_KEY=$(curl --fail --silent --show-error \
+              --header "Authorization: Bearer $ADMIN_TOKEN" \
+              --header 'Content-Type: application/json' \
+              --data "{\"name\": \"$1\"}" \
+              http://localhost:8080/api/v1/admin/producers | jq --raw-output .apiKey)
+            echo "::add-mask::$SIGNALHUB_API_KEY"
+            export SIGNALHUB_API_KEY
+          }
+          register example-shell
+          examples/shell/run-and-notify.sh "Example job" true 2> "$RUNNER_TEMP/errors.log"
+          register example-disk-usage
+          examples/disk-usage/check-disk-usage.sh / 0 2>> "$RUNNER_TEMP/errors.log"
+          register example-agent
+          echo '{"hook_event_name": "Notification", "cwd": "/work/example", "message": "Waiting for approval"}' \
+            | python examples/coding-agent/agent_hook.py 2>> "$RUNNER_TEMP/errors.log"
+          register example-usage
+          python examples/usage-threshold/usage_threshold.py \
+            --name "Example quota" --used 95 --limit 100 2>> "$RUNNER_TEMP/errors.log"
+          # The shell and agent examples report a failed publish without failing.
+          if test -s "$RUNNER_TEMP/errors.log"; then cat "$RUNNER_TEMP/errors.log"; exit 1; fi
+          curl --fail --silent --show-error --get \
+            --header "Authorization: Bearer $ADMIN_TOKEN" --data limit=4 \
+            http://localhost:8080/api/v1/events \
+            | jq --exit-status '[.items[] | [.producer.name, .category]] == [
+                ["example-usage", "ACTION_REQUIRED"], ["example-agent", "ACTION_REQUIRED"],
+                ["example-disk-usage", "ACTION_REQUIRED"], ["example-shell", "COMPLETED"]]'
       - name: A revoked key no longer authenticates
         run: |
           curl --fail --silent --show-error --output /dev/null --request POST \

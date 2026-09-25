@@ -405,6 +405,21 @@ The following capabilities are already implemented and merged unless repository 
   a database a newer one migrated (Flyway ignores future migrations by
   default); the documentation forbids it, the backend does not yet refuse
 
+### R17 - Integration examples
+
+- `examples/`, edge-only producers over the public API, each with its own
+  API key and no backend, schema or client changes: a shell wrapper that
+  reports a command's outcome (`curl` and `jq`), a homelab disk-usage
+  monitor (the `signalhub` command), a GitHub Actions workflow that reports
+  failed runs, a coding-agent hook for human gates and completions (Claude
+  Code `Notification` and `Stop` hooks, never blocking the agent), and a
+  usage-threshold monitor that notifies once per level with a state file
+- the API key never on a command line: from standard input for `curl`, or
+  the environment or a key file
+- tests run every example, including the workflow step's script, against a
+  fake events endpoint; shellcheck and actionlint lint them; the Compose
+  smoke test runs them against the real backend as four producers
+
 ---
 
 ## 4. Planned roadmap
@@ -762,6 +777,8 @@ Exit criteria:
 
 ### R17 - Integration examples
 
+Status: complete (see section 3).
+
 Goal: prove producer agnosticism.
 
 Provide small, edge-only examples for multiple unrelated producers, such as:
@@ -875,13 +892,14 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After the upgrade procedure and health monitoring (R16c), which complete
-R16, the expected next increment is:
+After the integration examples (R17), the expected next increment is:
 
-**R17 - Integration examples**
+**R18 - v1.0 hardening and contract review**
 
-Small, edge-only examples for several unrelated producers over the public
-API. Confirming delivery to a real device (R8 to R10) still needs the
-maintainer's Firebase project.
+Likely split into bounded increments, starting with the deferred upgrade-path
+item (refusing to start an older release on a newer schema, see R16c), then
+the reviews and tests R18 lists. Promotion to `v1.0.0` itself is always the
+maintainer's decision. Confirming delivery to a real device (R8 to R10)
+still needs the maintainer's Firebase project.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

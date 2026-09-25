@@ -47,7 +47,9 @@ Compose that exposes only the product API, and the upgrade procedure
 and the Flutter client app
 in `client/` (setup with a client key, push registration and reception, the
 event inbox and event details, read state, and push preferences), and the
-Python producer package and `signalhub` command in `sdk/python/`. Do not build components beyond
+Python producer package and `signalhub` command in `sdk/python/`, and
+integration examples for unrelated producers in `examples/`, which use only
+the public API. Do not build components beyond
 the scope of the task at hand.
 
 `docs/history/` is an archive of past prompts and decisions. It is context
@@ -138,6 +140,7 @@ ruff check . && ruff format --check .
 python -m unittest discover --start-directory scripts/release --verbose
 python scripts/release/release.py check-title "feat: my change"   # preview release impact
 pip install ./sdk/python && python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python   # Python SDK/CLI
+shellcheck examples/*/*.sh && python -m unittest discover --start-directory examples/tests   # integration examples (after installing the SDK)
 (cd backend && ./mvnw verify)      # backend build, tests (needs Docker), format, SpotBugs
 docker compose up --build --wait   # backend + PostgreSQL (after cp .env.example .env)
 (cd client && flutter analyze && flutter test)   # client app
