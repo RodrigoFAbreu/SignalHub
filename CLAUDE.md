@@ -41,6 +41,7 @@ provider enabled by a service account key file, and event-triggered push
 dispatch through a PostgreSQL outbox with bounded retries of temporary
 failures, Prometheus metrics (`/q/metrics`) including event and push
 delivery meters, optional JSON logs and a startup configuration summary,
+an optional event retention period,
 and the Flutter client app
 in `client/` (setup with a client key, push registration and reception, the
 event inbox and event details, read state, and push preferences), and the

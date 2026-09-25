@@ -94,4 +94,26 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
   long countUnread() {
     return count("readAt is null");
   }
+
+  /**
+   * Deletes up to {@code limit} of the oldest events created before {@code cutoff}, found through
+   * the {@code (created_at, id)} index of V3. The foreign keys of {@code push_dispatches} and
+   * {@code push_retries} cascade. Rows another transaction holds (being marked read) are left for
+   * the next run.
+   */
+  int deleteCreatedBefore(Instant cutoff, int limit) {
+    return getEntityManager()
+        .createNativeQuery(
+            """
+            DELETE FROM events WHERE id IN (
+                SELECT id FROM events
+                WHERE created_at < :cutoff
+                ORDER BY created_at, id
+                LIMIT :limit
+                FOR UPDATE SKIP LOCKED)
+            """)
+        .setParameter("cutoff", cutoff)
+        .setParameter("limit", limit)
+        .executeUpdate();
+  }
 }

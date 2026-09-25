@@ -37,6 +37,7 @@ class MetricsTest {
         .body(containsString("http_server_requests_seconds_count"))
         .body(containsString("agroal_active_count"))
         .body(containsString("signalhub_events_published_total"))
+        .body(containsString("signalhub_events_deleted_total"))
         .body(containsString("signalhub_push_deliveries_total{result=\"delivered\""))
         .body(containsString("signalhub_push_deliveries_total{result=\"transient_failure\""))
         .body(containsString("signalhub_push_retries_abandoned_total"))

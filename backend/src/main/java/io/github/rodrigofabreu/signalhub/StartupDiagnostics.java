@@ -51,6 +51,8 @@ class StartupDiagnostics {
         "FCM credentials file "
             + value("signalhub.push.fcm.credentials-file").orElse("not set (no fcm provider)"),
         "push dispatch every " + config.getValue("signalhub.push.dispatch.interval", String.class),
+        "event retention "
+            + value("signalhub.events.retention").orElse("off (events are kept forever)"),
         "JSON logs " + (jsonLogs ? "on" : "off"),
         "Java "
             + Runtime.version()

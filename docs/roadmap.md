@@ -325,6 +325,21 @@ The following capabilities are already implemented and merged unless repository 
   restarts the backend with JSON logs and checks every line, the summary, and
   that no secret is logged
 
+### R15c - Event retention
+
+- optional retention period (`SIGNALHUB_EVENTS_RETENTION`, a duration such as
+  `365d`, at least one day or startup stops); unset keeps events forever, so
+  upgrading never deletes history
+- age from the server's `createdAt`; read state, producer, category and
+  severity do not matter (no per-category rules: not justified)
+- an hourly job deletes expired events oldest first, 1000 per transaction
+  through the existing `(created_at, id)` index; pending pushes and retries
+  cascade; no migration
+- `signalhub_events_deleted_total` counter, an `INFO` line per run that
+  deletes, and the period in the startup summary
+- tests against real PostgreSQL; the Compose smoke test sets a period and
+  checks the summary
+
 ---
 
 ## 4. Planned roadmap
@@ -623,10 +638,9 @@ Exit criteria:
 
 ### R15 - Observability and operational hardening
 
-Status: in progress. R15a (metrics) and R15b (structured logs and startup
-diagnostics) are complete (see section 3). Remaining, each its own increment:
-R15c a retention policy for historical events, R15d backup/restore and
-container/resource guidance. OpenTelemetry tracing is not justified for a
+Status: in progress. R15a (metrics), R15b (structured logs and startup
+diagnostics) and R15c (event retention) are complete (see section 3).
+Remaining: R15d backup/restore and container/resource guidance. OpenTelemetry tracing is not justified for a
 single service yet.
 
 Goal: make the self-hosted service easy to operate.
@@ -789,13 +803,13 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After structured logs and startup diagnostics (R15b), the expected next
-increment is:
+After event retention (R15c), the expected next increment is:
 
-**R15c - Retention policy for historical events**
+**R15d - Backup/restore and container/resource guidance**
 
-A bounded, operator-configured policy for pruning old events so storage
-growth stays predictable. Then R15d (backup/restore and resource guidance).
+Documented, tested backup and restore of the PostgreSQL data, and guidance on
+container memory/CPU and database growth. Then R16 (Raspberry Pi /
+self-hosted deployment).
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 

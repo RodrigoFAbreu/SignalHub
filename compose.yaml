@@ -39,6 +39,8 @@ services:
       SIGNALHUB_ADMIN_TOKEN: ${SIGNALHUB_ADMIN_TOKEN:-}
       # true writes JSON logs, one object per line, for log collectors.
       SIGNALHUB_LOG_JSON: ${SIGNALHUB_LOG_JSON:-false}
+      # How long events are kept, such as 365d. Empty or unset keeps them forever.
+      SIGNALHUB_EVENTS_RETENTION: ${SIGNALHUB_EVENTS_RETENTION:-}
     ports:
       # Localhost only: publishing needs a producer API key, but reading events
       # is not authenticated yet, and the API has no TLS. See
