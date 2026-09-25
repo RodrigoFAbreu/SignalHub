@@ -30,6 +30,12 @@ class UnauthorizedException extends ApiException {
     : super('The server did not accept this client key', statusCode: 401);
 }
 
+/// The server has no event with the requested ID.
+class EventNotFoundException extends ApiException {
+  const EventNotFoundException()
+    : super('This event does not exist on the server', statusCode: 404);
+}
+
 /// The client side of the backend's HTTP API, authenticated with a client
 /// key. It uses only the public, documented contract.
 class SignalHubApi {
@@ -62,11 +68,29 @@ class SignalHubApi {
     await _send('DELETE', 'api/v1/client/push-target');
   }
 
-  /// `GET /api/v1/events`: the newest events first.
-  Future<EventPage> listEvents({int limit = 50}) async => _read(
-    await _send('GET', 'api/v1/events?limit=$limit'),
-    EventPage.fromJson,
-  );
+  /// `GET /api/v1/events`: one page of events, newest first. Pass the
+  /// previous page's [EventPage.nextCursor] as [cursor] for the next one.
+  Future<EventPage> listEvents({int limit = 50, String? cursor}) async {
+    final query = Uri(queryParameters: {'limit': '$limit', 'cursor': ?cursor})
+        .query;
+    return _read(
+      await _send('GET', 'api/v1/events?$query'),
+      EventPage.fromJson,
+    );
+  }
+
+  /// `GET /api/v1/events/{id}`: one event. Throws [EventNotFoundException]
+  /// for an ID the server does not know.
+  Future<Event> getEvent(String id) async {
+    final Map<String, Object?> body;
+    try {
+      body = await _send('GET', 'api/v1/events/${Uri.encodeComponent(id)}');
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) throw const EventNotFoundException();
+      rethrow;
+    }
+    return _read(body, Event.fromJson);
+  }
 
   Future<Map<String, Object?>> _send(
     String method,

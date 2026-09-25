@@ -201,6 +201,21 @@ The following capabilities are already implemented and merged unless repository 
   (and Apple account for iOS); that confirmation also closes R8's exit
   criterion
 
+### R10 - Notification inbox UI
+
+- the app's home screen is the inbox: every event, newest first, 30 per page
+  over `GET /api/v1/events`, the next page read with the cursor when
+  scrolling near the end; pull to refresh; loading, empty and error states
+  with retry
+- rows show title, category (icon), severity (color), producer name and
+  `createdAt`, from generic fields only
+- event detail view with every field, metadata as indented JSON (opaque)
+- tapping a notification opens its event (also when it started the app),
+  read with `GET /api/v1/events/{id}` if the inbox does not have it; pushes
+  received while open re-read the inbox
+- device name, server and push status moved to a "This device" screen
+- no backend changes; unit and widget tests against fakes
+
 ---
 
 ## 4. Planned roadmap
@@ -362,6 +377,9 @@ Human gate:
 - choosing the cross-platform client technology is an architecture/product decision unless already settled in normative docs. Stop for human confirmation before locking it in.
 
 ### R10 - Notification inbox UI
+
+Status: complete (see section 3). Receiving a push on a real device and
+opening it still needs the maintainer's Firebase project (see R9).
 
 Goal: make SignalHub useful as a persistent personal notification center.
 
@@ -646,13 +664,13 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After the client foundation (R9), the expected next milestone is:
+After the inbox UI (R10), the expected next milestone is:
 
-**R10 - Notification inbox UI**
+**R11 - Read/unread state**
 
-It builds on the Flutter app in `client/`: the paginated inbox over
-`GET /api/v1/events`, an event detail view, and opening an event from its
-push. Confirming delivery to a real device (R8 and R9) still needs the
+Read state must be consistent across the owner's clients, so it likely needs
+backend persistence and API additions, then the inbox shows and updates it.
+Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

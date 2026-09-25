@@ -33,17 +33,98 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('sets up a device and shows its status', (tester) async {
+  Future<void> settle(WidgetTester tester) async {
+    await tester.runAsync(pumpEventQueue);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('sets up a device and shows its inbox', (tester) async {
     await connect(tester);
+
+    expect(find.text('Nightly build failed'), findsOneWidget);
+    expect(
+      find.textContaining('Blocked · High · nightly-build · '),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('shows this device and its push status', (tester) async {
+    await connect(tester);
+
+    await tester.tap(find.byType(PopupMenuButton<void>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('device')));
+    await tester.pumpAndSettle();
 
     expect(find.text('Pixel 8'), findsOneWidget);
     expect(find.text(serverUrl), findsOneWidget);
     expect(find.text('Push notifications are on'), findsOneWidget);
-    expect(find.text('Nightly build failed'), findsOneWidget);
-    expect(
-      find.textContaining('Blocked · High · nightly-build'),
-      findsOneWidget,
+  });
+
+  testWidgets('an empty inbox says so', (tester) async {
+    backend.events.clear();
+
+    await connect(tester);
+
+    expect(find.text('No events yet'), findsOneWidget);
+  });
+
+  testWidgets('tapping an event shows all of it', (tester) async {
+    backend.publish(
+      'e-2',
+      'Deploy done',
+      message: 'v1.2.3 is live.',
+      context: 'homelab',
     );
+    await connect(tester);
+
+    await tester.tap(find.text('Deploy done'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('v1.2.3 is live.'), findsOneWidget);
+    expect(find.text('Blocked'), findsOneWidget);
+    expect(find.text('High'), findsOneWidget);
+    expect(find.text('nightly-build'), findsOneWidget);
+    expect(find.text('homelab'), findsOneWidget);
+    expect(find.text('e-2'), findsOneWidget);
+    // Metadata is shown as the producer sent it.
+    expect(find.text('{\n  "run": 7\n}'), findsOneWidget);
+  });
+
+  testWidgets('scrolling down loads older events', (tester) async {
+    for (var i = 2; i <= AppController.pageSize + 5; i++) {
+      backend.publish('e-$i', 'Event $i');
+    }
+    await connect(tester);
+    expect(find.text('Nightly build failed'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('Nightly build failed'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Nightly build failed'), findsOneWidget);
+    expect(controller.hasMore, isFalse);
+  });
+
+  testWidgets('a failed older page can be retried', (tester) async {
+    for (var i = 2; i <= AppController.pageSize + 1; i++) {
+      backend.publish('e-$i', 'Event $i');
+    }
+    await connect(tester);
+    backend.offline = true;
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('loadMoreRetry')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    backend.offline = false;
+    await tester.tap(find.byKey(const Key('loadMoreRetry')));
+    await settle(tester);
+
+    expect(find.text('Nightly build failed'), findsOneWidget);
   });
 
   testWidgets('shows why setup failed', (tester) async {
@@ -58,18 +139,46 @@ void main() {
     expect(find.byKey(const Key('connect')), findsOneWidget);
   });
 
-  testWidgets('shows pushes received while open', (tester) async {
+  testWidgets('a push received while open shows up in the inbox', (
+    tester,
+  ) async {
     await connect(tester);
+    backend.publish('e-2', 'Deploy done');
 
     push.received.add(
       const PushNotice(title: 'Deploy done', body: 'v1.2.3', eventId: 'e-2'),
     );
-    await tester.runAsync(pumpEventQueue);
-    await tester.pumpAndSettle();
+    await settle(tester);
 
-    expect(find.text('Received while open'), findsOneWidget);
     expect(find.text('Deploy done'), findsOneWidget);
-    expect(find.text('v1.2.3'), findsOneWidget);
+  });
+
+  testWidgets('a tapped notification opens its event', (tester) async {
+    await connect(tester);
+    backend.publish('e-2', 'Deploy done', message: 'v1.2.3 is live.');
+
+    push.received.add(
+      const PushNotice(title: 'Deploy done', eventId: 'e-2', opened: true),
+    );
+    await settle(tester);
+
+    expect(find.text('v1.2.3 is live.'), findsOneWidget);
+    expect(find.text('e-2'), findsOneWidget);
+  });
+
+  testWidgets('a notification for an unknown event says so', (tester) async {
+    await connect(tester);
+
+    push.received.add(
+      const PushNotice(title: 'Gone', eventId: 'e-404', opened: true),
+    );
+    await settle(tester);
+
+    expect(
+      find.text('This event does not exist on the server'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('retryEvent')), findsOneWidget);
   });
 
   testWidgets('disconnecting returns to setup', (tester) async {

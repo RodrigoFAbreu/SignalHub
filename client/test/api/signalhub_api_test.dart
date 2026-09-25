@@ -58,7 +58,7 @@ void main() {
     final page = await backend.api().listEvents(limit: 1);
 
     expect(backend.requests.single.url.queryParameters, {'limit': '1'});
-    expect(page.nextCursor, isNull);
+    expect(page.nextCursor, isNotNull);
     final event = page.items.single;
     expect(event.id, 'e-2');
     expect(event.title, 'Newer');
@@ -67,6 +67,48 @@ void main() {
     expect(event.severity, EventSeverity.high);
     expect(event.metadata, {'run': 7});
     expect(event.createdAt, DateTime.utc(2026, 9, 25, 12, 3, 0, 123, 456));
+  });
+
+  test('passes the cursor back for the next page', () async {
+    backend
+      ..publish('e-1', 'Oldest')
+      ..publish('e-2', 'Middle')
+      ..publish('e-3', 'Newest');
+    final api = backend.api();
+
+    final first = await api.listEvents(limit: 2);
+    final second = await api.listEvents(limit: 2, cursor: first.nextCursor);
+
+    expect(first.items.map((e) => e.id), ['e-3', 'e-2']);
+    expect(second.items.map((e) => e.id), ['e-1']);
+    expect(second.nextCursor, isNull);
+    expect(backend.requests.last.url.queryParameters, {
+      'limit': '2',
+      'cursor': first.nextCursor,
+    });
+  });
+
+  test('reads one event by its ID', () async {
+    backend.publish('e-1', 'Build failed', message: '3 tests failed');
+
+    final event = await backend.api().getEvent('e-1');
+
+    expect(backend.requests.single.url.path, '/api/v1/events/e-1');
+    expect(event.title, 'Build failed');
+    expect(event.message, '3 tests failed');
+  });
+
+  test('an unknown event ID is an EventNotFoundException', () async {
+    await expectLater(
+      backend.api().getEvent('e-404'),
+      throwsA(
+        isA<EventNotFoundException>().having(
+          (e) => e.statusCode,
+          'statusCode',
+          404,
+        ),
+      ),
+    );
   });
 
   test('a rejected key is an UnauthorizedException', () async {

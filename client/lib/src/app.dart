@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_controller.dart';
-import 'ui/home_screen.dart';
+import 'ui/inbox_screen.dart';
 import 'ui/setup_screen.dart';
 
 class SignalHubApp extends StatelessWidget {
@@ -24,7 +24,7 @@ class SignalHubApp extends StatelessWidget {
           body: Center(child: CircularProgressIndicator()),
         ),
         ConnectionPhase.disconnected => SetupScreen(controller: controller),
-        ConnectionPhase.connected => HomeScreen(controller: controller),
+        ConnectionPhase.connected => InboxScreen(controller: controller),
       },
     ),
   );
