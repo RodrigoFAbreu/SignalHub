@@ -70,6 +70,11 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-micrometer-registry-prometheus</artifactId>
     </dependency>
+    <!-- Optional JSON console logs for log collectors (docs/architecture.md#logs). -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-logging-json</artifactId>
+    </dependency>
     <!-- Runs the push dispatcher periodically (docs/architecture.md#push-dispatch). -->
     <dependency>
       <groupId>io.quarkus</groupId>

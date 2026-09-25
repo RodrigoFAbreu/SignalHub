@@ -186,6 +186,10 @@ and a retry honours preferences changed meanwhile), `EventPushScheduleTest` (the
 runs on its own timer) and `EventPushMessagesTest` (shortening the body). The
 test profile turns the scheduler off so tests run the dispatcher directly. No
 test needs a real push provider, network access or credentials.
+`StartupDiagnosticsTest` covers the startup configuration summary (what it
+names, that it holds no secret, and the database URL's redaction), and
+`ProductionConfigTest` how the prod profile reads its settings, including
+opt-in JSON logs.
 The test profile uses a fixed, test-only admin token from
 `application.properties`.
 
@@ -486,11 +490,14 @@ Optional in every profile:
 | Variable | Effect |
 |---|---|
 | `SIGNALHUB_ADMIN_TOKEN` | Enables the management API for producers and clients, and lets the operator list events. At least 32 characters (`openssl rand -hex 32`); shorter stops startup. Unset or empty disables the management API; clients keep reading events with their keys. |
-
+| `SIGNALHUB_LOG_JSON` | `true` writes console logs as JSON, one object per line, for log collectors; default `false` (plain text). See [Logs](architecture.md#logs). |
 | `SIGNALHUB_PUSH_DISPATCH_INTERVAL` | How often the push dispatcher looks for new events to push; default `2s`. See [Push dispatch](architecture.md#push-dispatch). |
 | `SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE` | Path to a Firebase service account key file (JSON). Enables push through Firebase Cloud Messaging (provider `fcm`); an unreadable or invalid file stops startup. Unset or empty: no `fcm` provider, and `fcm` push targets are reported as unsupported. See [Firebase Cloud Messaging](#firebase-cloud-messaging). |
 
 Compose derives them from `.env` (see `.env.example`). Never commit `.env`.
+Log levels use the standard Quarkus variables, for example
+`QUARKUS_LOG_LEVEL=DEBUG`. On startup the log shows a `Configuration: ...`
+line with the effective settings, without secrets.
 
 ### Firebase Cloud Messaging
 
@@ -624,8 +631,9 @@ flutter build ios --debug --no-codesign
 # with its key, marks it read and counts no unread events, sets a push
 # target, revokes the client and expects 401, publishes with the Python command
 # and reads the event back (and expects exit status 1 with an invalid key),
-# revokes the producer key and expects 401, stops PostgreSQL and expects
-# readiness 503, and checks that the image refuses to start without database
+# restarts the backend with JSON logs and checks that every line is JSON, that
+# the startup summary is logged, and that no secret is, revokes the producer
+# key and expects 401, stops PostgreSQL and expects readiness 503, and checks that the image refuses to start without database
 # settings.
 ```
 
