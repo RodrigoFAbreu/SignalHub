@@ -356,6 +356,16 @@ The following capabilities are already implemented and merged unless repository 
   restores into an empty database and checks the data, keys and the refusal
   to restore over existing data
 
+### R16a - ARM64 images and a verified ARM64 build
+
+- the backend's build and runtime base images and PostgreSQL's are
+  multi-platform (pinned by index digest), so `docker compose up --build`
+  builds for the host's architecture, x86-64 or ARM64; no image registry,
+  images are built on the host
+- the Compose smoke test runs natively on an ARM64 runner as well as on
+  x86-64, and checks that the images match the runner's architecture; the
+  ARM64 job is named `Backend container (Compose smoke test, ARM64)`
+
 ---
 
 ## 4. Planned roadmap
@@ -679,6 +689,12 @@ Exit criteria:
 
 ### R16 - Raspberry Pi / self-hosted deployment
 
+Status: in progress. R16a (ARM64 images and a verified ARM64 build) is
+complete (see section 3); durable storage, the restart policy, backup and
+resource expectations already exist (R2, R15d). Remaining: R16b, the reverse
+proxy/TLS deployment, secrets/configuration strategy and safe network
+exposure; R16c, the upgrade procedure and health monitoring.
+
 Goal: provide a supported practical deployment for a small home server such as Raspberry Pi 5.
 
 Implement/document:
@@ -819,13 +835,12 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After backup/restore and resource guidance (R15d), R15 is complete. The
-expected next increment is:
+After ARM64 images and a verified ARM64 build (R16a), the expected next
+increment is:
 
-**R16 - Raspberry Pi / self-hosted deployment**
+**R16b - Reverse proxy/TLS deployment**
 
-Likely split: ARM64 images and a verified ARM64 build first, then the
-reverse proxy/TLS deployment and the upgrade procedure. Backup and restore
+Then R16c, the upgrade procedure and health monitoring. Backup and restore
 (R15d) are already documented.
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.

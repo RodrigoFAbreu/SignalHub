@@ -1133,7 +1133,7 @@ storage was measured on PostgreSQL with SignalHub's schema.
 | Push | A push provider, likely Firebase Cloud Messaging | Transport to devices only, carrying minimal payloads |
 | Clients | Flutter app for Android and iOS (see [Client application](#client-application)); other clients (CLI, web) may follow | Device registration, notifications, event browsing |
 | Producer SDK/CLI | Python package and command in `sdk/python/` (see [Producer SDK and CLI](#producer-sdk-and-cli)) | Thin client over the public HTTP API |
-| Deployment | Docker, Docker Compose | Reproducible self-hosted deployment |
+| Deployment | Docker, Docker Compose, on x86-64 and ARM64 | Reproducible self-hosted deployment |
 
 ## Backend platform
 
