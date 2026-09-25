@@ -641,8 +641,8 @@ token. Rejected client keys are logged at `DEBUG` like producer keys.
 ## Push delivery
 
 > Status: the provider boundary, the `fcm` provider and event-triggered
-> dispatch, filtered by each client's push preferences, are implemented and
-> tested with fakes. Retries are roadmap R13.
+> dispatch, filtered by each client's push preferences and with bounded
+> retries of temporary failures, are implemented and tested with fakes.
 
 Delivery code asks for a push to one client and never sees a concrete
 provider. Everything provider-specific stays behind one small interface, so
@@ -668,7 +668,7 @@ adding a provider (Firebase Cloud Messaging first) touches only the edge.
 |---|---|---|
 | `DELIVERED` | The provider accepted the message. | Nothing more. |
 | `INVALID_TARGET` | The target no longer exists (e.g. the app was uninstalled). | Removes the client's push target, unless the client registered a new one meanwhile. |
-| `TRANSIENT_FAILURE` | Unavailable, rate-limited, timed out; may succeed later. | Logs a warning and keeps the target. |
+| `TRANSIENT_FAILURE` | Unavailable, rate-limited, timed out; may succeed later. | Logs a warning and keeps the target; dispatch sends again later (see [Push dispatch](#push-dispatch)). |
 | `PERMANENT_FAILURE` | Retrying will not help, but the target is not condemned (e.g. a rejected payload or a misconfigured provider). | Logs a warning and keeps the target. |
 
 Delivery also reports `NO_TARGET` (unknown or revoked client, or no push
@@ -738,7 +738,12 @@ pushes; the event itself is stored and listed either way.
                         EventPushDispatcher: claim oldest row ──▶ PushDelivery.deliver(client, message)
                                               │                     for each client with a push target
                                               │                     whose preferences allow the event
-                                              └─ delete the row
+                                              ├─ delete the row; in the same transaction, a
+                                              │  push_retries row per client whose send failed
+                                              │  temporarily
+                                              ▼
+                        claim due retries ──▶ PushDelivery.deliver(client, message)
+                                              └─ delete the row, or schedule the next attempt
 ```
 
 - **Durable.** Publishing writes the event and a `push_dispatches` row in the
@@ -751,8 +756,22 @@ pushes; the event itself is stored and listed either way.
   would skip each other's claims.
 - **At least once.** A redispatched event reaches again the clients that had
   already received it, so clients deduplicate by the `eventId` in the push
-  data. Each client gets one send per dispatch; a transient provider failure
-  is logged and not retried yet (roadmap R13).
+  data.
+- **Retries.** A send that fails temporarily (`TRANSIENT_FAILURE`: the
+  provider is unavailable, rate-limited or timed out) is sent again, up to 5
+  sends in all, after 30 seconds, then 2, 10 and 30 minutes; an outage of
+  about 40 minutes is bridged. Each pending retry is a `push_retries` row
+  (V8) per event and client, written in the transaction that completes the
+  event's dispatch, and claimed like dispatch rows once due, so retries
+  survive restarts. A retry reads the client's push target and preferences
+  again: a client that was revoked, lost its target or muted the event
+  meanwhile is not sent to. Retries are only for temporary failures; the
+  other results are final (see [Push delivery](#push-delivery)).
+- **Final failure.** After the last attempt the retry is dropped and a
+  warning names the event and client (`Gave up the push of event ...`). No
+  delivery record is kept: the event stays in the inbox, where the client
+  shows it on its next refresh, and a push that late would interrupt for
+  little. A redispatched event does not reset a client's pending retry.
 - **The push.** The event's title, its message shortened to 500 characters
   (providers limit payloads; FCM to 4 KiB), and data `eventId`, `category`
   and `severity`. It is a signal to look: the client fetches the event by ID.
@@ -760,10 +779,9 @@ pushes; the event itself is stored and listed either way.
   (`SIGNALHUB_PUSH_DISPATCH_INTERVAL`, default `2s`) is how often the
   dispatcher looks for new rows, and so the longest a push waits.
 - Deleting an event (not possible through the API yet) drops its pending
-  push with it.
+  push and retries with it.
 
-**Not yet:** retries, backoff and delivery-attempt records (roadmap R13). The
-push token never appears in logs:
+The push token never appears in logs:
 providers must keep it out of outcome details, and an exception from a
 provider is logged by type only.
 

@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -100,13 +101,15 @@ class EventPushDispatchTest {
   @Test
   void aRevokedClientGetsNoPush() {
     var client = TestClients.register("revoked");
-    setTarget(client.clientKey(), "revoked-" + UUID.randomUUID());
+    var token = "revoked-" + UUID.randomUUID();
+    setTarget(client.clientKey(), token);
     asAdmin().post(ADMIN + "/" + client.id() + "/revoke").then().statusCode(200);
     var eventId = publish("After revocation", null);
 
     dispatcher.dispatchPending();
 
-    assertTrue(sentFor(eventId).isEmpty());
+    // Clients registered by other tests may get it; the revoked one does not.
+    assertTrue(sentFor(eventId, token).isEmpty());
   }
 
   @Test
@@ -163,9 +166,106 @@ class EventPushDispatchTest {
 
     assertEquals(1, dispatcher.dispatchPending());
 
-    // One attempt per client for now; retries are roadmap R13.
     assertEquals(1, sentFor(eventId, token).size());
     assertFalse(pending(eventId));
+    assertEquals(Optional.of(1), attempts(eventId, token));
+  }
+
+  @Test
+  void aTemporaryFailureIsRetriedOnceTheDelayHasPassed() throws SQLException {
+    var token = clientWithTarget();
+    fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down"));
+    var eventId = publish("Provider down for a moment", null);
+    dispatcher.dispatchPending();
+    assertEquals(
+        EventPushDispatcher.RETRY_DELAYS.get(0).toSeconds(), untilNextAttempt(eventId, token), 5);
+
+    // Not due yet.
+    fake.answer((to, message) -> PushOutcome.delivered());
+    dispatcher.dispatchPending();
+    assertTrue(sentFor(eventId, token).isEmpty());
+
+    makeRetriesDue(eventId);
+    dispatcher.dispatchPending();
+
+    assertEquals(1, sentFor(eventId, token).size());
+    assertEquals(Optional.empty(), attempts(eventId, token));
+  }
+
+  @Test
+  void retriesBackOffAndStopAfterTheLastAttempt() throws SQLException {
+    var token = clientWithTarget();
+    fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down"));
+    var eventId = publish("Provider down for good", null);
+    dispatcher.dispatchPending();
+
+    for (var attempt = 2; attempt <= EventPushDispatcher.MAX_ATTEMPTS; attempt++) {
+      makeRetriesDue(eventId);
+      dispatcher.dispatchPending();
+      if (attempt < EventPushDispatcher.MAX_ATTEMPTS) {
+        assertEquals(Optional.of(attempt), attempts(eventId, token));
+        assertEquals(
+            EventPushDispatcher.RETRY_DELAYS.get(attempt - 1).toSeconds(),
+            untilNextAttempt(eventId, token),
+            5);
+      }
+    }
+
+    assertEquals(EventPushDispatcher.MAX_ATTEMPTS, sentFor(eventId, token).size());
+    assertEquals(Optional.empty(), attempts(eventId, token));
+    makeRetriesDue(eventId);
+    dispatcher.dispatchPending();
+    assertEquals(EventPushDispatcher.MAX_ATTEMPTS, sentFor(eventId, token).size());
+  }
+
+  @Test
+  void aPermanentFailureIsNotRetried() throws SQLException {
+    var token = clientWithTarget();
+    fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.PERMANENT_FAILURE, "rejected"));
+    var eventId = publish("Rejected payload", null);
+
+    dispatcher.dispatchPending();
+
+    assertEquals(1, sentFor(eventId, token).size());
+    assertEquals(Optional.empty(), attempts(eventId, token));
+  }
+
+  @Test
+  void aRetryHonoursPreferencesChangedMeanwhile() throws SQLException {
+    var client = TestClients.register("push-dispatch");
+    var token = "dispatch-" + UUID.randomUUID();
+    setTarget(client.clientKey(), token);
+    fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down"));
+    var eventId = publish("Paused before the retry", null);
+    dispatcher.dispatchPending();
+    setPreferences(client.clientKey(), "{\"enabled\": false}");
+    fake.answer((to, message) -> PushOutcome.delivered());
+
+    makeRetriesDue(eventId);
+    dispatcher.dispatchPending();
+
+    assertTrue(sentFor(eventId, token).isEmpty());
+    assertEquals(Optional.empty(), attempts(eventId, token));
+  }
+
+  @Test
+  void aRetryClaimLeftByAStoppedDispatcherExpiresAndThePushIsSentAgain() throws SQLException {
+    var token = clientWithTarget();
+    fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down"));
+    var eventId = publish("Interrupted retry", null);
+    dispatcher.dispatchPending();
+    fake.answer((to, message) -> PushOutcome.delivered());
+    makeRetriesDue(eventId);
+    updateRetries(eventId, "claimed_until = now() + interval '1 minute'");
+
+    dispatcher.dispatchPending();
+    assertTrue(sentFor(eventId, token).isEmpty());
+
+    updateRetries(eventId, "claimed_until = now() - interval '1 second'");
+    dispatcher.dispatchPending();
+
+    assertEquals(1, sentFor(eventId, token).size());
+    assertEquals(Optional.empty(), attempts(eventId, token));
   }
 
   @Test
@@ -184,15 +284,21 @@ class EventPushDispatchTest {
   }
 
   @Test
-  void deletingAnEventDropsItsPendingPush() throws SQLException {
+  void deletingAnEventDropsItsPendingPushAndRetries() throws SQLException {
+    var token = clientWithTarget();
+    fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down"));
+    var retried = publish("Deleted after a failed push", null);
+    dispatcher.dispatchPending();
     var eventId = publish("Deleted", null);
     try (var connection = dataSource.getConnection();
-        var statement = connection.prepareStatement("DELETE FROM events WHERE id = ?")) {
+        var statement = connection.prepareStatement("DELETE FROM events WHERE id IN (?, ?)")) {
       statement.setObject(1, eventId);
+      statement.setObject(2, retried);
       statement.executeUpdate();
     }
 
     assertFalse(pending(eventId));
+    assertEquals(Optional.empty(), attempts(retried, token));
   }
 
   private String clientWithTarget() {
@@ -275,6 +381,52 @@ class EventPushDispatchTest {
       try (var rows = statement.executeQuery()) {
         return rows.next();
       }
+    }
+  }
+
+  /** Sends made so far to the client with this push target, while a retry is scheduled. */
+  private Optional<Integer> attempts(UUID eventId, String token) throws SQLException {
+    try (var connection = dataSource.getConnection();
+        var statement =
+            connection.prepareStatement(
+                "SELECT r.attempts FROM push_retries r JOIN clients c ON c.id = r.client_id"
+                    + " WHERE r.event_id = ? AND c.push_token = ?")) {
+      statement.setObject(1, eventId);
+      statement.setString(2, token);
+      try (var rows = statement.executeQuery()) {
+        return rows.next() ? Optional.of(rows.getInt(1)) : Optional.empty();
+      }
+    }
+  }
+
+  /** How long until the scheduled retry to the client with this push target, in seconds. */
+  private double untilNextAttempt(UUID eventId, String token) throws SQLException {
+    try (var connection = dataSource.getConnection();
+        var statement =
+            connection.prepareStatement(
+                "SELECT extract(epoch FROM r.next_attempt_at - now()) FROM push_retries r"
+                    + " JOIN clients c ON c.id = r.client_id"
+                    + " WHERE r.event_id = ? AND c.push_token = ?")) {
+      statement.setObject(1, eventId);
+      statement.setString(2, token);
+      try (var rows = statement.executeQuery()) {
+        assertTrue(rows.next());
+        return rows.getDouble(1);
+      }
+    }
+  }
+
+  private void makeRetriesDue(UUID eventId) throws SQLException {
+    updateRetries(eventId, "next_attempt_at = now() - interval '1 second'");
+  }
+
+  private void updateRetries(UUID eventId, String assignment) throws SQLException {
+    try (var connection = dataSource.getConnection();
+        var statement =
+            connection.prepareStatement(
+                "UPDATE push_retries SET " + assignment + " WHERE event_id = ?")) {
+      statement.setObject(1, eventId);
+      statement.executeUpdate();
     }
   }
 

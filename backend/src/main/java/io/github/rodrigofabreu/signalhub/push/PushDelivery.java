@@ -8,7 +8,8 @@ import org.jboss.logging.Logger;
 /**
  * Pushes a message to one client through the provider its push target names. This is what the rest
  * of SignalHub calls to deliver a push; it never sees a concrete provider. Sends run outside any
- * database transaction. There are no retries yet: the result says whether a retry could help.
+ * database transaction. It sends once; the result says whether a retry could help, and the caller
+ * decides whether to retry.
  */
 @ApplicationScoped
 public class PushDelivery {

@@ -153,6 +153,15 @@ public class ClientService {
         .toList();
   }
 
+  /** The client as a push recipient: empty if it is unknown, revoked, or has no push target. */
+  @Transactional
+  public Optional<PushRecipient> pushRecipient(UUID id) {
+    return clients
+        .findByIdOptional(id)
+        .filter(client -> !client.revoked() && client.pushProvider() != null)
+        .map(client -> new PushRecipient(client.id(), client.pushPreferences()));
+  }
+
   /**
    * Removes the client's push target after its provider rejected it for good, but only if it is
    * still the given one: the client may have registered a new target since. True if removed.
