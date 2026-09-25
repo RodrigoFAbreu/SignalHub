@@ -1,13 +1,16 @@
 package io.github.rodrigofabreu.signalhub.producer;
 
 import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toMap;
 
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jboss.logging.Logger;
@@ -67,6 +70,16 @@ public class ProducerService {
   @Transactional
   public Optional<ProducerIdentity> find(UUID id) {
     return producers.findByIdOptional(id).map(p -> new ProducerIdentity(p.id(), p.name()));
+  }
+
+  /** The given producers by ID, enabled or not. One query whatever the number of IDs. */
+  @Transactional
+  public Map<UUID, ProducerIdentity> find(Collection<UUID> ids) {
+    if (ids.isEmpty()) {
+      return Map.of();
+    }
+    return producers.list("id in ?1", ids).stream()
+        .collect(toMap(ProducerEntity::id, p -> new ProducerIdentity(p.id(), p.name())));
   }
 
   /** Registers a producer with its first API key; empty if the name is taken. */

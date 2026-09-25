@@ -11,7 +11,10 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** Without an admin token the management API does not exist, whatever the request carries. */
+/**
+ * Without an admin token the management API and the event listing do not exist, whatever the
+ * request carries.
+ */
 @QuarkusTest
 @TestProfile(AdminApiDisabledTest.Profile.class)
 class AdminApiDisabledTest {
@@ -34,6 +37,12 @@ class AdminApiDisabledTest {
         .post(ADMIN + "/" + UUID.randomUUID() + "/keys")
         .then()
         .statusCode(404);
+  }
+
+  @Test
+  void theEventListingIsNotFound() {
+    given().header("Authorization", SOME_TOKEN).get("/api/v1/events").then().statusCode(404);
+    given().get("/api/v1/events").then().statusCode(404);
   }
 
   @Test

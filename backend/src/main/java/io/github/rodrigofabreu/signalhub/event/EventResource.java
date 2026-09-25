@@ -1,7 +1,9 @@
 package io.github.rodrigofabreu.signalhub.event;
 
 import io.github.rodrigofabreu.signalhub.api.ApiError;
+import io.github.rodrigofabreu.signalhub.producer.AdminOnly;
 import io.github.rodrigofabreu.signalhub.producer.AuthenticatedProducer;
+import io.github.rodrigofabreu.signalhub.producer.ProducerAdminResource;
 import io.github.rodrigofabreu.signalhub.producer.ProducerAuthenticated;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -12,12 +14,14 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import java.util.List;
 import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.eclipse.microprofile.openapi.annotations.enums.SecuritySchemeType;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
@@ -30,7 +34,7 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityScheme;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 @Path("/api/v1/events")
-@Tag(name = "Events", description = "Publish and read generic events.")
+@Tag(name = "Events", description = "Publish, list and read generic events.")
 @SecurityScheme(
     securitySchemeName = EventResource.SECURITY_SCHEME,
     type = SecuritySchemeType.HTTP,
@@ -96,6 +100,92 @@ public class EventResource {
     var event = events.create(producer.get(), request);
     var location = UriBuilder.fromResource(EventResource.class).path(event.id().toString()).build();
     return Response.created(location).entity(event).build();
+  }
+
+  @GET
+  @AdminOnly
+  @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
+  @Operation(
+      summary = "List events, newest first",
+      description =
+          "The event inbox: events ordered by createdAt, newest first (ties broken by id), one"
+              + " page at a time. Filters combine with AND; repeating a filter parameter matches"
+              + " any of its values. To read the next page, repeat the request with the same"
+              + " filters and cursor set to the previous page's nextCursor. Events published"
+              + " after the first page never shift or repeat entries on later pages; they appear"
+              + " when the listing is started again. Requires the admin token, the owner's"
+              + " credential until owner and client authentication exist; answers 404 when no"
+              + " admin token is configured.")
+  @APIResponse(
+      responseCode = "200",
+      description = "A page of events.",
+      content = @Content(schema = @Schema(implementation = EventPage.class)))
+  @APIResponse(
+      responseCode = "400",
+      description = "A query parameter is invalid. Each violation names the parameter.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "401",
+      description = "Missing or wrong admin token.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No admin token is configured, so the listing is disabled.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public EventPage list(
+      @Parameter(
+              description = "Only events of this producer (canonical ID). Repeatable.",
+              schema = @Schema(type = SchemaType.ARRAY, implementation = UUID.class))
+          @QueryParam("producerId")
+          List<String> producerIds,
+      @Parameter(
+              description = "Only events with this category. Repeatable.",
+              schema = @Schema(type = SchemaType.ARRAY, implementation = Category.class))
+          @QueryParam("category")
+          List<String> categories,
+      @Parameter(
+              description = "Only events with this severity. Repeatable.",
+              schema = @Schema(type = SchemaType.ARRAY, implementation = Severity.class))
+          @QueryParam("severity")
+          List<String> severities,
+      @Parameter(
+              description =
+                  "Only events created at or after this time (inclusive). ISO-8601 with a UTC"
+                      + " offset; URL-encode a + offset as %2B.",
+              example = "2026-09-25T00:00:00Z",
+              schema = @Schema(type = SchemaType.STRING, format = "date-time"))
+          @QueryParam("createdFrom")
+          String createdFrom,
+      @Parameter(
+              description =
+                  "Only events created before this time (exclusive). ISO-8601 with a UTC offset.",
+              example = "2026-09-26T00:00:00Z",
+              schema = @Schema(type = SchemaType.STRING, format = "date-time"))
+          @QueryParam("createdBefore")
+          String createdBefore,
+      @Parameter(
+              description = "The nextCursor of the previous page. Omit for the first page.",
+              schema = @Schema(type = SchemaType.STRING))
+          @QueryParam("cursor")
+          String cursor,
+      @Parameter(
+              description =
+                  "Maximum number of events on the page, 1 to "
+                      + EventQuery.MAX_LIMIT
+                      + ". Defaults to "
+                      + EventQuery.DEFAULT_LIMIT
+                      + ".",
+              schema =
+                  @Schema(
+                      type = SchemaType.INTEGER,
+                      minimum = "1",
+                      maximum = "100",
+                      defaultValue = "50"))
+          @QueryParam("limit")
+          String limit) {
+    return events.list(
+        EventQuery.parse(
+            producerIds, categories, severities, createdFrom, createdBefore, cursor, limit));
   }
 
   @GET

@@ -7,9 +7,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 /**
- * The operator's token for the producer management API, from {@code SIGNALHUB_ADMIN_TOKEN}. Without
- * it the management API is disabled. Checked at startup so a weak token stops the service instead
- * of protecting it poorly.
+ * The operator's token for the producer management API and the event listing, from {@code
+ * SIGNALHUB_ADMIN_TOKEN}. Without it both are disabled. Checked at startup so a weak token stops
+ * the service instead of protecting it poorly.
  */
 @Startup
 @Singleton
@@ -26,7 +26,8 @@ final class AdminToken {
     check(token);
     this.hash = token.map(ApiKeys::hash);
     if (token.isEmpty()) {
-      LOG.info("Producer management API disabled: SIGNALHUB_ADMIN_TOKEN is not set");
+      LOG.info(
+          "Producer management API and event listing disabled: SIGNALHUB_ADMIN_TOKEN is not set");
     }
   }
 

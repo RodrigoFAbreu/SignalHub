@@ -113,6 +113,17 @@ jobs:
           curl --fail --silent --show-error "http://localhost:8080/api/v1/events/$id" \
             | jq --exit-status '.title == "Smoke test" and .metadata.check == "restart"
                 and .producer.name == "ci-smoke-test" and .producer.id == env.PRODUCER_ID'
+      - name: The owner lists the event with the admin token
+        run: |
+          curl --fail --silent --show-error --get \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --data-urlencode "producerId=$PRODUCER_ID" --data-urlencode 'limit=10' \
+            http://localhost:8080/api/v1/events \
+            | jq --exit-status '(.items | length) == 1 and .items[0].title == "Smoke test"
+                and .nextCursor == null'
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            http://localhost:8080/api/v1/events)
+          test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
       - name: A revoked key no longer authenticates
         run: |
           curl --fail --silent --show-error --output /dev/null --request POST \

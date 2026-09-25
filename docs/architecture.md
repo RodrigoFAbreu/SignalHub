@@ -1,8 +1,8 @@
 # Architecture
 
 > Status: partly direction. Implemented so far: the backend runtime foundation
-> (see [Backend platform](#backend-platform)), generic event ingestion (see
-> [Events](#events)), and producer authentication (see
+> (see [Backend platform](#backend-platform)), generic event ingestion and the
+> event listing (see [Events](#events)), and producer authentication (see
 > [Producers and authentication](#producers-and-authentication)). Owner/client
 > authentication, dispatch, and clients do not exist yet.
 > This document defines boundaries, vocabulary, and the chosen technology.
@@ -74,9 +74,9 @@ needed, live outside the core and speak the generic API.
 ## Events
 
 > Status: implemented. Registered producers publish events with an API key;
-> reading an event needs no credential yet (see
-> [Security limitations](#security-limitations)), so Compose publishes the API
-> on localhost only.
+> the owner lists them with the admin token; reading one event by ID needs no
+> credential yet (see [Security limitations](#security-limitations)), so
+> Compose publishes the API on localhost only.
 
 An event is a generic record of something that happened in a producer. The
 model is deliberately small: fields that every producer understands the same
@@ -182,6 +182,7 @@ contents. An absent or `null` value is stored and returned as `{}`.
 | Method and path | Result |
 |---|---|
 | `POST /api/v1/events` | Requires a producer API key. Validates and stores an event bound to that producer. `201 Created` with the canonical event and a `Location` header. |
+| `GET /api/v1/events` | Requires the admin token. One page of events, newest first, optionally filtered. See [Listing events](#listing-events). |
 | `GET /api/v1/events/{id}` | `200` with the event, or `404`. No credential needed yet. |
 
 The event is committed to PostgreSQL before `201` is returned. Errors:
@@ -202,16 +203,75 @@ The OpenAPI document at `/q/openapi` is the reference for the request and
 response schemas, with examples. See
 [development.md](development.md#events-api) for curl examples.
 
+### Listing events
+
+`GET /api/v1/events` is the inbox: what a client shows the owner without
+knowing any event ID in advance.
+
+**Credential.** It requires the admin token (see
+[Producer management](#producer-management)), which is the owner's credential
+until owner and client authentication exist. Without a configured admin token
+the listing is disabled and answers `404`, like the management API. A producer
+key is not accepted: producers publish, they do not read other producers'
+events. When owner/client authentication arrives, it is expected to be
+accepted here in addition to (or instead of) the admin token.
+
+**Order.** Events are ordered by `createdAt`, newest first, then by `id`
+(descending) among events stored in the same microsecond, so the order is
+total and stable. `occurredAt` is not used for ordering (see
+[Timestamps](#timestamps)).
+
+**Filters.** All optional, and combined with AND. Repeating a parameter
+matches any of its values (OR), e.g. `severity=HIGH&severity=CRITICAL`.
+
+| Parameter | Meaning |
+|---|---|
+| `producerId` | Events of this producer (canonical ID). Repeatable. |
+| `category` | Events with this category. Repeatable. |
+| `severity` | Events with this severity. Repeatable. |
+| `createdFrom` | Events with `createdAt` at or after this time (inclusive). |
+| `createdBefore` | Events with `createdAt` before this time (exclusive). |
+
+Timestamps follow the same rules as in request bodies: ISO-8601 with an
+explicit offset. In a URL, write a `+` offset as `%2B`, or use `Z`. Filters
+use only generic fields; there is no filtering on `context`, metadata, or
+text, and no full-text search.
+
+**Pagination.** Cursor-based (keyset), not page numbers or offsets:
+
+```
+{"items": [ ...events, newest first... ], "nextCursor": "MToxNzkw..."}
+```
+
+- `limit` sets the page size, 1–100, default 50.
+- `nextCursor` is an opaque string, or `null` on the last page. To read the
+  next page, repeat the request with the same filters and `cursor` set to it.
+- A cursor marks the position after the last event of its page. Events
+  published after the first page was read never shift or repeat entries on
+  later pages; they appear when the listing is started again from the first
+  page. Every page costs the same however deep it is.
+- Changing the filters while keeping a cursor is allowed: the result is the
+  events after that position that match the new filters.
+- Cursors are versioned internally; a client must not construct or parse
+  them, only pass them back.
+
+Invalid parameters get `400` with one violation per problem, naming the
+parameter in `field` (e.g. `limit`, `category`, `cursor`). An unknown
+producer ID is not an error; it just matches no events. Unknown query
+parameters are ignored.
+
 ### Schema
 
 `V1__create_events.sql` creates the `events` table. Check constraints repeat
 the API's invariants (lengths, non-blank title, enum values, metadata is an
 object), so the database stays valid even when something other than the API
 writes to it. `V2__add_producer_authentication.sql` replaces the `source`
-column with `producer_id`, a foreign key to `producers`. There are no secondary
-indexes on `events`: the only query is by primary key, and producers are never
-deleted, so nothing looks events up by producer yet. Indexes arrive with the
-features that query by other columns.
+column with `producer_id`, a foreign key to `producers`.
+`V3__index_events_for_listing.sql` adds the listing's indexes:
+`(created_at, id)` for the inbox and its category, severity and time filters,
+and `(producer_id, created_at, id)` for the producer filter. Category and
+severity have only four values each, so they are filtered while reading the
+ordered index rather than indexed on their own.
 
 ## Producers and authentication
 
@@ -313,6 +373,9 @@ The operator manages producers through a small HTTP API under
   publishing. This is the default in every environment.
 - With the variable set, requests without the exact token get the same `401`
   as producer failures. Producer keys are not admin tokens and vice versa.
+- The same token also guards the event listing (see
+  [Listing events](#listing-events)): in a single-owner service the operator
+  is the owner, and no separate owner credential exists yet.
 
 This is a bootstrap mechanism for a single-owner, self-hosted service, not a
 user or role system. See [development.md](development.md#producers-and-api-keys)
@@ -375,10 +438,14 @@ type that holds a key, omits it from `toString()`.
 
 This version protects publishing. It does not yet:
 
-- **Authenticate readers.** `GET /api/v1/events/{id}` needs no credential.
-  Event IDs are unguessable UUIDv7s returned only to the publishing producer,
-  but anyone who learns one and can reach the API can read the event. Owner
-  and client authentication arrive with the client-facing API.
+- **Authenticate readers by ID.** `GET /api/v1/events/{id}` needs no
+  credential. Event IDs are unguessable UUIDv7s returned only to the
+  publishing producer and to the owner's listing, but anyone who learns one
+  and can reach the API can read the event. Listing events requires the admin
+  token.
+- **Authenticate owners and clients.** The admin token is the only owner
+  credential, shared by management and the listing. Per-client credentials
+  arrive with client/device registration.
 - **Terminate TLS.** Keys and the admin token travel as bearer credentials, so
   any non-local access needs a TLS reverse proxy. Compose publishes the API on
   `127.0.0.1` only.
@@ -386,8 +453,8 @@ This version protects publishing. It does not yet:
   secrets), but a flood of requests still costs a database lookup each.
 - **Separate the management API** onto its own port or network. It is
   protected by the admin token and disabled by default; for the tightest
-  setup, set `SIGNALHUB_ADMIN_TOKEN` only while managing producers and restart
-  without it afterwards.
+  setup, set `SIGNALHUB_ADMIN_TOKEN` only while managing producers or reading
+  the listing, and restart without it afterwards.
 - **Expire keys** automatically. Keys are valid until revoked.
 - **Scope keys**: every valid key may publish any event as its producer.
 
@@ -487,9 +554,9 @@ Implementation expectations:
   (readiness, includes the PostgreSQL connection check), and `/q/openapi`.
   The product API lives under `/api/v1/...`, so the two never collide.
 - **Code layout:** the event feature lives in the `event` package: the
-  resource (HTTP), request and response records (API models), a service
-  (transactions and mapping), and the JPA entity with a Panache repository
-  (persistence). The entity is package-private and never serialized.
+  resource (HTTP), request and response records (API models), the parsed
+  listing query and its cursor, a service (transactions and mapping), and the
+  JPA entity with a Panache repository (persistence). The entity is package-private and never serialized.
   Producers, API keys, their authentication filters, and the management API
   live in the `producer` package. Authentication uses plain JAX-RS request
   filters bound by annotation (`@ProducerAuthenticated`, `@AdminOnly`) rather
