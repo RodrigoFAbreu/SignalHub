@@ -24,32 +24,46 @@ class FakeBackend {
   /// When set, every request fails to connect.
   bool offline = false;
 
+  /// When set, requests for older pages (with a cursor) are answered only
+  /// once it completes.
+  Completer<void>? holdOlderPages;
+
   late final http.Client client = MockClient(_handle);
 
   SignalHubApi api([String url = serverUrl, String key = clientKey]) =>
       SignalHubApi(ServerCredentials.parse(url, key), client);
 
-  void publish(String id, String title) => events.insert(0, {
-    'id': id,
-    'producer': {'id': 'p-1', 'name': 'nightly-build'},
-    'context': null,
-    'category': 'BLOCKED',
-    'severity': 'HIGH',
-    'title': title,
-    'message': null,
-    'metadata': {'run': 7},
-    'occurredAt': null,
-    'createdAt': '2026-09-25T12:03:00.123456Z',
-  });
+  void publish(String id, String title, {String? message, String? context}) =>
+      events.insert(0, {
+        'id': id,
+        'producer': {'id': 'p-1', 'name': 'nightly-build'},
+        'context': context,
+        'category': 'BLOCKED',
+        'severity': 'HIGH',
+        'title': title,
+        'message': message,
+        'metadata': {'run': 7},
+        'occurredAt': null,
+        'createdAt': '2026-09-25T12:03:00.123456Z',
+      });
 
   Future<http.Response> _handle(http.Request request) async {
     requests.add(request);
     if (offline) throw http.ClientException('offline', request.url);
+    // Servers may sit below a base path behind a reverse proxy.
+    final path = request.url.path.substring(request.url.path.indexOf('/api/'));
+    // Reading one event needs no credential (docs/architecture.md).
+    const eventPath = '/api/v1/events/';
+    if (request.method == 'GET' && path.startsWith(eventPath)) {
+      final id = path.substring(eventPath.length);
+      final event = events.where((e) => e['id'] == id).firstOrNull;
+      return event == null
+          ? _json(404, {'title': 'Event not found', 'status': 404})
+          : _json(200, event);
+    }
     if (request.headers['Authorization'] != 'Bearer $acceptedKey') {
       return _json(401, {'title': 'Unauthorized', 'status': 401});
     }
-    // Servers may sit below a base path behind a reverse proxy.
-    final path = request.url.path.substring(request.url.path.indexOf('/api/'));
     final route = '${request.method} $path';
     switch (route) {
       case 'GET /api/v1/client':
@@ -67,10 +81,20 @@ class FakeBackend {
         pushToken = null;
         return _json(200, _client());
       case 'GET /api/v1/events':
-        final limit = int.parse(request.url.queryParameters['limit'] ?? '50');
+        // The cursor is the position after the previous page: opaque to
+        // the app, like the backend's.
+        final query = request.url.queryParameters;
+        if (query.containsKey('cursor')) await holdOlderPages?.future;
+        final limit = int.parse(query['limit'] ?? '50');
+        final start = switch (query['cursor']) {
+          final cursor? => events.indexWhere((e) => e['id'] == cursor) + 1,
+          null => 0,
+        };
+        final page = events.skip(start).take(limit).toList();
+        final more = start + page.length < events.length;
         return _json(200, {
-          'items': events.take(limit).toList(),
-          'nextCursor': null,
+          'items': page,
+          'nextCursor': more ? page.last['id'] : null,
         });
     }
     return _json(404, {'title': 'Not Found', 'status': 404});

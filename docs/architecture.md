@@ -691,9 +691,9 @@ provider is logged by type only.
 
 ## Client application
 
-> Status: foundation implemented in `client/`: setup with a client key,
-> push registration and reception, and the newest event. The inbox and event
-> detail views are roadmap R10.
+> Status: implemented in `client/`: setup with a client key, push
+> registration and reception, the inbox and event details. Read/unread state
+> is roadmap R11.
 
 **Technology: Flutter**, chosen by the maintainer for roadmap R9. One Dart
 codebase targets Android and iOS. Other platforms Flutter supports (web,
@@ -704,7 +704,7 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
 
 ```
  ┌───────────────────────── client/lib ─────────────────────────┐
- │ ui (setup, home) ──▶ AppController ──▶ SignalHubApi ──HTTPS──▶ backend
+ │ ui (setup, inbox) ─▶ AppController ──▶ SignalHubApi ──HTTPS──▶ backend
  │                          │                                   │
  │                          ▼                                   │
  │               PushRegistration ──▶ PushService (port)         │
@@ -732,9 +732,26 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   Android) and never logged.
 - **Reception.** In the background, the operating system shows the
   notification from the push's title and body. In the foreground, and when
-  a notification opens the app, the push becomes a `PushNotice` in the app's
-  list, deduplicated by event ID (delivery is at least once), and the app
-  re-reads the newest event: a push is a signal to look.
+  a notification opens the app, the push becomes a `PushNotice` and the app
+  re-reads the inbox from the server: a push is a signal to look, so a push
+  delivered twice (delivery is at least once) changes nothing. Tapping a
+  notification also opens its event (by the push's `eventId`), including
+  the notification that started the app.
+- **Inbox.** The home screen lists every event, newest first, from
+  `GET /api/v1/events`, 30 per page. The next page is read with the previous
+  page's `nextCursor` when the owner scrolls near the end; a pull to refresh
+  starts again from the first page, and an older page still in flight is
+  then dropped rather than appended out of order. Failures show a message
+  with a retry; the rows already read stay. Each row shows the title,
+  category, severity, producer name and `createdAt`, with an icon for the
+  category and a color for the severity; they depend on nothing but these
+  generic fields.
+- **Event details.** Every field the API returns: title, message, category,
+  severity, producer, context, `occurredAt`, `createdAt`, ID, and the
+  metadata as indented JSON, shown as the producer sent it and never
+  interpreted. An event opened from the inbox needs no request; one opened
+  from a notification is read with `GET /api/v1/events/{id}` unless the
+  inbox already has it, and an unknown ID says so.
 - **Events.** The app maps the API's events to a typed model. A category or
   severity added in a later backend release maps to *unknown* rather than
   failing, so older apps keep working (see

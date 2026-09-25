@@ -517,12 +517,14 @@ flutter build ios --debug --no-codesign       # iOS build (macOS only)
 The tests need no device, network or credentials: `SignalHubApi` runs
 against `FakeBackend`, an in-memory stand-in for the client API built on the
 `http` package's `MockClient`, and push against `FakePushService`. They cover
-the API client (paths, bearer key, push-target bodies, error mapping), the
-models (every documented field, unknown enum values, contract violations),
-server address and key validation, the app controller (setup, restart,
-revoked key, unreachable server, push permission, token refresh, deduplicated
-pushes, disconnect), the Firebase options from build-time values, and the
-screens in widget tests. Builds without Firebase options run without push.
+the API client (paths, bearer key, cursors, reading one event, push-target
+bodies, error mapping), the models (every documented field, unknown enum
+values, contract violations), server address and key validation, the app
+controller (setup, restart, revoked key, unreachable server, push
+permission, token refresh, pushes re-reading the inbox, paging and its
+failures, opening a tapped notification's event, disconnect), the Firebase
+options from build-time values, and the screens in widget tests (inbox,
+paging while scrolling, event details, opening from a notification). Builds without Firebase options run without push.
 
 ## Local validation
 
