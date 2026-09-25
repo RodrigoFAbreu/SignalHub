@@ -4,7 +4,8 @@
 > (see [Backend platform](#backend-platform)), generic event ingestion and the
 > event listing (see [Events](#events)), producer authentication (see
 > [Producers and authentication](#producers-and-authentication)), and client
-> registration with client keys and push targets (see [Clients](#clients)),
+> registration with client keys, push targets and push preferences (see
+> [Clients](#clients)),
 > the push-provider boundary with a Firebase Cloud Messaging provider,
 > event-triggered push dispatch (see [Push delivery](#push-delivery)), and the
 > foundation of the Flutter client app for Android and iOS (see
@@ -499,7 +500,8 @@ This version protects publishing. It does not yet:
 
 > Status: implemented. Clients are registered, authenticate with client keys,
 > read events, and store a push target that receives pushes (see
-> [Push delivery](#push-delivery)).
+> [Push delivery](#push-delivery)), filtered by the client's
+> [push preferences](#push-preferences).
 
 A **client** is one installation of a SignalHub client application on one of
 the owner's devices: a phone app, a desktop app, a CLI. SignalHub has one
@@ -514,6 +516,7 @@ the same for every platform.
 | `createdAt` | When it was registered. |
 | `revokedAt` | Set once the client is revoked; `null` while it is active. |
 | `pushTarget` | `{provider, updatedAt}`, or `null` if the client has no push target. |
+| `pushPreferences` | Which events are pushed to it: `{enabled, minimumSeverity, mutedCategories, mutedProducerIds}`. See [Push preferences](#push-preferences). |
 
 ### Client keys
 
@@ -537,7 +540,7 @@ installation, so rotating it means registering the installation again as a
 new client and revoking the old one. Revocation is permanent and immediate.
 
 **What a client key may do:** read the event listing, and read and change its
-own registration under `/api/v1/client`. It cannot publish, manage producers
+own registration (push target and push preferences) under `/api/v1/client`. It cannot publish, manage producers
 or other clients, or see push targets of other clients.
 
 ### Push targets
@@ -563,6 +566,40 @@ provider and the token that provider issued to the installation.
 - Revoking a client removes its push target, and a revoked client can never
   get one; the database enforces both.
 
+### Push preferences
+
+Push preferences decide which events **interrupt** the owner on a client.
+They never decide what is stored: every event is persisted and listed, and
+read state works the same, whatever any client's preferences say. A
+suppressed push is simply not sent to that client.
+
+| Field | Default | An event is not pushed to the client when |
+|---|---|---|
+| `enabled` | `true` | it is `false` (pushes are paused; the push target is kept) |
+| `minimumSeverity` | `LOW` | its severity is below this one (`LOW` < `NORMAL` < `HIGH` < `CRITICAL`) |
+| `mutedCategories` | `[]` | its category is one of these |
+| `mutedProducerIds` | `[]` | its producer (canonical ID) is one of these, at most 100 |
+
+- **Per client.** Preferences belong to a client, like its push target, so
+  each device can be as quiet as the owner wants: everything on the phone,
+  only `CRITICAL` on a tablet. Read state, by contrast, belongs to the owner
+  (see [Read state](#read-state)).
+- **Generic only.** The fields are the event's generic `category`,
+  `severity` and producer; nothing looks at `context`, text or metadata, and
+  no producer is special. Muting a producer is by its ID, the same value the
+  listing filters on.
+- **Replace, not patch.** `PUT /api/v1/client/push-preferences` replaces all
+  of them; an absent or `null` field takes its default, so `{}` restores
+  pushing every event. Lists are returned sorted without duplicates. An
+  unknown producer ID is accepted and matches no events, as in the listing.
+  Unknown fields, unknown enum values and wrong JSON types are `400`.
+- **Applied at dispatch.** The dispatcher reads preferences when it sends an
+  event's push (normally within seconds of publishing), so a change applies
+  to every event not yet dispatched. Changing or removing the push target
+  keeps the preferences; a new client starts with the defaults.
+- **Not yet.** Quiet hours and other time-based rules: nothing requires
+  them yet, and they would need the owner's time zone.
+
 ### Client API
 
 | Method and path | Credential | Result |
@@ -574,6 +611,7 @@ provider and the token that provider issued to the installation.
 | `GET /api/v1/client` | client key | The calling client's registration. |
 | `PUT /api/v1/client/push-target` | client key | Sets the push target (`{"provider", "token"}`). `200` with the client. |
 | `DELETE /api/v1/client/push-target` | client key | Removes the push target. Idempotent. `200` with the client. |
+| `PUT /api/v1/client/push-preferences` | client key | Replaces the push preferences (`{"enabled", "minimumSeverity", "mutedCategories", "mutedProducerIds"}`, each optional). `200` with the client. |
 
 The management paths behave like producer management: `404` for every path
 while no admin token is configured, `404` for unknown IDs, and `400` for
@@ -585,20 +623,26 @@ invalid bodies with the usual violations. See
 `V4__create_clients.sql` creates `clients`: `id`, `name`, `key_hash` (exactly
 32 bytes), `created_at`, `revoked_at`, and `push_provider`, `push_token`,
 `push_updated_at`, which are either all set or all `null`. A check constraint
-forbids a push target on a revoked client. Changes to one client lock its
+forbids a push target on a revoked client. `V7__add_client_push_preferences.sql`
+adds `push_enabled`, `push_minimum_severity`, `push_muted_categories`
+(`text[]`) and `push_muted_producers` (`uuid[]`), with defaults that push
+every event, so existing clients keep receiving everything; check constraints
+allow only known severities and categories and at most 100 producers. Changes
+to one client lock its
 row, so a revocation and a concurrent push-target update apply in order
 rather than one overwriting the other.
 
 ### Logging
 
-Registration, revocation and push-target changes are logged at `INFO` with
-the client ID and provider name only; never the key, its hash, or the push
+Registration, revocation, push-target and push-preference changes are logged
+at `INFO` with the client ID, provider name and preferences only; never the key, its hash, or the push
 token. Rejected client keys are logged at `DEBUG` like producer keys.
 
 ## Push delivery
 
 > Status: the provider boundary, the `fcm` provider and event-triggered
-> dispatch are implemented and tested with fakes. Retries are roadmap R13.
+> dispatch, filtered by each client's push preferences, are implemented and
+> tested with fakes. Retries are roadmap R13.
 
 Delivery code asks for a push to one client and never sees a concrete
 provider. Everything provider-specific stays behind one small interface, so
@@ -683,9 +727,9 @@ never commit it (see [Cross-cutting principles](#cross-cutting-principles)).
 
 ### Push dispatch
 
-Every stored event is pushed to every client that has a push target. There is
-no filtering yet: which events interrupt the owner is a preference (roadmap
-R12), and it will be decided from generic event fields only.
+Every stored event is pushed to every client that has a push target and whose
+[push preferences](#push-preferences) allow it. Preferences only suppress
+pushes; the event itself is stored and listed either way.
 
 ```
  POST /api/v1/events ──one transaction──▶ events + push_dispatches (outbox)
@@ -693,6 +737,7 @@ R12), and it will be decided from generic event fields only.
                                               ▼
                         EventPushDispatcher: claim oldest row ──▶ PushDelivery.deliver(client, message)
                                               │                     for each client with a push target
+                                              │                     whose preferences allow the event
                                               └─ delete the row
 ```
 
@@ -717,8 +762,8 @@ R12), and it will be decided from generic event fields only.
 - Deleting an event (not possible through the API yet) drops its pending
   push with it.
 
-**Not yet:** retries, backoff and delivery-attempt records (roadmap R13), and
-preferences for which events push (roadmap R12). The push token never appears in logs:
+**Not yet:** retries, backoff and delivery-attempt records (roadmap R13). The
+push token never appears in logs:
 providers must keep it out of outcome details, and an exception from a
 provider is logged by type only.
 

@@ -19,6 +19,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,7 @@ class EventPushDispatchTest {
   @Inject FakePushProvider fake;
   @Inject AgroalDataSource dataSource;
 
+  private UUID producerId;
   private String apiKey;
 
   @BeforeEach
@@ -44,7 +46,9 @@ class EventPushDispatchTest {
     // Events from other tests wait in the outbox too; send them before each test's own.
     dispatcher.dispatchPending();
     fake.answer((token, message) -> PushOutcome.delivered());
-    apiKey = TestProducers.register("push-dispatch").apiKey();
+    var producer = TestProducers.register("push-dispatch");
+    producerId = producer.id();
+    apiKey = producer.apiKey();
   }
 
   @Test
@@ -106,6 +110,52 @@ class EventPushDispatchTest {
   }
 
   @Test
+  void preferencesDecideWhichClientsArePushed() {
+    var everything = clientWithTarget();
+    var highOnly = clientWithTarget("{\"minimumSeverity\": \"HIGH\"}");
+    var noInfo = clientWithTarget("{\"mutedCategories\": [\"INFO\"]}");
+    var paused = clientWithTarget("{\"enabled\": false}");
+
+    var info = publish("INFO", "NORMAL", "Nightly backup done");
+    var critical = publish("INFO", "CRITICAL", "Disk almost full");
+    var blocked = publish("BLOCKED", "NORMAL", "Waiting for review");
+    dispatcher.dispatchPending();
+
+    assertEquals(List.of(everything), recipientsOf(info, everything, highOnly, noInfo, paused));
+    assertEquals(
+        List.of(everything, highOnly),
+        recipientsOf(critical, everything, highOnly, noInfo, paused));
+    assertEquals(
+        List.of(everything, noInfo), recipientsOf(blocked, everything, highOnly, noInfo, paused));
+  }
+
+  @Test
+  void aMutedProducerIsNotPushedButItsEventsAreKept() {
+    var muting = clientWithTarget("{\"mutedProducerIds\": [\"" + producerId + "\"]}");
+    var other = clientWithTarget();
+    var eventId = publish("Muted producer", null);
+
+    dispatcher.dispatchPending();
+
+    assertEquals(List.of(other), recipientsOf(eventId, muting, other));
+    asAdmin().get("/api/v1/events/" + eventId).then().statusCode(200);
+  }
+
+  @Test
+  void preferencesApplyWhenTheEventIsDispatched() throws SQLException {
+    var client = TestClients.register("push-dispatch");
+    var token = "dispatch-" + UUID.randomUUID();
+    setTarget(client.clientKey(), token);
+    var eventId = publish("Muted before dispatch", null);
+    setPreferences(client.clientKey(), "{\"enabled\": false}");
+
+    dispatcher.dispatchPending();
+
+    assertTrue(sentFor(eventId, token).isEmpty());
+    assertFalse(pending(eventId));
+  }
+
+  @Test
   void aFailedSendDoesNotHoldBackTheEvent() throws SQLException {
     var token = clientWithTarget();
     fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down"));
@@ -146,10 +196,29 @@ class EventPushDispatchTest {
   }
 
   private String clientWithTarget() {
+    return clientWithTarget("{}");
+  }
+
+  private String clientWithTarget(String preferences) {
     var client = TestClients.register("push-dispatch");
     var token = "dispatch-" + UUID.randomUUID();
     setTarget(client.clientKey(), token);
+    setPreferences(client.clientKey(), preferences);
     return token;
+  }
+
+  private static void setPreferences(String clientKey, String preferences) {
+    asClient(clientKey)
+        .contentType(ContentType.JSON)
+        .body(preferences)
+        .put(CLIENT + "/push-preferences")
+        .then()
+        .statusCode(200);
+  }
+
+  /** Which of the given push targets received the event, in the order given. */
+  private List<String> recipientsOf(UUID eventId, String... tokens) {
+    return Arrays.stream(tokens).filter(token -> !sentFor(eventId, token).isEmpty()).toList();
   }
 
   private static void setTarget(String clientKey, String token) {
@@ -162,9 +231,17 @@ class EventPushDispatchTest {
   }
 
   private UUID publish(String title, String message) {
+    return publish("ACTION_REQUIRED", "HIGH", title, message);
+  }
+
+  private UUID publish(String category, String severity, String title) {
+    return publish(category, severity, title, null);
+  }
+
+  private UUID publish(String category, String severity, String title, String message) {
     var body = new HashMap<String, Object>();
-    body.put("category", "ACTION_REQUIRED");
-    body.put("severity", "HIGH");
+    body.put("category", category);
+    body.put("severity", severity);
     body.put("title", title);
     if (message != null) {
       body.put("message", message);

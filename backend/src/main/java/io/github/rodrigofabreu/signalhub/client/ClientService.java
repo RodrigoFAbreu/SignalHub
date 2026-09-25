@@ -13,8 +13,8 @@ import org.hibernate.id.uuid.UuidVersion7Strategy;
 import org.jboss.logging.Logger;
 
 /**
- * Registers and revokes clients, authenticates client keys, and records push targets. Logs only
- * client IDs and provider names, never keys, hashes or push tokens.
+ * Registers and revokes clients, authenticates client keys, and records push targets and push
+ * preferences. Logs only client IDs and provider names, never keys, hashes or push tokens.
  */
 @ApplicationScoped
 public class ClientService {
@@ -124,6 +124,18 @@ public class ClientService {
             });
   }
 
+  /** Replaces the client's push preferences. Empty if it was revoked after it authenticated. */
+  @Transactional
+  Optional<ClientResponse> setPushPreferences(UUID id, PushPreferences preferences) {
+    return active(id)
+        .map(
+            client -> {
+              client.setPushPreferences(preferences);
+              LOG.infof("Client %s set its push preferences: %s", id, preferences);
+              return toResponse(client);
+            });
+  }
+
   /** Where to push for this client: empty if it is unknown, revoked, or has no push target. */
   @Transactional
   public Optional<PushAddress> pushTargetOf(UUID id) {
@@ -135,9 +147,9 @@ public class ClientService {
 
   /** The clients that have a push target (so are not revoked), oldest first. */
   @Transactional
-  public List<UUID> withPushTarget() {
+  public List<PushRecipient> pushRecipients() {
     return clients.list("pushProvider is not null", Sort.by("createdAt").and("id")).stream()
-        .map(ClientEntity::id)
+        .map(client -> new PushRecipient(client.id(), client.pushPreferences()))
         .toList();
   }
 
@@ -174,7 +186,12 @@ public class ClientService {
             ? null
             : new ClientResponse.PushTarget(client.pushProvider(), client.pushUpdatedAt());
     return new ClientResponse(
-        client.id(), client.name(), client.createdAt(), client.revokedAt(), pushTarget);
+        client.id(),
+        client.name(),
+        client.createdAt(),
+        client.revokedAt(),
+        pushTarget,
+        client.pushPreferences());
   }
 
   // PostgreSQL stores microseconds. Truncating first makes responses equal later reads.

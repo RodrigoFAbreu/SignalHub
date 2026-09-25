@@ -11,7 +11,8 @@ import java.util.UUID;
 import org.jboss.logging.Logger;
 
 /**
- * Pushes every stored event to every client that has a push target. Events come from the {@link
+ * Pushes every stored event to every client that has a push target and whose push preferences allow
+ * it; events a client's preferences exclude are only not pushed to it. Events come from the {@link
  * PushDispatches} outbox, written with the event, so a push is attempted at least once for every
  * acknowledged event even across restarts; clients deduplicate by event ID. Each client gets one
  * attempt per event: retrying transient failures is roadmap R13.
@@ -67,13 +68,21 @@ class EventPushDispatcher {
   }
 
   private void dispatch(UUID eventId) {
-    var message = events.pushMessageFor(eventId);
-    if (message.isPresent()) {
+    var push = events.pushFor(eventId);
+    if (push.isPresent()) {
       var results = new EnumMap<DeliveryResult, Integer>(DeliveryResult.class);
-      for (var client : clients.withPushTarget()) {
-        results.merge(delivery.deliver(client, message.get()), 1, Integer::sum);
+      var excluded = 0;
+      for (var recipient : clients.pushRecipients()) {
+        if (push.get().allowedBy(recipient.preferences())) {
+          results.merge(
+              delivery.deliver(recipient.clientId(), push.get().message()), 1, Integer::sum);
+        } else {
+          excluded++;
+        }
       }
-      LOG.debugf("Dispatched the push for event %s: %s", eventId, results);
+      LOG.debugf(
+          "Dispatched the push for event %s: %s, %d excluded by preferences",
+          eventId, results, excluded);
     }
     dispatches.complete(eventId);
   }

@@ -4,7 +4,6 @@ import static java.util.stream.Collectors.toSet;
 
 import io.github.rodrigofabreu.signalhub.producer.ProducerIdentity;
 import io.github.rodrigofabreu.signalhub.producer.ProducerService;
-import io.github.rodrigofabreu.signalhub.push.PushMessage;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
@@ -52,8 +51,8 @@ class EventService {
 
   /** The push for the event; empty if the event no longer exists. */
   @Transactional
-  Optional<PushMessage> pushMessageFor(UUID id) {
-    return repository.findByIdOptional(id).map(EventPushMessages::of);
+  Optional<EventPush> pushFor(UUID id) {
+    return repository.findByIdOptional(id).map(EventPush::of);
   }
 
   @Transactional

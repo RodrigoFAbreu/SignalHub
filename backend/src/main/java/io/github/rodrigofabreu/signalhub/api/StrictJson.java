@@ -29,5 +29,11 @@ class StrictJson implements ObjectMapperCustomizer {
           .setCoercion(CoercionInputShape.Float, CoercionAction.Fail)
           .setCoercion(CoercionInputShape.Boolean, CoercionAction.Fail);
     }
+    // Neither "false" nor 0 is a boolean.
+    mapper
+        .coercionConfigFor(LogicalType.Boolean)
+        .setCoercion(CoercionInputShape.String, CoercionAction.Fail)
+        .setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)
+        .setCoercion(CoercionInputShape.Float, CoercionAction.Fail);
   }
 }

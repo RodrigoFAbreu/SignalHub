@@ -21,7 +21,10 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.security.SecurityScheme;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
-/** The authenticated client's own registration: read it and manage its push target. */
+/**
+ * The authenticated client's own registration: read it and manage its push target and push
+ * preferences.
+ */
 @Path("/api/v1/client")
 @Tag(
     name = "Client",
@@ -99,6 +102,30 @@ public class ClientResource {
       content = @Content(schema = @Schema(implementation = ClientResponse.class)))
   public ClientResponse clearPushTarget() {
     return clients.clearPushTarget(client.get().id()).orElseThrow(ClientResource::revoked);
+  }
+
+  @PUT
+  @Path("/push-preferences")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Set this client's push preferences",
+      description =
+          "Replaces the preferences that decide which events are pushed to this client; an absent"
+              + " or null field takes its default. Events that are not pushed are still stored"
+              + " and listed. The preferences apply to events not yet dispatched, and are kept"
+              + " when the push target changes.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The client with its new push preferences.",
+      content = @Content(schema = @Schema(implementation = ClientResponse.class)))
+  @APIResponse(
+      responseCode = "400",
+      description = "The body is malformed or fails validation.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public ClientResponse setPushPreferences(@NotNull @Valid PushPreferencesRequest request) {
+    return clients
+        .setPushPreferences(client.get().id(), request.toPreferences())
+        .orElseThrow(ClientResource::revoked);
   }
 
   // Revoked between authentication and the change: answer as if the key had been rejected.

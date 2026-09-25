@@ -33,6 +33,10 @@ class ClientPersistenceTest {
     columns.put("push_provider", "text YES");
     columns.put("push_token", "text YES");
     columns.put("push_updated_at", "timestamp with time zone YES");
+    columns.put("push_enabled", "boolean NO");
+    columns.put("push_minimum_severity", "text NO");
+    columns.put("push_muted_categories", "ARRAY NO");
+    columns.put("push_muted_producers", "ARRAY NO");
     assertEquals(columns, columnsOf("clients"));
   }
 
@@ -70,6 +74,21 @@ class ClientPersistenceTest {
             + " (id, name, key_hash, created_at, revoked_at, push_provider, push_token,"
             + " push_updated_at)"
             + " VALUES (?, 'x', decode(repeat('00', 32), 'hex'), now(), now(), 'fcm', 't', now())");
+  }
+
+  @Test
+  void pushPreferencesHoldOnlyKnownValues() {
+    var insert =
+        "INSERT INTO clients (id, name, key_hash, created_at, %s)"
+            + " VALUES (?, 'x', decode(repeat('00', 32), 'hex'), now(), %s)";
+    assertRejected(insert.formatted("push_minimum_severity", "'URGENT'"));
+    assertRejected(insert.formatted("push_muted_categories", "ARRAY['NEWS']"));
+    assertRejected(insert.formatted("push_muted_categories", "ARRAY[NULL]::text[]"));
+    assertRejected(insert.formatted("push_muted_producers", "ARRAY[NULL]::uuid[]"));
+    assertRejected(
+        insert.formatted(
+            "push_muted_producers",
+            "ARRAY(SELECT gen_random_uuid() FROM generate_series(1, 101))"));
   }
 
   @Test
