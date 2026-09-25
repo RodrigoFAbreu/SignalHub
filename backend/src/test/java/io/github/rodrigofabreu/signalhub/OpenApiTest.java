@@ -8,6 +8,8 @@ import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 
 import io.quarkus.test.junit.QuarkusTest;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -16,6 +18,7 @@ class OpenApiTest {
   private static final String EVENTS = "paths.'/api/v1/events'";
   private static final String EVENT = "paths.'/api/v1/events/{id}'";
   private static final String SCHEMAS = "components.schemas";
+  private static final String ADMIN = "paths.'/api/v1/admin/producers'";
 
   @Test
   void describesTheServiceIncludingHealthEndpoints() {
@@ -44,6 +47,7 @@ class OpenApiTest {
         .body(EVENTS + ".post.requestBody.content.'application/json'.examples", hasKey("minimal"))
         .body(EVENTS + ".post.responses", hasKey("201"))
         .body(EVENTS + ".post.responses", hasKey("400"))
+        .body(EVENTS + ".post.responses", hasKey("401"))
         .body(EVENTS + ".post.responses", hasKey("413"))
         .body(EVENT + ".get.responses", hasKey("200"))
         .body(EVENT + ".get.responses", hasKey("404"));
@@ -59,22 +63,19 @@ class OpenApiTest {
         .statusCode(200)
         .body(
             SCHEMAS + ".CreateEventRequest.required",
-            containsInAnyOrder("source", "category", "severity", "title"))
+            containsInAnyOrder("category", "severity", "title"))
         .body(
             SCHEMAS + ".CreateEventRequest.properties.keySet()",
             containsInAnyOrder(
-                "source",
-                "context",
-                "category",
-                "severity",
-                "title",
-                "message",
-                "metadata",
-                "occurredAt"))
+                "context", "category", "severity", "title", "message", "metadata", "occurredAt"))
         .body(SCHEMAS + ".CreateEventRequest.properties.title.maxLength", equalTo(200))
         .body(
             SCHEMAS + ".Event.required",
-            hasItems("id", "source", "category", "severity", "title", "metadata", "createdAt"))
+            hasItems("id", "producer", "category", "severity", "title", "metadata", "createdAt"))
+        .body(
+            SCHEMAS + ".Event.properties.producer.$ref",
+            equalTo("#/components/schemas/EventProducer"))
+        .body(SCHEMAS + ".EventProducer.required", containsInAnyOrder("id", "name"))
         .body(
             SCHEMAS + ".Category.enum",
             containsInAnyOrder("ACTION_REQUIRED", "BLOCKED", "COMPLETED", "INFO"))
@@ -89,5 +90,47 @@ class OpenApiTest {
         // Jackson's Java API must not leak into the contract.
         .body(SCHEMAS, not(hasKey("ObjectNode")))
         .body(SCHEMAS, not(hasKey("JsonNode")));
+  }
+
+  @Test
+  void describesProducerAuthentication() {
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body("components.securitySchemes.producerApiKey.type", equalTo("http"))
+        .body("components.securitySchemes.producerApiKey.scheme", equalTo("bearer"))
+        .body(EVENTS + ".post.security", equalTo(List.of(Map.of("producerApiKey", List.of()))))
+        // Reading is not authenticated yet; see docs/architecture.md.
+        .body(EVENT + ".get", not(hasKey("security")));
+  }
+
+  @Test
+  void describesTheProducerManagementApi() {
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body("components.securitySchemes.adminToken.type", equalTo("http"))
+        .body("components.securitySchemes.adminToken.scheme", equalTo("bearer"))
+        .body(ADMIN + ".post.security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(ADMIN + ".post.responses", hasKey("201"))
+        .body(ADMIN + ".post.responses", hasKey("401"))
+        .body(ADMIN + ".post.responses", hasKey("409"))
+        .body(
+            ADMIN + ".post.responses.'201'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/IssuedApiKey"))
+        .body("paths", hasKey("/api/v1/admin/producers/{id}"))
+        .body("paths", hasKey("/api/v1/admin/producers/{id}/disable"))
+        .body("paths", hasKey("/api/v1/admin/producers/{id}/enable"))
+        .body("paths", hasKey("/api/v1/admin/producers/{id}/keys"))
+        .body("paths", hasKey("/api/v1/admin/producers/{id}/keys/{keyId}/revoke"))
+        .body(SCHEMAS + ".IssuedApiKey.required", containsInAnyOrder("producer", "keyId", "apiKey"))
+        .body(SCHEMAS + ".Producer.properties", not(hasKey("apiKey")))
+        .body(SCHEMAS + ".ApiKey.properties", not(hasKey("keyHash")));
   }
 }

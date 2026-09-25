@@ -65,23 +65,65 @@ jobs:
       - name: Start PostgreSQL and the backend
         run: |
           cp .env.example .env
+          admin_token=$(openssl rand -hex 32)
+          echo "::add-mask::$admin_token"
+          echo "ADMIN_TOKEN=$admin_token" >> "$GITHUB_ENV"
+          sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" .env
           docker compose up --build --wait --wait-timeout 180
       - name: Liveness, readiness and OpenAPI respond
         run: |
           curl --fail --silent --show-error http://localhost:8080/q/health/live
           curl --fail --silent --show-error http://localhost:8080/q/health/ready
           curl --fail --silent --show-error --output /dev/null http://localhost:8080/q/openapi
+      - name: Register a producer through the management API
+        run: |
+          created=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data '{"name": "ci-smoke-test"}' \
+            http://localhost:8080/api/v1/admin/producers)
+          api_key=$(jq --raw-output .apiKey <<<"$created")
+          echo "::add-mask::$api_key"
+          {
+            echo "API_KEY=$api_key"
+            echo "PRODUCER_ID=$(jq --raw-output .producer.id <<<"$created")"
+            echo "KEY_ID=$(jq --raw-output .keyId <<<"$created")"
+          } >> "$GITHUB_ENV"
+      - name: Publishing without a valid key is rejected
+        run: |
+          publish_status() {
+            curl --silent --output /dev/null --write-out '%{http_code}' "$@" \
+              --header 'Content-Type: application/json' \
+              --data '{"category": "INFO", "severity": "LOW", "title": "Rejected"}' \
+              http://localhost:8080/api/v1/events
+          }
+          test "$(publish_status)" = 401
+          test "$(publish_status --header 'Authorization: Bearer shpk1_not-a-key')" = 401
+          test "$(publish_status --header "Authorization: Bearer $ADMIN_TOKEN")" = 401
       - name: A published event survives a backend restart
         run: |
           id=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $API_KEY" \
             --header 'Content-Type: application/json' \
-            --data '{"source": "ci/smoke-test", "category": "INFO", "severity": "LOW", "title": "Smoke test", "metadata": {"check": "restart"}}' \
+            --data '{"category": "INFO", "severity": "LOW", "title": "Smoke test", "metadata": {"check": "restart"}}' \
             http://localhost:8080/api/v1/events | jq --raw-output .id)
           echo "created event $id"
           docker compose restart backend
           docker compose up --wait --wait-timeout 120
           curl --fail --silent --show-error "http://localhost:8080/api/v1/events/$id" \
-            | jq --exit-status '.title == "Smoke test" and .metadata.check == "restart"'
+            | jq --exit-status '.title == "Smoke test" and .metadata.check == "restart"
+                and .producer.name == "ci-smoke-test" and .producer.id == env.PRODUCER_ID'
+      - name: A revoked key no longer authenticates
+        run: |
+          curl --fail --silent --show-error --output /dev/null --request POST \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            "http://localhost:8080/api/v1/admin/producers/$PRODUCER_ID/keys/$KEY_ID/revoke"
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $API_KEY" \
+            --header 'Content-Type: application/json' \
+            --data '{"category": "INFO", "severity": "LOW", "title": "Revoked"}' \
+            http://localhost:8080/api/v1/events)
+          test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
       - name: Readiness reports DOWN while PostgreSQL is stopped
         run: |
           docker compose stop postgres

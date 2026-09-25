@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -25,6 +26,8 @@ class ProductionConfigTest {
           "SIGNALHUB_DB_URL", "quarkus.datasource.jdbc.url",
           "SIGNALHUB_DB_USERNAME", "quarkus.datasource.username",
           "SIGNALHUB_DB_PASSWORD", "quarkus.datasource.password");
+
+  private static final String ADMIN_TOKEN = "signalhub.admin.token";
 
   @Test
   void databaseSettingsComeFromTheEnvironment() throws IOException {
@@ -56,6 +59,16 @@ class ProductionConfigTest {
     assertEquals(true, config.getValue("quarkus.flyway.migrate-at-start", Boolean.class));
     assertEquals(
         "none", config.getValue("quarkus.hibernate-orm.schema-management.strategy", String.class));
+  }
+
+  @Test
+  void adminTokenComesOnlyFromTheEnvironment() throws IOException {
+    assertEquals(
+        Optional.empty(), prodConfig(Map.of()).getOptionalValue(ADMIN_TOKEN, String.class));
+    assertEquals(
+        Optional.of("from the environment"),
+        prodConfig(Map.of("SIGNALHUB_ADMIN_TOKEN", "from the environment"))
+            .getOptionalValue(ADMIN_TOKEN, String.class));
   }
 
   private static SmallRyeConfig prodConfig(Map<String, String> env) throws IOException {

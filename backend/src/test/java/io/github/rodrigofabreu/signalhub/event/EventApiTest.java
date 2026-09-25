@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.rodrigofabreu.signalhub.TestProducers;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
@@ -22,6 +23,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -35,7 +37,6 @@ class EventApiTest {
   static final String FULL_EVENT =
       """
       {
-        "source": "ci/build-runner",
         "context": "signalhub",
         "category": "BLOCKED",
         "severity": "HIGH",
@@ -48,10 +49,20 @@ class EventApiTest {
 
   static final String MINIMAL_EVENT =
       """
-      {"source": "backup-script", "category": "COMPLETED", "severity": "LOW", "title": "Backup done"}
+      {"category": "COMPLETED", "severity": "LOW", "title": "Backup done"}
       """;
 
+  // One producer for the whole class; EventAuthenticationTest covers producers and keys.
+  private static TestProducers.Registered producer;
+
   @Inject ObjectMapper json;
+
+  @BeforeEach
+  void registerProducer() {
+    if (producer == null) {
+      producer = TestProducers.register("event-api-test");
+    }
+  }
 
   @Test
   void createReturnsTheCanonicalEvent() {
@@ -59,7 +70,8 @@ class EventApiTest {
         post(FULL_EVENT)
             .statusCode(201)
             .contentType(ContentType.JSON)
-            .body("source", equalTo("ci/build-runner"))
+            .body("producer.id", equalTo(producer.id().toString()))
+            .body("producer.name", equalTo(producer.name()))
             .body("context", equalTo("signalhub"))
             .body("category", equalTo("BLOCKED"))
             .body("severity", equalTo("HIGH"))
@@ -144,12 +156,17 @@ class EventApiTest {
         .statusCode(400)
         .body("title", equalTo("Invalid request"))
         .body("status", equalTo(400))
-        .body("violations.field", equalTo(List.of("category", "severity", "source", "title")));
+        .body("violations.field", equalTo(List.of("category", "severity", "title")));
   }
 
   @Test
   void missingOrNullBodyIsRejected() {
-    given().contentType(ContentType.JSON).when().post(EVENTS).then().statusCode(400);
+    TestProducers.asProducer(producer.apiKey())
+        .contentType(ContentType.JSON)
+        .when()
+        .post(EVENTS)
+        .then()
+        .statusCode(400);
     post("null").statusCode(400).body("violations[0].field", equalTo(""));
   }
 
@@ -167,9 +184,9 @@ class EventApiTest {
     post(MINIMAL_EVENT.replace("Backup done", "t".repeat(201)))
         .statusCode(400)
         .body("violations[0].field", equalTo("title"));
-    post(MINIMAL_EVENT.replace("backup-script", "s".repeat(101)))
+    post(FULL_EVENT.replace("signalhub", "c".repeat(201)))
         .statusCode(400)
-        .body("violations[0].field", equalTo("source"));
+        .body("violations[0].field", equalTo("context"));
     post(FULL_EVENT.replace("3 of 412 tests failed on main.", "m".repeat(4001)))
         .statusCode(400)
         .body("violations[0].field", equalTo("message"));
@@ -177,10 +194,10 @@ class EventApiTest {
 
   @ParameterizedTest
   @ValueSource(strings = {"-leading-dash", "has space", "emoji-🚀", ""})
-  void sourceMustBeAnIdentifier(String source) {
-    post(MINIMAL_EVENT.replace("backup-script", source))
+  void contextMustBeAnIdentifier(String context) {
+    post(FULL_EVENT.replace("signalhub", context))
         .statusCode(400)
-        .body("violations[0].field", equalTo("source"));
+        .body("violations[0].field", equalTo("context"));
   }
 
   @Test
@@ -342,7 +359,7 @@ class EventApiTest {
 
   @Test
   void malformedJsonIsRejected() {
-    post("{\"source\": ")
+    post("{\"title\": ")
         .statusCode(400)
         .body("violations[0].field", equalTo(""))
         .body("violations[0].message", startsWith("body is not valid JSON"));
@@ -362,11 +379,22 @@ class EventApiTest {
 
   @Test
   void onlyJsonIsAccepted() {
-    given().contentType(ContentType.TEXT).body("hello").when().post(EVENTS).then().statusCode(415);
+    TestProducers.asProducer(producer.apiKey())
+        .contentType(ContentType.TEXT)
+        .body("hello")
+        .when()
+        .post(EVENTS)
+        .then()
+        .statusCode(415);
   }
 
   private static ValidatableResponse post(String body) {
-    return given().contentType(ContentType.JSON).body(body).when().post(EVENTS).then();
+    return TestProducers.asProducer(producer.apiKey())
+        .contentType(ContentType.JSON)
+        .body(body)
+        .when()
+        .post(EVENTS)
+        .then();
   }
 
   private static String withOccurredAt(String occurredAt) {

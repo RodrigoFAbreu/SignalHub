@@ -22,8 +22,9 @@ class EventEntity {
   @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
   private UUID id;
 
-  @Column(nullable = false, updatable = false)
-  private String source;
+  // The authenticated producer that published the event.
+  @Column(name = "producer_id", nullable = false, updatable = false)
+  private UUID producerId;
 
   @Column(updatable = false)
   private String context;
@@ -56,7 +57,7 @@ class EventEntity {
   protected EventEntity() {}
 
   EventEntity(
-      String source,
+      UUID producerId,
       String context,
       Category category,
       Severity severity,
@@ -65,7 +66,7 @@ class EventEntity {
       String metadata,
       Instant occurredAt,
       Instant createdAt) {
-    this.source = source;
+    this.producerId = producerId;
     this.context = context;
     this.category = category;
     this.severity = severity;
@@ -80,8 +81,8 @@ class EventEntity {
     return id;
   }
 
-  String source() {
-    return source;
+  UUID producerId() {
+    return producerId;
   }
 
   String context() {
