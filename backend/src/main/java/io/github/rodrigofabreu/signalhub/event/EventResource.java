@@ -9,9 +9,11 @@ import io.github.rodrigofabreu.signalhub.producer.ProducerAuthenticated;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -197,14 +199,122 @@ public class EventResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public EventResponse get(
       @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
-    return events
-        .find(id)
-        .orElseThrow(
-            () ->
-                new NotFoundException(
-                    Response.status(Response.Status.NOT_FOUND)
-                        .entity(new ApiError("Event not found", 404, List.of()))
-                        .build()));
+    return events.find(id).orElseThrow(EventResource::eventNotFound);
+  }
+
+  @GET
+  @Path("/unread-count")
+  @OwnerAuthenticated
+  @SecurityRequirement(name = ClientResource.SECURITY_SCHEME)
+  @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
+  @Operation(
+      summary = "Count unread events",
+      description =
+          "How many events the owner has not marked read. Requires a client key or the admin"
+              + " token.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The unread count.",
+      content = @Content(schema = @Schema(implementation = UnreadCount.class)))
+  @APIResponse(
+      responseCode = "401",
+      description = "Missing or invalid client key or admin token.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public UnreadCount unreadCount() {
+    return events.countUnread();
+  }
+
+  @PUT
+  @Path("/{id}/read")
+  @OwnerAuthenticated
+  @SecurityRequirement(name = ClientResource.SECURITY_SCHEME)
+  @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
+  @Operation(
+      summary = "Mark an event read",
+      description =
+          "Marks the event read for all of the owner's clients. Idempotent: marking a read event"
+              + " again keeps its readAt. Requires a client key or the admin token.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The event, now read.",
+      content = @Content(schema = @Schema(implementation = EventResponse.class)))
+  @APIResponse(
+      responseCode = "401",
+      description = "Missing or invalid client key or admin token.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No event has this ID.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public EventResponse markRead(
+      @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
+    return events.markRead(id).orElseThrow(EventResource::eventNotFound);
+  }
+
+  @DELETE
+  @Path("/{id}/read")
+  @OwnerAuthenticated
+  @SecurityRequirement(name = ClientResource.SECURITY_SCHEME)
+  @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
+  @Operation(
+      summary = "Mark an event unread",
+      description =
+          "Marks the event unread again for all of the owner's clients. Idempotent. Requires a"
+              + " client key or the admin token.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The event, now unread.",
+      content = @Content(schema = @Schema(implementation = EventResponse.class)))
+  @APIResponse(
+      responseCode = "401",
+      description = "Missing or invalid client key or admin token.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No event has this ID.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public EventResponse markUnread(
+      @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
+    return events.markUnread(id).orElseThrow(EventResource::eventNotFound);
+  }
+
+  @POST
+  @Path("/read")
+  @OwnerAuthenticated
+  @SecurityRequirement(name = ClientResource.SECURITY_SCHEME)
+  @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
+  @Operation(
+      summary = "Mark events read up to one",
+      description =
+          "Marks read every unread event at or before the given event in listing order (the"
+              + " given event and everything older). Events stored after it stay unread, so"
+              + " passing the newest event a client shows never marks events it has not shown."
+              + " Requires a client key or the admin token.")
+  @APIResponse(
+      responseCode = "200",
+      description = "How many events were marked read.",
+      content = @Content(schema = @Schema(implementation = MarkReadResult.class)))
+  @APIResponse(
+      responseCode = "400",
+      description = "The body is malformed or fails validation.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "401",
+      description = "Missing or invalid client key or admin token.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No event has the ID given as through.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public MarkReadResult markReadThrough(@NotNull @Valid MarkReadRequest request) {
+    return events.markReadThrough(request.through()).orElseThrow(EventResource::eventNotFound);
+  }
+
+  private static NotFoundException eventNotFound() {
+    return new NotFoundException(
+        Response.status(Response.Status.NOT_FOUND)
+            .entity(new ApiError("Event not found", 404, List.of()))
+            .build());
   }
 
   private static final String CI_EXAMPLE =

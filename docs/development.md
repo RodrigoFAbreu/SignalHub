@@ -408,6 +408,17 @@ curl -s "http://localhost:8080/api/v1/events?producerId=$PRODUCER&limit=20&curso
 `nextCursor` is `null` on the last page. Pass it back unchanged, with the same
 filters, to read the next page.
 
+Mark events read or unread for all clients, and count unread events (see
+[architecture.md](architecture.md#read-state)):
+
+```sh
+curl -s -X PUT "http://localhost:8080/api/v1/events/$EVENT/read" -H "$H"      # the event, with readAt
+curl -s -X DELETE "http://localhost:8080/api/v1/events/$EVENT/read" -H "$H"   # readAt is null again
+curl -s http://localhost:8080/api/v1/events/read -H "$H" \
+  -H 'Content-Type: application/json' -d "{\"through\": \"$EVENT\"}"       # {"marked": 12}
+curl -s http://localhost:8080/api/v1/events/unread-count -H "$H"              # {"unread": 0}
+```
+
 Without a valid key (missing, malformed, unknown, revoked, or of a disabled
 producer) the answer is always the same `401`:
 
@@ -555,7 +566,8 @@ flutter build ios --debug --no-codesign
 # that publishing without a valid key gets 401, publishes an event with the key
 # and reads it back after restarting the backend, lists it with the admin
 # token (and expects 401 without it), registers a client that lists the event
-# with its key and sets a push target, revokes the client and expects 401,
+# with its key, marks it read and counts no unread events, sets a push
+# target, revokes the client and expects 401,
 # revokes the producer key and expects 401, stops PostgreSQL and expects
 # readiness 503, and checks that the image refuses to start without database
 # settings.

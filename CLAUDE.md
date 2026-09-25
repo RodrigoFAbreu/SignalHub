@@ -29,7 +29,8 @@ Planned stack (details in `docs/architecture.md`):
 the backend in `backend/` (Quarkus service, PostgreSQL, Flyway, health,
 OpenAPI, Docker Compose) with generic event ingestion
 (`POST /api/v1/events`, `GET /api/v1/events/{id}`), a paginated event listing
-(`GET /api/v1/events`, with a client key or the admin token), producer
+(`GET /api/v1/events`, with a client key or the admin token), read state
+(mark events read or unread, the unread count), producer
 authentication (server-issued API keys, managed through
 `/api/v1/admin/producers` with an admin token), and client registration
 (per-installation client keys and provider-neutral push targets, managed

@@ -171,7 +171,7 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
-      - name: A registered client lists events and sets its push target
+      - name: A registered client lists events, marks them read and sets its push target
         run: |
           created=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
@@ -185,7 +185,20 @@ jobs:
             --header "Authorization: Bearer $client_key" \
             --data-urlencode "producerId=$PRODUCER_ID" \
             http://localhost:8080/api/v1/events \
-            | jq --exit-status '.items[0].title == "Smoke test"'
+            | jq --exit-status '.items[0].title == "Smoke test" and .items[0].readAt == null'
+          newest=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $client_key" \
+            "http://localhost:8080/api/v1/events?limit=1" | jq --raw-output '.items[0].id')
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $client_key" \
+            --header 'Content-Type: application/json' \
+            --data "{\"through\": \"$newest\"}" \
+            http://localhost:8080/api/v1/events/read \
+            | jq --exit-status '.marked >= 1'
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $client_key" \
+            http://localhost:8080/api/v1/events/unread-count \
+            | jq --exit-status '.unread == 0'
           curl --fail --silent --show-error --request PUT \
             --header "Authorization: Bearer $client_key" \
             --header 'Content-Type: application/json' \

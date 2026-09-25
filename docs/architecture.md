@@ -189,6 +189,10 @@ contents. An absent or `null` value is stored and returned as `{}`.
 | `POST /api/v1/events` | Requires a producer API key. Validates and stores an event bound to that producer. `201 Created` with the canonical event and a `Location` header. |
 | `GET /api/v1/events` | Requires a client key or the admin token. One page of events, newest first, optionally filtered. See [Listing events](#listing-events). |
 | `GET /api/v1/events/{id}` | `200` with the event, or `404`. No credential needed yet. |
+| `PUT /api/v1/events/{id}/read` | Requires a client key or the admin token. Marks the event read; `200` with the event, or `404`. See [Read state](#read-state). |
+| `DELETE /api/v1/events/{id}/read` | Requires a client key or the admin token. Marks the event unread; `200` with the event, or `404`. |
+| `POST /api/v1/events/read` | Requires a client key or the admin token. Marks read every unread event up to a given one; `200` with the count. |
+| `GET /api/v1/events/unread-count` | Requires a client key or the admin token. `200` with the number of unread events. |
 
 The event is committed to PostgreSQL before `201` is returned. Errors:
 
@@ -265,6 +269,32 @@ parameter in `field` (e.g. `limit`, `category`, `cursor`). An unknown
 producer ID is not an error; it just matches no events. Unknown query
 parameters are ignored.
 
+### Read state
+
+Every event is either unread or read, and read state belongs to the owner,
+not to a client: an event one client marks read is read on every client.
+SignalHub has a single owner, so this is one nullable `readAt` per event,
+not a per-client or per-user table.
+
+- A stored event starts unread: `readAt` is `null` in every representation
+  of it, including the `201` answer to its producer.
+- `PUT /api/v1/events/{id}/read` marks it read and answers the event. It is
+  idempotent: marking a read event again keeps its first `readAt`.
+- `DELETE /api/v1/events/{id}/read` marks it unread again, also idempotent.
+- `POST /api/v1/events/read` with `{"through": "<event id>"}` marks read
+  every unread event at or before that event in listing order (the event
+  and everything older) and answers `{"marked": <count>}`. A client passes
+  the newest event it shows, so events that arrived since stay unread;
+  there is deliberately no "mark everything" without a position.
+- `GET /api/v1/events/unread-count` answers `{"unread": <count>}`.
+
+All four require one of the owner's credentials, like the listing; producers
+never change or see read state except as `readAt` in event representations.
+An unknown event ID (also as `through`) is `404`. Marking read changes
+nothing about delivery: pushes are sent whether or not an event is read.
+Concurrent marks from several clients are safe: each is one conditional
+`UPDATE`, and marking read never moves an existing `readAt`.
+
 ### Schema
 
 `V1__create_events.sql` creates the `events` table. Check constraints repeat
@@ -277,6 +307,9 @@ column with `producer_id`, a foreign key to `producers`.
 and `(producer_id, created_at, id)` for the producer filter. Category and
 severity have only four values each, so they are filtered while reading the
 ordered index rather than indexed on their own.
+`V6__add_event_read_state.sql` adds the nullable `read_at` column (existing
+events start unread) and a partial `(created_at, id)` index over unread
+events, which serves the unread count and marking read up to an event.
 
 ## Producers and authentication
 
@@ -692,8 +725,9 @@ provider is logged by type only.
 ## Client application
 
 > Status: implemented in `client/`: setup with a client key, push
-> registration and reception, the inbox and event details. Read/unread state
-> is roadmap R11.
+> registration and reception, the inbox and event details. The backend has
+> [read state](#read-state); showing and changing it in the app is roadmap
+> R11b.
 
 **Technology: Flutter**, chosen by the maintainer for roadmap R9. One Dart
 codebase targets Android and iOS. Other platforms Flutter supports (web,

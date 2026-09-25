@@ -39,7 +39,14 @@ public record EventResponse(
             required = true,
             description = "Canonical time SignalHub accepted and stored the event, in UTC.",
             examples = "2026-09-25T12:03:01.482113Z")
-        Instant createdAt) {
+        Instant createdAt,
+    @Schema(
+            description =
+                "When the owner marked the event read, from any client, in UTC; null while it is"
+                    + " unread.",
+            examples = "2026-09-25T12:10:44.019273Z",
+            nullable = true)
+        Instant readAt) {
 
   @Schema(name = "EventProducer", description = "The producer that published an event.")
   public record Producer(

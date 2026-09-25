@@ -216,6 +216,18 @@ The following capabilities are already implemented and merged unless repository 
 - device name, server and push status moved to a "This device" screen
 - no backend changes; unit and widget tests against fakes
 
+### R11a - Read state API
+
+- one nullable `readAt` per event (V6): read state belongs to the single
+  owner, so it is the same on every client
+- `PUT` / `DELETE /api/v1/events/{id}/read` mark one event read or unread,
+  idempotently, keeping the first read time
+- `POST /api/v1/events/read` with `through` marks every unread event up to
+  that event (listing order) read; newer events stay unread
+- `GET /api/v1/events/unread-count`; `readAt` in every event representation
+- all require a client key or the admin token; partial index over unread
+  events; tests against real PostgreSQL, OpenAPI, Compose smoke test, docs
+
 ---
 
 ## 4. Planned roadmap
@@ -402,6 +414,10 @@ Exit criteria:
 - the user can receive a push, open SignalHub, inspect the event, and browse recent history
 
 ### R11 - Read/unread state
+
+Status: split. R11a (backend read state and API) is complete (see section
+3). R11b, showing unread events and the unread count in the app and marking
+events read from it, is next.
 
 Goal: support notification lifecycle state across client sessions.
 
@@ -664,12 +680,13 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After the inbox UI (R10), the expected next milestone is:
+After the read state API (R11a), the expected next milestone is:
 
-**R11 - Read/unread state**
+**R11b - Read/unread state in the client app**
 
-Read state must be consistent across the owner's clients, so it likely needs
-backend persistence and API additions, then the inbox shows and updates it.
+The inbox shows which events are unread and the unread count, opening an
+event marks it read, and the owner can mark events read up to the newest
+shown, all through the R11a API.
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 
