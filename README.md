@@ -4,22 +4,25 @@ A producer-agnostic personal notification platform.
 
 Any system can publish generic events to SignalHub: autonomous agents, CI
 pipelines, monitoring, homelab services, or one-off scripts. SignalHub persists
-the events and delivers notifications about them to a mobile app. Producers
-share one generic event contract, and SignalHub has no special cases for
-individual producers.
+the events and delivers notifications about them to the owner's devices.
+Producers share one generic event contract, and SignalHub has no special cases
+for individual producers.
 
 ## Intended architecture
 
 ```
-producers ──HTTPS──▶ backend (FastAPI + PostgreSQL) ──FCM──▶ Android app
-    ▲
-Python SDK/CLI
+producers ──HTTPS──▶ backend (Quarkus + PostgreSQL) ──push──▶ clients
+    ▲                                              ◀─HTTPS──
+optional SDK/CLI
 ```
 
-- **Backend:** Python, FastAPI, PostgreSQL
-- **Push delivery:** Firebase Cloud Messaging
-- **Mobile:** Android, Kotlin, Jetpack Compose
-- **Producer client:** Python SDK/CLI
+- **Backend:** Java 21, Quarkus (Quarkus REST, Hibernate ORM with Panache,
+  Flyway, Jakarta Validation, SmallRye OpenAPI and Health), PostgreSQL
+- **Push delivery:** a push provider, likely Firebase Cloud Messaging
+- **Clients:** undecided. The API is client-agnostic, so Android, iOS, web,
+  and CLI clients are all possible.
+- **Producer client:** optional thin SDK/CLI over the HTTP API (for example in
+  Python)
 - **Deployment:** Docker / Docker Compose
 
 See [docs/architecture.md](docs/architecture.md).
