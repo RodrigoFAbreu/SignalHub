@@ -3,7 +3,9 @@
 #   cp .env.example .env    # then set SIGNALHUB_DB_PASSWORD
 #   docker compose up --build --wait
 #
-# See docs/development.md#docker-compose.
+# See docs/development.md#docker-compose. The "proxy" profile adds the TLS
+# reverse proxy that serves SignalHub to other machines; see
+# docs/deployment.md.
 name: signalhub
 
 services:
@@ -42,11 +44,48 @@ services:
       # How long events are kept, such as 365d. Empty or unset keeps them forever.
       SIGNALHUB_EVENTS_RETENTION: ${SIGNALHUB_EVENTS_RETENTION:-}
     ports:
-      # Localhost only: publishing needs a producer API key, but reading events
-      # is not authenticated yet, and the API has no TLS. See
-      # docs/architecture.md#security-limitations.
+      # Localhost only: the API has no TLS, and health, metrics and the
+      # management API are for the host. Other machines go through the proxy.
+      # See docs/architecture.md#security-limitations.
       - "127.0.0.1:${SIGNALHUB_HTTP_PORT:-8080}:8080"
     # The image's HEALTHCHECK polls readiness (/q/health/ready).
 
+  # Terminates TLS and forwards only the product API (/api/) to the backend.
+  # Enabled with COMPOSE_PROFILES=proxy; see docs/deployment.md.
+  proxy:
+    image: caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
+    profiles: [proxy]
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    # Caddy's own error for a missing setting does not name it.
+    command:
+      - sh
+      - -c
+      - |
+        if [ -z "$$SIGNALHUB_DOMAIN" ] || [ -z "$$SIGNALHUB_TLS" ]; then
+          echo "Set SIGNALHUB_DOMAIN and SIGNALHUB_TLS in .env, see docs/deployment.md" >&2
+          exit 1
+        fi
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    environment:
+      # The name clients use, such as signalhub.example.com.
+      SIGNALHUB_DOMAIN: ${SIGNALHUB_DOMAIN:-}
+      # An email address (Let's Encrypt) or "internal" (Caddy's own CA).
+      SIGNALHUB_TLS: ${SIGNALHUB_TLS:-}
+    ports:
+      # Port 80 answers certificate challenges and redirects to HTTPS.
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates, their keys and Caddy's own CA: keep them across restarts.
+      - proxy-data:/data
+      - proxy-config:/config
+
 volumes:
   postgres-data:
+  proxy-data:
+  proxy-config:

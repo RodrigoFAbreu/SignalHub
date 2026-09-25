@@ -366,6 +366,25 @@ The following capabilities are already implemented and merged unless repository 
   x86-64, and checks that the images match the runner's architecture; the
   ARM64 job is named `Backend container (Compose smoke test, ARM64)`
 
+### R16b - TLS reverse proxy, secrets and network exposure
+
+- an optional `proxy` Compose profile (`COMPOSE_PROFILES=proxy` in `.env`)
+  runs Caddy (multi-platform image pinned by digest) with `proxy/Caddyfile`:
+  TLS for `SIGNALHUB_DOMAIN`, from Let's Encrypt (`SIGNALHUB_TLS` an email
+  address) or Caddy's own CA (`internal`); HTTP redirects to HTTPS;
+  certificates in a `proxy-data` volume; without both settings it does not
+  start
+- only `/api/` is forwarded, without the management API (`/api/v1/admin/`);
+  health, metrics and OpenAPI stay on the backend's `127.0.0.1` port;
+  matched on the normalized path
+- `docs/deployment.md`: setup on a home server, certificate choices,
+  network exposure and firewall, where each secret lives
+- restoring a backup removes only the database volume, so the proxy keeps
+  its certificates
+- no backend changes; the Compose smoke test (x86-64 and ARM64) runs with
+  the proxy and its own CA, reads the inbox over HTTPS, and checks the
+  `404`s, however the path is spelled, and the redirect
+
 ---
 
 ## 4. Planned roadmap
@@ -689,11 +708,11 @@ Exit criteria:
 
 ### R16 - Raspberry Pi / self-hosted deployment
 
-Status: in progress. R16a (ARM64 images and a verified ARM64 build) is
-complete (see section 3); durable storage, the restart policy, backup and
-resource expectations already exist (R2, R15d). Remaining: R16b, the reverse
-proxy/TLS deployment, secrets/configuration strategy and safe network
-exposure; R16c, the upgrade procedure and health monitoring.
+Status: in progress. R16a (ARM64 images and a verified ARM64 build) and
+R16b (TLS reverse proxy, secrets and network exposure) are complete (see
+section 3); durable storage, the restart policy, backup and resource
+expectations already exist (R2, R15d). Remaining: R16c, the upgrade
+procedure and health monitoring.
 
 Goal: provide a supported practical deployment for a small home server such as Raspberry Pi 5.
 
@@ -835,13 +854,11 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After ARM64 images and a verified ARM64 build (R16a), the expected next
-increment is:
+After the TLS reverse proxy (R16b), the expected next increment is:
 
-**R16b - Reverse proxy/TLS deployment**
+**R16c - Upgrade procedure and health monitoring**
 
-Then R16c, the upgrade procedure and health monitoring. Backup and restore
-(R15d) are already documented.
+It completes R16. Backup and restore (R15d) are already documented.
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 

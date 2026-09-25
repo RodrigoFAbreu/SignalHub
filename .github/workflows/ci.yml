@@ -139,6 +139,8 @@ jobs:
           echo "::add-mask::$admin_token"
           echo "ADMIN_TOKEN=$admin_token" >> "$GITHUB_ENV"
           sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" .env
+          # The TLS reverse proxy of docs/deployment.md, with Caddy's own CA.
+          printf '%s\n' COMPOSE_PROFILES=proxy SIGNALHUB_DOMAIN=localhost SIGNALHUB_TLS=internal >> .env
           # The resource limits recommended in docs/architecture.md#resources.
           cat > compose.override.yaml <<'YAML'
           services:
@@ -154,7 +156,7 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
         run: |
-          for service in backend postgres; do
+          for service in backend postgres proxy; do
             image=$(docker inspect --format '{{.Image}}' "$(docker compose ps --quiet "$service")")
             arch=$(docker image inspect --format '{{.Architecture}}' "$image")
             echo "$service: $arch"
@@ -214,6 +216,34 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+      - name: Other machines reach only the product API, over TLS through the proxy
+        run: |
+          docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt > "$RUNNER_TEMP/proxy-ca.crt"
+          https_status() {
+            curl --silent --path-as-is --cacert "$RUNNER_TEMP/proxy-ca.crt" --output /dev/null \
+              --write-out '%{http_code}' --header "Authorization: Bearer $ADMIN_TOKEN" "https://localhost$1"
+          }
+          curl --fail --silent --show-error --cacert "$RUNNER_TEMP/proxy-ca.crt" \
+            --retry 10 --retry-delay 1 --retry-all-errors \
+            --header "Authorization: Bearer $ADMIN_TOKEN" https://localhost/api/v1/events \
+            | jq --exit-status '.items[0].title == "Smoke test"'
+          # Publishing reaches the backend, which checks the key (no event is stored,
+          # so the listings below still see only "Smoke test").
+          status=$(curl --silent --cacert "$RUNNER_TEMP/proxy-ca.crt" --output /dev/null \
+            --write-out '%{http_code}' --header 'Content-Type: application/json' \
+            --data '{"category": "INFO", "severity": "LOW", "title": "Rejected"}' \
+            https://localhost/api/v1/events)
+          test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+          # Management, health, metrics and OpenAPI stay on the host, however the path is spelled.
+          for path in /api/v1/admin/producers /api//v1/admin/producers /api/v1/%61dmin/producers \
+              /api/v1/events/../admin/producers /api/%2e%2e/q/metrics /q/health/ready /q/metrics \
+              /q/openapi /; do
+            status=$(https_status "$path")
+            test "$status" = 404 || { echo "$path: expected 404, got $status"; exit 1; }
+          done
+          # Plain HTTP only redirects to HTTPS.
+          test "$(curl --silent --output /dev/null --write-out '%{http_code} %{redirect_url}' \
+            http://localhost/api/v1/events)" = '308 https://localhost/api/v1/events'
       - name: A registered client lists events, marks them read and sets its push target and preferences
         run: |
           created=$(curl --fail --silent --show-error \
@@ -321,7 +351,9 @@ jobs:
               http://localhost:8080/api/v1/events | jq --raw-output .id
           }
           later=$(publish "After the backup")
-          docker compose down --volumes
+          # Only the database volume: the proxy keeps its certificates and CA.
+          docker compose down
+          docker volume rm signalhub_postgres-data
           docker compose up --wait --wait-timeout 120 postgres
           restore() {
             docker compose exec -T postgres sh -c \
@@ -348,6 +380,8 @@ jobs:
             --header "Authorization: Bearer $ADMIN_TOKEN" \
             http://localhost:8080/api/v1/events/unread-count \
             | jq --exit-status '.unread == 2'
+          docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt \
+            | cmp - "$RUNNER_TEMP/proxy-ca.crt"
       - name: A revoked key no longer authenticates
         run: |
           curl --fail --silent --show-error --output /dev/null --request POST \

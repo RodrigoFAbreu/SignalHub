@@ -486,13 +486,16 @@ This version protects publishing. It does not yet:
   and can reach the API can read the event. Listing events requires a client
   key or the admin token. Requiring one here too is a breaking change,
   deferred to a deliberate contract decision.
-- **Terminate TLS.** Keys and the admin token travel as bearer credentials, so
-  any non-local access needs a TLS reverse proxy. Compose publishes the API on
-  `127.0.0.1` only.
+- **Terminate TLS itself.** Keys and the admin token travel as bearer
+  credentials, so any non-local access goes through a TLS reverse proxy: the
+  `proxy` profile of `compose.yaml` (Caddy), which forwards only `/api/`
+  without the management API (see [deployment.md](deployment.md)). Compose
+  publishes the backend itself on `127.0.0.1` only.
 - **Rate-limit** authentication attempts. Guessing is infeasible (256-bit
   secrets), but a flood of requests still costs a database lookup each.
 - **Separate the management API** onto its own port or network. It is
-  protected by the admin token and disabled by default; for the tightest
+  protected by the admin token, disabled by default and not forwarded by the
+  Compose proxy, so it is reachable only on the host; for the tightest
   setup, set `SIGNALHUB_ADMIN_TOKEN` only while managing producers or
   clients, and restart without it afterwards; clients keep reading with
   their own keys.
@@ -991,8 +994,8 @@ Prometheus and Grafana), not part of SignalHub.
   (`/api/v1/events/{id}`), never the IDs in them.
 - **Exposure.** Like health, `/q/metrics` needs no credential: it holds
   counts, not data, and scrapers rarely authenticate. Compose publishes the
-  port on `127.0.0.1` only; a reverse proxy in front of SignalHub should
-  forward only `/api/`.
+  port on `127.0.0.1` only, and its TLS proxy forwards only `/api/` (see
+  [deployment.md](deployment.md#network-exposure)).
 
 ### Retention
 
@@ -1051,7 +1054,8 @@ stack, run next to `compose.yaml`; the CI smoke test runs the same ones.
 - **What a backup holds.** Everything in the database, including the
   schema's Flyway history. Not included: `.env` (database password, admin
   token, settings) and the FCM service account key file, which are kept
-  where the operator keeps secrets. A backup holds key hashes, never keys,
+  where the operator keeps secrets (see
+  [deployment.md](deployment.md#secrets)). A backup holds key hashes, never keys,
   so producer and client keys keep working after a restore; but it holds
   push tokens and every event, so store it as privately as the database.
 - **Restore** into an empty database, the whole database at once. On a
@@ -1059,7 +1063,8 @@ stack, run next to `compose.yaml`; the CI smoke test runs the same ones.
   first):
 
   ```sh
-  docker compose down --volumes            # removes the database volume
+  docker compose down
+  docker volume rm signalhub_postgres-data # the database volume only
   docker compose up --wait postgres        # an empty database, without the backend
   docker compose exec -T postgres sh -c \
     'pg_restore --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-owner --no-privileges --exit-on-error --single-transaction' \
@@ -1133,7 +1138,7 @@ storage was measured on PostgreSQL with SignalHub's schema.
 | Push | A push provider, likely Firebase Cloud Messaging | Transport to devices only, carrying minimal payloads |
 | Clients | Flutter app for Android and iOS (see [Client application](#client-application)); other clients (CLI, web) may follow | Device registration, notifications, event browsing |
 | Producer SDK/CLI | Python package and command in `sdk/python/` (see [Producer SDK and CLI](#producer-sdk-and-cli)) | Thin client over the public HTTP API |
-| Deployment | Docker, Docker Compose, on x86-64 and ARM64 | Reproducible self-hosted deployment |
+| Deployment | Docker, Docker Compose, on x86-64 and ARM64, with Caddy as the TLS reverse proxy (see [deployment.md](deployment.md)) | Reproducible self-hosted deployment |
 
 ## Backend platform
 
@@ -1237,7 +1242,10 @@ Implementation expectations:
   rules) live in `api`.
 - **Deployment:** `compose.yaml` runs the backend and PostgreSQL 17 with a
   named volume. The backend starts after the database is healthy and is
-  itself health-checked through readiness.
+  itself health-checked through readiness. Its `proxy` profile adds Caddy
+  as the TLS reverse proxy, chosen because it obtains and renews
+  certificates itself with a few lines of configuration (`proxy/Caddyfile`);
+  see [deployment.md](deployment.md).
 
 ## Cross-cutting principles
 

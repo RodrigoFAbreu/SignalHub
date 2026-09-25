@@ -1,0 +1,26 @@
+# The TLS reverse proxy of compose.yaml's "proxy" profile: the only way
+# SignalHub is reached from other machines. See docs/deployment.md.
+{
+	# Caddy's admin API is not needed: the configuration changes by restarting.
+	admin off
+	# The container has no trust store to install Caddy's own CA into.
+	skip_install_trust
+}
+
+{$SIGNALHUB_DOMAIN} {
+	# An email address for a publicly trusted certificate from Let's Encrypt,
+	# or "internal" for one from Caddy's own CA.
+	tls {$SIGNALHUB_TLS}
+
+	# Only the product API leaves the host. The management API, health,
+	# metrics and OpenAPI (/q/) stay on the backend's localhost port.
+	handle /api/v1/admin* {
+		respond 404
+	}
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+	handle {
+		respond 404
+	}
+}

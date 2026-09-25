@@ -230,6 +230,10 @@ Raspberry Pi 5 with a 64-bit OS): the base images are multi-platform, so
 `docker compose up --build` builds the backend image for the host's
 architecture. CI runs the Compose smoke test natively on both.
 
+To reach SignalHub from other machines (phones, producers), enable the
+TLS reverse proxy (`COMPOSE_PROFILES=proxy` with `SIGNALHUB_DOMAIN` and
+`SIGNALHUB_TLS` in `.env`); see [deployment.md](deployment.md).
+
 Back up and restore the database with the commands in
 [Backup and restore](architecture.md#backup-and-restore), and see
 [Resources](architecture.md#resources) for memory and CPU limits and
@@ -636,18 +640,20 @@ flutter build ios --debug --no-codesign
 # Container smoke test: the "Backend container" jobs in .github/workflows/ci.yml,
 # on x86-64 and natively on ARM64, check that the images match the runner's
 # architecture and start the stack with `docker compose up --build --wait` and a random admin
-# token and the resource limits of architecture.md#resources, checks liveness, readiness, OpenAPI and metrics, registers a producer, checks
+# token, the resource limits of architecture.md#resources and the TLS proxy (with Caddy's own CA), checks liveness, readiness, OpenAPI and metrics, registers a producer, checks
 # that publishing without a valid key gets 401, publishes an event with the key
 # and reads it back after restarting the backend, lists it with the admin
-# token (and expects 401 without it), registers a client that lists the event
+# token (and expects 401 without it), lists it over HTTPS through the proxy
+# and expects 404 there for management, health, metrics and OpenAPI, however
+# the path is spelled, and a redirect from plain HTTP, registers a client that lists the event
 # with its key, marks it read and counts no unread events, sets a push
 # target, revokes the client and expects 401, publishes with the Python command
 # and reads the event back (and expects exit status 1 with an invalid key),
 # restarts the backend with JSON logs and checks that every line is JSON, that
 # the startup summary is logged, and that no secret is, backs up the database,
 # restores it into an empty one and checks that events from before the backup
-# (and only those) are back and the producer key still works, and that
-# restoring over existing data fails, revokes the producer
+# (and only those) are back, the producer key still works and the proxy kept
+# its CA, and that restoring over existing data fails, revokes the producer
 # key and expects 401, stops PostgreSQL and expects readiness 503, and checks that the image refuses to start without database
 # settings.
 ```
