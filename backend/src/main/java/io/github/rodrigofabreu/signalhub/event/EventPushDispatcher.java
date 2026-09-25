@@ -3,6 +3,10 @@ package io.github.rodrigofabreu.signalhub.event;
 import io.github.rodrigofabreu.signalhub.client.ClientService;
 import io.github.rodrigofabreu.signalhub.push.DeliveryResult;
 import io.github.rodrigofabreu.signalhub.push.PushDelivery;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.quarkus.runtime.Startup;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Duration;
@@ -10,6 +14,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import org.jboss.logging.Logger;
 
 /**
@@ -20,6 +25,8 @@ import org.jboss.logging.Logger;
  * temporarily is retried with growing delays, up to {@link #MAX_ATTEMPTS} sends in all; other
  * failures are final, as repeating them cannot help.
  */
+// Created at startup so its meters are scraped before the first use.
+@Startup
 @ApplicationScoped
 class EventPushDispatcher {
 
@@ -44,16 +51,31 @@ class EventPushDispatcher {
   private final EventService events;
   private final ClientService clients;
   private final PushDelivery delivery;
+  private final Counter abandoned;
+  // Counted by each run, so a scrape reads memory rather than the database.
+  private final AtomicLong pendingDispatches = new AtomicLong();
+  private final AtomicLong pendingRetries = new AtomicLong();
 
   EventPushDispatcher(
       PushDispatches dispatches,
       EventService events,
       ClientService clients,
-      PushDelivery delivery) {
+      PushDelivery delivery,
+      MeterRegistry registry) {
     this.dispatches = dispatches;
     this.events = events;
     this.clients = clients;
     this.delivery = delivery;
+    this.abandoned =
+        Counter.builder("signalhub.push.retries.abandoned")
+            .description("Pushes to one client given up after the last attempt failed temporarily")
+            .register(registry);
+    Gauge.builder("signalhub.push.dispatch.pending", pendingDispatches, AtomicLong::get)
+        .description("Events whose push is not dispatched yet, as of the last dispatcher run")
+        .register(registry);
+    Gauge.builder("signalhub.push.retries.pending", pendingRetries, AtomicLong::get)
+        .description("Pushes to one client waiting to be sent again, as of the last dispatcher run")
+        .register(registry);
   }
 
   @Scheduled(
@@ -93,6 +115,9 @@ class EventPushDispatcher {
             next.get().eventId(), next.get().clientId(), e.getClass().getName());
       }
     }
+    var backlog = dispatches.backlog();
+    pendingDispatches.set(backlog.dispatches());
+    pendingRetries.set(backlog.retries());
     return dispatched;
   }
 
@@ -140,6 +165,7 @@ class EventPushDispatcher {
         LOG.warnf(
             "Gave up the push of event %s to client %s after %d attempts",
             retry.eventId(), retry.clientId(), attempts);
+        abandoned.increment();
       } else {
         LOG.debugf(
             "Retried the push of event %s to client %s: %s (attempt %d)",

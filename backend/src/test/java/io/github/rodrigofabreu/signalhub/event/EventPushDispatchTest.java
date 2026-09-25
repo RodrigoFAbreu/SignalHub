@@ -15,6 +15,7 @@ import io.github.rodrigofabreu.signalhub.TestClients;
 import io.github.rodrigofabreu.signalhub.TestProducers;
 import io.github.rodrigofabreu.signalhub.push.FakePushProvider;
 import io.github.rodrigofabreu.signalhub.push.PushOutcome;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
@@ -38,6 +39,7 @@ class EventPushDispatchTest {
   @Inject EventPushDispatcher dispatcher;
   @Inject FakePushProvider fake;
   @Inject AgroalDataSource dataSource;
+  @Inject MeterRegistry registry;
 
   private UUID producerId;
   private String apiKey;
@@ -216,6 +218,58 @@ class EventPushDispatchTest {
     makeRetriesDue(eventId);
     dispatcher.dispatchPending();
     assertEquals(EventPushDispatcher.MAX_ATTEMPTS, sentFor(eventId, token).size());
+  }
+
+  @Test
+  void deliveriesAreCountedByResult() {
+    var token = clientWithTarget();
+    fake.answer(
+        (to, message) ->
+            to.equals(token)
+                ? new PushOutcome(PushOutcome.Status.PERMANENT_FAILURE, "rejected")
+                : PushOutcome.delivered());
+    var delivered = deliveries("delivered");
+    var permanent = deliveries("permanent_failure");
+    publish("Counted by result", null);
+
+    dispatcher.dispatchPending();
+
+    // Clients of other tests get the push too, and the fake delivers it to them.
+    assertEquals(permanent + 1, deliveries("permanent_failure"));
+    assertEquals(delivered + fake.sent().size() - 1, deliveries("delivered"));
+  }
+
+  @Test
+  void givenUpRetriesAreCountedAndTheBacklogIsMeasured() throws SQLException {
+    clientWithTarget();
+    fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down"));
+    var abandoned = abandoned();
+    var eventId = publish("Provider down, measured", null);
+    dispatcher.dispatchPending();
+    var retrying = sentFor(eventId).size();
+    assertEquals(retries(), gauge("signalhub.push.retries.pending"));
+    assertTrue(gauge("signalhub.push.retries.pending") >= retrying);
+
+    for (var attempt = 2; attempt <= EventPushDispatcher.MAX_ATTEMPTS; attempt++) {
+      makeRetriesDue(eventId);
+      dispatcher.dispatchPending();
+    }
+
+    assertEquals(abandoned + retrying, abandoned());
+    assertEquals(retries(), gauge("signalhub.push.retries.pending"));
+  }
+
+  @Test
+  void undispatchedEventsAreMeasured() throws SQLException {
+    var eventId = publish("Claimed elsewhere", null);
+    claim(eventId, "now() + interval '1 minute'");
+
+    dispatcher.dispatchPending();
+    assertEquals(1, gauge("signalhub.push.dispatch.pending"));
+
+    claim(eventId, "now() - interval '1 second'");
+    dispatcher.dispatchPending();
+    assertEquals(0, gauge("signalhub.push.dispatch.pending"));
   }
 
   @Test
@@ -413,6 +467,27 @@ class EventPushDispatchTest {
         assertTrue(rows.next());
         return rows.getDouble(1);
       }
+    }
+  }
+
+  private double deliveries(String result) {
+    return registry.get("signalhub.push.deliveries").tag("result", result).counter().count();
+  }
+
+  private double abandoned() {
+    return registry.get("signalhub.push.retries.abandoned").counter().count();
+  }
+
+  private double gauge(String name) {
+    return registry.get(name).gauge().value();
+  }
+
+  private long retries() throws SQLException {
+    try (var connection = dataSource.getConnection();
+        var statement = connection.prepareStatement("SELECT count(*) FROM push_retries");
+        var rows = statement.executeQuery()) {
+      assertTrue(rows.next());
+      return rows.getLong(1);
     }
   }
 

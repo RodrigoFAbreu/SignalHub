@@ -249,6 +249,15 @@ jobs:
           SIGNALHUB_API_KEY=shpk1_not-a-key signalhub send --category INFO --severity LOW \
             --title Rejected || status=$?
           test "$status" = 1 || { echo "expected exit status 1, got $status"; exit 1; }
+      - name: Metrics count the events published since the restart
+        run: |
+          metrics=$(curl --fail --silent --show-error --header 'Accept: text/plain' \
+            http://localhost:8080/q/metrics)
+          # Only the Python command's event was stored after the restart; rejected ones do not count.
+          grep --quiet '^signalhub_events_published_total 1.0$' <<<"$metrics"
+          grep --quiet '^signalhub_push_dispatch_pending ' <<<"$metrics"
+          grep --quiet '^agroal_active_count' <<<"$metrics"
+          grep --quiet '^http_server_requests_seconds_count{.*uri="/api/v1/events/{id}"' <<<"$metrics"
       - name: A revoked key no longer authenticates
         run: |
           curl --fail --silent --show-error --output /dev/null --request POST \

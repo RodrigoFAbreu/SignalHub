@@ -10,7 +10,8 @@
 > event-triggered push dispatch (see [Push delivery](#push-delivery)), the
 > Flutter client app for Android and iOS (see
 > [Client application](#client-application)), and the Python producer SDK
-> and command (see [Producer SDK and CLI](#producer-sdk-and-cli)).
+> and command (see [Producer SDK and CLI](#producer-sdk-and-cli)), and
+> Prometheus metrics (see [Metrics](#metrics)).
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -920,6 +921,44 @@ internals, and everything it does is documented as plain HTTP too.
   publishing is not idempotent yet (see [IDs](#ids)), so the caller decides
   whether a possible duplicate is acceptable.
 
+## Operations
+
+### Metrics
+
+`/q/metrics` serves metrics in the Prometheus text format (and OpenMetrics
+when the scraper asks for it), through Micrometer, the Quarkus standard. It is
+what an operator reads to see health, failures and delivery without a
+debugger; scraping and dashboards are the operator's choice (for example
+Prometheus and Grafana), not part of SignalHub.
+
+- **Built in:** HTTP requests by method, templated path and status
+  (`http_server_requests_seconds`; `/q/` paths are not measured), the JVM
+  (memory, garbage collection, threads), the process, and the database
+  connection pool (`agroal_*`).
+- **SignalHub's own:**
+
+  | Meter | Type | Meaning |
+  |---|---|---|
+  | `signalhub_events_published_total` | counter | Events stored and acknowledged. |
+  | `signalhub_push_deliveries_total{result}` | counter | Pushes to one client, by `result`: `delivered`, `no_target`, `unsupported_provider`, `invalid_target`, `transient_failure`, `permanent_failure` (see [Push delivery](#push-delivery)). Retries count again. |
+  | `signalhub_push_retries_abandoned_total` | counter | Pushes given up after the last attempt failed temporarily (see [Push dispatch](#push-dispatch)). |
+  | `signalhub_push_dispatch_pending` | gauge | Events whose push is not dispatched yet. |
+  | `signalhub_push_retries_pending` | gauge | Pushes to one client waiting to be sent again, due or not. |
+
+  The two gauges are counted by each dispatcher run (every
+  `signalhub.push.dispatch.interval`, 2 s by default), so a scrape
+  never queries the database. A dispatch backlog that keeps growing means the
+  dispatcher is stuck; many `transient_failure` results mean the provider is
+  unreachable.
+- **Nothing identifying.** Tags are bounded, generic values. Meters never
+  carry credentials, push tokens, event, producer or client IDs or names,
+  or event content; request paths are the endpoint templates
+  (`/api/v1/events/{id}`), never the IDs in them.
+- **Exposure.** Like health, `/q/metrics` needs no credential: it holds
+  counts, not data, and scrapers rarely authenticate. Compose publishes the
+  port on `127.0.0.1` only; a reverse proxy in front of SignalHub should
+  forward only `/api/`.
+
 ## Likely components
 
 | Component | Direction | Responsibility |
@@ -1013,7 +1052,8 @@ Implementation expectations:
   `backend/src/main/resources/db/migration/README.md`.
 - **Endpoints:** Quarkus's standard management paths under `/q/`:
   `/q/health/live` (liveness, no dependency checks), `/q/health/ready`
-  (readiness, includes the PostgreSQL connection check), and `/q/openapi`.
+  (readiness, includes the PostgreSQL connection check), `/q/openapi`, and
+  `/q/metrics` (see [Metrics](#metrics)).
   The product API lives under `/api/v1/...`, so the two never collide.
 - **Code layout:** the event feature lives in the `event` package: the
   resource (HTTP), request and response records (API models), the parsed

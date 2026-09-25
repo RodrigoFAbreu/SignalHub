@@ -299,6 +299,18 @@ The following capabilities are already implemented and merged unless repository 
 - unit tests against an in-process fake HTTP server on Python 3.10 and 3.12;
   the Compose smoke test publishes with the command against the real backend
 
+### R15a - Metrics
+
+- Prometheus metrics at `/q/metrics` (Micrometer): HTTP requests by templated
+  path, JVM, process and the database connection pool
+- SignalHub meters: events published; pushes by delivery result; retries
+  given up; dispatch and retry backlog (counted by each dispatcher run, so
+  scrapes never query the database)
+- no credentials, IDs, names or event content in meters; unauthenticated like
+  health, published on `127.0.0.1` by Compose
+- tests against real PostgreSQL with the fake provider; the Compose smoke test
+  reads the metrics
+
 ---
 
 ## 4. Planned roadmap
@@ -597,6 +609,12 @@ Exit criteria:
 
 ### R15 - Observability and operational hardening
 
+Status: in progress. R15a (metrics) is complete (see section 3). Remaining,
+each its own increment: R15b structured logs and startup diagnostics, R15c a
+retention policy for historical events, R15d backup/restore and
+container/resource guidance. OpenTelemetry tracing is not justified for a
+single service yet.
+
 Goal: make the self-hosted service easy to operate.
 
 Evaluate and implement:
@@ -757,12 +775,13 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After the producer SDK and CLI (R14), the expected next milestone is:
+After metrics (R15a), the expected next increment is:
 
-**R15 - Observability and operational hardening**
+**R15b - Structured logs and startup diagnostics**
 
-Structured logs, metrics (including delivery), startup diagnostics, a
-retention policy for historical events, and backup/restore guidance.
+Optional JSON logs for log collectors, and a startup summary of the effective
+configuration (without secrets). Then R15c (retention) and R15d
+(backup/restore and resource guidance).
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 

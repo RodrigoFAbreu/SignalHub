@@ -1,7 +1,13 @@
 package io.github.rodrigofabreu.signalhub.push;
 
 import io.github.rodrigofabreu.signalhub.client.ClientService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.quarkus.runtime.Startup;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.EnumMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
@@ -11,6 +17,8 @@ import org.jboss.logging.Logger;
  * database transaction. It sends once; the result says whether a retry could help, and the caller
  * decides whether to retry.
  */
+// Created at startup so its meters are scraped before the first use.
+@Startup
 @ApplicationScoped
 public class PushDelivery {
 
@@ -18,13 +26,28 @@ public class PushDelivery {
 
   private final ClientService clients;
   private final PushProviders providers;
+  private final Map<DeliveryResult, Counter> deliveries = new EnumMap<>(DeliveryResult.class);
 
-  PushDelivery(ClientService clients, PushProviders providers) {
+  PushDelivery(ClientService clients, PushProviders providers, MeterRegistry registry) {
     this.clients = clients;
     this.providers = providers;
+    for (var result : DeliveryResult.values()) {
+      deliveries.put(
+          result,
+          Counter.builder("signalhub.push.deliveries")
+              .description("Pushes to one client, by result; retries count again")
+              .tag("result", result.name().toLowerCase(Locale.ROOT))
+              .register(registry));
+    }
   }
 
   public DeliveryResult deliver(UUID clientId, PushMessage message) {
+    var result = attempt(clientId, message);
+    deliveries.get(result).increment();
+    return result;
+  }
+
+  private DeliveryResult attempt(UUID clientId, PushMessage message) {
     var target = clients.pushTargetOf(clientId);
     if (target.isEmpty()) {
       return DeliveryResult.NO_TARGET;
