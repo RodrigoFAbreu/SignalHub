@@ -1025,6 +1025,105 @@ events older than it are deleted.
   so the database stops growing without a manual `VACUUM FULL`; backups
   taken before the deletion still hold the events.
 
+### Backup and restore
+
+PostgreSQL holds all of SignalHub's state: events and their read state,
+producers and key hashes, clients with their push targets and preferences,
+and pending pushes. The backend keeps nothing else, so a backup of the
+database is a backup of SignalHub. The commands below are for the Compose
+stack, run next to `compose.yaml`; the CI smoke test runs the same ones.
+
+- **Back up** with `pg_dump` inside the database container, which matches
+  the server's version. It reads one consistent snapshot while the backend
+  keeps running, so there is no downtime:
+
+  ```sh
+  backup=signalhub-$(date +%F).dump
+  docker compose exec -T postgres sh -c \
+    'pg_dump --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --format=custom' \
+    > "$backup"
+  docker compose exec -T postgres pg_restore --list < "$backup" > /dev/null   # fails if unreadable
+  ```
+
+  The custom format is compressed and restored with `pg_restore`. Schedule
+  it (for example a daily cron job on the host), keep several copies, and
+  store them off the machine.
+- **What a backup holds.** Everything in the database, including the
+  schema's Flyway history. Not included: `.env` (database password, admin
+  token, settings) and the FCM service account key file, which are kept
+  where the operator keeps secrets. A backup holds key hashes, never keys,
+  so producer and client keys keep working after a restore; but it holds
+  push tokens and every event, so store it as privately as the database.
+- **Restore** into an empty database, the whole database at once. On a
+  new machine, or to replace the current data (this deletes it: back it up
+  first):
+
+  ```sh
+  docker compose down --volumes            # removes the database volume
+  docker compose up --wait postgres        # an empty database, without the backend
+  docker compose exec -T postgres sh -c \
+    'pg_restore --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-owner --no-privileges --exit-on-error --single-transaction' \
+    < signalhub-2026-09-25.dump
+  docker compose up --wait                 # the backend applies any newer migrations
+  ```
+
+  The backend must not start before the restore, or its migrations would
+  fill the empty database first. The restore runs in one transaction, so
+  it applies completely or not at all; restoring into a database that
+  already holds SignalHub's tables fails and changes nothing.
+  `--no-owner` lets a different database user (`SIGNALHUB_DB_USERNAME`)
+  own the restored tables.
+- **Versions.** Restore with the same or a newer SignalHub release: the
+  backend migrates an older schema forward at startup, as on any upgrade.
+  Restore into the same or a newer PostgreSQL major version; a dump and
+  restore like this one is also how the database moves to a new PostgreSQL
+  major version, whose data directory the old volume cannot be used with.
+- **After a restore** everything is as it was at the backup: events
+  published since are gone (producers do not resend them), and pushes that
+  were pending then may be sent again (delivery is at least once).
+
+### Resources
+
+The CI smoke test runs the whole Compose stack with the limits below;
+storage was measured on PostgreSQL with SignalHub's schema.
+
+- **Memory.** The backend is a JVM whose heap is 75 % of the container's
+  memory limit (`-XX:MaxRAMPercentage=75`, see
+  [Backend implementation decisions](#backend-implementation-decisions)),
+  or of the host's memory without one. For a personal service, 512 MiB for
+  the backend and 256 MiB for PostgreSQL are enough. Without limits, the
+  JVM sizes its heap from the whole host and may hold more memory than it
+  needs, so set them on shared hosts, in a git-ignored
+  `compose.override.yaml` next to `compose.yaml`:
+
+  ```yaml
+  services:
+    backend:
+      mem_limit: 512m
+      cpus: 1
+    postgres:
+      mem_limit: 256m
+  ```
+
+  The startup summary shows the resulting heap (`max heap ... MiB`) and
+  CPUs, and `/q/metrics` the JVM's memory use (`jvm_memory_used_bytes`).
+- **CPU.** Idle except for the push dispatcher's short query every
+  `SIGNALHUB_PUSH_DISPATCH_INTERVAL`; one CPU is enough. With fewer CPUs
+  the JVM starts more slowly.
+- **Storage.** A typical event (a title, a few hundred characters of
+  message, a few metadata fields) takes about 1 KiB in PostgreSQL, indexes
+  included; one at the size limits (4000-character message, 16 KiB of
+  metadata) at most about 32 KiB, less once PostgreSQL compresses it. A thousand typical events a day is about
+  350 MiB a year, and a compressed backup is smaller still. Other tables stay
+  small: producers, clients, and pushes that are pending or waiting for a
+  retry. Set a [retention](#retention) period to stop growth, and check the
+  size with:
+
+  ```sh
+  docker compose exec postgres sh -c \
+    'psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --command "SELECT pg_size_pretty(pg_database_size(current_database()))"'
+  ```
+
 ## Likely components
 
 | Component | Direction | Responsibility |

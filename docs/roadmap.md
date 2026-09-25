@@ -340,6 +340,22 @@ The following capabilities are already implemented and merged unless repository 
 - tests against real PostgreSQL; the Compose smoke test sets a period and
   checks the summary
 
+### R15d - Backup/restore and resource guidance
+
+- documented backup of the whole database with `pg_dump` (custom format)
+  inside the Compose database container, while the backend runs; `.env`
+  and the FCM key file are backed up separately
+- restore with `pg_restore` into an empty database before the backend
+  starts, in one transaction; restoring over existing data fails and
+  changes nothing; newer releases migrate a restored schema forward; also
+  the way to a new PostgreSQL major version
+- resource guidance: 512 MiB and one CPU for the backend, 256 MiB for
+  PostgreSQL, set in a `compose.override.yaml`; about 1 KiB per typical
+  event (measured), and how to check the database size
+- no code changes; the Compose smoke test runs with those limits, backs up,
+  restores into an empty database and checks the data, keys and the refusal
+  to restore over existing data
+
 ---
 
 ## 4. Planned roadmap
@@ -638,9 +654,9 @@ Exit criteria:
 
 ### R15 - Observability and operational hardening
 
-Status: in progress. R15a (metrics), R15b (structured logs and startup
-diagnostics) and R15c (event retention) are complete (see section 3).
-Remaining: R15d backup/restore and container/resource guidance. OpenTelemetry tracing is not justified for a
+Status: complete, as R15a (metrics), R15b (structured logs and startup
+diagnostics), R15c (event retention) and R15d (backup/restore and resource
+guidance); see section 3. OpenTelemetry tracing is not justified for a
 single service yet.
 
 Goal: make the self-hosted service easy to operate.
@@ -803,13 +819,14 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After event retention (R15c), the expected next increment is:
+After backup/restore and resource guidance (R15d), R15 is complete. The
+expected next increment is:
 
-**R15d - Backup/restore and container/resource guidance**
+**R16 - Raspberry Pi / self-hosted deployment**
 
-Documented, tested backup and restore of the PostgreSQL data, and guidance on
-container memory/CPU and database growth. Then R16 (Raspberry Pi /
-self-hosted deployment).
+Likely split: ARM64 images and a verified ARM64 build first, then the
+reverse proxy/TLS deployment and the upgrade procedure. Backup and restore
+(R15d) are already documented.
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 

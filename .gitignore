@@ -12,6 +12,8 @@ GoogleService-Info.plist
 *firebase-adminsdk*.json
 # Local Compose overrides, e.g. mounting push credentials
 compose.override.yaml
+# Database backups: they hold every event and the push tokens
+*.dump
 
 # Python
 __pycache__/

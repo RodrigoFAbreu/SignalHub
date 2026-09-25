@@ -225,6 +225,11 @@ reported healthy once readiness passes. The HTTP port is published on
 `127.0.0.1` only (`SIGNALHUB_HTTP_PORT`, default 8080); the database port is
 not published.
 
+Back up and restore the database with the commands in
+[Backup and restore](architecture.md#backup-and-restore), and see
+[Resources](architecture.md#resources) for memory and CPU limits and
+database growth.
+
 ### Endpoints
 
 | Path | Purpose |
@@ -625,7 +630,7 @@ flutter build ios --debug --no-codesign
 (cd backend && ./mvnw verify)
 # Container smoke test: the "Backend container" job in .github/workflows/ci.yml
 # starts the stack with `docker compose up --build --wait` and a random admin
-# token, checks liveness, readiness, OpenAPI and metrics, registers a producer, checks
+# token and the resource limits of architecture.md#resources, checks liveness, readiness, OpenAPI and metrics, registers a producer, checks
 # that publishing without a valid key gets 401, publishes an event with the key
 # and reads it back after restarting the backend, lists it with the admin
 # token (and expects 401 without it), registers a client that lists the event
@@ -633,7 +638,10 @@ flutter build ios --debug --no-codesign
 # target, revokes the client and expects 401, publishes with the Python command
 # and reads the event back (and expects exit status 1 with an invalid key),
 # restarts the backend with JSON logs and checks that every line is JSON, that
-# the startup summary is logged, and that no secret is, revokes the producer
+# the startup summary is logged, and that no secret is, backs up the database,
+# restores it into an empty one and checks that events from before the backup
+# (and only those) are back and the producer key still works, and that
+# restoring over existing data fails, revokes the producer
 # key and expects 401, stops PostgreSQL and expects readiness 503, and checks that the image refuses to start without database
 # settings.
 ```
