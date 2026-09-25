@@ -168,7 +168,10 @@ parsing and admin token (`ApiKeysTest`, `BearerTokenTest`, `AdminTokenTest`).
 Clients are covered by `ClientApiTest` (registration, revocation, client keys
 reading the listing, and push targets), `ClientPersistenceTest` (hashes only,
 and the schema's push-target constraints) and `ClientKeysTest` (the key
-format).
+format). Push delivery is covered by `PushDeliveryTest` (every outcome,
+through `FakePushProvider`, a test-only provider named `fake`) and
+`PushProvidersTest` (provider name checks at startup). No test needs a real
+push provider or credentials.
 The test profile uses a fixed, test-only admin token from
 `application.properties`.
 

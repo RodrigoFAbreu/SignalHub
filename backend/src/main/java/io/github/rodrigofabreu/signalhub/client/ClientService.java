@@ -124,6 +124,33 @@ public class ClientService {
             });
   }
 
+  /** Where to push for this client: empty if it is unknown, revoked, or has no push target. */
+  @Transactional
+  public Optional<PushAddress> pushTargetOf(UUID id) {
+    return clients
+        .findByIdOptional(id)
+        .filter(client -> !client.revoked() && client.pushProvider() != null)
+        .map(client -> new PushAddress(client.pushProvider(), client.pushToken()));
+  }
+
+  /**
+   * Removes the client's push target after its provider rejected it for good, but only if it is
+   * still the given one: the client may have registered a new target since. True if removed.
+   */
+  @Transactional
+  public boolean dropPushTarget(UUID id, PushAddress rejected) {
+    return clients
+        .findForUpdate(id)
+        .filter(client -> rejected.provider().equals(client.pushProvider()))
+        .filter(client -> rejected.token().equals(client.pushToken()))
+        .map(
+            client -> {
+              client.clearPushTarget();
+              return true;
+            })
+        .orElse(false);
+  }
+
   private Optional<ClientEntity> active(UUID id) {
     return clients.findForUpdate(id).filter(client -> !client.revoked());
   }
