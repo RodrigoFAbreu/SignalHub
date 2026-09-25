@@ -6,15 +6,3 @@ updates:
       interval: weekly
     commit-message:
       prefix: ci # keeps Dependabot PR titles valid Conventional Commits
-  - package-ecosystem: uv
-    directory: /backend
-    schedule:
-      interval: weekly
-    commit-message:
-      prefix: build
-  - package-ecosystem: docker
-    directory: /backend
-    schedule:
-      interval: weekly
-    commit-message:
-      prefix: build

@@ -1,10 +1,9 @@
 # Architecture
 
-> Status: mostly direction. Only the backend runtime foundation exists (see
-> [Backend](#backend)). It does not ingest events yet. This document defines
-> boundaries and vocabulary. Concrete schemas, APIs, and technology details are
-> decided in the PRs that implement them, and this document is updated in the
-> same PRs.
+> Status: direction, not implementation. No runtime component exists yet. This
+> document defines boundaries and vocabulary. Concrete schemas, APIs, and
+> technology details are decided in the PRs that implement them, and this
+> document is updated in the same PRs.
 
 ## Purpose
 
@@ -81,78 +80,6 @@ needed, live outside the core and speak the generic API.
 | Producer SDK/CLI | Python | Thin client over the public HTTP API |
 | Deployment | Docker, Docker Compose | Reproducible self-hosted deployment |
 
-## Backend
-
-Implemented: the runtime foundation. That is configuration, database access,
-migrations, health endpoints, and the Docker deployment. There is no event
-API and no domain table yet.
-
-### Layout
-
-Each component has its own top-level directory. The backend is in `backend/`:
-
-| Path | Contents |
-|---|---|
-| `src/signalhub/main.py` | `create_app()` application factory |
-| `src/signalhub/config.py` | `Settings`: typed configuration from the environment |
-| `src/signalhub/db.py` | Engine, ORM `Base`, request-scoped `DbSession` |
-| `src/signalhub/health.py` | Health endpoints |
-| `migrations/` | Alembic environment and revisions |
-| `tests/` | pytest suite, run against real PostgreSQL |
-| `Dockerfile` | Production image |
-
-`compose.yaml` at the repository root runs the backend with PostgreSQL.
-
-### Configuration
-
-All configuration comes from environment variables with the `SIGNALHUB_`
-prefix. It is validated at startup, and the process exits if it is invalid.
-
-| Variable | Required | Description |
-|---|---|---|
-| `SIGNALHUB_DATABASE_URL` | yes | PostgreSQL URL with the `postgresql+psycopg://` scheme. It has no default, because it contains the database password. The password is kept out of logs, reprs, and validation errors. |
-
-Docker Compose builds this URL from `POSTGRES_PASSWORD` in `.env` (see
-`.env.example`).
-
-### HTTP endpoints
-
-Health endpoints are unversioned operational endpoints, not part of the
-producer API. The producer API will be versioned under its own path prefix
-when it is built.
-
-| Endpoint | Meaning | Responses |
-|---|---|---|
-| `GET /health/live` | The process is serving requests. Checks no dependencies. | `200 {"status": "ok"}` |
-| `GET /health/ready` | The service can do useful work. It runs `SELECT 1` on the database. | `200 {"status": "ok", "checks": {"database": "ok"}}`, or `503 {"status": "unavailable", "checks": {"database": "unavailable"}}` |
-
-A readiness failure is logged as one warning line. The response never includes
-connection details. A database connection attempt times out after 5 seconds.
-FastAPI also serves its generated OpenAPI schema at `/openapi.json` and
-interactive docs at `/docs`.
-
-### Startup and database access
-
-- Startup does not connect to the database. The API starts, and reports
-  liveness, while the database is down. Readiness reports the outage and
-  recovers without a restart when the database returns. Pooled connections
-  are checked before use.
-- Request handlers get a session through the `DbSession` dependency. Each
-  request is one transaction: it commits when the handler returns and rolls
-  back when it raises. The commit completes **before** the response is sent,
-  so a failed commit can never be acknowledged as a success. This is the
-  mechanism behind *durability first*.
-- ORM models subclass `signalhub.db.Base`. Its metadata uses a fixed
-  constraint naming convention, so migrations stay deterministic.
-
-### Migrations
-
-Alembic manages the schema. Migrations do not run on application startup.
-They are an explicit step, `alembic upgrade head`, which the Compose `migrate`
-service runs before the API starts. CI applies every migration to a fresh
-database, checks that the models match the migrations, and downgrades again.
-There are no revisions yet.
-
 ## Cross-cutting principles
 
 - **Durability first:** persist, then acknowledge, then deliver.
@@ -172,3 +99,5 @@ These are deferred until the relevant implementation work:
 - Producer authentication model (per-producer tokens vs. signed requests).
 - Event retention and pruning policy.
 - Routing and filtering rules: which events trigger a push, quiet hours.
+- Repository layout for multiple components (expected: one top-level directory
+  per component).
