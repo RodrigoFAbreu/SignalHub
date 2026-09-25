@@ -160,6 +160,17 @@ The following capabilities are already implemented and merged unless repository 
 - startup check of provider names; test-only fake provider; no retries or
   queues
 
+### R8a - FCM provider
+
+- `fcm` `PushProvider` over the FCM HTTP v1 API, active only when
+  `SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE` names a service account key file;
+  an invalid file stops startup
+- OAuth 2.0 access tokens from the service account (signed JWT, JDK only, no
+  Google SDK), cached and renewed before expiry
+- FCM answers mapped to outcomes; only `UNREGISTERED` removes a target
+- tests against an in-process fake of the token endpoint and FCM API; no
+  credentials or network in CI; operator documentation
+
 ---
 
 ## 4. Planned roadmap
@@ -248,6 +259,17 @@ Exit criteria:
 - backend domain/application code can request a push delivery without depending directly on FCM/APNs implementation classes
 
 ### R8 - FCM delivery
+
+Status: split. R8a (the `fcm` provider) is complete (see section 3). R8b,
+event-triggered dispatch, remains:
+
+- decide from generic event fields only which events cause a push (initially
+  every event to every client with a push target; preferences are R12)
+- map an event to a provider-neutral `PushMessage` (title, body, event ID)
+- durable, at-least-once dispatch after the event is committed, so a restart
+  between ingestion and push does not lose the push; no external queue
+- verifying delivery to a real device needs the maintainer's Firebase
+  project and a client (R9), so the R8 exit criterion is confirmed then
 
 Goal: deliver real push notifications to supported mobile clients.
 
@@ -598,14 +620,14 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After the push-provider abstraction (R7), the expected next milestone is:
+After the FCM provider (R8a), the expected next milestone is:
 
-**R8 - FCM delivery**
+**R8b - Event-triggered push dispatch**
 
-R8 adds an `fcm` `PushProvider` and decides which events trigger a push. Real
-delivery to a device needs Firebase credentials that only the maintainer can
-provide, and dispatch must respect at-least-once delivery (see
+R8b decides which events trigger a push and dispatches them durably after the
+event is committed. Dispatch must respect at-least-once delivery (see
 `docs/architecture.md`), which an in-memory fire-and-forget dispatch would
-not.
+not. Real delivery to a device needs Firebase credentials that only the
+maintainer can provide.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
