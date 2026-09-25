@@ -561,6 +561,33 @@ failures), and push preferences (saving each change, what the server
 stored, muted producers without inbox events, failures, a server without
 them). Builds without Firebase options run without push.
 
+## Python SDK
+
+The producer package and `signalhub` command live in `sdk/python/`. See
+[architecture.md](architecture.md#producer-sdk-and-cli) for its design and
+[`sdk/python/README.md`](../sdk/python/README.md) for installing and using it.
+It needs Python 3.10 or later and has no dependencies beyond the standard
+library, so there is no lock file; the build backend is pinned in
+`sdk/python/pyproject.toml`.
+
+From the repository root:
+
+```sh
+pip install ./sdk/python   # the package and the `signalhub` command
+python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python --verbose
+```
+
+Formatting and lints are the repository's `ruff check .` and
+`ruff format --check .`. The tests need no server, network or credentials:
+they run the package and the command against `FakeSignalHub`, an in-process
+HTTP stand-in for the events endpoint on `127.0.0.1`. They cover the request
+(path, bearer key, body, optional fields, timestamps, category and severity
+names), configuration from options, the environment and key files, error
+mapping (validation violations, `401`, `404`, `413`, `429` and `5xx`, non-JSON
+answers, an unreachable server) and the command's output and exit statuses.
+CI runs them on Python 3.10 and 3.12, and the Compose smoke test publishes
+with the command against the real backend.
+
 ## Local validation
 
 CI runs:
@@ -571,6 +598,9 @@ pip install ruff==0.16.9
 ruff check .
 ruff format --check .
 python -m unittest discover --start-directory scripts/release --verbose
+# Python SDK, also run with python3.10 in CI
+pip install ./sdk/python && signalhub send --help
+python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python --verbose
 # Lints GitHub Actions workflows (needs Docker):
 docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color
 
@@ -586,8 +616,9 @@ flutter build ios --debug --no-codesign
 (cd backend && ./mvnw verify)
 # Container smoke test: the "Backend container" job in .github/workflows/ci.yml
 # starts the stack with `docker compose up --build --wait` and a random admin
-# token, checks liveness, readiness and OpenAPI, registers a producer, checks
-# that publishing without a valid key gets 401, publishes an event with the key
+# token, checks liveness, readiness and OpenAPI, registers a producer,
+# publishes with the Python command and reads the event back (and expects exit
+# status 1 with an invalid key), checks that publishing without a valid key gets 401, publishes an event with the key
 # and reads it back after restarting the backend, lists it with the admin
 # token (and expects 401 without it), registers a client that lists the event
 # with its key, marks it read and counts no unread events, sets a push

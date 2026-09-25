@@ -280,6 +280,25 @@ The following capabilities are already implemented and merged unless repository 
   inbox)
 - tests against real PostgreSQL with the fake provider, docs
 
+### R14 - Producer SDK and CLI
+
+- Python package and `signalhub send` command in `sdk/python/`, over the
+  public `POST /api/v1/events` only; standard library only, Python 3.10+;
+  installed from the repository at a release tag (not on PyPI)
+- server address and API key from `SIGNALHUB_URL`, `SIGNALHUB_API_KEY` or
+  `SIGNALHUB_API_KEY_FILE` (the command also takes `--url` and
+  `--api-key-file`, never the key itself)
+- every event field: category and severity case-insensitive and not checked
+  locally, metadata as a JSON object and/or `KEY=VALUE` pairs, message from
+  standard input, `occurredAt` with an offset
+- the server's violations printed; exit status 0 published, 1 rejected,
+  2 usage or configuration, 3 temporary failure; no automatic retries
+  (publishing is not idempotent yet)
+- the event ID printed, or the stored event with `--json`; raw HTTP/curl
+  usage documented alongside
+- unit tests against an in-process fake HTTP server on Python 3.10 and 3.12;
+  the Compose smoke test publishes with the command against the real backend
+
 ---
 
 ## 4. Planned roadmap
@@ -540,6 +559,8 @@ Exit criteria:
 
 ### R14 - Producer SDK and CLI
 
+Status: complete (see section 3).
+
 Goal: make integrating arbitrary systems trivial.
 
 Start with a small Python producer package/CLI unless repository evidence justifies another first language.
@@ -736,12 +757,12 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After delivery reliability (R13), the expected next milestone is:
+After the producer SDK and CLI (R14), the expected next milestone is:
 
-**R14 - Producer SDK and CLI**
+**R15 - Observability and operational hardening**
 
-A small Python producer package and CLI over the public HTTP API, with the
-raw HTTP/curl integration still documented.
+Structured logs, metrics (including delivery), startup diagnostics, a
+retention policy for historical events, and backup/restore guidance.
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 

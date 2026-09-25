@@ -22,8 +22,7 @@ optional SDK/CLI
 - **Client app:** Flutter, one codebase for Android and iOS, with push
   through Firebase Cloud Messaging. The API is client-agnostic, so other
   clients (web, CLI) remain possible.
-- **Producer client:** optional thin SDK/CLI over the HTTP API (for example in
-  Python)
+- **Producer client:** optional thin SDK/CLI over the HTTP API, in Python
 - **Deployment:** Docker / Docker Compose
 
 See [docs/architecture.md](docs/architecture.md).
@@ -36,7 +35,7 @@ Early development.
 |---|---|
 | Backend (`backend/`) | Quarkus service with PostgreSQL, Flyway, health checks, OpenAPI, Docker image and Compose. Generic event ingestion: `POST /api/v1/events` and `GET /api/v1/events/{id}`. Paginated, filterable event listing (the inbox): `GET /api/v1/events`. Read state shared by all of the owner's clients: mark events read or unread, one at a time or up to an event, and count unread events. Producer authentication with server-issued API keys, managed through an admin-token-protected API. Client registration: each client installation gets its own key for reading events and stores a provider-neutral push target. Push notifications: every published event is pushed, durably and at least once, with bounded retries of temporary failures, to every client with a push target whose push preferences allow it (paused, minimum severity, muted categories or producers), through Firebase Cloud Messaging (enabled by a service account key file) behind a provider-neutral boundary. |
 | Client app (`client/`) | Flutter app for Android and iOS: connects to the server with a client key kept in secure storage, registers for push notifications (Firebase Cloud Messaging, configured with the owner's Firebase project at build time), and shows the inbox: every event, newest first, page by page, with each event's details, also opened by tapping its notification. Unread events and their count are shown; opening an event marks it read on every client, and events can be marked unread or all read. Push preferences for the device: pause, minimum severity, muted categories and producers. See [client/README.md](client/README.md). |
-| Producer SDK/CLI | Not started |
+| Producer SDK/CLI (`sdk/python/`) | Python package and `signalhub send` command over the public HTTP API: configured with the server address and an API key from the environment or a file, arbitrary metadata, the server's validation errors printed, and exit statuses that tell rejected events from temporary failures. Standard library only. See [sdk/python/README.md](sdk/python/README.md). |
 
 Run the backend with PostgreSQL:
 
@@ -60,6 +59,11 @@ curl http://localhost:8080/api/v1/events -H "Authorization: Bearer $API_KEY" \
 CLIENT_KEY=$(curl -s http://localhost:8080/api/v1/admin/clients \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
   -d '{"name": "my-laptop"}' | jq -r .clientKey)
+
+# Or publish with the Python command (sdk/python/README.md).
+pip install ./sdk/python
+SIGNALHUB_URL=http://localhost:8080 SIGNALHUB_API_KEY=$API_KEY \
+  signalhub send --category COMPLETED --severity NORMAL --title "Hello again"
 
 # List events, newest first, as that client.
 curl -s http://localhost:8080/api/v1/events -H "Authorization: Bearer $CLIENT_KEY"

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "signalhub"
+# Not published to PyPI: install it from the repository at a release tag,
+# which is the version of record (see README.md).
+version = "0.1.0"
+description = "Publish events to SignalHub from Python code, shells, scripts and CI jobs."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+signalhub = "signalhub.cli:run"
+
+[tool.setuptools.package-data]
+signalhub = ["py.typed"]
