@@ -3,6 +3,7 @@ package io.github.rodrigofabreu.signalhub.event;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -62,5 +63,35 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
             ? findAll(NEWEST_FIRST)
             : find(String.join(" and ", conditions), NEWEST_FIRST, parameters);
     return matching.range(0, count - 1).list();
+  }
+
+  /**
+   * Marks the event read at {@code now} unless it already is, keeping the first read time. Returns
+   * whether the event exists.
+   */
+  boolean markRead(UUID id, Instant now) {
+    return update("readAt = ?1 where id = ?2 and readAt is null", now, id) == 1
+        || count("id", id) == 1;
+  }
+
+  /** Marks the event unread. Returns whether it exists. */
+  boolean markUnread(UUID id) {
+    return update("readAt = null where id = ?1", id) == 1;
+  }
+
+  /**
+   * Marks read every unread event at or before {@code through} in listing order, so events newer
+   * than the ones the owner has seen stay unread. Served by the partial index of V6.
+   */
+  int markReadThrough(EventEntity through, Instant now) {
+    return update(
+        "readAt = ?1 where readAt is null and (createdAt, id) <= (?2, ?3)",
+        now,
+        through.createdAt(),
+        through.id());
+  }
+
+  long countUnread() {
+    return count("readAt is null");
   }
 }

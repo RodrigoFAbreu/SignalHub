@@ -81,6 +81,8 @@ class EventPersistenceTest {
     expected.put("created_at", "timestamp with time zone NO");
     // Added by V2, replacing the producer-supplied source.
     expected.put("producer_id", "uuid NO");
+    // Added by V6: null while the event is unread.
+    expected.put("read_at", "timestamp with time zone YES");
     assertEquals(expected, columnsOf("events"));
   }
 

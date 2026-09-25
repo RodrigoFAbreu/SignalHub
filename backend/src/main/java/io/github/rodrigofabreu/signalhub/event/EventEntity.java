@@ -54,6 +54,10 @@ class EventEntity {
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
+  // Changed only by the bulk updates in EventRepository, so concurrent marks never overwrite.
+  @Column(name = "read_at", updatable = false)
+  private Instant readAt;
+
   protected EventEntity() {}
 
   EventEntity(
@@ -115,5 +119,9 @@ class EventEntity {
 
   Instant createdAt() {
     return createdAt;
+  }
+
+  Instant readAt() {
+    return readAt;
   }
 }

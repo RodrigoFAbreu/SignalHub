@@ -17,6 +17,9 @@ class OpenApiTest {
 
   private static final String EVENTS = "paths.'/api/v1/events'";
   private static final String EVENT = "paths.'/api/v1/events/{id}'";
+  private static final String READ = "paths.'/api/v1/events/{id}/read'";
+  private static final String MARK_READ = "paths.'/api/v1/events/read'";
+  private static final String UNREAD_COUNT = "paths.'/api/v1/events/unread-count'";
   private static final String SCHEMAS = "components.schemas";
   private static final String ADMIN = "paths.'/api/v1/admin/producers'";
 
@@ -51,6 +54,33 @@ class OpenApiTest {
         .body(EVENTS + ".post.responses", hasKey("413"))
         .body(EVENT + ".get.responses", hasKey("200"))
         .body(EVENT + ".get.responses", hasKey("404"));
+  }
+
+  @Test
+  void describesTheReadState() {
+    var owner = containsInAnyOrder(Map.of("clientKey", List.of()), Map.of("adminToken", List.of()));
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(READ + ".put.security", owner)
+        .body(READ + ".put.responses", hasKey("404"))
+        .body(
+            READ + ".put.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/Event"))
+        .body(READ + ".delete.security", owner)
+        .body(MARK_READ + ".post.security", owner)
+        .body(
+            MARK_READ + ".post.requestBody.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/MarkReadRequest"))
+        .body(SCHEMAS + ".MarkReadRequest.required", containsInAnyOrder("through"))
+        .body(SCHEMAS + ".MarkReadResult.required", containsInAnyOrder("marked"))
+        .body(UNREAD_COUNT + ".get.security", owner)
+        .body(SCHEMAS + ".UnreadCount.required", containsInAnyOrder("unread"))
+        .body(SCHEMAS + ".Event.properties", hasKey("readAt"))
+        .body(SCHEMAS + ".Event.required", not(hasItems("readAt")));
   }
 
   @Test

@@ -79,6 +79,37 @@ class EventService {
     return new EventPage(items, nextCursor);
   }
 
+  /** Marks the event read; the event, or empty if it does not exist. */
+  @Transactional
+  Optional<EventResponse> markRead(UUID id) {
+    return repository.markRead(id, toStoredInstant(Instant.now())) ? find(id) : Optional.empty();
+  }
+
+  /** Marks the event unread; the event, or empty if it does not exist. */
+  @Transactional
+  Optional<EventResponse> markUnread(UUID id) {
+    return repository.markUnread(id) ? find(id) : Optional.empty();
+  }
+
+  /**
+   * Marks read every unread event up to the given one in listing order. The count of events marked,
+   * or empty if the given event does not exist.
+   */
+  @Transactional
+  Optional<MarkReadResult> markReadThrough(UUID id) {
+    return repository
+        .findByIdOptional(id)
+        .map(
+            through ->
+                new MarkReadResult(
+                    repository.markReadThrough(through, toStoredInstant(Instant.now()))));
+  }
+
+  @Transactional
+  UnreadCount countUnread() {
+    return new UnreadCount(repository.countUnread());
+  }
+
   // The foreign key guarantees the producer exists.
   private ProducerIdentity producerOf(EventEntity event) {
     return producers.find(event.producerId()).orElseThrow();
@@ -100,6 +131,7 @@ class EventService {
         event.message(),
         event.metadata(),
         event.occurredAt(),
-        event.createdAt());
+        event.createdAt(),
+        event.readAt());
   }
 }
