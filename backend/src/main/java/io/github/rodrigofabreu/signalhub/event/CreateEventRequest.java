@@ -2,6 +2,7 @@ package io.github.rodrigofabreu.signalhub.event;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.rodrigofabreu.signalhub.api.Identifiers;
 import io.github.rodrigofabreu.signalhub.api.IsoOffsetDateTimeDeserializer;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -12,26 +13,19 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 /**
  * Body of {@code POST /api/v1/events}: a generic event as a producer submits it. Unknown fields are
- * rejected, so the server-owned {@code id} and {@code createdAt} cannot be supplied.
+ * rejected, so the server-owned {@code id}, {@code createdAt} and producer cannot be supplied: the
+ * producer comes only from authentication.
  */
 @Schema(name = "CreateEventRequest", description = "A generic event submitted by a producer.")
 public record CreateEventRequest(
     @Schema(
             description =
-                "Identifier of the producer, chosen by the producer. Letters, digits and"
-                    + " . _ : / -, starting with a letter or digit.",
-            examples = "ci/build-runner")
-        @NotNull
-        @Size(max = 100)
-        @Pattern(regexp = IDENTIFIER, message = IDENTIFIER_MESSAGE)
-        String source,
-    @Schema(
-            description =
                 "Optional project or context the event belongs to, for example a repository,"
-                    + " host or job. Same characters as source.",
+                    + " host or job. Letters, digits and . _ : / -, starting with a letter or"
+                    + " digit.",
             examples = "signalhub")
         @Size(max = 200)
-        @Pattern(regexp = IDENTIFIER, message = IDENTIFIER_MESSAGE)
+        @Pattern(regexp = Identifiers.PATTERN, message = Identifiers.MESSAGE)
         String context,
     @NotNull Category category,
     @NotNull Severity severity,
@@ -74,9 +68,6 @@ public record CreateEventRequest(
     return metadata == null ? null : metadata.deepCopy();
   }
 
-  static final String IDENTIFIER = "[A-Za-z0-9][A-Za-z0-9._:/-]*";
-  static final String IDENTIFIER_MESSAGE =
-      "must start with a letter or digit and contain only letters, digits and . _ : / -";
   static final String NO_NUL = "[^\\x00]*";
   static final String NO_NUL_MESSAGE = "must not contain NUL (U+0000) characters";
 }

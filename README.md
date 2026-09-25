@@ -33,22 +33,33 @@ Early development.
 
 | Component | Status |
 |---|---|
-| Backend (`backend/`) | Quarkus service with PostgreSQL, Flyway, health checks, OpenAPI, Docker image and Compose. Generic event ingestion: `POST /api/v1/events` and `GET /api/v1/events/{id}`. No authentication or push delivery yet. |
+| Backend (`backend/`) | Quarkus service with PostgreSQL, Flyway, health checks, OpenAPI, Docker image and Compose. Generic event ingestion: `POST /api/v1/events` and `GET /api/v1/events/{id}`. Producer authentication with server-issued API keys, managed through an admin-token-protected API. No owner/client authentication or push delivery yet. |
 | Clients | Not started |
 | Producer SDK/CLI | Not started |
 
 Run the backend with PostgreSQL:
 
 ```sh
-cp .env.example .env   # set SIGNALHUB_DB_PASSWORD
+cp .env.example .env   # set SIGNALHUB_DB_PASSWORD and SIGNALHUB_ADMIN_TOKEN
 docker compose up --build --wait
 curl http://localhost:8080/q/health/ready
-curl http://localhost:8080/api/v1/events -H 'Content-Type: application/json' \
-  -d '{"source": "my-script", "category": "INFO", "severity": "NORMAL", "title": "Hello"}'
+
+# Register a producer; the response shows its API key once.
+ADMIN_TOKEN=$(sed -n 's/^SIGNALHUB_ADMIN_TOKEN=//p' .env)
+API_KEY=$(curl -s http://localhost:8080/api/v1/admin/producers \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name": "my-script"}' | jq -r .apiKey)
+
+# Publish an event as that producer.
+curl http://localhost:8080/api/v1/events -H "Authorization: Bearer $API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"category": "INFO", "severity": "NORMAL", "title": "Hello"}'
 ```
 
 The event model and API are described in
-[docs/architecture.md](docs/architecture.md#events).
+[docs/architecture.md](docs/architecture.md#events), and producers and API
+keys in
+[docs/architecture.md](docs/architecture.md#producers-and-authentication).
 
 See [docs/development.md](docs/development.md#backend) for dev mode, tests, and
 configuration.

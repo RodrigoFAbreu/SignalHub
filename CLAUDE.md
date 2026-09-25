@@ -26,7 +26,9 @@ Planned stack (details in `docs/architecture.md`):
 **Current state:** engineering baseline (docs, CI, release automation) plus
 the backend in `backend/` (Quarkus service, PostgreSQL, Flyway, health,
 OpenAPI, Docker Compose) with generic event ingestion
-(`POST /api/v1/events`, `GET /api/v1/events/{id}`). There is no
+(`POST /api/v1/events`, `GET /api/v1/events/{id}`) and producer
+authentication (server-issued API keys, managed through
+`/api/v1/admin/producers` with an admin token). There is no owner/client
 authentication, push delivery, or client yet. Do not build components beyond
 the scope of the task at hand.
 

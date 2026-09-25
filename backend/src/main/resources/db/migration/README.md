@@ -12,3 +12,4 @@ creates or alters tables.
 | Version | Change |
 |---|---|
 | `V1__create_events.sql` | `events` table for generic producer events |
+| `V2__add_producer_authentication.sql` | `producers` and `producer_api_keys` tables; `events.source` replaced by `events.producer_id` |

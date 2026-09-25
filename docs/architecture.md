@@ -1,8 +1,10 @@
 # Architecture
 
 > Status: partly direction. Implemented so far: the backend runtime foundation
-> (see [Backend platform](#backend-platform)) and generic event ingestion (see
-> [Events](#events)). Authentication, dispatch, and clients do not exist yet.
+> (see [Backend platform](#backend-platform)), generic event ingestion (see
+> [Events](#events)), and producer authentication (see
+> [Producers and authentication](#producers-and-authentication)). Owner/client
+> authentication, dispatch, and clients do not exist yet.
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -71,8 +73,10 @@ needed, live outside the core and speak the generic API.
 
 ## Events
 
-> Status: implemented. Producers can publish and read events. There is no
-> producer authentication yet, so Compose publishes the API on localhost only.
+> Status: implemented. Registered producers publish events with an API key;
+> reading an event needs no credential yet (see
+> [Security limitations](#security-limitations)), so Compose publishes the API
+> on localhost only.
 
 An event is a generic record of something that happened in a producer. The
 model is deliberately small: fields that every producer understands the same
@@ -81,7 +85,7 @@ way, plus opaque metadata for everything else.
 | Field | Type | Required | Set by | Meaning |
 |---|---|---|---|---|
 | `id` | UUID | always present | server | Canonical event ID. |
-| `source` | string, 1–100 | yes | producer | Who published the event, e.g. `ci/build-runner`. |
+| `producer` | object `{id, name}` | always present | server | The producer that published the event, from its API key. |
 | `context` | string, 1–200 | no | producer | Project or context, e.g. a repository, host, or job. |
 | `category` | enum | yes | producer | What the event means for the owner (below). |
 | `severity` | enum | yes | producer | How urgently the owner should notice it (below). |
@@ -91,9 +95,17 @@ way, plus opaque metadata for everything else.
 | `occurredAt` | timestamp | no | producer | When the underlying occurrence happened, per the producer. |
 | `createdAt` | timestamp | always present | server | When SignalHub stored the event. |
 
-`source` and `context` are identifiers: letters, digits, and `. _ : / -`,
-starting with a letter or digit. Text fields must not contain NUL (U+0000)
-characters, which PostgreSQL cannot store.
+`context` is an identifier: letters, digits, and `. _ : / -`, starting with a
+letter or digit. Text fields must not contain NUL (U+0000) characters, which
+PostgreSQL cannot store.
+
+Who published an event is never part of the request body. The producer comes
+only from the API key that authenticated the request (see
+[Producers and authentication](#producers-and-authentication)), so the body
+cannot contradict it: a body with `source`, `producer`, or any other unknown
+field is rejected with `400`. Before producer authentication existed, events
+carried a producer-supplied `source`; it was removed rather than kept as an
+unverified second identity.
 
 ### Category and severity
 
@@ -127,11 +139,11 @@ The server generates every ID as a UUIDv7 (RFC 9562): globally unique without
 coordination, safe to expose, and roughly ordered by creation time, which
 keeps primary-key inserts cheap. Producers cannot supply `id` (or
 `createdAt`): unknown fields are rejected, so a producer that tries gets a 400
-rather than a silently different ID.
+rather than a silently different ID. The same holds for the producer.
 
 Idempotent publishing is not implemented yet. When it is needed, it will be an
 additive, optional producer-supplied key (with a unique constraint scoped to
-the source), not a producer-controlled canonical ID.
+the producer), not a producer-controlled canonical ID.
 
 ### Timestamps
 
@@ -169,10 +181,14 @@ contents. An absent or `null` value is stored and returned as `{}`.
 
 | Method and path | Result |
 |---|---|
-| `POST /api/v1/events` | Validates and stores an event. `201 Created` with the canonical event and a `Location` header. |
-| `GET /api/v1/events/{id}` | `200` with the event, or `404`. |
+| `POST /api/v1/events` | Requires a producer API key. Validates and stores an event bound to that producer. `201 Created` with the canonical event and a `Location` header. |
+| `GET /api/v1/events/{id}` | `200` with the event, or `404`. No credential needed yet. |
 
 The event is committed to PostgreSQL before `201` is returned. Errors:
+
+- `401` when publishing without a valid producer API key. Authentication runs
+  before the body is read, so an unauthenticated request gets `401` whatever
+  its body contains. See [Authentication errors](#authentication-errors).
 
 - `400` with a JSON body `{"title", "status", "violations": [{"field", "message"}]}`
   for malformed JSON, unknown fields, wrong JSON types (values are never
@@ -191,8 +207,189 @@ response schemas, with examples. See
 `V1__create_events.sql` creates the `events` table. Check constraints repeat
 the API's invariants (lengths, non-blank title, enum values, metadata is an
 object), so the database stays valid even when something other than the API
-writes to it. There are no secondary indexes: the only query is by primary key.
-Indexes arrive with the features that query by other columns.
+writes to it. `V2__add_producer_authentication.sql` replaces the `source`
+column with `producer_id`, a foreign key to `producers`. There are no secondary
+indexes on `events`: the only query is by primary key, and producers are never
+deleted, so nothing looks events up by producer yet. Indexes arrive with the
+features that query by other columns.
+
+## Producers and authentication
+
+> Status: implemented. Producers authenticate with API keys. There is no
+> owner, user, or client authentication yet.
+
+A **producer** is a registered external system that publishes events: a CI
+pipeline, an agent, a monitor, a script. SignalHub treats every producer the
+same way. A producer has:
+
+| Field | Meaning |
+|---|---|
+| `id` | Server-generated canonical ID (UUIDv7). |
+| `name` | Unique, stable machine-readable name, shown on its events. Letters, digits and `. _ : / -`, starting with a letter or digit, at most 100 characters. Chosen at registration and never changed. |
+| `createdAt` | When it was registered. |
+| `disabledAt` | Set while the producer is disabled; `null` while enabled. |
+| `keys` | Its API keys: ID, `createdAt`, and `revokedAt` (`null` while valid). |
+
+A producer can hold several keys at once, which is what makes rotation
+gap-free. Producers are never deleted, so their events keep their attribution.
+
+### API keys
+
+The server generates every key. Keys look like this:
+
+```
+shpk1_3f1c0b8e5d2a4c7e9b610a8d4e2f7c13_Zt1v...(43 characters)
+└─┬─┘ └──────────────┬───────────────┘ └──────────┬──────────┘
+format       key ID (public)              secret (256 bits)
+```
+
+- `shpk1_` names the format ("SignalHub producer key", version 1). It makes
+  keys recognizable to secret scanners and in accidental pastes, and lets a
+  future format coexist with this one.
+- The **key ID** is the primary key of the key's record, as 32 lowercase hex
+  digits (a random UUIDv4). It is not secret. It selects the one stored
+  record to check, so authentication is a single primary-key lookup whatever
+  the number of keys.
+- The **secret** is 32 bytes from `java.security.SecureRandom`, encoded as
+  unpadded base64url (43 characters, which may include `-` and `_`).
+
+A key is 82 characters. Treat the whole string as the credential.
+
+**Storage.** Only `SHA-256(key)` is stored (`producer_api_keys.key_hash`); the
+key itself is never stored, logged, or returned after the response that
+issued it. SHA-256 is the right tool here, not a password hash such as bcrypt
+or Argon2: those slow down guessing of low-entropy human passwords, but a
+256-bit random secret cannot be guessed at any speed, so a slow hash would
+only add CPU cost to every published event. A leaked database therefore does
+not reveal usable keys. There is no reversible encryption and no server-side
+key material to manage.
+
+**Verification.** The server parses the key ID from the presented key, loads
+that one record together with its producer, and compares hashes with
+`MessageDigest.isEqual` (constant time). An unknown key ID is compared against
+a dummy hash, so it does the same work as a wrong secret. The key must not be
+revoked and its producer must be enabled.
+
+### Authentication
+
+Producers send the key as a standard bearer credential (RFC 6750):
+
+```http
+POST /api/v1/events
+Authorization: Bearer shpk1_3f1c0b8e5d2a4c7e9b610a8d4e2f7c13_...
+```
+
+The scheme name is case-insensitive; exactly one space separates it from the
+key. The authenticated producer becomes the event's `producer`. Only
+`POST /api/v1/events` requires a key.
+
+#### Authentication errors
+
+Every failure is `401 Unauthorized` with a
+`WWW-Authenticate: Bearer realm="signalhub"` header and the same body:
+
+```json
+{"title": "Unauthorized", "status": 401, "violations": []}
+```
+
+This covers a missing `Authorization` header, another scheme (such as
+`Basic`), a malformed key, an unknown key ID, a wrong secret, a revoked key,
+and a disabled producer. A disabled producer gets `401` rather than `403` on
+purpose: the response never tells a caller whether a key ID exists, is
+revoked, or belongs to a disabled producer. The operator sees the reason in
+the backend's `DEBUG` log (see [Logging](#logging)).
+
+### Producer management
+
+The operator manages producers through a small HTTP API under
+`/api/v1/admin/producers`, protected by a separate **admin token**:
+
+- The token comes only from the `SIGNALHUB_ADMIN_TOKEN` environment variable
+  and must be at least 32 characters (`openssl rand -hex 32`); a shorter one
+  stops the service at startup. Only its SHA-256 is kept in memory, and
+  comparison is constant-time.
+- Without the variable the management API is **disabled**: every path answers
+  `404`, with or without credentials. Producers with existing keys keep
+  publishing. This is the default in every environment.
+- With the variable set, requests without the exact token get the same `401`
+  as producer failures. Producer keys are not admin tokens and vice versa.
+
+This is a bootstrap mechanism for a single-owner, self-hosted service, not a
+user or role system. See [development.md](development.md#producers-and-api-keys)
+for curl examples.
+
+| Method and path | Result |
+|---|---|
+| `POST /api/v1/admin/producers` | Registers a producer (`{"name": ...}`) and issues its first key. `201` with the producer, `keyId`, and `apiKey`; `409` if the name is taken. |
+| `GET /api/v1/admin/producers` | All producers with their key records, by name. |
+| `GET /api/v1/admin/producers/{id}` | One producer with its key records. |
+| `POST /api/v1/admin/producers/{id}/keys` | Issues an additional key. `201` with `keyId` and `apiKey`. |
+| `POST /api/v1/admin/producers/{id}/keys/{keyId}/revoke` | Revokes a key, immediately and permanently. Idempotent. |
+| `POST /api/v1/admin/producers/{id}/disable` | Disables the producer: none of its keys authenticate. Idempotent. Events are kept. |
+| `POST /api/v1/admin/producers/{id}/enable` | Re-enables it: its unrevoked keys work again. |
+
+Unknown producer or key IDs get `404`, as does a key ID used with another
+producer's path.
+
+### Key lifecycle
+
+1. **Issue.** Registering a producer issues its first key. The response is the
+   only time the key is shown; store it in the producer's secret store. A lost
+   key cannot be recovered, only replaced.
+2. **Rotate.** Issue a new key, switch the producer to it, then revoke the old
+   one. Both keys work in between, so there is no downtime.
+3. **Revoke.** A revoked key stops authenticating on the next request.
+   Revocation cannot be undone; issue a new key instead.
+4. **Disable.** Disabling the producer blocks all its keys at once without
+   revoking them, for example while investigating a misbehaving producer.
+   Enabling it restores the keys that were not revoked.
+
+Existing events are never changed by any of these.
+
+### Schema
+
+`V2__add_producer_authentication.sql` creates:
+
+- `producers`: `id`, unique `name` (1–100 characters), `created_at`,
+  `disabled_at`.
+- `producer_api_keys`: `id` (the key ID), `producer_id`, `key_hash` (exactly 32
+  bytes), `created_at`, `revoked_at`. Indexed by `producer_id` for listing a
+  producer's keys; authentication uses the primary key.
+
+It also binds existing events: each distinct `source` becomes an enabled
+producer with that name and no keys, dated from its oldest event, and the
+events reference it. Those events were published before authentication, so
+their attribution was never verified. The operator can issue keys to such a
+producer to keep using its name.
+
+### Logging
+
+Credentials never reach the logs. The backend logs producer registration,
+key issuance and revocation, and disabling and enabling at `INFO` with
+producer and key IDs only. Rejected credentials are logged at `DEBUG` with the
+reason and, when the key is well formed, its key ID, never the key, the
+`Authorization` header, the admin token, or a hash. `IssuedApiKey`, the only
+type that holds a key, omits it from `toString()`.
+
+### Security limitations
+
+This version protects publishing. It does not yet:
+
+- **Authenticate readers.** `GET /api/v1/events/{id}` needs no credential.
+  Event IDs are unguessable UUIDv7s returned only to the publishing producer,
+  but anyone who learns one and can reach the API can read the event. Owner
+  and client authentication arrive with the client-facing API.
+- **Terminate TLS.** Keys and the admin token travel as bearer credentials, so
+  any non-local access needs a TLS reverse proxy. Compose publishes the API on
+  `127.0.0.1` only.
+- **Rate-limit** authentication attempts. Guessing is infeasible (256-bit
+  secrets), but a flood of requests still costs a database lookup each.
+- **Separate the management API** onto its own port or network. It is
+  protected by the admin token and disabled by default; for the tightest
+  setup, set `SIGNALHUB_ADMIN_TOKEN` only while managing producers and restart
+  without it afterwards.
+- **Expire keys** automatically. Keys are valid until revoked.
+- **Scope keys**: every valid key may publish any event as its producer.
 
 ## Likely components
 
@@ -208,7 +405,8 @@ Indexes arrive with the features that query by other columns.
 ## Backend platform
 
 > Status: runtime foundation implemented in `backend/` (service, database
-> connectivity, migrations, health, OpenAPI, container). No product API yet.
+> connectivity, migrations, health, OpenAPI, container). The product API is
+> described in [Events](#events) and [Producers and authentication](#producers-and-authentication).
 
 The backend is a single Quarkus service in JVM mode, backed by one PostgreSQL
 database. That is enough for a personal notification service and leaves room
@@ -292,8 +490,12 @@ Implementation expectations:
   resource (HTTP), request and response records (API models), a service
   (transactions and mapping), and the JPA entity with a Panache repository
   (persistence). The entity is package-private and never serialized.
-  Cross-cutting HTTP concerns (strict JSON reading, error bodies) live in
-  `api`.
+  Producers, API keys, their authentication filters, and the management API
+  live in the `producer` package. Authentication uses plain JAX-RS request
+  filters bound by annotation (`@ProducerAuthenticated`, `@AdminOnly`) rather
+  than an identity framework: two bearer-token checks do not justify one.
+  Cross-cutting HTTP concerns (strict JSON reading, error bodies, identifier
+  rules) live in `api`.
 - **Deployment:** `compose.yaml` runs the backend and PostgreSQL 17 with a
   named volume. The backend starts after the database is healthy and is
   itself health-checked through readiness.
@@ -303,9 +505,10 @@ Implementation expectations:
 - **Durability first:** persist, then acknowledge, then deliver.
 - **Idempotency:** producers may retry, so ingestion should support
   deduplication. Not implemented yet; see [IDs](#ids).
-- **Secrets from the environment:** credentials (producer tokens, push-provider
+- **Secrets from the environment:** credentials (the admin token, push-provider
   credentials, database password) come from runtime configuration, never from
-  the repository.
+  the repository. Producer API keys are generated by the server and stored
+  only as hashes.
 - **Versioned contracts:** the producer API and event schema are public
   contracts. Breaking them is a breaking change under the release policy in
   [development.md](development.md).
@@ -314,7 +517,7 @@ Implementation expectations:
 
 These are deferred until the relevant implementation work:
 
-- Producer authentication model (per-producer tokens vs. signed requests).
+- Owner and client authentication, including for reading events.
 - Event retention and pruning policy.
 - Routing and filtering rules: which events trigger a push, quiet hours.
 - Client platforms: which clients (Android, iOS, web, CLI) are built first,

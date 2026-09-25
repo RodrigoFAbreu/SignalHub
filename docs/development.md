@@ -134,6 +134,14 @@ Services starts a throwaway PostgreSQL container, applies the migrations, and
 removes it on exit, so no database setup or credentials are needed. Swagger UI
 is at <http://localhost:8080/q/swagger-ui> in dev mode only.
 
+To register producers in dev mode, enable the management API with an admin
+token (see [Producers and API keys](#producers-and-api-keys)):
+
+```sh
+export SIGNALHUB_ADMIN_TOKEN=$(openssl rand -hex 32)
+./mvnw quarkus:dev
+```
+
 ### Build and test
 
 ```sh
@@ -147,7 +155,16 @@ and Testcontainers), so Docker must be running. They cover liveness, readiness
 with the database up and after it stops, Flyway startup migration, the
 production configuration, the OpenAPI document, and the events API: the HTTP
 contract and validation (`EventApiTest`), and what reaches PostgreSQL,
-including the schema's own constraints (`EventPersistenceTest`).
+including the schema's own constraints (`EventPersistenceTest`). Producer
+authentication is covered by `EventAuthenticationTest` (every way publishing
+can be rejected, rotation, revocation, disabling, and that the payload cannot
+claim a producer), `ProducerAdminApiTest` and `AdminApiDisabledTest` (the
+management API and its admin-token guard), `ProducerPersistenceTest` (only
+hashes are stored), `ProducerMigrationTest` (upgrading a database that holds
+events from before authentication), and unit tests for the key format, bearer
+parsing and admin token (`ApiKeysTest`, `BearerTokenTest`, `AdminTokenTest`).
+The test profile uses a fixed, test-only admin token from
+`application.properties`.
 
 Formatting is [google-java-format](https://github.com/google/google-java-format)
 through Spotless, and static analysis is [SpotBugs](https://spotbugs.github.io/)
@@ -170,7 +187,7 @@ migrations are listed in
 `backend/Dockerfile`) and PostgreSQL 17 with a persistent volume:
 
 ```sh
-cp .env.example .env          # set SIGNALHUB_DB_PASSWORD
+cp .env.example .env          # set SIGNALHUB_DB_PASSWORD and SIGNALHUB_ADMIN_TOKEN
 docker compose up --build --wait
 curl http://localhost:8080/q/health/ready
 docker compose down           # keeps the database volume; add --volumes to delete it
@@ -185,26 +202,80 @@ not published.
 
 | Path | Purpose |
 |---|---|
-| `/api/v1/events` | `POST`: publish an event. See [Events API](#events-api). |
+| `/api/v1/events` | `POST`: publish an event, with a producer API key. See [Events API](#events-api). |
 | `/api/v1/events/{id}` | `GET`: read an event by its ID. |
+| `/api/v1/admin/producers/...` | Producer management, with the admin token. See [Producers and API keys](#producers-and-api-keys). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
 | `/q/health` | Both of the above combined. |
 | `/q/openapi` | OpenAPI document (YAML; `?format=json` for JSON). |
 | `/q/swagger-ui` | Swagger UI, dev mode only. |
 
+### Producers and API keys
+
+Producers, keys, and the admin token are described in
+[architecture.md](architecture.md#producers-and-authentication). The
+management API is enabled only when `SIGNALHUB_ADMIN_TOKEN` is set (at least
+32 characters). In the shell you run curl from, set `ADMIN_TOKEN` to the same
+value, for example from `.env`:
+
+```sh
+ADMIN_TOKEN=$(sed -n 's/^SIGNALHUB_ADMIN_TOKEN=//p' .env)
+```
+
+Register a producer. The response contains its API key, **shown only this
+once**:
+
+```sh
+curl -s http://localhost:8080/api/v1/admin/producers \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "ci-build-runner"}'
+```
+
+```json
+{
+  "producer": {
+    "id": "01a0d96b-4298-7ce4-981a-5ed853d075b9",
+    "name": "ci-build-runner",
+    "createdAt": "2026-09-25T16:34:40.404295Z",
+    "disabledAt": null,
+    "keys": [
+      {"id": "b49cd36a-84ed-4581-b4bb-9b89f170a57c", "createdAt": "2026-09-25T16:34:40.417295Z", "revokedAt": null}
+    ]
+  },
+  "keyId": "b49cd36a-84ed-4581-b4bb-9b89f170a57c",
+  "apiKey": "shpk1_b49cd36a84ed4581b4bb9b89f170a57c_<secret>"
+}
+```
+
+Give `apiKey` to the producer through its own secret store, never through the
+repository. Then manage it (`$PRODUCER` and `$KEY` are the IDs above):
+
+```sh
+H="Authorization: Bearer $ADMIN_TOKEN"
+API=http://localhost:8080/api/v1/admin/producers
+curl -s "$API" -H "$H"                                     # list producers and key records
+curl -s "$API/$PRODUCER" -H "$H"                           # one producer
+curl -s -X POST "$API/$PRODUCER/keys" -H "$H"              # issue another key (rotation, step 1)
+curl -s -X POST "$API/$PRODUCER/keys/$KEY/revoke" -H "$H"  # revoke the old key (rotation, step 2)
+curl -s -X POST "$API/$PRODUCER/disable" -H "$H"           # block all its keys
+curl -s -X POST "$API/$PRODUCER/enable" -H "$H"            # unblock its unrevoked keys
+```
+
 ### Events API
 
 The event model, validation rules, and timestamp and metadata semantics are
 described in [architecture.md](architecture.md#events). The OpenAPI document
 (`/q/openapi`, or Swagger UI in dev mode) has the full schema and examples.
-Try it against dev mode or Compose:
+Try it against dev mode or Compose, with a key from
+[Producers and API keys](#producers-and-api-keys) in `API_KEY`:
 
 ```sh
 curl -i http://localhost:8080/api/v1/events \
+  -H "Authorization: Bearer $API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{
-        "source": "ci/build-runner",
         "context": "signalhub",
         "category": "BLOCKED",
         "severity": "HIGH",
@@ -222,7 +293,7 @@ Content-Type: application/json;charset=UTF-8
 
 {
   "id": "01a0d931-9c33-7989-a9ea-adb6724470e6",
-  "source": "ci/build-runner",
+  "producer": {"id": "01a0d96b-4298-7ce4-981a-5ed853d075b9", "name": "ci-build-runner"},
   "context": "signalhub",
   "category": "BLOCKED",
   "severity": "HIGH",
@@ -238,6 +309,16 @@ Read it back, including after restarting the service:
 
 ```sh
 curl http://localhost:8080/api/v1/events/01a0d931-9c33-7989-a9ea-adb6724470e6
+```
+
+Without a valid key (missing, malformed, unknown, revoked, or of a disabled
+producer) the answer is always the same `401`:
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="signalhub"
+
+{"title": "Unauthorized", "status": 401, "violations": []}
 ```
 
 Invalid input gets a `400` that names each offending field:
@@ -272,6 +353,12 @@ In `prod` the service refuses to start unless these are set:
 | `SIGNALHUB_DB_USERNAME` | `signalhub` |
 | `SIGNALHUB_DB_PASSWORD` | from your secret store |
 
+Optional in every profile:
+
+| Variable | Effect |
+|---|---|
+| `SIGNALHUB_ADMIN_TOKEN` | Enables the producer management API. At least 32 characters (`openssl rand -hex 32`); shorter stops startup. Unset or empty disables it. |
+
 Compose derives them from `.env` (see `.env.example`). Never commit `.env`.
 
 ## Local validation
@@ -290,10 +377,12 @@ docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -c
 # Backend (needs Docker)
 (cd backend && ./mvnw verify)
 # Container smoke test: the "Backend container" job in .github/workflows/ci.yml
-# starts the stack with `docker compose up --build --wait`, checks liveness,
-# readiness and OpenAPI, publishes an event and reads it back after restarting
-# the backend, stops PostgreSQL and expects readiness 503, and checks that the
-# image refuses to start without database settings.
+# starts the stack with `docker compose up --build --wait` and a random admin
+# token, checks liveness, readiness and OpenAPI, registers a producer, checks
+# that publishing without a valid key gets 401, publishes an event with the key
+# and reads it back after restarting the backend, revokes the key and expects
+# 401, stops PostgreSQL and expects readiness 503, and checks that the image
+# refuses to start without database settings.
 ```
 
 Each new component adds its own build, lint, and test commands to CI and to

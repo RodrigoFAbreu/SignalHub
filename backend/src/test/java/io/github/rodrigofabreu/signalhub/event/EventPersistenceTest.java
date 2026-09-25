@@ -1,6 +1,5 @@
 package io.github.rodrigofabreu.signalhub.event;
 
-import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -8,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.agroal.api.AgroalDataSource;
+import io.github.rodrigofabreu.signalhub.TestProducers;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationState;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -31,9 +32,32 @@ class EventPersistenceTest {
   /** PostgreSQL's SQLSTATE for a violated check constraint. */
   private static final String CHECK_VIOLATION = "23514";
 
+  /** PostgreSQL's SQLSTATE for a violated foreign key. */
+  private static final String FOREIGN_KEY_VIOLATION = "23503";
+
+  /** Owner of the rows this test inserts directly. */
+  private static final String PRODUCER =
+      "(SELECT id FROM producers WHERE name = 'persistence-test')";
+
+  private static TestProducers.Registered producer;
+
   @Inject AgroalDataSource dataSource;
   @Inject Flyway flyway;
   @Inject ObjectMapper json;
+
+  @BeforeEach
+  void registerProducers() throws SQLException {
+    if (producer == null) {
+      producer = TestProducers.register("event-persistence-test");
+    }
+    try (var connection = dataSource.getConnection();
+        var statement = connection.createStatement()) {
+      statement.executeUpdate(
+          "INSERT INTO producers (id, name, created_at)"
+              + " VALUES (gen_random_uuid(), 'persistence-test', now())"
+              + " ON CONFLICT (name) DO NOTHING");
+    }
+  }
 
   @Test
   void migrationCreatesTheEventsTable() throws SQLException {
@@ -47,7 +71,6 @@ class EventPersistenceTest {
 
     var expected = new LinkedHashMap<String, String>();
     expected.put("id", "uuid NO");
-    expected.put("source", "text NO");
     expected.put("context", "text YES");
     expected.put("category", "text NO");
     expected.put("severity", "text NO");
@@ -56,13 +79,15 @@ class EventPersistenceTest {
     expected.put("metadata", "jsonb NO");
     expected.put("occurred_at", "timestamp with time zone YES");
     expected.put("created_at", "timestamp with time zone NO");
+    // Added by V2, replacing the producer-supplied source.
+    expected.put("producer_id", "uuid NO");
     assertEquals(expected, columnsOf("events"));
   }
 
   @Test
   void createdEventIsStoredInPostgres() throws Exception {
     String id =
-        given()
+        TestProducers.asProducer(producer.apiKey())
             .contentType(ContentType.JSON)
             .body(EventApiTest.FULL_EVENT)
             .when()
@@ -75,12 +100,12 @@ class EventPersistenceTest {
     try (var connection = dataSource.getConnection();
         var statement =
             connection.prepareStatement(
-                "SELECT source, context, category, severity, title, message, metadata::text,"
+                "SELECT producer_id, context, category, severity, title, message, metadata::text,"
                     + " occurred_at, created_at FROM events WHERE id = ?")) {
       statement.setObject(1, UUID.fromString(id));
       try (var row = statement.executeQuery()) {
         assertTrue(row.next(), "event " + id + " must be in the database");
-        assertEquals("ci/build-runner", row.getString("source"));
+        assertEquals(producer.id(), row.getObject("producer_id", UUID.class));
         assertEquals("signalhub", row.getString("context"));
         assertEquals("BLOCKED", row.getString("category"));
         assertEquals("HIGH", row.getString("severity"));
@@ -100,7 +125,7 @@ class EventPersistenceTest {
   @Test
   void absentMetadataIsStoredAsAnEmptyObject() throws SQLException {
     String id =
-        given()
+        TestProducers.asProducer(producer.apiKey())
             .contentType(ContentType.JSON)
             .body(EventApiTest.MINIMAL_EVENT)
             .when()
@@ -134,7 +159,6 @@ class EventPersistenceTest {
       delimiter = '|',
       quoteCharacter = '`',
       value = {
-        "source   | ''",
         "context  | ''",
         "category | 'URGENT'",
         "category | 'info'",
@@ -154,7 +178,7 @@ class EventPersistenceTest {
   }
 
   @ParameterizedTest
-  @CsvSource({"source", "category", "severity", "title", "metadata", "created_at"})
+  @CsvSource({"producer_id", "category", "severity", "title", "metadata", "created_at"})
   void requiredColumnsAreNotNull(String column) {
     var row = validRow();
     row.put(column, "NULL");
@@ -163,10 +187,19 @@ class EventPersistenceTest {
     assertEquals("23502", error.getSQLState(), error.getMessage());
   }
 
+  @Test
+  void producerMustExist() {
+    var row = validRow();
+    row.put("producer_id", "gen_random_uuid()");
+
+    var error = assertThrows(SQLException.class, () -> insert(row));
+    assertEquals(FOREIGN_KEY_VIOLATION, error.getSQLState(), error.getMessage());
+  }
+
   private static Map<String, String> validRow() {
     var row = new LinkedHashMap<String, String>();
     row.put("id", "gen_random_uuid()");
-    row.put("source", "'test'");
+    row.put("producer_id", PRODUCER);
     row.put("context", "NULL");
     row.put("category", "'INFO'");
     row.put("severity", "'NORMAL'");

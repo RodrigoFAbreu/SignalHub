@@ -35,9 +35,12 @@ services:
       SIGNALHUB_DB_URL: jdbc:postgresql://postgres:5432/${SIGNALHUB_DB_NAME:-signalhub}
       SIGNALHUB_DB_USERNAME: ${SIGNALHUB_DB_USERNAME:-signalhub}
       SIGNALHUB_DB_PASSWORD: ${SIGNALHUB_DB_PASSWORD:?set SIGNALHUB_DB_PASSWORD, see .env.example}
+      # Enables the producer management API. Empty or unset disables it.
+      SIGNALHUB_ADMIN_TOKEN: ${SIGNALHUB_ADMIN_TOKEN:-}
     ports:
-      # Localhost only until the API has authentication. Put a TLS reverse
-      # proxy in front of it for remote access.
+      # Localhost only: publishing needs a producer API key, but reading events
+      # is not authenticated yet, and the API has no TLS. See
+      # docs/architecture.md#security-limitations.
       - "127.0.0.1:${SIGNALHUB_HTTP_PORT:-8080}:8080"
     # The image's HEALTHCHECK polls readiness (/q/health/ready).
 

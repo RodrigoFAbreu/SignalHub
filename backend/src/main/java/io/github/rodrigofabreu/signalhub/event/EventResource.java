@@ -1,6 +1,8 @@
 package io.github.rodrigofabreu.signalhub.event;
 
 import io.github.rodrigofabreu.signalhub.api.ApiError;
+import io.github.rodrigofabreu.signalhub.producer.AuthenticatedProducer;
+import io.github.rodrigofabreu.signalhub.producer.ProducerAuthenticated;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
@@ -16,32 +18,51 @@ import jakarta.ws.rs.core.UriBuilder;
 import java.util.List;
 import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.enums.SecuritySchemeType;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
+import org.eclipse.microprofile.openapi.annotations.security.SecurityScheme;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 @Path("/api/v1/events")
 @Tag(name = "Events", description = "Publish and read generic events.")
+@SecurityScheme(
+    securitySchemeName = EventResource.SECURITY_SCHEME,
+    type = SecuritySchemeType.HTTP,
+    scheme = "bearer",
+    bearerFormat = "shpk1_<key id>_<secret>",
+    description =
+        "A producer API key, issued through the producer management API. The event is bound to"
+            + " the producer that owns the key.")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class EventResource {
 
-  private final EventService events;
+  static final String SECURITY_SCHEME = "producerApiKey";
 
-  EventResource(EventService events) {
+  private final EventService events;
+  private final AuthenticatedProducer producer;
+
+  EventResource(EventService events, AuthenticatedProducer producer) {
     this.events = events;
+    this.producer = producer;
   }
 
   @POST
+  @ProducerAuthenticated
+  @SecurityRequirement(name = SECURITY_SCHEME)
   @Operation(
       summary = "Publish an event",
       description =
-          "Validates the event and stores it durably before responding. The response is the"
-              + " canonical event, including the server-generated id and createdAt.")
+          "Authenticates the producer, validates the event and stores it durably before"
+              + " responding. The event is bound to the authenticated producer. The response is"
+              + " the canonical event, including the server-generated id, producer and"
+              + " createdAt.")
   @RequestBody(
       required = true,
       content =
@@ -64,9 +85,15 @@ public class EventResource {
       responseCode = "400",
       description = "The body is malformed or fails validation.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "401",
+      description =
+          "Missing, malformed, unknown or revoked API key, or the producer is disabled. The"
+              + " response does not say which.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(responseCode = "413", description = "The body is larger than 64 KiB.")
   public Response create(@NotNull @Valid CreateEventRequest request) {
-    var event = events.create(request);
+    var event = events.create(producer.get(), request);
     var location = UriBuilder.fromResource(EventResource.class).path(event.id().toString()).build();
     return Response.created(location).entity(event).build();
   }
@@ -97,7 +124,6 @@ public class EventResource {
   private static final String CI_EXAMPLE =
       """
       {
-        "source": "ci/build-runner",
         "context": "signalhub",
         "category": "BLOCKED",
         "severity": "HIGH",
@@ -111,7 +137,6 @@ public class EventResource {
   private static final String AGENT_EXAMPLE =
       """
       {
-        "source": "workflow-controller",
         "context": "repo:example/app",
         "category": "ACTION_REQUIRED",
         "severity": "NORMAL",
@@ -123,6 +148,6 @@ public class EventResource {
 
   private static final String MINIMAL =
       """
-      {"source": "backup-script", "category": "COMPLETED", "severity": "LOW", "title": "Backup done"}
+      {"category": "COMPLETED", "severity": "LOW", "title": "Backup done"}
       """;
 }
