@@ -71,6 +71,17 @@ jobs:
           curl --fail --silent --show-error http://localhost:8080/q/health/live
           curl --fail --silent --show-error http://localhost:8080/q/health/ready
           curl --fail --silent --show-error --output /dev/null http://localhost:8080/q/openapi
+      - name: A published event survives a backend restart
+        run: |
+          id=$(curl --fail --silent --show-error \
+            --header 'Content-Type: application/json' \
+            --data '{"source": "ci/smoke-test", "category": "INFO", "severity": "LOW", "title": "Smoke test", "metadata": {"check": "restart"}}' \
+            http://localhost:8080/api/v1/events | jq --raw-output .id)
+          echo "created event $id"
+          docker compose restart backend
+          docker compose up --wait --wait-timeout 120
+          curl --fail --silent --show-error "http://localhost:8080/api/v1/events/$id" \
+            | jq --exit-status '.title == "Smoke test" and .metadata.check == "restart"'
       - name: Readiness reports DOWN while PostgreSQL is stopped
         run: |
           docker compose stop postgres

@@ -1,10 +1,11 @@
 # Architecture
 
-> Status: mostly direction. The backend runtime foundation exists (see
-> [Backend platform](#backend-platform)); no product feature does yet. This
-> document defines boundaries, vocabulary, and the chosen technology. Concrete
-> schemas, APIs, and implementation details are decided in the PRs that
-> implement them, and this document is updated in the same PRs.
+> Status: partly direction. Implemented so far: the backend runtime foundation
+> (see [Backend platform](#backend-platform)) and generic event ingestion (see
+> [Events](#events)). Authentication, dispatch, and clients do not exist yet.
+> This document defines boundaries, vocabulary, and the chosen technology.
+> Concrete schemas, APIs, and implementation details are decided in the PRs
+> that implement them, and this document is updated in the same PRs.
 
 ## Purpose
 
@@ -56,10 +57,7 @@ deployment.
 The central rule: **SignalHub core understands only generic event semantics.**
 
 - **Generic fields** have one meaning across all producers, and core behaviour
-  may depend on them. Likely candidates: event id, producer identity, timestamp,
-  title, body/summary, severity or priority, an optional link, and an optional
-  grouping/deduplication key. The exact set is decided when the event API is
-  built.
+  may depend on them. The current set is defined in [Events](#events).
 - **Producer metadata** is an opaque, producer-defined structured payload
   attached to an event. SignalHub stores it, returns it, and may display it
   generically (for example as key/value pairs). SignalHub never branches on its
@@ -70,6 +68,131 @@ new *generic* capability that any producer could use, never a special case.
 Core code must not reference specific producers such as agent frameworks, CI
 vendors, or monitoring tools by name. Producer-specific adapters, if ever
 needed, live outside the core and speak the generic API.
+
+## Events
+
+> Status: implemented. Producers can publish and read events. There is no
+> producer authentication yet, so Compose publishes the API on localhost only.
+
+An event is a generic record of something that happened in a producer. The
+model is deliberately small: fields that every producer understands the same
+way, plus opaque metadata for everything else.
+
+| Field | Type | Required | Set by | Meaning |
+|---|---|---|---|---|
+| `id` | UUID | always present | server | Canonical event ID. |
+| `source` | string, 1–100 | yes | producer | Who published the event, e.g. `ci/build-runner`. |
+| `context` | string, 1–200 | no | producer | Project or context, e.g. a repository, host, or job. |
+| `category` | enum | yes | producer | What the event means for the owner (below). |
+| `severity` | enum | yes | producer | How urgently the owner should notice it (below). |
+| `title` | string, 1–200, not blank | yes | producer | Short human-readable summary. |
+| `message` | string, 0–4000 | no | producer | Longer human-readable text. |
+| `metadata` | JSON object, ≤ 16 KiB | no | producer | Opaque producer data (below). |
+| `occurredAt` | timestamp | no | producer | When the underlying occurrence happened, per the producer. |
+| `createdAt` | timestamp | always present | server | When SignalHub stored the event. |
+
+`source` and `context` are identifiers: letters, digits, and `. _ : / -`,
+starting with a letter or digit. Text fields must not contain NUL (U+0000)
+characters, which PostgreSQL cannot store.
+
+### Category and severity
+
+The two enums carry all the generic meaning that later routing and
+notification rules may depend on. They are small on purpose: a producer maps
+its own states onto them, and details go in metadata.
+
+| Category | Meaning |
+|---|---|
+| `ACTION_REQUIRED` | The owner must act: approve, answer, or decide. |
+| `BLOCKED` | Work cannot continue until something external changes. |
+| `COMPLETED` | Work finished. |
+| `INFO` | Informational. No action expected. |
+
+| Severity | Meaning |
+|---|---|
+| `LOW` | Can wait. |
+| `NORMAL` | The default for most events. |
+| `HIGH` | Should be seen soon. |
+| `CRITICAL` | Needs immediate attention. |
+
+Values are uppercase and exact. Both fields are required, so no producer
+relies on an implicit default; making one optional later is a compatible
+change, but the reverse is not. Adding a value is a contract change, since
+existing clients may not recognise it, and needs a migration for the database
+check constraint.
+
+### IDs
+
+The server generates every ID as a UUIDv7 (RFC 9562): globally unique without
+coordination, safe to expose, and roughly ordered by creation time, which
+keeps primary-key inserts cheap. Producers cannot supply `id` (or
+`createdAt`): unknown fields are rejected, so a producer that tries gets a 400
+rather than a silently different ID.
+
+Idempotent publishing is not implemented yet. When it is needed, it will be an
+additive, optional producer-supplied key (with a unique constraint scoped to
+the source), not a producer-controlled canonical ID.
+
+### Timestamps
+
+- All timestamps are ISO-8601 strings with an explicit UTC offset, stored as
+  PostgreSQL `timestamptz` and returned in UTC (`Z`) with up to microsecond
+  precision. Finer precision is truncated.
+- `createdAt` is canonical: the server's clock when it stored the event.
+  Ordering and retention will use it.
+- `occurredAt` is producer context. SignalHub stores and returns it but does
+  not trust it for ordering: producer clocks may be wrong, and events may be
+  published late. A timestamp without an offset (`2026-09-25T14:03:00`) is
+  rejected because it is ambiguous, as are epoch numbers. The year must have
+  four digits (0001–9999). The offset the producer sent is not kept; only the
+  instant is.
+
+### Metadata
+
+`metadata` is an optional JSON object for producer-specific data, for example a
+CI run number, a workflow step, or a link. SignalHub stores it as PostgreSQL
+`jsonb` and returns it, but never reads, validates, or branches on its
+contents. An absent or `null` value is stored and returned as `{}`.
+
+- It must be a JSON object (not an array or scalar), so clients can always
+  display it generically as key/value pairs.
+- It is at most 16 KiB as compact UTF-8 JSON. SignalHub is a notification
+  system, not a document store; put large payloads behind a link.
+- Values round-trip as JSON values: strings are unchanged, and numbers keep
+  their exact value (never rounded through a floating-point type), though
+  trailing fractional zeros may be dropped (`1.10` becomes `1.1`). Object key order, whitespace, and duplicate keys (the last
+  one wins) follow `jsonb` semantics and are not preserved.
+- It must not contain NUL characters or numbers outside PostgreSQL's numeric
+  range.
+
+### HTTP API
+
+| Method and path | Result |
+|---|---|
+| `POST /api/v1/events` | Validates and stores an event. `201 Created` with the canonical event and a `Location` header. |
+| `GET /api/v1/events/{id}` | `200` with the event, or `404`. |
+
+The event is committed to PostgreSQL before `201` is returned. Errors:
+
+- `400` with a JSON body `{"title", "status", "violations": [{"field", "message"}]}`
+  for malformed JSON, unknown fields, wrong JSON types (values are never
+  coerced, e.g. `42` is not a string), and failed validation. `field` is the
+  JSON path, or empty for the whole body.
+- `404` with the same body shape (no violations) for an unknown event ID. A
+  malformed ID is also `404`, without a body.
+- `413` for request bodies over 64 KiB, and `415` for non-JSON bodies.
+
+The OpenAPI document at `/q/openapi` is the reference for the request and
+response schemas, with examples. See
+[development.md](development.md#events-api) for curl examples.
+
+### Schema
+
+`V1__create_events.sql` creates the `events` table. Check constraints repeat
+the API's invariants (lengths, non-blank title, enum values, metadata is an
+object), so the database stays valid even when something other than the API
+writes to it. There are no secondary indexes: the only query is by primary key.
+Indexes arrive with the features that query by other columns.
 
 ## Likely components
 
@@ -159,12 +282,18 @@ Implementation expectations:
   and report ready without a database.
 - **Schema:** Flyway runs at startup in every profile from
   `classpath:db/migration`, with migration naming validated. Hibernate's
-  schema management is `none`. There are no tables yet: the first feature that
-  stores data adds the first migration.
+  schema management is `none`. Tables are listed in
+  `backend/src/main/resources/db/migration/README.md`.
 - **Endpoints:** Quarkus's standard management paths under `/q/`:
   `/q/health/live` (liveness, no dependency checks), `/q/health/ready`
   (readiness, includes the PostgreSQL connection check), and `/q/openapi`.
-  The product API will live under `/api/v1/...`, so the two never collide.
+  The product API lives under `/api/v1/...`, so the two never collide.
+- **Code layout:** the event feature lives in the `event` package: the
+  resource (HTTP), request and response records (API models), a service
+  (transactions and mapping), and the JPA entity with a Panache repository
+  (persistence). The entity is package-private and never serialized.
+  Cross-cutting HTTP concerns (strict JSON reading, error bodies) live in
+  `api`.
 - **Deployment:** `compose.yaml` runs the backend and PostgreSQL 17 with a
   named volume. The backend starts after the database is healthy and is
   itself health-checked through readiness.
@@ -173,7 +302,7 @@ Implementation expectations:
 
 - **Durability first:** persist, then acknowledge, then deliver.
 - **Idempotency:** producers may retry, so ingestion should support
-  deduplication.
+  deduplication. Not implemented yet; see [IDs](#ids).
 - **Secrets from the environment:** credentials (producer tokens, push-provider
   credentials, database password) come from runtime configuration, never from
   the repository.

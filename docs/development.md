@@ -145,7 +145,9 @@ is at <http://localhost:8080/q/swagger-ui> in dev mode only.
 `verify` is exactly what CI runs. The tests use real PostgreSQL (Dev Services
 and Testcontainers), so Docker must be running. They cover liveness, readiness
 with the database up and after it stops, Flyway startup migration, the
-production configuration, and the OpenAPI document.
+production configuration, the OpenAPI document, and the events API: the HTTP
+contract and validation (`EventApiTest`), and what reaches PostgreSQL,
+including the schema's own constraints (`EventPersistenceTest`).
 
 Formatting is [google-java-format](https://github.com/google/google-java-format)
 through Spotless, and static analysis is [SpotBugs](https://spotbugs.github.io/)
@@ -158,8 +160,9 @@ Flyway is the only way the schema changes. Migrations are SQL files in
 and are applied automatically at startup in every mode (dev, test, Compose,
 production). A misnamed migration or one edited after it was applied fails
 startup. Hibernate never creates or alters tables. There is no separate migrate
-command: start the service (dev mode or Compose) to migrate its database. There
-are no migrations yet.
+command: start the service (dev mode or Compose) to migrate its database. The
+migrations are listed in
+[`db/migration/README.md`](../backend/src/main/resources/db/migration/README.md).
 
 ### Docker Compose
 
@@ -182,11 +185,72 @@ not published.
 
 | Path | Purpose |
 |---|---|
+| `/api/v1/events` | `POST`: publish an event. See [Events API](#events-api). |
+| `/api/v1/events/{id}` | `GET`: read an event by its ID. |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
 | `/q/health` | Both of the above combined. |
 | `/q/openapi` | OpenAPI document (YAML; `?format=json` for JSON). |
 | `/q/swagger-ui` | Swagger UI, dev mode only. |
+
+### Events API
+
+The event model, validation rules, and timestamp and metadata semantics are
+described in [architecture.md](architecture.md#events). The OpenAPI document
+(`/q/openapi`, or Swagger UI in dev mode) has the full schema and examples.
+Try it against dev mode or Compose:
+
+```sh
+curl -i http://localhost:8080/api/v1/events \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "source": "ci/build-runner",
+        "context": "signalhub",
+        "category": "BLOCKED",
+        "severity": "HIGH",
+        "title": "Nightly build failed",
+        "message": "3 of 412 tests failed on main.",
+        "metadata": {"pipeline": "nightly", "run": 1842},
+        "occurredAt": "2026-09-25T14:03:00+02:00"
+      }'
+```
+
+```http
+HTTP/1.1 201 Created
+Location: http://localhost:8080/api/v1/events/01a0d931-9c33-7989-a9ea-adb6724470e6
+Content-Type: application/json;charset=UTF-8
+
+{
+  "id": "01a0d931-9c33-7989-a9ea-adb6724470e6",
+  "source": "ci/build-runner",
+  "context": "signalhub",
+  "category": "BLOCKED",
+  "severity": "HIGH",
+  "title": "Nightly build failed",
+  "message": "3 of 412 tests failed on main.",
+  "metadata": {"pipeline": "nightly", "run": 1842},
+  "occurredAt": "2026-09-25T12:03:00Z",
+  "createdAt": "2026-09-25T15:31:42.209368Z"
+}
+```
+
+Read it back, including after restarting the service:
+
+```sh
+curl http://localhost:8080/api/v1/events/01a0d931-9c33-7989-a9ea-adb6724470e6
+```
+
+Invalid input gets a `400` that names each offending field:
+
+```json
+{
+  "title": "Invalid request",
+  "status": 400,
+  "violations": [
+    {"field": "category", "message": "must be one of [ACTION_REQUIRED, BLOCKED, COMPLETED, INFO]"}
+  ]
+}
+```
 
 ### Configuration
 
@@ -227,8 +291,9 @@ docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -c
 (cd backend && ./mvnw verify)
 # Container smoke test: the "Backend container" job in .github/workflows/ci.yml
 # starts the stack with `docker compose up --build --wait`, checks liveness,
-# readiness and OpenAPI, stops PostgreSQL and expects readiness 503, and checks
-# that the image refuses to start without database settings.
+# readiness and OpenAPI, publishes an event and reads it back after restarting
+# the backend, stops PostgreSQL and expects readiness 503, and checks that the
+# image refuses to start without database settings.
 ```
 
 Each new component adds its own build, lint, and test commands to CI and to
