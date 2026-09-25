@@ -181,7 +181,8 @@ for Google's token endpoint and the FCM API with a key generated per run.
 Event-triggered dispatch is covered by `EventPushDispatchTest` (the outbox
 row is written with the event, every client with a target gets one push
 unless its preferences exclude the event, expired claims are dispatched
-again), `EventPushScheduleTest` (the dispatcher
+again, temporary failures are retried with backoff up to the last attempt,
+and a retry honours preferences changed meanwhile), `EventPushScheduleTest` (the dispatcher
 runs on its own timer) and `EventPushMessagesTest` (shortening the body). The
 test profile turns the scheduler off so tests run the dispatcher directly. No
 test needs a real push provider, network access or credentials.

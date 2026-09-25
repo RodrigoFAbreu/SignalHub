@@ -265,6 +265,21 @@ The following capabilities are already implemented and merged unless repository 
   without push preferences is reported
 - no backend changes; unit and widget tests against the fake backend
 
+### R13 - Delivery reliability
+
+- a send that fails temporarily (`TRANSIENT_FAILURE`) is sent again, up to 5
+  sends in all, after 30 s, 2, 10 and 30 minutes; other results are final
+  (invalid targets are removed, permanent failures and missing targets are
+  not retried)
+- `push_retries` rows (V8) per event and client, written in the transaction
+  that completes the event's dispatch and claimed with an expiring lease like
+  the outbox: retries survive restarts, no external queue
+- a retry re-reads the client's push target and preferences
+- final failure: the retry is dropped with a warning naming event and
+  client; no delivery-attempt records (not justified: the event stays in the
+  inbox)
+- tests against real PostgreSQL with the fake provider, docs
+
 ---
 
 ## 4. Planned roadmap
@@ -500,6 +515,8 @@ Exit criteria:
 
 ### R13 - Delivery reliability
 
+Status: complete (see section 3).
+
 Goal: make push delivery resilient enough for unattended automation.
 
 Evaluate and implement only what current failure modes justify:
@@ -719,13 +736,12 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After push preferences (R12), the expected next milestone is:
+After delivery reliability (R13), the expected next milestone is:
 
-**R13 - Delivery reliability**
+**R14 - Producer SDK and CLI**
 
-Bounded retries with backoff for transient push failures (R8b makes one
-attempt per client), using the existing PostgreSQL outbox rather than new
-infrastructure, and a clean final state for permanent failures.
+A small Python producer package and CLI over the public HTTP API, with the
+raw HTTP/curl integration still documented.
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 

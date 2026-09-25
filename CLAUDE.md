@@ -38,7 +38,8 @@ through `/api/v1/admin/clients` and `/api/v1/client`) with per-client push
 preferences (pause, minimum severity, muted categories and producers), and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging
 provider enabled by a service account key file, and event-triggered push
-dispatch through a PostgreSQL outbox, and the Flutter client app
+dispatch through a PostgreSQL outbox with bounded retries of temporary
+failures, and the Flutter client app
 in `client/` (setup with a client key, push registration and reception, the
 event inbox and event details, read state, and push preferences). Do not build components beyond
 the scope of the task at hand.
