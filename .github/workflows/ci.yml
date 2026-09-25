@@ -116,9 +116,20 @@ jobs:
       # owner's Apple account and happens on their machine.
       - run: flutter build ios --debug --no-codesign
 
+  # Runs natively on x86-64 and on ARM64 (such as a Raspberry Pi 5), so the
+  # image is built and the whole stack is checked on both. The x86-64 job keeps
+  # its name, which branch protection requires.
   compose:
-    name: Backend container (Compose smoke test)
-    runs-on: ubuntu-latest
+    name: ${{ matrix.arch == 'arm64' && 'Backend container (Compose smoke test, ARM64)' || 'Backend container (Compose smoke test)' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
       - name: Start PostgreSQL and the backend
@@ -139,6 +150,16 @@ jobs:
           YAML
           docker compose up --build --wait --wait-timeout 180
           test "$(docker inspect --format '{{.HostConfig.Memory}}' "$(docker compose ps --quiet backend)")" = 536870912
+      - name: The images are built for the runner's architecture
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          for service in backend postgres; do
+            image=$(docker inspect --format '{{.Image}}' "$(docker compose ps --quiet "$service")")
+            arch=$(docker image inspect --format '{{.Architecture}}' "$image")
+            echo "$service: $arch"
+            test "$arch" = "$ARCH" || { echo "expected $ARCH, got $arch"; exit 1; }
+          done
       - name: Liveness, readiness and OpenAPI respond
         run: |
           curl --fail --silent --show-error http://localhost:8080/q/health/live
