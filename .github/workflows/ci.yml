@@ -27,12 +27,24 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          # The last one is the default. 3.10 is the oldest the SDK supports
+          # (sdk/python/pyproject.toml, requires-python).
+          python-version: |
+            3.10
+            3.12
       - run: pip install ruff==0.16.9
       - run: ruff check .
       - run: ruff format --check .
       - name: Test release versioning
         run: python -m unittest discover --start-directory scripts/release --verbose
+      # Installing the SDK also checks its build and the `signalhub` command.
+      - run: pip install ./sdk/python && signalhub send --help
+      - name: Test the Python SDK
+        run: python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python --verbose
+      - name: Test the Python SDK on its oldest supported Python
+        run: |
+          python3.10 -m pip install ./sdk/python
+          python3.10 -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python
 
   workflows:
     name: GitHub Actions lint
@@ -218,6 +230,25 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Authorization: Bearer $client_key" http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      # After the listings above, which expect only the "Smoke test" event.
+      - name: The Python command publishes an event
+        env:
+          SIGNALHUB_URL: http://localhost:8080
+        run: |
+          pip install ./sdk/python
+          id=$(SIGNALHUB_API_KEY=$API_KEY signalhub send --category action-required \
+            --severity HIGH --title "From the command" --context ci/sdk \
+            --metadata '{"run": 42}' --meta step=smoke)
+          curl --fail --silent --show-error "http://localhost:8080/api/v1/events/$id" \
+            | jq --exit-status '.category == "ACTION_REQUIRED" and .title == "From the command"
+                and .metadata == {"run": 42, "step": "smoke"} and .producer.id == env.PRODUCER_ID'
+          status=0
+          SIGNALHUB_API_KEY=shpk1_not-a-key signalhub send --category INFO --severity LOW \
+            --title Rejected || status=$?
+          test "$status" = 1 || { echo "expected exit status 1, got $status"; exit 1; }
       - name: A revoked key no longer authenticates
         run: |
           curl --fail --silent --show-error --output /dev/null --request POST \

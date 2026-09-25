@@ -7,9 +7,10 @@
 > registration with client keys, push targets and push preferences (see
 > [Clients](#clients)),
 > the push-provider boundary with a Firebase Cloud Messaging provider,
-> event-triggered push dispatch (see [Push delivery](#push-delivery)), and the
-> foundation of the Flutter client app for Android and iOS (see
-> [Client application](#client-application)).
+> event-triggered push dispatch (see [Push delivery](#push-delivery)), the
+> Flutter client app for Android and iOS (see
+> [Client application](#client-application)), and the Python producer SDK
+> and command (see [Producer SDK and CLI](#producer-sdk-and-cli)).
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -887,6 +888,38 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   client API (`MockClient`) and a fake `PushService`; no device, network or
   credentials. CI also compiles the Android and iOS apps.
 
+## Producer SDK and CLI
+
+> Status: implemented in `sdk/python/`: a Python package and the
+> `signalhub send` command. Usage is in
+> [`sdk/python/README.md`](../sdk/python/README.md).
+
+The SDK is a convenience for producers, not part of the contract: it calls
+`POST /api/v1/events` like any other producer, with no access to backend
+internals, and everything it does is documented as plain HTTP too.
+
+- **Python first.** Scripts, CI jobs and small home servers usually have
+  Python, and one package gives both a library and a command.
+- **Standard library only** (`urllib`, `json`, `argparse`), Python 3.10 or
+  later: installing it adds no dependencies to a producer's environment. It is
+  not published to PyPI; producers install it from the repository at a
+  release tag, which is its version of record.
+- **Configuration** from `SIGNALHUB_URL` and `SIGNALHUB_API_KEY` (or
+  `SIGNALHUB_API_KEY_FILE`). The command also takes `--url` and
+  `--api-key-file`, but no option for the key itself, which would show in
+  process lists and shell history.
+- **The server validates.** Category and severity are normalized for
+  convenience (case, `-` for `_`) but not checked against a local list, so an
+  older SDK can send values a newer server adds. The server's violations are
+  reported as they are. Only a timestamp without an offset is refused
+  locally, since it cannot be sent unambiguously.
+- **Errors say whether to retry.** The command exits `1` when the event or key
+  was rejected, `2` on a usage or configuration error, and `3` on a
+  temporary failure (unreachable, timeout, `429`, `5xx`); the library raises
+  matching exceptions with a `temporary` flag. It does not retry by itself:
+  publishing is not idempotent yet (see [IDs](#ids)), so the caller decides
+  whether a possible duplicate is acceptable.
+
 ## Likely components
 
 | Component | Direction | Responsibility |
@@ -895,7 +928,7 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
 | Database | PostgreSQL | System of record for events, producers, devices, delivery state |
 | Push | A push provider, likely Firebase Cloud Messaging | Transport to devices only, carrying minimal payloads |
 | Clients | Flutter app for Android and iOS (see [Client application](#client-application)); other clients (CLI, web) may follow | Device registration, notifications, event browsing |
-| Producer SDK/CLI | Optional, for example Python | Thin client over the public HTTP API |
+| Producer SDK/CLI | Python package and command in `sdk/python/` (see [Producer SDK and CLI](#producer-sdk-and-cli)) | Thin client over the public HTTP API |
 | Deployment | Docker, Docker Compose | Reproducible self-hosted deployment |
 
 ## Backend platform
