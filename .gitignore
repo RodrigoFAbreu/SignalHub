@@ -9,6 +9,9 @@
 google-services.json
 GoogleService-Info.plist
 *service-account*.json
+*firebase-adminsdk*.json
+# Local Compose overrides, e.g. mounting push credentials
+compose.override.yaml
 
 # Python
 __pycache__/

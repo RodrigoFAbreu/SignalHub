@@ -170,8 +170,13 @@ reading the listing, and push targets), `ClientPersistenceTest` (hashes only,
 and the schema's push-target constraints) and `ClientKeysTest` (the key
 format). Push delivery is covered by `PushDeliveryTest` (every outcome,
 through `FakePushProvider`, a test-only provider named `fake`) and
-`PushProvidersTest` (provider name checks at startup). No test needs a real
-push provider or credentials.
+`PushProvidersTest` (provider name checks at startup). The FCM provider is
+covered by `FcmPushProviderTest` (request format, access-token signing and
+caching, and the mapping of every FCM error), `FcmCredentialsTest` (reading
+the key file, never echoing the key) and `FcmDeliveryTest` (the `fcm` provider
+active in a running backend), all against `FakeFcm`, an in-process stand-in
+for Google's token endpoint and the FCM API with a key generated per run. No
+test needs a real push provider, network access or credentials.
 The test profile uses a fixed, test-only admin token from
 `application.properties`.
 
@@ -444,7 +449,31 @@ Optional in every profile:
 |---|---|
 | `SIGNALHUB_ADMIN_TOKEN` | Enables the management API for producers and clients, and lets the operator list events. At least 32 characters (`openssl rand -hex 32`); shorter stops startup. Unset or empty disables the management API; clients keep reading events with their keys. |
 
+| `SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE` | Path to a Firebase service account key file (JSON). Enables push through Firebase Cloud Messaging (provider `fcm`); an unreadable or invalid file stops startup. Unset or empty: no `fcm` provider, and `fcm` push targets are reported as unsupported. See [Firebase Cloud Messaging](#firebase-cloud-messaging). |
+
 Compose derives them from `.env` (see `.env.example`). Never commit `.env`.
+
+### Firebase Cloud Messaging
+
+To send real pushes, create a Firebase project, then in its console open
+*Project settings → Service accounts → Generate new private key*. Keep the
+downloaded JSON file outside the repository (it is a credential) and mount it into the backend read-only, for example
+with a git-ignored `compose.override.yaml` next to `compose.yaml`:
+
+```yaml
+services:
+  backend:
+    environment:
+      SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE: /run/secrets/fcm.json
+    volumes:
+      - /path/outside/the/repo/fcm-service-account.json:/run/secrets/fcm.json:ro
+```
+
+The container runs as UID 10001, which must be able to read the file. On
+startup the log shows `FCM push enabled for Firebase project ...` and
+`Push providers: [fcm]`. Clients register their FCM registration token with
+`PUT /api/v1/client/push-target` and provider `fcm`. Events do not trigger a
+push yet; see [roadmap](roadmap.md) R8.
 
 ## Local validation
 

@@ -5,9 +5,9 @@
 > event listing (see [Events](#events)), producer authentication (see
 > [Producers and authentication](#producers-and-authentication)), and client
 > registration with client keys and push targets (see [Clients](#clients)),
-> and the push-provider boundary (see [Push delivery](#push-delivery)). No
-> concrete push provider, event-triggered dispatch, or client application
-> exists yet.
+> and the push-provider boundary with a Firebase Cloud Messaging provider (see
+> [Push delivery](#push-delivery)). No event-triggered dispatch or client
+> application exists yet.
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -562,9 +562,8 @@ token. Rejected client keys are logged at `DEBUG` like producer keys.
 
 ## Push delivery
 
-> Status: the provider boundary is implemented and tested with a fake
-> provider. No concrete provider ships yet, and publishing an event does not
-> trigger a push yet.
+> Status: the provider boundary and the `fcm` provider are implemented and
+> tested with fakes. Publishing an event does not trigger a push yet.
 
 Delivery code asks for a push to one client and never sees a concrete
 provider. Everything provider-specific stays behind one small interface, so
@@ -603,6 +602,49 @@ provider that is not configured (for example without credentials) must not be
 an active bean; the active set is logged at startup, and two providers with
 one name, or a name no push target could carry, stop startup. Credentials are
 each provider's own configuration, read from the environment.
+
+### Firebase Cloud Messaging
+
+The `fcm` provider sends through the FCM HTTP v1 API
+(`POST https://fcm.googleapis.com/v1/projects/{project}/messages:send`). It is
+active only when `SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE` names a Firebase service
+account key file (JSON, as the Firebase console issues it). The project comes
+from that file. A missing, unreadable or malformed file, or one that is not a
+service account key, stops startup; the message names the problem, never the
+key.
+
+- **Authentication.** The provider signs a JWT with the service account key
+  and exchanges it at the file's `token_uri` for an OAuth 2.0 access token
+  (scope `firebase.messaging`, RFC 7523). The token is cached and renewed five
+  minutes before it expires. Only the JDK is used (HTTP client, RSA
+  signature), so no Google SDK is a dependency.
+- **Message.** A `PushMessage` becomes an FCM notification message: the title
+  and optional body as `notification`, the data as `data`, addressed to the
+  push target's token. Nothing FCM-specific leaks out of the provider.
+- **Outcomes.**
+
+  | FCM answer | Outcome |
+  |---|---|
+  | `2xx` | `DELIVERED` |
+  | error code `UNREGISTERED` (the app was uninstalled or the token expired) | `INVALID_TARGET`: the target is removed |
+  | `401` (access token rejected) | `TRANSIENT_FAILURE`; the next send gets a new token |
+  | `429`, `5xx`, connection errors, timeouts (10 s) | `TRANSIENT_FAILURE` |
+  | other `4xx`, such as `INVALID_ARGUMENT` or `SENDER_ID_MISMATCH` | `PERMANENT_FAILURE`: the target is kept |
+  | token endpoint `4xx` (key or account rejected) | `PERMANENT_FAILURE` |
+  | token endpoint `429`, `5xx` or unusable answer | `TRANSIENT_FAILURE` |
+
+  Only `UNREGISTERED` condemns a target: FCM reports `INVALID_ARGUMENT` for a
+  bad payload too, and `SENDER_ID_MISMATCH` also when SignalHub is configured
+  with the wrong project, and neither should wipe the owner's registrations.
+  Outcome details hold the HTTP status and FCM's error code only, never the
+  response text, which may quote the token.
+- **Network.** Outbound HTTPS to `oauth2.googleapis.com` and
+  `fcm.googleapis.com`. The JVM's standard proxy settings (`https.proxyHost`)
+  apply. `signalhub.push.fcm.api-url` overrides the API base URL, which tests
+  use to point at a local fake.
+
+The file is the only FCM credential. Mount it read-only into the container;
+never commit it (see [Cross-cutting principles](#cross-cutting-principles)).
 
 **Not yet:** retries, backoff and delivery-attempt records (roadmap R13), and
 deciding which events trigger a push. The push token never appears in logs:
@@ -712,7 +754,8 @@ Implementation expectations:
   live in the `producer` package. Clients, client keys, the client and owner
   authentication filters, and the client APIs live in the `client` package.
   The push-provider boundary and delivery live in the `push` package; concrete
-  providers will be classes there too, and nothing outside it references one. Authentication uses plain JAX-RS request
+  providers (`FcmPushProvider`) are classes there too, and nothing outside it
+  references one. Authentication uses plain JAX-RS request
   filters bound by annotation (`@ProducerAuthenticated`, `@AdminOnly`,
   `@ClientAuthenticated`, `@OwnerAuthenticated`) rather than an identity
   framework: a few bearer-token checks do not justify one.
