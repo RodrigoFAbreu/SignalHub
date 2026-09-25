@@ -12,7 +12,8 @@ import argparse
 import json
 import os
 import sys
-from typing import Any, Mapping, NoReturn, TextIO
+from collections.abc import Mapping
+from typing import Any, NoReturn, TextIO
 
 from signalhub.client import (
     API_KEY_ENV,

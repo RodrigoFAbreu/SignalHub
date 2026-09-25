@@ -10,10 +10,11 @@ import json
 import os
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Mapping
+from typing import Any
 
 URL_ENV = "SIGNALHUB_URL"
 API_KEY_ENV = "SIGNALHUB_API_KEY"

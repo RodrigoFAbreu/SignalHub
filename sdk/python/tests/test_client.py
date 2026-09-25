@@ -20,7 +20,7 @@ from signalhub import (
     Violation,
 )
 
-from tests.fake_server import FakeSignalHub, start
+from tests.fake_server import start
 
 KEY = "shpk1_3f1c0b8e5d2a4c7e9b610a8d4e2f7c13_secret"
 
@@ -106,7 +106,7 @@ class PublishTest(unittest.TestCase):
                 category="INFO",
                 severity="LOW",
                 title="t",
-                occurred_at=datetime(2026, 9, 25),
+                occurred_at=datetime(2026, 9, 25),  # noqa: DTZ001 - naive on purpose
             )
         self.assertEqual(self.server.requests, [])
 
@@ -228,36 +228,38 @@ class ConfigurationTest(unittest.TestCase):
                 SignalHub("http://localhost:8080", key)
 
     def test_reads_url_and_key_from_the_environment(self) -> None:
-        with FakeSignalHub() as server:
-            env = {"SIGNALHUB_URL": server.url, "SIGNALHUB_API_KEY": KEY}
-            with mock.patch.dict(os.environ, env, clear=True):
-                SignalHub.from_env().publish(category="INFO", severity="LOW", title="t")
-            self.assertEqual(
-                server.requests[0]["headers"]["Authorization"], f"Bearer {KEY}"
-            )
+        server = start(self)
+        env = {"SIGNALHUB_URL": server.url, "SIGNALHUB_API_KEY": KEY}
+        with mock.patch.dict(os.environ, env, clear=True):
+            SignalHub.from_env().publish(category="INFO", severity="LOW", title="t")
+        self.assertEqual(
+            server.requests[0]["headers"]["Authorization"], f"Bearer {KEY}"
+        )
 
     def test_reads_the_key_from_a_file(self) -> None:
+        server = start(self)
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "key")
             with open(path, "w", encoding="utf-8") as file:
                 file.write(KEY + "\n")
-            with FakeSignalHub() as server:
-                env = {"SIGNALHUB_URL": server.url, "SIGNALHUB_API_KEY_FILE": path}
-                with mock.patch.dict(os.environ, env, clear=True):
-                    SignalHub.from_env().publish(
-                        category="INFO", severity="LOW", title="t"
-                    )
-                self.assertEqual(
-                    server.requests[0]["headers"]["Authorization"], f"Bearer {KEY}"
-                )
+            env = {"SIGNALHUB_URL": server.url, "SIGNALHUB_API_KEY_FILE": path}
+            with mock.patch.dict(os.environ, env, clear=True):
+                SignalHub.from_env().publish(category="INFO", severity="LOW", title="t")
+        self.assertEqual(
+            server.requests[0]["headers"]["Authorization"], f"Bearer {KEY}"
+        )
 
     def test_missing_settings_are_named(self) -> None:
-        with mock.patch.dict(os.environ, {}, clear=True):
-            with self.assertRaisesRegex(ConfigurationError, "SIGNALHUB_URL"):
-                SignalHub.from_env()
-        with mock.patch.dict(os.environ, {"SIGNALHUB_URL": "http://x"}, clear=True):
-            with self.assertRaisesRegex(ConfigurationError, "SIGNALHUB_API_KEY"):
-                SignalHub.from_env()
+        with (
+            mock.patch.dict(os.environ, {}, clear=True),
+            self.assertRaisesRegex(ConfigurationError, "SIGNALHUB_URL"),
+        ):
+            SignalHub.from_env()
+        with (
+            mock.patch.dict(os.environ, {"SIGNALHUB_URL": "http://x"}, clear=True),
+            self.assertRaisesRegex(ConfigurationError, "SIGNALHUB_API_KEY"),
+        ):
+            SignalHub.from_env()
 
     def test_an_unreadable_or_empty_key_file_is_reported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -271,9 +273,9 @@ class ConfigurationTest(unittest.TestCase):
                 with (
                     self.subTest(reason=reason),
                     mock.patch.dict(os.environ, env, clear=True),
+                    self.assertRaisesRegex(ConfigurationError, reason),
                 ):
-                    with self.assertRaisesRegex(ConfigurationError, reason):
-                        SignalHub.from_env()
+                    SignalHub.from_env()
 
 
 if __name__ == "__main__":

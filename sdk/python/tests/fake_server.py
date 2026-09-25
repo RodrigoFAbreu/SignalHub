@@ -23,7 +23,7 @@ class FakeSignalHub:
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
-            def do_POST(self) -> None:  # noqa: N802 - http.server's naming
+            def do_POST(self) -> None:
                 length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(length).decode("utf-8")
                 fake.requests.append(
@@ -46,7 +46,7 @@ class FakeSignalHub:
                 if text is not None:
                     self.wfile.write(text.encode("utf-8"))
 
-            def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+            def log_message(self, format: str, *args: Any) -> None:
                 pass
 
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -79,17 +79,14 @@ class FakeSignalHub:
     def respond_raw(self, status: int, text: str) -> None:
         self.responses.append((status, text))
 
-    def __enter__(self) -> FakeSignalHub:
-        self._thread.start()
-        return self
-
-    def __exit__(self, *exc: object) -> None:
+    def stop(self) -> None:
         self._server.shutdown()
         self._server.server_close()
 
 
 def start(test: unittest.TestCase) -> FakeSignalHub:
     """Starts a fake that stops when the test ends."""
-    server = FakeSignalHub().__enter__()
-    test.addCleanup(server.__exit__)
+    server = FakeSignalHub()
+    server._thread.start()
+    test.addCleanup(server.stop)
     return server
