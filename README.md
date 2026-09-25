@@ -33,7 +33,7 @@ Early development.
 
 | Component | Status |
 |---|---|
-| Backend (`backend/`) | Quarkus service with PostgreSQL, Flyway, health checks, OpenAPI, Docker image and Compose. Generic event ingestion: `POST /api/v1/events` and `GET /api/v1/events/{id}`. Paginated, filterable event listing (the inbox): `GET /api/v1/events`. Producer authentication with server-issued API keys, managed through an admin-token-protected API. No owner/client authentication or push delivery yet. |
+| Backend (`backend/`) | Quarkus service with PostgreSQL, Flyway, health checks, OpenAPI, Docker image and Compose. Generic event ingestion: `POST /api/v1/events` and `GET /api/v1/events/{id}`. Paginated, filterable event listing (the inbox): `GET /api/v1/events`. Producer authentication with server-issued API keys, managed through an admin-token-protected API. Client registration: each client installation gets its own key for reading events and stores a provider-neutral push target. No push delivery yet. |
 | Clients | Not started |
 | Producer SDK/CLI | Not started |
 
@@ -55,14 +55,20 @@ curl http://localhost:8080/api/v1/events -H "Authorization: Bearer $API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"category": "INFO", "severity": "NORMAL", "title": "Hello"}'
 
-# List events, newest first, as the owner.
-curl -s http://localhost:8080/api/v1/events -H "Authorization: Bearer $ADMIN_TOKEN"
+# Register a client (an app installation); it reads events with its own key.
+CLIENT_KEY=$(curl -s http://localhost:8080/api/v1/admin/clients \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name": "my-laptop"}' | jq -r .clientKey)
+
+# List events, newest first, as that client.
+curl -s http://localhost:8080/api/v1/events -H "Authorization: Bearer $CLIENT_KEY"
 ```
 
 The event model and API are described in
 [docs/architecture.md](docs/architecture.md#events), and producers and API
 keys in
-[docs/architecture.md](docs/architecture.md#producers-and-authentication).
+[docs/architecture.md](docs/architecture.md#producers-and-authentication),
+and clients in [docs/architecture.md](docs/architecture.md#clients).
 
 See [docs/development.md](docs/development.md#backend) for dev mode, tests, and
 configuration.

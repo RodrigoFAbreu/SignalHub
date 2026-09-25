@@ -134,8 +134,8 @@ Services starts a throwaway PostgreSQL container, applies the migrations, and
 removes it on exit, so no database setup or credentials are needed. Swagger UI
 is at <http://localhost:8080/q/swagger-ui> in dev mode only.
 
-To register producers in dev mode, enable the management API with an admin
-token (see [Producers and API keys](#producers-and-api-keys)):
+To register producers and clients in dev mode, enable the management API
+with an admin token (see [Producers and API keys](#producers-and-api-keys)):
 
 ```sh
 export SIGNALHUB_ADMIN_TOKEN=$(openssl rand -hex 32)
@@ -165,6 +165,10 @@ management API, the listing, and their admin-token guard), `ProducerPersistenceT
 hashes are stored), `ProducerMigrationTest` (upgrading a database that holds
 events from before authentication), and unit tests for the key format, bearer
 parsing and admin token (`ApiKeysTest`, `BearerTokenTest`, `AdminTokenTest`).
+Clients are covered by `ClientApiTest` (registration, revocation, client keys
+reading the listing, and push targets), `ClientPersistenceTest` (hashes only,
+and the schema's push-target constraints) and `ClientKeysTest` (the key
+format).
 The test profile uses a fixed, test-only admin token from
 `application.properties`.
 
@@ -205,9 +209,11 @@ not published.
 | Path | Purpose |
 |---|---|
 | `/api/v1/events` | `POST`: publish an event, with a producer API key. See [Events API](#events-api). |
-| `/api/v1/events` | `GET`: list events, newest first, with the admin token. See [Events API](#events-api). |
+| `/api/v1/events` | `GET`: list events, newest first, with a client key or the admin token. See [Events API](#events-api). |
 | `/api/v1/events/{id}` | `GET`: read an event by its ID. |
 | `/api/v1/admin/producers/...` | Producer management, with the admin token. See [Producers and API keys](#producers-and-api-keys). |
+| `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
+| `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
 | `/q/health` | Both of the above combined. |
@@ -266,6 +272,56 @@ curl -s -X POST "$API/$PRODUCER/disable" -H "$H"           # block all its keys
 curl -s -X POST "$API/$PRODUCER/enable" -H "$H"            # unblock its unrevoked keys
 ```
 
+### Clients
+
+Clients (the owner's app installations) and their keys are described in
+[architecture.md](architecture.md#clients). Register one with the admin
+token; the response contains its client key, **shown only this once**:
+
+```sh
+curl -s http://localhost:8080/api/v1/admin/clients \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Pixel 8"}'
+```
+
+```json
+{
+  "client": {
+    "id": "01a0da2c-1f3e-7a51-8d0c-6b1f2e3d4c5b",
+    "name": "Pixel 8",
+    "createdAt": "2026-09-25T18:02:11.108811Z",
+    "revokedAt": null,
+    "pushTarget": null
+  },
+  "clientKey": "shck1_01a0da2c1f3e7a518d0c6b1f2e3d4c5b_<secret>"
+}
+```
+
+Configure the client installation with `clientKey`. It then reads events and
+manages its own push target (`$CLIENT_KEY` is the key above):
+
+```sh
+C="Authorization: Bearer $CLIENT_KEY"
+curl -s http://localhost:8080/api/v1/events -H "$C"            # the inbox
+curl -s http://localhost:8080/api/v1/client -H "$C"            # its own registration
+curl -s -X PUT http://localhost:8080/api/v1/client/push-target -H "$C" \
+  -H 'Content-Type: application/json' -d '{"provider": "fcm", "token": "<provider token>"}'
+curl -s -X DELETE http://localhost:8080/api/v1/client/push-target -H "$C"
+```
+
+The operator lists, inspects and revokes clients (`$CLIENT` is the ID above):
+
+```sh
+H="Authorization: Bearer $ADMIN_TOKEN"
+API=http://localhost:8080/api/v1/admin/clients
+curl -s "$API" -H "$H"                          # all clients
+curl -s "$API/$CLIENT" -H "$H"                  # one client
+curl -s -X POST "$API/$CLIENT/revoke" -H "$H"   # revoke it and drop its push target
+```
+
+No push is sent yet; the push target is stored for delivery in a later release.
+
 ### Events API
 
 The event model, validation rules, and timestamp and metadata semantics are
@@ -314,11 +370,12 @@ Read it back, including after restarting the service:
 curl http://localhost:8080/api/v1/events/01a0d931-9c33-7989-a9ea-adb6724470e6
 ```
 
-List events, newest first, with the admin token (see
-[architecture.md](architecture.md#listing-events) for every parameter):
+List events, newest first, with a client key (see [Clients](#clients)) or the
+admin token (see [architecture.md](architecture.md#listing-events) for every
+parameter):
 
 ```sh
-H="Authorization: Bearer $ADMIN_TOKEN"
+H="Authorization: Bearer $CLIENT_KEY"
 curl -s "http://localhost:8080/api/v1/events?limit=20" -H "$H"
 curl -s "http://localhost:8080/api/v1/events?severity=HIGH&severity=CRITICAL&createdFrom=2026-09-25T00:00:00Z" -H "$H"
 curl -s "http://localhost:8080/api/v1/events?producerId=$PRODUCER&limit=20&cursor=$NEXT_CURSOR" -H "$H"
@@ -382,7 +439,7 @@ Optional in every profile:
 
 | Variable | Effect |
 |---|---|
-| `SIGNALHUB_ADMIN_TOKEN` | Enables the producer management API and the event listing. At least 32 characters (`openssl rand -hex 32`); shorter stops startup. Unset or empty disables both. |
+| `SIGNALHUB_ADMIN_TOKEN` | Enables the management API for producers and clients, and lets the operator list events. At least 32 characters (`openssl rand -hex 32`); shorter stops startup. Unset or empty disables the management API; clients keep reading events with their keys. |
 
 Compose derives them from `.env` (see `.env.example`). Never commit `.env`.
 
@@ -406,9 +463,11 @@ docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -c
 # token, checks liveness, readiness and OpenAPI, registers a producer, checks
 # that publishing without a valid key gets 401, publishes an event with the key
 # and reads it back after restarting the backend, lists it with the admin
-# token (and expects 401 without it), revokes the key and expects
-# 401, stops PostgreSQL and expects readiness 503, and checks that the image
-# refuses to start without database settings.
+# token (and expects 401 without it), registers a client that lists the event
+# with its key and sets a push target, revokes the client and expects 401,
+# revokes the producer key and expects 401, stops PostgreSQL and expects
+# readiness 503, and checks that the image refuses to start without database
+# settings.
 ```
 
 Each new component adds its own build, lint, and test commands to CI and to

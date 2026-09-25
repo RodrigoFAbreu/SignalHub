@@ -7,13 +7,14 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 /**
- * The operator's token for the producer management API and the event listing, from {@code
- * SIGNALHUB_ADMIN_TOKEN}. Without it both are disabled. Checked at startup so a weak token stops
- * the service instead of protecting it poorly.
+ * The operator's token for the management API (producers and clients), from {@code
+ * SIGNALHUB_ADMIN_TOKEN}; it may also read the event listing. Without it the management API is
+ * disabled and only client keys read events. Checked at startup so a weak token stops the service
+ * instead of protecting it poorly.
  */
 @Startup
 @Singleton
-final class AdminToken {
+public final class AdminToken {
 
   static final int MIN_LENGTH = 32;
 
@@ -26,8 +27,7 @@ final class AdminToken {
     check(token);
     this.hash = token.map(ApiKeys::hash);
     if (token.isEmpty()) {
-      LOG.info(
-          "Producer management API and event listing disabled: SIGNALHUB_ADMIN_TOKEN is not set");
+      LOG.info("Management API disabled: SIGNALHUB_ADMIN_TOKEN is not set");
     }
   }
 
@@ -40,11 +40,11 @@ final class AdminToken {
     }
   }
 
-  boolean enabled() {
+  public boolean enabled() {
     return hash.isPresent();
   }
 
-  boolean matches(String presented) {
+  public boolean matches(String presented) {
     return hash.isPresent() && ApiKeys.hashesMatch(ApiKeys.hash(presented), hash.get());
   }
 }

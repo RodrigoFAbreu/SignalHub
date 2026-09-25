@@ -61,7 +61,9 @@ class OpenApiTest {
         .get("/q/openapi")
         .then()
         .statusCode(200)
-        .body(EVENTS + ".get.security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(
+            EVENTS + ".get.security",
+            containsInAnyOrder(Map.of("clientKey", List.of()), Map.of("adminToken", List.of())))
         .body(EVENTS + ".post.security", equalTo(List.of(Map.of("producerApiKey", List.of()))))
         .body(
             EVENTS + ".get.parameters.name",
@@ -79,7 +81,7 @@ class OpenApiTest {
         .body(EVENTS + ".get.responses", hasKey("200"))
         .body(EVENTS + ".get.responses", hasKey("400"))
         .body(EVENTS + ".get.responses", hasKey("401"))
-        .body(EVENTS + ".get.responses", hasKey("404"))
+        .body(EVENTS + ".get.responses", not(hasKey("404")))
         .body(
             EVENTS + ".get.responses.'200'.content.'application/json'.schema.$ref",
             equalTo("#/components/schemas/EventPage"))
@@ -168,5 +170,34 @@ class OpenApiTest {
         .body(SCHEMAS + ".IssuedApiKey.required", containsInAnyOrder("producer", "keyId", "apiKey"))
         .body(SCHEMAS + ".Producer.properties", not(hasKey("apiKey")))
         .body(SCHEMAS + ".ApiKey.properties", not(hasKey("keyHash")));
+  }
+
+  @Test
+  void describesClientRegistration() {
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body("components.securitySchemes.clientKey.type", equalTo("http"))
+        .body("components.securitySchemes.clientKey.scheme", equalTo("bearer"))
+        .body(
+            "paths.'/api/v1/admin/clients'.post.security",
+            equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(
+            "paths.'/api/v1/admin/clients'.post.responses.'201'.content.'application/json'"
+                + ".schema.$ref",
+            equalTo("#/components/schemas/IssuedClientKey"))
+        .body("paths", hasKey("/api/v1/admin/clients/{id}"))
+        .body("paths", hasKey("/api/v1/admin/clients/{id}/revoke"))
+        .body(
+            "paths.'/api/v1/client'.get.security", equalTo(List.of(Map.of("clientKey", List.of()))))
+        .body("paths.'/api/v1/client/push-target'", hasKey("put"))
+        .body("paths.'/api/v1/client/push-target'", hasKey("delete"))
+        .body(SCHEMAS + ".IssuedClientKey.required", containsInAnyOrder("client", "clientKey"))
+        .body(SCHEMAS + ".PushTargetRequest.required", containsInAnyOrder("provider", "token"))
+        .body(SCHEMAS + ".Client.properties", not(hasKey("clientKey")))
+        .body(SCHEMAS + ".PushTarget.properties", not(hasKey("token")));
   }
 }

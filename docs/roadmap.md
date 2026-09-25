@@ -134,6 +134,20 @@ The following capabilities are already implemented and merged unless repository 
 - `(created_at, id)` and `(producer_id, created_at, id)` indexes (V3)
 - tests against real PostgreSQL, OpenAPI, Compose smoke test, docs
 
+### R6 - Client/device registration
+
+- `clients` table (V4): one row per client installation, server-generated
+  UUIDv7 identity, owner-chosen label
+- per-client keys (`shck1_<client id>_<secret>`), hash-only storage, issued by
+  the operator through `/api/v1/admin/clients` (register, list, get, revoke)
+- client keys read the event listing (the admin token still may); this is the
+  client authentication that R5 deferred
+- provider-neutral push target (`provider` name + opaque token) managed by the
+  client through `/api/v1/client/push-target`; write-only token, one client
+  per target, removed on revocation
+- no push delivery; tests against real PostgreSQL, OpenAPI, Compose smoke
+  test, docs
+
 ---
 
 ## 4. Planned roadmap
@@ -171,6 +185,8 @@ Exit criteria:
 - a client can obtain a paginated chronological SignalHub inbox without knowing event IDs in advance
 
 ### R6 - Client/device registration
+
+Status: complete (see section 3).
 
 Goal: establish a generic model for notification-capable client installations.
 
@@ -568,11 +584,11 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After the event inbox/query API (R5), the expected next milestone is:
+After client/device registration (R6), the expected next milestone is:
 
-**R6 - Client/device registration**
+**R7 - Push-provider abstraction**
 
-R6 should also decide how clients authenticate to read events, since the R5
-listing currently accepts only the admin token.
+R7 builds on the push targets stored by R6 (`provider` + opaque token) and
+decides which provider names delivery recognizes.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
