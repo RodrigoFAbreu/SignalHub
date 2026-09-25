@@ -148,24 +148,6 @@ jobs:
             echo "PRODUCER_ID=$(jq --raw-output .producer.id <<<"$created")"
             echo "KEY_ID=$(jq --raw-output .keyId <<<"$created")"
           } >> "$GITHUB_ENV"
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-      - name: The Python command publishes an event
-        env:
-          SIGNALHUB_URL: http://localhost:8080
-        run: |
-          pip install ./sdk/python
-          id=$(SIGNALHUB_API_KEY=$API_KEY signalhub send --category action-required \
-            --severity HIGH --title "From the command" --context ci/sdk \
-            --metadata '{"run": 42}' --meta step=smoke)
-          curl --fail --silent --show-error "http://localhost:8080/api/v1/events/$id" \
-            | jq --exit-status '.category == "ACTION_REQUIRED" and .title == "From the command"
-                and .metadata == {"run": 42, "step": "smoke"} and .producer.id == env.PRODUCER_ID'
-          status=0
-          SIGNALHUB_API_KEY=shpk1_not-a-key signalhub send --category INFO --severity LOW \
-            --title Rejected || status=$?
-          test "$status" = 1 || { echo "expected exit status 1, got $status"; exit 1; }
       - name: Publishing without a valid key is rejected
         run: |
           publish_status() {
@@ -248,6 +230,25 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Authorization: Bearer $client_key" http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      # After the listings above, which expect only the "Smoke test" event.
+      - name: The Python command publishes an event
+        env:
+          SIGNALHUB_URL: http://localhost:8080
+        run: |
+          pip install ./sdk/python
+          id=$(SIGNALHUB_API_KEY=$API_KEY signalhub send --category action-required \
+            --severity HIGH --title "From the command" --context ci/sdk \
+            --metadata '{"run": 42}' --meta step=smoke)
+          curl --fail --silent --show-error "http://localhost:8080/api/v1/events/$id" \
+            | jq --exit-status '.category == "ACTION_REQUIRED" and .title == "From the command"
+                and .metadata == {"run": 42, "step": "smoke"} and .producer.id == env.PRODUCER_ID'
+          status=0
+          SIGNALHUB_API_KEY=shpk1_not-a-key signalhub send --category INFO --severity LOW \
+            --title Rejected || status=$?
+          test "$status" = 1 || { echo "expected exit status 1, got $status"; exit 1; }
       - name: A revoked key no longer authenticates
         run: |
           curl --fail --silent --show-error --output /dev/null --request POST \

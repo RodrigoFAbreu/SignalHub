@@ -616,13 +616,13 @@ flutter build ios --debug --no-codesign
 (cd backend && ./mvnw verify)
 # Container smoke test: the "Backend container" job in .github/workflows/ci.yml
 # starts the stack with `docker compose up --build --wait` and a random admin
-# token, checks liveness, readiness and OpenAPI, registers a producer,
-# publishes with the Python command and reads the event back (and expects exit
-# status 1 with an invalid key), checks that publishing without a valid key gets 401, publishes an event with the key
+# token, checks liveness, readiness and OpenAPI, registers a producer, checks
+# that publishing without a valid key gets 401, publishes an event with the key
 # and reads it back after restarting the backend, lists it with the admin
 # token (and expects 401 without it), registers a client that lists the event
 # with its key, marks it read and counts no unread events, sets a push
-# target, revokes the client and expects 401,
+# target, revokes the client and expects 401, publishes with the Python command
+# and reads the event back (and expects exit status 1 with an invalid key),
 # revokes the producer key and expects 401, stops PostgreSQL and expects
 # readiness 503, and checks that the image refuses to start without database
 # settings.
