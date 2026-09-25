@@ -133,6 +133,14 @@ public class ClientService {
         .map(client -> new PushAddress(client.pushProvider(), client.pushToken()));
   }
 
+  /** The clients that have a push target (so are not revoked), oldest first. */
+  @Transactional
+  public List<UUID> withPushTarget() {
+    return clients.list("pushProvider is not null", Sort.by("createdAt").and("id")).stream()
+        .map(ClientEntity::id)
+        .toList();
+  }
+
   /**
    * Removes the client's push target after its provider rejected it for good, but only if it is
    * still the given one: the client may have registered a new target since. True if removed.

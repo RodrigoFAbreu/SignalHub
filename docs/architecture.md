@@ -5,9 +5,9 @@
 > event listing (see [Events](#events)), producer authentication (see
 > [Producers and authentication](#producers-and-authentication)), and client
 > registration with client keys and push targets (see [Clients](#clients)),
-> and the push-provider boundary with a Firebase Cloud Messaging provider (see
-> [Push delivery](#push-delivery)). No event-triggered dispatch or client
-> application exists yet.
+> the push-provider boundary with a Firebase Cloud Messaging provider, and
+> event-triggered push dispatch (see [Push delivery](#push-delivery)). No
+> client application exists yet.
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -562,8 +562,8 @@ token. Rejected client keys are logged at `DEBUG` like producer keys.
 
 ## Push delivery
 
-> Status: the provider boundary and the `fcm` provider are implemented and
-> tested with fakes. Publishing an event does not trigger a push yet.
+> Status: the provider boundary, the `fcm` provider and event-triggered
+> dispatch are implemented and tested with fakes. Retries are roadmap R13.
 
 Delivery code asks for a push to one client and never sees a concrete
 provider. Everything provider-specific stays behind one small interface, so
@@ -646,8 +646,44 @@ key.
 The file is the only FCM credential. Mount it read-only into the container;
 never commit it (see [Cross-cutting principles](#cross-cutting-principles)).
 
+### Push dispatch
+
+Every stored event is pushed to every client that has a push target. There is
+no filtering yet: which events interrupt the owner is a preference (roadmap
+R12), and it will be decided from generic event fields only.
+
+```
+ POST /api/v1/events ──one transaction──▶ events + push_dispatches (outbox)
+                                              │ every 2 s
+                                              ▼
+                        EventPushDispatcher: claim oldest row ──▶ PushDelivery.deliver(client, message)
+                                              │                     for each client with a push target
+                                              └─ delete the row
+```
+
+- **Durable.** Publishing writes the event and a `push_dispatches` row in the
+  same transaction (V5), so an acknowledged event always gets its push
+  attempted, even if the backend stops before sending it.
+- **Claims, not locks.** The dispatcher claims the oldest row for 5 minutes
+  (`FOR UPDATE SKIP LOCKED` picks it), sends outside any transaction, and then
+  deletes the row. If the backend stops mid-dispatch, the claim expires and
+  the event is dispatched again. Runs never overlap, and further instances
+  would skip each other's claims.
+- **At least once.** A redispatched event reaches again the clients that had
+  already received it, so clients deduplicate by the `eventId` in the push
+  data. Each client gets one send per dispatch; a transient provider failure
+  is logged and not retried yet (roadmap R13).
+- **The push.** The event's title, its message shortened to 500 characters
+  (providers limit payloads; FCM to 4 KiB), and data `eventId`, `category`
+  and `severity`. It is a signal to look: the client fetches the event by ID.
+- **Interval.** `signalhub.push.dispatch.interval`
+  (`SIGNALHUB_PUSH_DISPATCH_INTERVAL`, default `2s`) is how often the
+  dispatcher looks for new rows, and so the longest a push waits.
+- Deleting an event (not possible through the API yet) drops its pending
+  push with it.
+
 **Not yet:** retries, backoff and delivery-attempt records (roadmap R13), and
-deciding which events trigger a push. The push token never appears in logs:
+preferences for which events push (roadmap R12). The push token never appears in logs:
 providers must keep it out of outcome details, and an exception from a
 provider is logged by type only.
 
@@ -786,6 +822,7 @@ These are deferred until the relevant implementation work:
 - How a client obtains its key without the operator copying it by hand
   (for example a pairing flow), once a client application exists.
 - Event retention and pruning policy.
-- Routing and filtering rules: which events trigger a push, quiet hours.
+- Routing and filtering rules: which events trigger a push (all do for now),
+  quiet hours.
 - Client platforms: which clients (Android, iOS, web, CLI) are built first,
   and their technology.
