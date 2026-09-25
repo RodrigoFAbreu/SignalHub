@@ -111,6 +111,57 @@ void main() {
     );
   });
 
+  test('marks one event read and unread', () async {
+    backend.publish('e-1', 'Build failed');
+    final api = backend.api();
+
+    final read = await api.markRead('e-1');
+    expect(read.isRead, isTrue);
+    expect(read.readAt, DateTime.utc(2026, 9, 25, 12, 10));
+    expect(backend.requests.last.method, 'PUT');
+    expect(backend.requests.last.url.path, '/api/v1/events/e-1/read');
+    expect(backend.requests.last.headers['Authorization'], 'Bearer $clientKey');
+
+    final unread = await api.markUnread('e-1');
+    expect(unread.isRead, isFalse);
+    expect(backend.requests.last.method, 'DELETE');
+    expect(backend.requests.last.url.path, '/api/v1/events/e-1/read');
+    expect(backend.isRead('e-1'), isFalse);
+  });
+
+  test('marks events read through one event and counts unread', () async {
+    backend
+      ..publish('e-1', 'Oldest')
+      ..publish('e-2', 'Middle')
+      ..publish('e-3', 'Newest');
+    final api = backend.api();
+    expect(await api.unreadCount(), 3);
+    expect(backend.requests.last.url.path, '/api/v1/events/unread-count');
+
+    expect(await api.markReadThrough('e-2'), 2);
+
+    final post = backend.requests.last;
+    expect(post.method, 'POST');
+    expect(post.url.path, '/api/v1/events/read');
+    expect(post.headers['Content-Type'], startsWith('application/json'));
+    expect(jsonDecode(post.body), {'through': 'e-2'});
+    expect(await api.unreadCount(), 1);
+    expect(backend.isRead('e-3'), isFalse);
+  });
+
+  test('marking an unknown event is an EventNotFoundException', () async {
+    final api = backend.api();
+
+    await expectLater(
+      api.markRead('e-404'),
+      throwsA(isA<EventNotFoundException>()),
+    );
+    await expectLater(
+      api.markReadThrough('e-404'),
+      throwsA(isA<EventNotFoundException>()),
+    );
+  });
+
   test('a rejected key is an UnauthorizedException', () async {
     backend.acceptedKey = null;
 

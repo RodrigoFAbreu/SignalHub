@@ -19,6 +19,7 @@ void main() {
       },
       'occurredAt': '2026-09-25T12:00:00Z',
       'createdAt': '2026-09-25T12:00:01.5Z',
+      'readAt': '2026-09-25T12:05:00Z',
     };
 
     test('reads every documented field', () {
@@ -32,6 +33,21 @@ void main() {
       expect(event.metadata['nested'], {'a': 1});
       expect(event.occurredAt, DateTime.utc(2026, 9, 25, 12));
       expect(event.createdAt, DateTime.utc(2026, 9, 25, 12, 0, 1, 500));
+    });
+
+    test('is unread without readAt, and can change locally', () {
+      final read = Event.fromJson(json());
+      expect(read.readAt, DateTime.utc(2026, 9, 25, 12, 5));
+      expect(read.isRead, isTrue);
+
+      final unread = Event.fromJson({...json(), 'readAt': null});
+      expect(unread.isRead, isFalse);
+
+      final marked = unread.withReadAt(DateTime.utc(2026, 9, 26));
+      expect(marked.isRead, isTrue);
+      expect(marked.id, unread.id);
+      expect(marked.title, unread.title);
+      expect(marked.metadata, unread.metadata);
     });
 
     test('keeps events with a category added in a later release', () {

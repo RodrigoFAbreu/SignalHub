@@ -59,6 +59,10 @@ class AppController extends ChangeNotifier {
   /// The inbox: the events read so far, newest first.
   List<Event> events = const [];
 
+  /// How many events are unread on the server, including events not read
+  /// into [events] yet; `null` until known.
+  int? unreadCount;
+
   /// Whether the first page of the inbox has been read since connecting.
   bool inboxLoaded = false;
 
@@ -131,7 +135,11 @@ class AppController extends ChangeNotifier {
       if (includeClient) registration = await api.getClient();
       final generation = ++_inboxGeneration;
       final page = await api.listEvents(limit: pageSize);
-      if (generation == _inboxGeneration) _showFirstPage(page);
+      final unread = await api.unreadCount();
+      if (generation == _inboxGeneration) {
+        _showFirstPage(page);
+        unreadCount = unread;
+      }
       error = null;
     } on UnauthorizedException {
       await _forgetRevokedKey();
@@ -178,12 +186,82 @@ class AppController extends ChangeNotifier {
   /// The event with [id]: from the inbox if it is there, otherwise from the
   /// server. Throws an [ApiException] if it cannot be read.
   Future<Event> event(String id) async {
-    for (final event in events) {
-      if (event.id == id) return event;
-    }
+    if (_eventWithId(id) case final event?) return event;
     final api = _api;
     if (api == null) throw const ApiException('Not connected to a server');
     return api.getEvent(id);
+  }
+
+  /// Marks the event with [id] read, for every client of the owner, when the
+  /// owner opens it. Failing is harmless: the event stays unread and is
+  /// marked again the next time it is opened.
+  Future<void> markRead(String id) async {
+    if (_eventWithId(id)?.isRead ?? false) return;
+    await _changeReadState(() async {
+      _replaceEvent(await _api!.markRead(id));
+      await _readUnreadCount();
+    });
+  }
+
+  /// Marks the event with [id] unread again. Returns an error message, or
+  /// `null` on success.
+  Future<String?> markUnread(String id) => _changeReadState(() async {
+    _replaceEvent(await _api!.markUnread(id));
+    await _readUnreadCount();
+  });
+
+  /// Marks read every event up to the newest one shown. Events that arrived
+  /// since stay unread, so nothing the owner has not seen is marked. Returns
+  /// an error message, or `null` on success.
+  Future<String?> markAllRead() async {
+    final newest = events.firstOrNull;
+    if (newest == null) return null;
+    return _changeReadState(() async {
+      await _api!.markReadThrough(newest.id);
+      // The server answers only a count. Every event shown is at or before
+      // the newest one, so all of them are read now; the time is the app's
+      // estimate, and a reload shows the server's.
+      final now = DateTime.now().toUtc();
+      events = [for (final e in events) e.isRead ? e : e.withReadAt(now)];
+      await _readUnreadCount();
+    });
+  }
+
+  /// Runs a read-state change against the server. Returns an error message,
+  /// or `null` on success.
+  Future<String?> _changeReadState(Future<void> Function() change) async {
+    if (_api == null) return 'Not connected to a server';
+    try {
+      await change();
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } finally {
+      notifyListeners();
+    }
+    return null;
+  }
+
+  /// After a change the server has made: if the count cannot be read, the
+  /// change still stands and the next reload corrects the count.
+  Future<void> _readUnreadCount() async {
+    final api = _api;
+    if (api == null) return;
+    try {
+      unreadCount = await api.unreadCount();
+    } on UnauthorizedException {
+      rethrow;
+    } on ApiException catch (e) {
+      debugPrint('Unread count not updated: ${e.message}');
+    }
+  }
+
+  Event? _eventWithId(String id) => events.where((e) => e.id == id).firstOrNull;
+
+  void _replaceEvent(Event updated) {
+    events = [for (final e in events) e.id == updated.id ? updated : e];
   }
 
   /// The event of a notification the owner tapped, once: the inbox opens it.
@@ -227,6 +305,7 @@ class AppController extends ChangeNotifier {
     credentials = null;
     registration = null;
     events = const [];
+    unreadCount = null;
     _nextCursor = null;
     _inboxGeneration++;
     inboxLoaded = false;

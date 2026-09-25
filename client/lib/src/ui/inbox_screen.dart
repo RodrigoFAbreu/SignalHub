@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
@@ -8,8 +10,8 @@ import 'event_screen.dart';
 import 'event_style.dart';
 
 /// The connected app: every event, newest first, read page by page from
-/// `GET /api/v1/events`. Tapping an event, or a notification about it, opens
-/// its details.
+/// `GET /api/v1/events`, with unread events marked and counted. Tapping an
+/// event, or a notification about it, opens its details and marks it read.
 class InboxScreen extends StatefulWidget {
   const InboxScreen({super.key, required this.controller});
 
@@ -44,19 +46,64 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   void _open(String id, [Event? event]) {
+    unawaited(_controller.markRead(id));
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            EventScreen(load: () => _controller.event(id), initial: event),
+        builder: (_) => EventScreen(
+          load: () => _controller.event(id),
+          initial: event,
+          markUnread: () => _controller.markUnread(id),
+        ),
       ),
     );
   }
 
+  Future<void> _markAllRead() async {
+    final error = await _controller.markAllRead();
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('SignalHub'),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _controller,
+    builder: (context, _) => Scaffold(
+      appBar: _appBar(),
+      body: RefreshIndicator(
+        onRefresh: _controller.refresh,
+        child: _list(context),
+      ),
+    ),
+  );
+
+  AppBar _appBar() {
+    final unread = _controller.unreadCount ?? 0;
+    return AppBar(
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('SignalHub'),
+          if (unread > 0) ...[
+            const SizedBox(width: 8),
+            Badge.count(
+              key: const Key('unreadCount'),
+              count: unread,
+              maxCount: 999,
+            ),
+          ],
+        ],
+      ),
       actions: [
+        IconButton(
+          key: const Key('markAllRead'),
+          tooltip: 'Mark all as read',
+          icon: const Icon(Icons.done_all),
+          onPressed: unread > 0 && _controller.events.isNotEmpty
+              ? _markAllRead
+              : null,
+        ),
         PopupMenuButton<void>(
           itemBuilder: (context) => [
             PopupMenuItem(
@@ -76,15 +123,8 @@ class _InboxScreenState extends State<InboxScreen> {
           ],
         ),
       ],
-    ),
-    body: ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) => RefreshIndicator(
-        onRefresh: _controller.refresh,
-        child: _list(context),
-      ),
-    ),
-  );
+    );
+  }
 
   Widget _list(BuildContext context) {
     final controller = _controller;
@@ -156,6 +196,7 @@ class _InboxScreenState extends State<InboxScreen> {
 }
 
 /// One event in the inbox: what it is about, where it came from, and when.
+/// Unread events have a bold title and a dot.
 class EventTile extends StatelessWidget {
   const EventTile(this.event, {super.key, this.onTap});
 
@@ -167,13 +208,29 @@ class EventTile extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return ListTile(
       leading: Icon(event.category.icon, color: event.severity.color(colors)),
-      title: Text(event.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+      title: Text(
+        event.title,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: event.isRead
+            ? null
+            : const TextStyle(fontWeight: FontWeight.bold),
+      ),
       subtitle: Text(
         '${event.category.label} · ${event.severity.label} · '
         '${event.producer.name} · ${formatTimestamp(event.createdAt)}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
+      trailing: event.isRead
+          ? null
+          : Icon(
+              Icons.circle,
+              key: const Key('unread'),
+              size: 12,
+              color: colors.primary,
+              semanticLabel: 'Unread',
+            ),
       onTap: onTap,
     );
   }

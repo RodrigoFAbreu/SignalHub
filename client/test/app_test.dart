@@ -127,6 +127,85 @@ void main() {
     expect(find.text('Nightly build failed'), findsOneWidget);
   });
 
+  Finder unreadDot(String title) => find.descendant(
+    of: find.widgetWithText(ListTile, title),
+    matching: find.byKey(const Key('unread')),
+  );
+
+  testWidgets('shows which events are unread and how many', (tester) async {
+    backend
+      ..publish('e-2', 'Seen', readAt: '2026-09-25T12:04:00Z')
+      ..publish('e-3', 'Deploy done');
+
+    await connect(tester);
+
+    expect(unreadDot('Nightly build failed'), findsOneWidget);
+    expect(unreadDot('Deploy done'), findsOneWidget);
+    expect(unreadDot('Seen'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('unreadCount')),
+        matching: find.text('2'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('opening an event marks it read', (tester) async {
+    await connect(tester);
+
+    await tester.tap(find.text('Nightly build failed'));
+    await settle(tester);
+    expect(backend.isRead('e-1'), isTrue);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(unreadDot('Nightly build failed'), findsNothing);
+    expect(find.byKey(const Key('unreadCount')), findsNothing);
+  });
+
+  testWidgets('an event can be marked unread again', (tester) async {
+    backend.events.single['readAt'] = '2026-09-25T12:04:00Z';
+    await connect(tester);
+
+    await tester.tap(find.text('Nightly build failed'));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('markUnread')));
+    await settle(tester);
+
+    // Back in the inbox, unread.
+    expect(find.byKey(const Key('markUnread')), findsNothing);
+    expect(backend.isRead('e-1'), isFalse);
+    expect(unreadDot('Nightly build failed'), findsOneWidget);
+  });
+
+  testWidgets('marks everything shown read', (tester) async {
+    backend.publish('e-2', 'Deploy done');
+    await connect(tester);
+
+    await tester.tap(find.byKey(const Key('markAllRead')));
+    await settle(tester);
+
+    expect(backend.isRead('e-1') && backend.isRead('e-2'), isTrue);
+    expect(find.byKey(const Key('unread')), findsNothing);
+    expect(find.byKey(const Key('unreadCount')), findsNothing);
+    final button = tester.widget<IconButton>(
+      find.byKey(const Key('markAllRead')),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('a failed mark all read says why', (tester) async {
+    await connect(tester);
+    backend.offline = true;
+
+    await tester.tap(find.byKey(const Key('markAllRead')));
+    await settle(tester);
+
+    expect(find.text('Could not reach the server'), findsOneWidget);
+    expect(unreadDot('Nightly build failed'), findsOneWidget);
+  });
+
   testWidgets('shows why setup failed', (tester) async {
     backend.acceptedKey = null;
 
@@ -164,6 +243,7 @@ void main() {
 
     expect(find.text('v1.2.3 is live.'), findsOneWidget);
     expect(find.text('e-2'), findsOneWidget);
+    expect(backend.isRead('e-2'), isTrue);
   });
 
   testWidgets('a notification for an unknown event says so', (tester) async {

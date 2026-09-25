@@ -535,7 +535,10 @@ controller (setup, restart, revoked key, unreachable server, push
 permission, token refresh, pushes re-reading the inbox, paging and its
 failures, opening a tapped notification's event, disconnect), the Firebase
 options from build-time values, and the screens in widget tests (inbox,
-paging while scrolling, event details, opening from a notification). Builds without Firebase options run without push.
+paging while scrolling, event details, opening from a notification) and
+read state (the API calls, the unread count, marking read on opening,
+marking unread, marking all read up to the newest event shown, and their
+failures). Builds without Firebase options run without push.
 
 ## Local validation
 

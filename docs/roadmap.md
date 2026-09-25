@@ -228,6 +228,17 @@ The following capabilities are already implemented and merged unless repository 
 - all require a client key or the admin token; partial index over unread
   events; tests against real PostgreSQL, OpenAPI, Compose smoke test, docs
 
+### R11b - Read state in the client app
+
+- unread rows have a bold title and a dot; the app bar shows the server's
+  unread count, re-read with the inbox (also after a push)
+- opening an event, from the inbox or a notification, marks it read; a
+  failure leaves it unread until it is opened again
+- the event screen marks an event unread again and returns to the inbox
+- *Mark all as read* marks read up to the newest event shown; events that
+  arrived since stay unread
+- no backend changes; unit and widget tests against the fake backend
+
 ---
 
 ## 4. Planned roadmap
@@ -415,9 +426,8 @@ Exit criteria:
 
 ### R11 - Read/unread state
 
-Status: split. R11a (backend read state and API) is complete (see section
-3). R11b, showing unread events and the unread count in the app and marking
-events read from it, is next.
+Status: complete, as R11a (backend read state and API) and R11b (read state
+in the app); see section 3.
 
 Goal: support notification lifecycle state across client sessions.
 
@@ -680,13 +690,12 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After the read state API (R11a), the expected next milestone is:
+After read state in the app (R11b), the expected next milestone is:
 
-**R11b - Read/unread state in the client app**
+**R12 - Notification preferences and routing**
 
-The inbox shows which events are unread and the unread count, opening an
-event marks it read, and the owner can mark events read up to the newest
-shown, all through the R11a API.
+Generic preferences that suppress pushes (for example by category,
+severity or producer) while every event stays in the inbox.
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 

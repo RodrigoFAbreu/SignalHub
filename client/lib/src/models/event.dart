@@ -67,6 +67,7 @@ class Event {
     this.message,
     this.metadata = const {},
     this.occurredAt,
+    this.readAt,
   });
 
   factory Event.fromJson(Map<String, Object?> json) => Event(
@@ -80,6 +81,7 @@ class Event {
     metadata: json.optionalObject('metadata') ?? const {},
     occurredAt: json.optionalTimestamp('occurredAt'),
     createdAt: json.timestamp('createdAt'),
+    readAt: json.optionalTimestamp('readAt'),
   );
 
   final String id;
@@ -94,6 +96,27 @@ class Event {
   final Map<String, Object?> metadata;
   final DateTime? occurredAt;
   final DateTime createdAt;
+
+  /// When the owner first read it, on any client; `null` while unread.
+  final DateTime? readAt;
+
+  bool get isRead => readAt != null;
+
+  /// This event with its read state changed locally, for example after
+  /// marking a range read on the server.
+  Event withReadAt(DateTime? readAt) => Event(
+    id: id,
+    producer: producer,
+    context: context,
+    category: category,
+    severity: severity,
+    title: title,
+    message: message,
+    metadata: metadata,
+    occurredAt: occurredAt,
+    createdAt: createdAt,
+    readAt: readAt,
+  );
 }
 
 /// One page of the event listing.

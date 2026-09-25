@@ -725,9 +725,8 @@ provider is logged by type only.
 ## Client application
 
 > Status: implemented in `client/`: setup with a client key, push
-> registration and reception, the inbox and event details. The backend has
-> [read state](#read-state); showing and changing it in the app is roadmap
-> R11b.
+> registration and reception, the inbox and event details, and
+> [read state](#read-state).
 
 **Technology: Flutter**, chosen by the maintainer for roadmap R9. One Dart
 codebase targets Android and iOS. Other platforms Flutter supports (web,
@@ -786,6 +785,18 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   interpreted. An event opened from the inbox needs no request; one opened
   from a notification is read with `GET /api/v1/events/{id}` unless the
   inbox already has it, and an unknown ID says so.
+- **Read state.** The app shows the server's [read state](#read-state), so
+  it is the same on every client. Unread rows have a bold title and a dot,
+  and the app bar shows the unread count from
+  `GET /api/v1/events/unread-count`, read with every inbox reload (also
+  after a push), so it counts events on pages not read yet. Opening an
+  event, from the inbox or a notification, marks it read
+  (`PUT /api/v1/events/{id}/read`); if that fails the event simply stays
+  unread and is marked the next time. The event screen can mark it unread
+  again (`DELETE`) and returns to the inbox. *Mark all as read* sends the
+  newest event shown as `through` (`POST /api/v1/events/read`), so events
+  that arrived since stay unread; older events not paged in yet are read
+  too, as the owner asked for everything up to that point.
 - **Events.** The app maps the API's events to a typed model. A category or
   severity added in a later backend release maps to *unknown* rather than
   failing, so older apps keep working (see
