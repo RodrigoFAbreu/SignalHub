@@ -1,22 +1,28 @@
 package io.github.rodrigofabreu.signalhub;
 
-import io.quarkus.runtime.StartupEvent;
+import io.quarkus.runtime.LaunchMode;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.Initialized;
 import jakarta.enterprise.event.Observes;
 import java.util.Optional;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.config.ConfigProvider;
 
 /**
- * Refuses to start without a database. Quarkus otherwise deactivates a datasource that has no URL,
- * which silently skips migrations and makes readiness report UP with no database behind it.
+ * Refuses to start without a database, naming the settings to fix. Quarkus otherwise deactivates a
+ * datasource that has no URL and later fails with a message about its own properties.
+ *
+ * <p>The check observes container initialization so it runs before Hibernate ORM starts. Only the
+ * packaged application is checked: in dev and test, Dev Services supplies the URL after this point.
  */
 @ApplicationScoped
 class DatabaseRequirement {
 
-  void requireDatabaseUrl(
-      @Observes StartupEvent event,
-      @ConfigProperty(name = "quarkus.datasource.jdbc.url") Optional<String> url) {
-    check(url);
+  // Read on demand rather than injected: Quarkus rejects runtime config injected this early.
+  void requireDatabaseUrl(@Observes @Initialized(ApplicationScoped.class) Object event) {
+    if (LaunchMode.current() == LaunchMode.NORMAL) {
+      check(
+          ConfigProvider.getConfig().getOptionalValue("quarkus.datasource.jdbc.url", String.class));
+    }
   }
 
   static void check(Optional<String> url) {
