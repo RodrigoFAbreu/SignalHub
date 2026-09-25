@@ -4,7 +4,9 @@ The SignalHub app for Android and iOS, built with Flutter from one codebase.
 It connects to the owner's SignalHub server with a client key, registers for
 push notifications, and shows the inbox: every event, newest first, and each
 event's details, also opened by tapping its notification. Unread events are
-marked and counted; opening one marks it read on every client of the owner. See
+marked and counted; opening one marks it read on every client of the owner.
+The *Notifications* screen chooses which events are pushed to this device.
+See
 [docs/architecture.md](../docs/architecture.md#client-application) for its
 design and [docs/development.md](../docs/development.md#client) for the
 commands that CI runs.
@@ -21,7 +23,7 @@ commands that CI runs.
 | `lib/src/push/push_registration.dart` | Keeps the server's push target in step with the provider's token. |
 | `lib/src/push/firebase_push_service.dart` | The Firebase Cloud Messaging adapter: the only Dart code that knows Firebase. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
-| `lib/src/ui/` | The setup, inbox, event and device screens. |
+| `lib/src/ui/` | The setup, inbox, event, device and notifications screens. |
 | `android/`, `ios/` | Platform projects: identifiers, permissions, push capability. |
 | `test/` | Unit and widget tests against a fake backend and a fake push service. |
 

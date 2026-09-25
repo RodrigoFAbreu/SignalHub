@@ -81,8 +81,18 @@ class AppController extends ChangeNotifier {
   /// The event of a notification the owner tapped, until the inbox opens it.
   String? _eventToOpen;
 
+  /// Whether a change to the push preferences is being saved.
+  bool savingPushPreferences = false;
+
   /// Whether the server has events older than [events].
   bool get hasMore => _nextCursor != null;
+
+  /// The producers of the events in the inbox, by name. Client keys cannot
+  /// list producers, so these are the ones the owner can mute by name.
+  List<EventProducer> get inboxProducers {
+    final byId = {for (final e in events.reversed) e.producer.id: e.producer};
+    return byId.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+  }
 
   /// Loads saved credentials and, if there are any, connects.
   Future<void> start() async {
@@ -264,6 +274,28 @@ class AppController extends ChangeNotifier {
     events = [for (final e in events) e.id == updated.id ? updated : e];
   }
 
+  /// Replaces which events are pushed to this installation. Returns an error
+  /// message, or `null` on success; on failure the registration keeps the
+  /// server's last answer.
+  Future<String?> setPushPreferences(PushPreferences preferences) async {
+    final api = _api;
+    if (api == null) return 'Not connected to a server';
+    savingPushPreferences = true;
+    notifyListeners();
+    try {
+      registration = await api.setPushPreferences(preferences);
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } finally {
+      savingPushPreferences = false;
+      notifyListeners();
+    }
+    return null;
+  }
+
   /// The event of a notification the owner tapped, once: the inbox opens it.
   String? takeEventToOpen() {
     final id = _eventToOpen;
@@ -311,6 +343,7 @@ class AppController extends ChangeNotifier {
     inboxLoaded = false;
     loadingMore = false;
     loadMoreError = null;
+    savingPushPreferences = false;
     _eventToOpen = null;
     pushStatus = _initialPushStatus;
     error = reason;

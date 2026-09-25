@@ -251,6 +251,20 @@ The following capabilities are already implemented and merged unless repository 
 - generic fields only; no quiet hours (not justified yet); tests against real
   PostgreSQL, OpenAPI, Compose smoke test, docs
 
+### R12b - Push preferences in the client app
+
+- a *Notifications* screen (from the inbox menu) sets this client's push
+  preferences: pause, minimum severity, a switch per category and per
+  producer
+- each change is saved at once with `PUT /api/v1/client/push-preferences`
+  (all fields, as the API replaces them); the screen shows what the server
+  stored, and a failure leaves it unchanged
+- producers offered are those of the events in the inbox (client keys cannot
+  list producers); muted producers without inbox events are listed by ID
+- severities and categories unknown to the app are kept on change; a server
+  without push preferences is reported
+- no backend changes; unit and widget tests against the fake backend
+
 ---
 
 ## 4. Planned roadmap
@@ -458,8 +472,8 @@ Exit criteria:
 
 ### R12 - Notification preferences and routing
 
-Status: in progress. R12a (backend push preferences and API) is complete; see
-section 3. R12b, setting the preferences in the client app, is next.
+Status: complete, as R12a (backend push preferences and API) and R12b
+(push preferences in the client app); see section 3.
 
 Goal: let the user control what causes an interrupt without preventing events from being persisted.
 
@@ -705,13 +719,13 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After the push preferences API (R12a), the expected next milestone is:
+After push preferences (R12), the expected next milestone is:
 
-**R12b - Push preferences in the client app**
+**R13 - Delivery reliability**
 
-A settings screen in the app that reads and sets this client's push
-preferences (`PUT /api/v1/client/push-preferences`): pause, minimum
-severity, muted categories and producers. That completes R12.
+Bounded retries with backoff for transient push failures (R8b makes one
+attempt per client), using the existing PostgreSQL outbox rather than new
+infrastructure, and a clean final state for permanent failures.
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 

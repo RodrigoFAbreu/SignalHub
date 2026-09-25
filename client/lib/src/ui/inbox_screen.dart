@@ -8,6 +8,7 @@ import '../push/push_registration.dart';
 import 'device_screen.dart';
 import 'event_screen.dart';
 import 'event_style.dart';
+import 'push_preferences_screen.dart';
 
 /// The connected app: every event, newest first, read page by page from
 /// `GET /api/v1/events`, with unread events marked and counted. Tapping an
@@ -114,6 +115,16 @@ class _InboxScreenState extends State<InboxScreen> {
                 ),
               ),
               child: const Text('This device'),
+            ),
+            PopupMenuItem(
+              key: const Key('notifications'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      PushPreferencesScreen(controller: _controller),
+                ),
+              ),
+              child: const Text('Notifications'),
             ),
             PopupMenuItem(
               key: const Key('disconnect'),

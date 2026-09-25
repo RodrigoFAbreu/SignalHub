@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:signalhub_client/src/api/signalhub_api.dart';
 import 'package:signalhub_client/src/connection/server_credentials.dart';
+import 'package:signalhub_client/src/models/client_registration.dart';
 import 'package:signalhub_client/src/models/event.dart';
 
 import '../support/fakes.dart';
@@ -48,6 +49,34 @@ void main() {
     await api.deletePushTarget();
     expect(backend.requests.last.method, 'DELETE');
     expect(backend.pushTarget, isNull);
+  });
+
+  test('replaces the push preferences', () async {
+    final api = backend.api();
+
+    final client = await api.setPushPreferences(
+      const PushPreferences(
+        enabled: false,
+        minimumSeverity: 'HIGH',
+        mutedCategories: ['INFO'],
+        mutedProducerIds: ['p-2'],
+      ),
+    );
+
+    final put = backend.requests.single;
+    expect(put.method, 'PUT');
+    expect(put.url.path, '/api/v1/client/push-preferences');
+    expect(jsonDecode(put.body), {
+      'enabled': false,
+      'minimumSeverity': 'HIGH',
+      'mutedCategories': ['INFO'],
+      'mutedProducerIds': ['p-2'],
+    });
+    final stored = client.pushPreferences!;
+    expect(stored.enabled, isFalse);
+    expect(stored.minimumSeverity, 'HIGH');
+    expect(stored.mutedCategories, ['INFO']);
+    expect(stored.mutedProducerIds, ['p-2']);
   });
 
   test('lists events newest first with a limit', () async {

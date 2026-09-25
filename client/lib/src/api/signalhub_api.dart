@@ -68,6 +68,19 @@ class SignalHubApi {
     await _send('DELETE', 'api/v1/client/push-target');
   }
 
+  /// `PUT /api/v1/client/push-preferences`: replaces which events are pushed
+  /// to this client; answers the registration with the stored preferences.
+  Future<ClientRegistration> setPushPreferences(
+    PushPreferences preferences,
+  ) async => _read(
+    await _send(
+      'PUT',
+      'api/v1/client/push-preferences',
+      body: preferences.toJson(),
+    ),
+    ClientRegistration.fromJson,
+  );
+
   /// `GET /api/v1/events`: one page of events, newest first. Pass the
   /// previous page's [EventPage.nextCursor] as [cursor] for the next one.
   Future<EventPage> listEvents({int limit = 50, String? cursor}) async {
