@@ -4,8 +4,10 @@
 > (see [Backend platform](#backend-platform)), generic event ingestion and the
 > event listing (see [Events](#events)), producer authentication (see
 > [Producers and authentication](#producers-and-authentication)), and client
-> registration with client keys and push targets (see [Clients](#clients)).
-> Push delivery and client applications do not exist yet.
+> registration with client keys and push targets (see [Clients](#clients)),
+> and the push-provider boundary (see [Push delivery](#push-delivery)). No
+> concrete push provider, event-triggered dispatch, or client application
+> exists yet.
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -558,6 +560,55 @@ Registration, revocation and push-target changes are logged at `INFO` with
 the client ID and provider name only; never the key, its hash, or the push
 token. Rejected client keys are logged at `DEBUG` like producer keys.
 
+## Push delivery
+
+> Status: the provider boundary is implemented and tested with a fake
+> provider. No concrete provider ships yet, and publishing an event does not
+> trigger a push yet.
+
+Delivery code asks for a push to one client and never sees a concrete
+provider. Everything provider-specific stays behind one small interface, so
+adding a provider (Firebase Cloud Messaging first) touches only the edge.
+
+```
+ caller ──deliver(clientId, message)──▶ PushDelivery ──send(token, message)──▶ PushProvider "fcm", ...
+                                          │  reads the client's push target
+                                          └─ removes it on INVALID_TARGET
+```
+
+- **`PushMessage`** is the provider-neutral content: a title, an optional
+  body, and string key/value data for the client app (for example the event
+  ID to open). Each provider translates it into its own format.
+- **`PushProvider`** is the boundary: a `name()` that matches the `provider`
+  of push targets (see [Push targets](#push-targets)), and
+  `send(token, message)`, which returns a classified outcome.
+- **`PushDelivery.deliver(clientId, message)`** looks up the client's push
+  target, picks the provider by name, sends outside any database transaction,
+  and acts on the outcome.
+
+| Outcome | Meaning | What SignalHub does |
+|---|---|---|
+| `DELIVERED` | The provider accepted the message. | Nothing more. |
+| `INVALID_TARGET` | The target no longer exists (e.g. the app was uninstalled). | Removes the client's push target, unless the client registered a new one meanwhile. |
+| `TRANSIENT_FAILURE` | Unavailable, rate-limited, timed out; may succeed later. | Logs a warning and keeps the target. |
+| `PERMANENT_FAILURE` | Retrying will not help, but the target is not condemned (e.g. a rejected payload or a misconfigured provider). | Logs a warning and keeps the target. |
+
+Delivery also reports `NO_TARGET` (unknown or revoked client, or no push
+target) and `UNSUPPORTED_PROVIDER` (no active provider has the target's
+name; the target is kept, since the provider may be configured later). An
+exception thrown by a provider counts as a transient failure.
+
+**Configuration boundary.** Providers are CDI beans in the backend. A
+provider that is not configured (for example without credentials) must not be
+an active bean; the active set is logged at startup, and two providers with
+one name, or a name no push target could carry, stop startup. Credentials are
+each provider's own configuration, read from the environment.
+
+**Not yet:** retries, backoff and delivery-attempt records (roadmap R13), and
+deciding which events trigger a push. The push token never appears in logs:
+providers must keep it out of outcome details, and an exception from a
+provider is logged by type only.
+
 ## Likely components
 
 | Component | Direction | Responsibility |
@@ -659,7 +710,9 @@ Implementation expectations:
   JPA entity with a Panache repository (persistence). The entity is package-private and never serialized.
   Producers, API keys, their authentication filters, and the management API
   live in the `producer` package. Clients, client keys, the client and owner
-  authentication filters, and the client APIs live in the `client` package. Authentication uses plain JAX-RS request
+  authentication filters, and the client APIs live in the `client` package.
+  The push-provider boundary and delivery live in the `push` package; concrete
+  providers will be classes there too, and nothing outside it references one. Authentication uses plain JAX-RS request
   filters bound by annotation (`@ProducerAuthenticated`, `@AdminOnly`,
   `@ClientAuthenticated`, `@OwnerAuthenticated`) rather than an identity
   framework: a few bearer-token checks do not justify one.
