@@ -925,6 +925,26 @@ internals, and everything it does is documented as plain HTTP too.
   publishing is not idempotent yet (see [IDs](#ids)), so the caller decides
   whether a possible duplicate is acceptable.
 
+## Integration examples
+
+> Status: implemented in `examples/`, see
+> [`examples/README.md`](../examples/README.md).
+
+The examples show that unrelated producers fit the one generic contract:
+a shell wrapper for any command, a disk-usage monitor, a GitHub Actions
+workflow, a coding-agent hook (human gates and completions) and a
+usage-threshold monitor. Each is an ordinary producer at the edge, with its
+own API key: it maps its states onto `category` and `severity`, names its
+subject in `context` and puts its details in opaque `metadata`. Nothing in
+the backend, the database or the client app knows about any of them, and
+they depend only on the public HTTP API, directly with `curl` or through the
+Python package.
+
+They are not a supported product surface: owners copy and adapt them, so
+they are not versioned or installed like the SDK. Tests run each one against
+a fake events endpoint, and the Compose smoke test runs them against the
+real backend.
+
 ## Operations
 
 ### Logs

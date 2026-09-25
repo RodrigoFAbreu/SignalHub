@@ -1,0 +1,47 @@
+# Publishes an event to SignalHub when a workflow of this repository fails.
+#
+# Copy this file to .github/workflows/ in the repository to watch, list the
+# workflows under `workflows:`, and add a repository variable SIGNALHUB_URL
+# and a repository secret SIGNALHUB_API_KEY (see examples/README.md). It uses
+# plain HTTP, so the runner needs only curl and jq.
+name: Notify SignalHub
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  notify:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Publish the failure to SignalHub
+        # Event data goes through the environment, never into the script
+        # itself, so a branch name cannot inject shell commands.
+        env:
+          SIGNALHUB_URL: ${{ vars.SIGNALHUB_URL }}
+          SIGNALHUB_API_KEY: ${{ secrets.SIGNALHUB_API_KEY }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          COMMIT: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+        run: |
+          event=$(jq --null-input \
+            '{category: "BLOCKED", severity: "HIGH",
+              title: "\(env.WORKFLOW) failed on \(env.BRANCH)"[:200],
+              message: "\(env.WORKFLOW) #\(env.RUN_NUMBER) failed for \(env.COMMIT[:12]) on \(env.BRANCH): \(env.RUN_URL)",
+              context: env.REPOSITORY,
+              metadata: {workflow: env.WORKFLOW, branch: env.BRANCH, commit: env.COMMIT,
+                         runNumber: (env.RUN_NUMBER | tonumber), url: env.RUN_URL}}')
+          # Retrying after a timeout may store the event twice (publishing is
+          # not idempotent); for a failed run, a duplicate beats a lost event.
+          printf 'Authorization: Bearer %s\n' "$SIGNALHUB_API_KEY" |
+            curl --fail-with-body --silent --show-error --max-time 10 --retry 3 \
+              --header @- --header 'Content-Type: application/json' \
+              --data "$event" "$SIGNALHUB_URL/api/v1/events"
