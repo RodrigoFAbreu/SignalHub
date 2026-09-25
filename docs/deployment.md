@@ -212,10 +212,15 @@ migrations before it stay applied, so go back by
 
 ### Rolling back
 
-Migrations only go forward. Never start an older release on a database
-that a newer one has migrated: it may start, but its code does not know
-the newer schema. To go back, restore the backup from step 2 with the
-older release:
+Migrations only go forward. An older release's code does not know the
+schema a newer one migrated to, so the backend refuses to start on such a
+database, before changing anything, and its log says so: `The database
+was migrated by a newer SignalHub release (migrations 9 are unknown to
+this release)`. Releases up to v0.21.0 refuse it with Flyway's message
+instead, `Detected applied migration not resolved locally`, and advise
+running Flyway's `repair`: never do that, it deletes the newer migrations
+from the schema history but leaves their changes in place. To go back,
+restore the backup from step 2 with the older release:
 
 ```sh
 git checkout v1.2.2

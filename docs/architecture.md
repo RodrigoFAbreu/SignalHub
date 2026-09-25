@@ -1237,7 +1237,12 @@ Implementation expectations:
   database URL, because Quarkus would otherwise deactivate the datasource
   and report ready without a database.
 - **Schema:** Flyway runs at startup in every profile from
-  `classpath:db/migration`, with migration naming validated. Hibernate's
+  `classpath:db/migration`, with migration naming validated. The backend
+  refuses to start, before migrating or validating, on a database holding a
+  migration it does not have: a newer release migrated it, and this code
+  was not written for that schema (`SchemaVersionGuard`, a Flyway
+  callback; Flyway's own refusal advises a `repair` that would hide the
+  newer changes). Hibernate's
   schema management is `none`. Tables are listed in
   `backend/src/main/resources/db/migration/README.md`.
 - **Endpoints:** Quarkus's standard management paths under `/q/`:

@@ -401,9 +401,8 @@ The following capabilities are already implemented and merged unless repository 
   and a read event, backs up, upgrades in place to the commit under test,
   checks the data, keys, preferences, every migration and the health of
   every service, then rolls back to the release by restoring the backup
-- deferred to R18 (upgrade path review): an older release may still start on
-  a database a newer one migrated (Flyway ignores future migrations by
-  default); the documentation forbids it, the backend does not yet refuse
+- deferred to R18 (upgrade path review): refusing to start an older release
+  on a database a newer one migrated; done in R18a
 
 ### R17 - Integration examples
 
@@ -419,6 +418,21 @@ The following capabilities are already implemented and merged unless repository 
 - tests run every example, including the workflow step's script, against a
   fake events endpoint; shellcheck and actionlint lint them; the Compose
   smoke test runs them against the real backend as four producers
+
+### R18a - Refusing a newer schema
+
+- the backend refuses to start on a database holding a migration it does not
+  have (a newer release migrated it), before validating or migrating, so it
+  changes nothing; its log names the unknown migrations and points to
+  rolling back by restoring a backup (`SchemaVersionGuard`, a Flyway
+  callback installed through Quarkus's Flyway configuration customizer)
+- releases up to v0.21.0 already refused through Flyway's validation, but
+  its message advises `repair`, which would delete the newer migrations from
+  the schema history and leave their changes in place; the rollback
+  documentation now warns against it
+- tested against real PostgreSQL with Flyway validation on and off, and in
+  the Compose smoke test, where the packaged image refuses a database with a
+  recorded migration it does not have
 
 ---
 
@@ -799,6 +813,9 @@ Exit criteria:
 
 ### R18 - v1.0 hardening and contract review
 
+Status: in progress; R18a (refusing a newer schema) is complete (see
+section 3).
+
 Goal: deliberately declare the first stable SignalHub contract.
 
 Before `v1.0.0`, review:
@@ -808,7 +825,7 @@ Before `v1.0.0`, review:
 - event schema
 - enum evolution strategy
 - pagination
-- migrations and upgrade path, including refusing to start an older release on a newer schema (see R16c)
+- migrations and upgrade path (refusing to start an older release on a newer schema: done in R18a)
 - client/device lifecycle
 - push semantics
 - error formats
@@ -894,11 +911,9 @@ Determine this from repository state rather than trusting this section blindly.
 
 After the integration examples (R17), the expected next increment is:
 
-**R18 - v1.0 hardening and contract review**
+**R18 - v1.0 hardening and contract review**, continuing after R18a
 
-Likely split into bounded increments, starting with the deferred upgrade-path
-item (refusing to start an older release on a newer schema, see R16c), then
-the reviews and tests R18 lists. Promotion to `v1.0.0` itself is always the
+Likely split into bounded increments: the reviews and tests R18 lists. Promotion to `v1.0.0` itself is always the
 maintainer's decision. Confirming delivery to a real device (R8 to R10)
 still needs the maintainer's Firebase project.
 

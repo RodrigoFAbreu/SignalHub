@@ -152,7 +152,8 @@ export SIGNALHUB_ADMIN_TOKEN=$(openssl rand -hex 32)
 
 `verify` is exactly what CI runs. The tests use real PostgreSQL (Dev Services
 and Testcontainers), so Docker must be running. They cover liveness, readiness
-with the database up and after it stops, Flyway startup migration, the
+with the database up and after it stops, Flyway startup migration and the
+refusal of a newer schema (`SchemaVersionGuardTest`), the
 production configuration, the OpenAPI document, and the events API: the HTTP
 contract and validation (`EventApiTest`), the listing's order, filters,
 pagination and parameter validation (`EventListApiTest`, with the cursor
@@ -203,7 +204,9 @@ Flyway is the only way the schema changes. Migrations are SQL files in
 `backend/src/main/resources/db/migration`, named `V<version>__<description>.sql`,
 and are applied automatically at startup in every mode (dev, test, Compose,
 production). A misnamed migration or one edited after it was applied fails
-startup. Hibernate never creates or alters tables. There is no separate migrate
+startup, and so does a database that a newer release has migrated (a
+migration this code does not have; see `SchemaVersionGuard`). Hibernate
+never creates or alters tables. There is no separate migrate
 command: start the service (dev mode or Compose) to migrate its database. The
 migrations are listed in
 [`db/migration/README.md`](../backend/src/main/resources/db/migration/README.md).

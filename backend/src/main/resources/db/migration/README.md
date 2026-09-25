@@ -7,6 +7,8 @@ creates or alters tables.
 - Name files `V<version>__<description>.sql`, e.g. `V2__add_event_key.sql`.
   Misnamed `.sql` files fail startup instead of being skipped.
 - Never edit or delete a migration once it has reached `main`. Add a new one.
+- A release refuses to start on a database holding a migration it does not
+  have, so going back to an older release means restoring a backup.
 - The schema is a public contract. See `docs/architecture.md`.
 
 | Version | Change |

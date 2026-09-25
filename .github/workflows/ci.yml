@@ -440,6 +440,28 @@ jobs:
           curl --fail --silent --show-error http://localhost:8080/q/health/live
           docker compose start postgres
           docker compose up --wait --wait-timeout 120
+      - name: The backend refuses a database that a newer release migrated
+        run: |
+          sql() {
+            docker compose exec -T postgres sh -c \
+              'psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --tuples-only --no-align' \
+              <<<"$1"
+          }
+          docker compose stop backend
+          sql "INSERT INTO flyway_schema_history
+                     (installed_rank, version, description, type, script, checksum, installed_by, execution_time, success)
+                   SELECT max(installed_rank) + 1, '99999', 'from a newer release', 'SQL',
+                     'V99999__from_a_newer_release.sql', 0, current_user, 0, true
+                   FROM flyway_schema_history"
+          before=$(sql "SELECT count(*) FROM flyway_schema_history")
+          code=0
+          timeout 120 docker compose run --rm --no-deps backend > "$RUNNER_TEMP/newer-schema.log" 2>&1 || code=$?
+          test "$code" != 124 || { echo "still running after 120s"; exit 1; }
+          test "$code" != 0 || { echo "started on a newer schema"; exit 1; }
+          grep 'migrations 99999 are unknown to this release' "$RUNNER_TEMP/newer-schema.log"
+          test "$(sql "SELECT count(*) FROM flyway_schema_history")" = "$before"
+          sql "DELETE FROM flyway_schema_history WHERE version = '99999'"
+          docker compose up --wait --wait-timeout 120
       - name: The image refuses to start without database settings
         run: |
           docker run --detach --name no-database signalhub-backend:local
