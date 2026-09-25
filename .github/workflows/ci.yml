@@ -261,6 +261,7 @@ jobs:
       - name: JSON logs carry the startup summary and no secrets
         run: |
           echo 'SIGNALHUB_LOG_JSON=true' >> .env
+          echo 'SIGNALHUB_EVENTS_RETENTION=400d' >> .env
           docker compose up --wait --wait-timeout 120   # recreates the backend
           logs=$(docker compose logs --no-log-prefix backend)
           db_password=$(sed -n 's/^SIGNALHUB_DB_PASSWORD=//p' .env)
@@ -269,7 +270,7 @@ jobs:
           summary=$(jq --raw-input --raw-output \
             'fromjson | select(.loggerName | endswith(".StartupDiagnostics")) | .message' <<<"$logs")
           echo "$summary"
-          grep --quiet '^Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; .*JSON logs on' <<<"$summary"
+          grep --quiet '^Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; .*event retention 400d; JSON logs on' <<<"$summary"
           if grep --quiet --fixed-strings --regexp="$ADMIN_TOKEN" --regexp="$db_password" <<<"$logs"; then
             echo "a secret reached the logs"; exit 1
           fi

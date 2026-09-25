@@ -109,6 +109,15 @@ class EventService {
     return new UnreadCount(repository.countUnread());
   }
 
+  /**
+   * Deletes up to {@code limit} of the oldest events created before {@code cutoff}, in their own
+   * transaction; returns how many. Their pending pushes and retries go with them.
+   */
+  @Transactional
+  int deleteCreatedBefore(Instant cutoff, int limit) {
+    return repository.deleteCreatedBefore(cutoff, limit);
+  }
+
   // The foreign key guarantees the producer exists.
   private ProducerIdentity producerOf(EventEntity event) {
     return producers.find(event.producerId()).orElseThrow();

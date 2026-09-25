@@ -28,6 +28,7 @@ class StartupDiagnosticsTest {
     assertThat(summary, containsString("management API enabled"));
     assertThat(summary, containsString("FCM credentials file not set (no fcm provider)"));
     assertThat(summary, containsString("push dispatch every 2s"));
+    assertThat(summary, containsString("event retention off (events are kept forever)"));
     assertThat(summary, containsString("JSON logs off"));
     assertThat(summary, containsString("Java " + Runtime.version().feature()));
     assertThat(summary, containsString(" MiB"));

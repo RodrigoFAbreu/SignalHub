@@ -11,8 +11,8 @@
 > Flutter client app for Android and iOS (see
 > [Client application](#client-application)), and the Python producer SDK
 > and command (see [Producer SDK and CLI](#producer-sdk-and-cli)), and
-> Prometheus metrics, optional JSON logs and a startup configuration summary
-> (see [Operations](#operations)).
+> Prometheus metrics, optional JSON logs, a startup configuration summary and
+> an optional event retention period (see [Operations](#operations)).
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -160,7 +160,7 @@ the producer), not a producer-controlled canonical ID.
   PostgreSQL `timestamptz` and returned in UTC (`Z`) with up to microsecond
   precision. Finer precision is truncated.
 - `createdAt` is canonical: the server's clock when it stored the event.
-  Ordering and retention will use it.
+  Ordering and [retention](#retention) use it.
 - `occurredAt` is producer context. SignalHub stores and returns it but does
   not trust it for ordering: producer clocks may be wrong, and events may be
   published late. A timestamp without an offset (`2026-09-25T14:03:00`) is
@@ -781,8 +781,8 @@ pushes; the event itself is stored and listed either way.
 - **Interval.** `signalhub.push.dispatch.interval`
   (`SIGNALHUB_PUSH_DISPATCH_INTERVAL`, default `2s`) is how often the
   dispatcher looks for new rows, and so the longest a push waits.
-- Deleting an event (not possible through the API yet) drops its pending
-  push and retries with it.
+- Deleting an event (only [retention](#retention) does; the API cannot)
+  drops its pending push and retries with it.
 
 The push token never appears in logs:
 providers must keep it out of outcome details, and an exception from a
@@ -974,6 +974,7 @@ Prometheus and Grafana), not part of SignalHub.
   | Meter | Type | Meaning |
   |---|---|---|
   | `signalhub_events_published_total` | counter | Events stored and acknowledged. |
+  | `signalhub_events_deleted_total` | counter | Events deleted because they were older than the [retention](#retention) period. |
   | `signalhub_push_deliveries_total{result}` | counter | Pushes to one client, by `result`: `delivered`, `no_target`, `unsupported_provider`, `invalid_target`, `transient_failure`, `permanent_failure` (see [Push delivery](#push-delivery)). Retries count again. |
   | `signalhub_push_retries_abandoned_total` | counter | Pushes given up after the last attempt failed temporarily (see [Push dispatch](#push-dispatch)). |
   | `signalhub_push_dispatch_pending` | gauge | Events whose push is not dispatched yet. |
@@ -992,6 +993,37 @@ Prometheus and Grafana), not part of SignalHub.
   counts, not data, and scrapers rarely authenticate. Compose publishes the
   port on `127.0.0.1` only; a reverse proxy in front of SignalHub should
   forward only `/api/`.
+
+### Retention
+
+Events are kept forever by default: upgrading never deletes history. An
+operator who wants storage to stop growing sets a retention period, and
+events older than it are deleted.
+
+- **Setting.** `SIGNALHUB_EVENTS_RETENTION` (`signalhub.events.retention`), a
+  duration such as `365d` or `90d`. At least one day (`1d`): anything
+  shorter stops startup, so a mistyped unit (`1h`) cannot empty the inbox,
+  and events live long enough for the owner to see them and for their
+  pushes to be retried. Unset or empty keeps events forever. The startup
+  summary names it (`event retention 365d`).
+- **Age.** Measured from `createdAt`, the server's clock, never the
+  producer's `occurredAt`. Every event is treated alike: read or unread,
+  whatever its producer, category or severity. Events are a history, not a
+  to-do list; an operator who wants some kept longer chooses a longer
+  period.
+- **Deletion.** Every hour, starting a minute after startup, a job deletes
+  the expired events, oldest first, 1000 per transaction through the
+  `(created_at, id)` index (V3), so a large backlog after enabling
+  retention never holds long locks. An event's pending push and retries go
+  with it (their foreign keys cascade); producers and clients are
+  untouched. An `INFO` line reports how many events were deleted, and
+  `signalhub_events_deleted_total` counts them (see [Metrics](#metrics)).
+- **Consequences.** A deleted event is gone: `GET /api/v1/events/{id}` and
+  marking it read answer `404`, and it drops out of the listing and the
+  unread count. Cursors stay valid, since they carry a position rather than
+  an event. PostgreSQL reuses the freed space for new events (autovacuum),
+  so the database stops growing without a manual `VACUUM FULL`; backups
+  taken before the deletion still hold the events.
 
 ## Likely components
 
@@ -1128,7 +1160,6 @@ These are deferred until the relevant implementation work:
 - Requiring a credential for `GET /api/v1/events/{id}` (a breaking change).
 - How a client obtains its key without the operator copying it by hand
   (for example a pairing flow), once a client application exists.
-- Event retention and pruning policy.
 - Routing and filtering rules: which events trigger a push (all do for now),
   quiet hours.
 - Whether further clients (web, desktop, CLI) are built, and with what.
