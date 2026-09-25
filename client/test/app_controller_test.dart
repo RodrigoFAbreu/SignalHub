@@ -269,6 +269,122 @@ void main() {
     expect(backend.requests.single.url.path, '/api/v1/events/e-2');
   });
 
+  test('reads the unread count with the inbox', () async {
+    backend
+      ..publish('e-1', 'Read before', readAt: '2026-09-25T12:04:00Z')
+      ..publish('e-2', 'New');
+    final app = controller();
+
+    await app.connect(serverUrl, clientKey);
+
+    expect(app.unreadCount, 1);
+    expect(app.events.map((e) => e.isRead), [false, true]);
+
+    backend.publish('e-3', 'Newer');
+    await app.refresh();
+    expect(app.unreadCount, 2);
+  });
+
+  test('opening an event marks it read on the server', () async {
+    backend
+      ..publish('e-1', 'Older')
+      ..publish('e-2', 'Newer');
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+
+    await app.markRead('e-1');
+
+    expect(backend.isRead('e-1'), isTrue);
+    expect(app.events.map((e) => e.isRead), [false, true]);
+    expect(app.unreadCount, 1);
+
+    // Already read: no request.
+    backend.requests.clear();
+    await app.markRead('e-1');
+    expect(backend.requests, isEmpty);
+  });
+
+  test('an event not in the inbox is marked read by its ID', () async {
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+    backend.publish('e-1', 'Arrived since');
+
+    await app.markRead('e-1');
+
+    expect(backend.isRead('e-1'), isTrue);
+    expect(app.unreadCount, 0);
+  });
+
+  test('marking read that fails leaves the event unread', () async {
+    backend.publish('e-1', 'Build failed');
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+    backend.offline = true;
+
+    await app.markRead('e-1');
+
+    expect(app.events.single.isRead, isFalse);
+    expect(app.unreadCount, 1);
+    expect(app.phase, ConnectionPhase.connected);
+  });
+
+  test('marks an event unread again', () async {
+    backend.publish('e-1', 'Build failed', readAt: '2026-09-25T12:04:00Z');
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+    expect(app.unreadCount, 0);
+
+    expect(await app.markUnread('e-1'), isNull);
+
+    expect(backend.isRead('e-1'), isFalse);
+    expect(app.events.single.isRead, isFalse);
+    expect(app.unreadCount, 1);
+
+    backend.offline = true;
+    expect(await app.markUnread('e-1'), 'Could not reach the server');
+  });
+
+  test('marks all read up to the newest event shown, not newer ones', () async {
+    for (var i = 1; i <= AppController.pageSize + 2; i++) {
+      backend.publish('e-$i', 'Event $i');
+    }
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+    // Arrives after the inbox was read: the owner has not seen it.
+    backend.publish('e-new', 'Not seen yet');
+
+    expect(await app.markAllRead(), isNull);
+
+    expect(app.events.every((e) => e.isRead), isTrue);
+    // Older events not read into the inbox yet are read too.
+    expect(backend.isRead('e-1'), isTrue);
+    expect(backend.isRead('e-new'), isFalse);
+    expect(app.unreadCount, 1);
+  });
+
+  test('a failed mark all read is reported', () async {
+    backend.publish('e-1', 'Build failed');
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+    backend.offline = true;
+
+    expect(await app.markAllRead(), 'Could not reach the server');
+    expect(app.events.single.isRead, isFalse);
+  });
+
+  test('a revoked key while marking read returns to setup', () async {
+    backend.publish('e-1', 'Build failed');
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+    backend.acceptedKey = null;
+
+    await app.markRead('e-1');
+
+    expect(app.phase, ConnectionPhase.disconnected);
+    expect(app.unreadCount, isNull);
+    expect(store.saved, isNull);
+  });
+
   test('a revoked key while paging returns to setup', () async {
     for (var i = 1; i <= AppController.pageSize + 1; i++) {
       backend.publish('e-$i', 'Event $i');

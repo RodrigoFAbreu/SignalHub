@@ -15,6 +15,8 @@ extension JsonObject on Map<String, Object?> {
 
   List<Object?> list(String key) => _required<List<Object?>>(key);
 
+  int integer(String key) => _required<int>(key);
+
   DateTime timestamp(String key) => _parseTimestamp(key, string(key));
 
   DateTime? optionalTimestamp(String key) {

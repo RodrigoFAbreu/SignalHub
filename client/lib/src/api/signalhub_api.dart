@@ -81,15 +81,56 @@ class SignalHubApi {
 
   /// `GET /api/v1/events/{id}`: one event. Throws [EventNotFoundException]
   /// for an ID the server does not know.
-  Future<Event> getEvent(String id) async {
-    final Map<String, Object?> body;
+  Future<Event> getEvent(String id) async => _read(
+    await _eventRequest('GET', 'api/v1/events/${Uri.encodeComponent(id)}'),
+    Event.fromJson,
+  );
+
+  /// `PUT /api/v1/events/{id}/read`: marks one event read, for every client
+  /// of the owner. Idempotent; answers the event.
+  Future<Event> markRead(String id) => _setRead('PUT', id);
+
+  /// `DELETE /api/v1/events/{id}/read`: marks one event unread again.
+  Future<Event> markUnread(String id) => _setRead('DELETE', id);
+
+  /// `POST /api/v1/events/read`: marks read every unread event at or before
+  /// [throughId] in listing order, and answers how many changed. Events
+  /// newer than [throughId] stay unread.
+  Future<int> markReadThrough(String throughId) async {
+    final body = await _eventRequest(
+      'POST',
+      'api/v1/events/read',
+      body: {'through': throughId},
+    );
+    return _read(body, (json) => json.integer('marked'));
+  }
+
+  /// `GET /api/v1/events/unread-count`: unread events, on the whole server.
+  Future<int> unreadCount() async => _read(
+    await _send('GET', 'api/v1/events/unread-count'),
+    (json) => json.integer('unread'),
+  );
+
+  Future<Event> _setRead(String method, String id) async => _read(
+    await _eventRequest(
+      method,
+      'api/v1/events/${Uri.encodeComponent(id)}/read',
+    ),
+    Event.fromJson,
+  );
+
+  /// A request about one event: `404` means the server does not know it.
+  Future<Map<String, Object?>> _eventRequest(
+    String method,
+    String path, {
+    Map<String, Object?>? body,
+  }) async {
     try {
-      body = await _send('GET', 'api/v1/events/${Uri.encodeComponent(id)}');
+      return await _send(method, path, body: body);
     } on ApiException catch (e) {
       if (e.statusCode == 404) throw const EventNotFoundException();
       rethrow;
     }
-    return _read(body, Event.fromJson);
   }
 
   Future<Map<String, Object?>> _send(

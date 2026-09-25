@@ -9,13 +9,22 @@ import 'event_style.dart';
 /// One event with every field the API returns. Opened from the inbox with
 /// the event at hand, or from a notification with only its ID.
 class EventScreen extends StatefulWidget {
-  const EventScreen({super.key, required this.load, this.initial});
+  const EventScreen({
+    super.key,
+    required this.load,
+    this.initial,
+    this.markUnread,
+  });
 
   /// Reads the event, from the inbox or the server.
   final Future<Event> Function() load;
 
   /// The event, when the caller already has it.
   final Event? initial;
+
+  /// Marks the event unread again; returns an error message, or `null` on
+  /// success, which closes the screen.
+  final Future<String?> Function()? markUnread;
 
   @override
   State<EventScreen> createState() => _EventScreenState();
@@ -42,9 +51,31 @@ class _EventScreenState extends State<EventScreen> {
     }
   }
 
+  Future<void> _markUnread(Future<String?> Function() markUnread) async {
+    final error = await markUnread();
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Event')),
+    appBar: AppBar(
+      title: const Text('Event'),
+      actions: [
+        if ((_event, widget.markUnread) case (_?, final markUnread?))
+          IconButton(
+            key: const Key('markUnread'),
+            tooltip: 'Mark as unread',
+            icon: const Icon(Icons.mark_email_unread_outlined),
+            onPressed: () => _markUnread(markUnread),
+          ),
+      ],
+    ),
     body: switch ((_event, _error)) {
       (final Event event, _) => _EventDetails(event),
       (null, final String error) => Center(
