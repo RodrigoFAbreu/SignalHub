@@ -1,0 +1,128 @@
+package io.github.rodrigofabreu.signalhub.event;
+
+import io.github.rodrigofabreu.signalhub.api.ApiError;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
+import java.util.List;
+import java.util.UUID;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
+import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+
+@Path("/api/v1/events")
+@Tag(name = "Events", description = "Publish and read generic events.")
+@Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
+public class EventResource {
+
+  private final EventService events;
+
+  EventResource(EventService events) {
+    this.events = events;
+  }
+
+  @POST
+  @Operation(
+      summary = "Publish an event",
+      description =
+          "Validates the event and stores it durably before responding. The response is the"
+              + " canonical event, including the server-generated id and createdAt.")
+  @RequestBody(
+      required = true,
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON,
+              schema = @Schema(implementation = CreateEventRequest.class),
+              examples = {
+                @ExampleObject(name = "ci", summary = "A CI system", value = CI_EXAMPLE),
+                @ExampleObject(
+                    name = "agent",
+                    summary = "An autonomous agent waiting for approval",
+                    value = AGENT_EXAMPLE),
+                @ExampleObject(name = "minimal", summary = "Required fields only", value = MINIMAL)
+              }))
+  @APIResponse(
+      responseCode = "201",
+      description = "Event stored. The Location header points to it.",
+      content = @Content(schema = @Schema(implementation = EventResponse.class)))
+  @APIResponse(
+      responseCode = "400",
+      description = "The body is malformed or fails validation.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(responseCode = "413", description = "The body is larger than 64 KiB.")
+  public Response create(@NotNull @Valid CreateEventRequest request) {
+    var event = events.create(request);
+    var location = UriBuilder.fromResource(EventResource.class).path(event.id().toString()).build();
+    return Response.created(location).entity(event).build();
+  }
+
+  @GET
+  @Path("/{id}")
+  @Operation(summary = "Get an event by its canonical ID")
+  @APIResponse(
+      responseCode = "200",
+      description = "The event.",
+      content = @Content(schema = @Schema(implementation = EventResponse.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No event has this ID.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public EventResponse get(
+      @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
+    return events
+        .find(id)
+        .orElseThrow(
+            () ->
+                new NotFoundException(
+                    Response.status(Response.Status.NOT_FOUND)
+                        .entity(new ApiError("Event not found", 404, List.of()))
+                        .build()));
+  }
+
+  private static final String CI_EXAMPLE =
+      """
+      {
+        "source": "ci/build-runner",
+        "context": "signalhub",
+        "category": "BLOCKED",
+        "severity": "HIGH",
+        "title": "Nightly build failed",
+        "message": "3 of 412 tests failed on main.",
+        "metadata": {"pipeline": "nightly", "run": 1842, "url": "https://ci.example.com/runs/1842"},
+        "occurredAt": "2026-09-25T14:03:00+02:00"
+      }
+      """;
+
+  private static final String AGENT_EXAMPLE =
+      """
+      {
+        "source": "workflow-controller",
+        "context": "repo:example/app",
+        "category": "ACTION_REQUIRED",
+        "severity": "NORMAL",
+        "title": "Plan ready for review",
+        "message": "The agent finished planning and is waiting for approval.",
+        "metadata": {"workflowId": "wf-73", "step": "plan", "reviewUrl": "https://example.com/wf-73"}
+      }
+      """;
+
+  private static final String MINIMAL =
+      """
+      {"source": "backup-script", "category": "COMPLETED", "severity": "LOW", "title": "Backup done"}
+      """;
+}

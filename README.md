@@ -33,7 +33,7 @@ Early development.
 
 | Component | Status |
 |---|---|
-| Backend (`backend/`) | Runtime foundation: Quarkus service, PostgreSQL, Flyway, health checks, OpenAPI, Docker image and Compose. No product API yet. |
+| Backend (`backend/`) | Quarkus service with PostgreSQL, Flyway, health checks, OpenAPI, Docker image and Compose. Generic event ingestion: `POST /api/v1/events` and `GET /api/v1/events/{id}`. No authentication or push delivery yet. |
 | Clients | Not started |
 | Producer SDK/CLI | Not started |
 
@@ -43,7 +43,12 @@ Run the backend with PostgreSQL:
 cp .env.example .env   # set SIGNALHUB_DB_PASSWORD
 docker compose up --build --wait
 curl http://localhost:8080/q/health/ready
+curl http://localhost:8080/api/v1/events -H 'Content-Type: application/json' \
+  -d '{"source": "my-script", "category": "INFO", "severity": "NORMAL", "title": "Hello"}'
 ```
+
+The event model and API are described in
+[docs/architecture.md](docs/architecture.md#events).
 
 See [docs/development.md](docs/development.md#backend) for dev mode, tests, and
 configuration.
