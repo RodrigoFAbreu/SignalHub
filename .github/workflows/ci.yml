@@ -171,7 +171,7 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
-      - name: A registered client lists events, marks them read and sets its push target
+      - name: A registered client lists events, marks them read and sets its push target and preferences
         run: |
           created=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
@@ -205,6 +205,13 @@ jobs:
             --data '{"provider": "fcm", "token": "ci-smoke-token"}' \
             http://localhost:8080/api/v1/client/push-target \
             | jq --exit-status '.pushTarget.provider == "fcm" and (.pushTarget | has("token") | not)'
+          curl --fail --silent --show-error --request PUT \
+            --header "Authorization: Bearer $client_key" \
+            --header 'Content-Type: application/json' \
+            --data '{"minimumSeverity": "HIGH", "mutedCategories": ["INFO"]}' \
+            http://localhost:8080/api/v1/client/push-preferences \
+            | jq --exit-status '.pushPreferences == {"enabled": true, "minimumSeverity": "HIGH",
+                "mutedCategories": ["INFO"], "mutedProducerIds": []}'
           curl --fail --silent --show-error --output /dev/null --request POST \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
             "http://localhost:8080/api/v1/admin/clients/$client_id/revoke"

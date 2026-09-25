@@ -166,9 +166,11 @@ hashes are stored), `ProducerMigrationTest` (upgrading a database that holds
 events from before authentication), and unit tests for the key format, bearer
 parsing and admin token (`ApiKeysTest`, `BearerTokenTest`, `AdminTokenTest`).
 Clients are covered by `ClientApiTest` (registration, revocation, client keys
-reading the listing, and push targets), `ClientPersistenceTest` (hashes only,
-and the schema's push-target constraints) and `ClientKeysTest` (the key
-format). Push delivery is covered by `PushDeliveryTest` (every outcome,
+reading the listing, and push targets), `PushPreferencesApiTest` (setting,
+replacing and validating push preferences), `ClientPersistenceTest` (hashes
+only, and the schema's push-target and push-preference constraints),
+`ClientKeysTest` (the key format) and `PushPreferencesTest` (which events
+preferences let through). Push delivery is covered by `PushDeliveryTest` (every outcome,
 through `FakePushProvider`, a test-only provider named `fake`) and
 `PushProvidersTest` (provider name checks at startup). The FCM provider is
 covered by `FcmPushProviderTest` (request format, access-token signing and
@@ -177,8 +179,9 @@ the key file, never echoing the key) and `FcmDeliveryTest` (the `fcm` provider
 active in a running backend), all against `FakeFcm`, an in-process stand-in
 for Google's token endpoint and the FCM API with a key generated per run.
 Event-triggered dispatch is covered by `EventPushDispatchTest` (the outbox
-row is written with the event, every client with a target gets one push,
-expired claims are dispatched again), `EventPushScheduleTest` (the dispatcher
+row is written with the event, every client with a target gets one push
+unless its preferences exclude the event, expired claims are dispatched
+again), `EventPushScheduleTest` (the dispatcher
 runs on its own timer) and `EventPushMessagesTest` (shortening the body). The
 test profile turns the scheduler off so tests run the dispatcher directly. No
 test needs a real push provider, network access or credentials.
@@ -305,14 +308,21 @@ curl -s http://localhost:8080/api/v1/admin/clients \
     "name": "Pixel 8",
     "createdAt": "2026-09-25T18:02:11.108811Z",
     "revokedAt": null,
-    "pushTarget": null
+    "pushTarget": null,
+    "pushPreferences": {
+      "enabled": true,
+      "minimumSeverity": "LOW",
+      "mutedCategories": [],
+      "mutedProducerIds": []
+    }
   },
   "clientKey": "shck1_01a0da2c1f3e7a518d0c6b1f2e3d4c5b_<secret>"
 }
 ```
 
 Configure the client installation with `clientKey`. It then reads events and
-manages its own push target (`$CLIENT_KEY` is the key above):
+manages its own push target and push preferences (`$CLIENT_KEY` is the key
+above):
 
 ```sh
 C="Authorization: Bearer $CLIENT_KEY"
@@ -321,6 +331,12 @@ curl -s http://localhost:8080/api/v1/client -H "$C"            # its own registr
 curl -s -X PUT http://localhost:8080/api/v1/client/push-target -H "$C" \
   -H 'Content-Type: application/json' -d '{"provider": "fcm", "token": "<provider token>"}'
 curl -s -X DELETE http://localhost:8080/api/v1/client/push-target -H "$C"
+# push only HIGH and CRITICAL events, and nothing that is merely INFO
+curl -s -X PUT http://localhost:8080/api/v1/client/push-preferences -H "$C" \
+  -H 'Content-Type: application/json' \
+  -d '{"minimumSeverity": "HIGH", "mutedCategories": ["INFO"]}'
+curl -s -X PUT http://localhost:8080/api/v1/client/push-preferences -H "$C" \
+  -H 'Content-Type: application/json' -d '{}'   # back to pushing every event
 ```
 
 The operator lists, inspects and revokes clients (`$CLIENT` is the ID above):
@@ -333,8 +349,10 @@ curl -s "$API/$CLIENT" -H "$H"                  # one client
 curl -s -X POST "$API/$CLIENT/revoke" -H "$H"   # revoke it and drop its push target
 ```
 
-Every published event is then pushed to the target (see
-[Push dispatch](architecture.md#push-dispatch)). The client app does all of
+Every published event that the client's
+[push preferences](architecture.md#push-preferences) allow is then pushed to
+the target (see [Push dispatch](architecture.md#push-dispatch)); every event
+stays in the inbox either way. The client app does all of
 this itself; see [Client](#client).
 
 ### Events API

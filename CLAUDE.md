@@ -34,7 +34,8 @@ OpenAPI, Docker Compose) with generic event ingestion
 authentication (server-issued API keys, managed through
 `/api/v1/admin/producers` with an admin token), and client registration
 (per-installation client keys and provider-neutral push targets, managed
-through `/api/v1/admin/clients` and `/api/v1/client`), and a provider-neutral
+through `/api/v1/admin/clients` and `/api/v1/client`) with per-client push
+preferences (pause, minimum severity, muted categories and producers), and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging
 provider enabled by a service account key file, and event-triggered push
 dispatch through a PostgreSQL outbox, and the Flutter client app

@@ -239,6 +239,18 @@ The following capabilities are already implemented and merged unless repository 
   arrived since stay unread
 - no backend changes; unit and widget tests against the fake backend
 
+### R12a - Push preferences API
+
+- per-client push preferences (V7): `enabled` (pause), `minimumSeverity`,
+  `mutedCategories`, `mutedProducerIds` (at most 100); defaults push every
+  event, so existing clients are unchanged
+- `PUT /api/v1/client/push-preferences` replaces them (absent fields take
+  their defaults); `pushPreferences` in every client representation
+- the dispatcher skips clients whose preferences exclude an event, read at
+  dispatch time; events are stored and listed regardless
+- generic fields only; no quiet hours (not justified yet); tests against real
+  PostgreSQL, OpenAPI, Compose smoke test, docs
+
 ---
 
 ## 4. Planned roadmap
@@ -445,6 +457,9 @@ Exit criteria:
 - inbox can reliably distinguish new/unread events from read events
 
 ### R12 - Notification preferences and routing
+
+Status: in progress. R12a (backend push preferences and API) is complete; see
+section 3. R12b, setting the preferences in the client app, is next.
 
 Goal: let the user control what causes an interrupt without preventing events from being persisted.
 
@@ -690,12 +705,13 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After read state in the app (R11b), the expected next milestone is:
+After the push preferences API (R12a), the expected next milestone is:
 
-**R12 - Notification preferences and routing**
+**R12b - Push preferences in the client app**
 
-Generic preferences that suppress pushes (for example by category,
-severity or producer) while every event stays in the inbox.
+A settings screen in the app that reads and sets this client's push
+preferences (`PUT /api/v1/client/push-preferences`): pause, minimum
+severity, muted categories and producers. That completes R12.
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 

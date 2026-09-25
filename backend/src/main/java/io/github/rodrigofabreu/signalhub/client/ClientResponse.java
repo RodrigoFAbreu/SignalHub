@@ -20,7 +20,9 @@ public record ClientResponse(
                     + " authenticate and receives no pushes.")
         Instant revokedAt,
     @Schema(description = "Where pushes for this client go; null if it has none.")
-        PushTarget pushTarget) {
+        PushTarget pushTarget,
+    @Schema(required = true, description = "Which events are pushed to the client.")
+        PushPreferences pushPreferences) {
 
   @Schema(
       name = "PushTarget",

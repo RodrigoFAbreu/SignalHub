@@ -3,6 +3,7 @@ package io.github.rodrigofabreu.signalhub;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
@@ -225,6 +226,11 @@ class OpenApiTest {
             "paths.'/api/v1/client'.get.security", equalTo(List.of(Map.of("clientKey", List.of()))))
         .body("paths.'/api/v1/client/push-target'", hasKey("put"))
         .body("paths.'/api/v1/client/push-target'", hasKey("delete"))
+        .body("paths.'/api/v1/client/push-preferences'", hasKey("put"))
+        .body(
+            SCHEMAS + ".PushPreferences.required",
+            containsInAnyOrder("enabled", "minimumSeverity", "mutedCategories", "mutedProducerIds"))
+        .body(SCHEMAS + ".Client.required", hasItem("pushPreferences"))
         .body(SCHEMAS + ".IssuedClientKey.required", containsInAnyOrder("client", "clientKey"))
         .body(SCHEMAS + ".PushTargetRequest.required", containsInAnyOrder("provider", "token"))
         .body(SCHEMAS + ".Client.properties", not(hasKey("clientKey")))
