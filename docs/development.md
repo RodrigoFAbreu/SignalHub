@@ -472,8 +472,12 @@ services:
 The container runs as UID 10001, which must be able to read the file. On
 startup the log shows `FCM push enabled for Firebase project ...` and
 `Push providers: [fcm]`. Clients register their FCM registration token with
-`PUT /api/v1/client/push-target` and provider `fcm`. Events do not trigger a
-push yet; see [roadmap](roadmap.md) R8.
+`PUT /api/v1/client/push-target` and provider `fcm`. From then on every
+published event is pushed to them: the notification shows the event's title
+and message, and the data carries `eventId` for the app to fetch the event
+(see [Event-triggered dispatch](architecture.md#event-triggered-dispatch)).
+Without a configured provider, events are still dispatched and the log shows
+nothing is sent (`DEBUG`: `No push provider fcm for client ...`).
 
 ## Local validation
 
@@ -497,6 +501,7 @@ docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -c
 # and reads it back after restarting the backend, lists it with the admin
 # token (and expects 401 without it), registers a client that lists the event
 # with its key and sets a push target, revokes the client and expects 401,
+# checks that background dispatch empties the push queue after publishing,
 # revokes the producer key and expects 401, stops PostgreSQL and expects
 # readiness 503, and checks that the image refuses to start without database
 # settings.

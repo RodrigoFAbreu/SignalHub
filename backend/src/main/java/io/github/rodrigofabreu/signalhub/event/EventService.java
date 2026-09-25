@@ -5,9 +5,11 @@ import static java.util.stream.Collectors.toSet;
 import io.github.rodrigofabreu.signalhub.producer.ProducerIdentity;
 import io.github.rodrigofabreu.signalhub.producer.ProducerService;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,16 +18,25 @@ import java.util.UUID;
 class EventService {
 
   private final EventRepository repository;
+  private final PendingPushRepository pendingPushes;
   private final ProducerService producers;
+  private final Event<EventStored> stored;
 
-  EventService(EventRepository repository, ProducerService producers) {
+  EventService(
+      EventRepository repository,
+      PendingPushRepository pendingPushes,
+      ProducerService producers,
+      Event<EventStored> stored) {
     this.repository = repository;
+    this.pendingPushes = pendingPushes;
     this.producers = producers;
+    this.stored = stored;
   }
 
   /**
    * Persists the event, bound to the authenticated producer, and commits before returning, so a
-   * returned event is durable.
+   * returned event is durable. Its push is queued in the same transaction, so it is dispatched even
+   * if the service stops right after the commit.
    */
   @Transactional
   EventResponse create(ProducerIdentity producer, CreateEventRequest request) {
@@ -42,7 +53,21 @@ class EventService {
             request.occurredAt() == null ? null : toStoredInstant(request.occurredAt().toInstant()),
             toStoredInstant(Instant.now()));
     repository.persist(event);
+    pendingPushes.persist(new PendingPushEntity(event.id(), event.createdAt()));
+    stored.fire(new EventStored(event.id()));
     return toResponse(event, producer);
+  }
+
+  /** Up to {@code count} events whose push has not been dispatched yet, oldest first. */
+  @Transactional
+  List<PendingPush> pendingPushes(int count) {
+    return pendingPushes.oldest(count);
+  }
+
+  /** Removes the event from the push queue. Idempotent. */
+  @Transactional
+  void pushDispatched(UUID eventId) {
+    pendingPushes.deleteById(eventId);
   }
 
   @Transactional

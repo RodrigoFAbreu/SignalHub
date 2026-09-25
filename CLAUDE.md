@@ -33,8 +33,10 @@ authentication (server-issued API keys, managed through
 (per-installation client keys and provider-neutral push targets, managed
 through `/api/v1/admin/clients` and `/api/v1/client`), and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging
-provider enabled by a service account key file. There is no event-triggered
-push or client application yet. Do not build components beyond
+provider enabled by a service account key file, and event-triggered push
+dispatch (every stored event is queued in PostgreSQL and pushed to every
+client with a push target). There is no client application yet. Do not build
+components beyond
 the scope of the task at hand.
 
 `docs/history/` is an archive of past prompts and decisions. It is context

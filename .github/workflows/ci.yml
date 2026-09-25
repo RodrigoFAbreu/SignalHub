@@ -151,6 +151,29 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Authorization: Bearer $client_key" http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+      - name: Published events leave the push queue
+        run: |
+          curl --fail --silent --show-error --output /dev/null \
+            --header "Authorization: Bearer $API_KEY" \
+            --header 'Content-Type: application/json' \
+            --data '{"category": "COMPLETED", "severity": "NORMAL", "title": "Dispatched"}' \
+            http://localhost:8080/api/v1/events
+          # No push provider is configured, so there is nothing to send through,
+          # but background dispatch still works through and empties the queue.
+          for _ in $(seq 30); do
+            pending=$(docker compose exec -T postgres psql --username signalhub \
+              --dbname signalhub --tuples-only --no-align \
+              --command 'SELECT count(*) FROM pending_pushes')
+            if test "$pending" = 0; then
+              if docker compose logs backend | grep 'Push dispatch stopped'; then
+                exit 1
+              fi
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "pending_pushes still holds $pending events"
+          exit 1
       - name: A revoked key no longer authenticates
         run: |
           curl --fail --silent --show-error --output /dev/null --request POST \

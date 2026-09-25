@@ -5,9 +5,9 @@
 > event listing (see [Events](#events)), producer authentication (see
 > [Producers and authentication](#producers-and-authentication)), and client
 > registration with client keys and push targets (see [Clients](#clients)),
-> and the push-provider boundary with a Firebase Cloud Messaging provider (see
-> [Push delivery](#push-delivery)). No event-triggered dispatch or client
-> application exists yet.
+> the push-provider boundary with a Firebase Cloud Messaging provider, and
+> event-triggered push dispatch (see [Push delivery](#push-delivery)). No
+> client application exists yet.
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -562,8 +562,9 @@ token. Rejected client keys are logged at `DEBUG` like producer keys.
 
 ## Push delivery
 
-> Status: the provider boundary and the `fcm` provider are implemented and
-> tested with fakes. Publishing an event does not trigger a push yet.
+> Status: the provider boundary, the `fcm` provider, and event-triggered
+> dispatch are implemented and tested with fakes. Every stored event is pushed
+> to every client with a push target.
 
 Delivery code asks for a push to one client and never sees a concrete
 provider. Everything provider-specific stays behind one small interface, so
@@ -646,10 +647,54 @@ key.
 The file is the only FCM credential. Mount it read-only into the container;
 never commit it (see [Cross-cutting principles](#cross-cutting-principles)).
 
-**Not yet:** retries, backoff and delivery-attempt records (roadmap R13), and
-deciding which events trigger a push. The push token never appears in logs:
+**Not yet:** retries, backoff and delivery-attempt records (roadmap R13). The
+push token never appears in logs:
 providers must keep it out of outcome details, and an exception from a
 provider is logged by type only.
+
+### Event-triggered dispatch
+
+Every stored event is pushed to every client that is not revoked and has a
+push target. That decision uses nothing about the event but its existence;
+letting the owner choose by generic fields (category, severity, producer) is
+roadmap R12.
+
+**Durable queue.** Storing an event also writes a row to `pending_pushes` in
+the same transaction (a transactional outbox in PostgreSQL, no external
+queue). A background thread takes queued events oldest first, pushes each one
+to every recipient through `PushDelivery`, and only then deletes its row. It
+runs right after each event commits, at startup, and every minute, which picks
+up events left behind by a crash, a restart, or a dispatch that stopped on a
+database error.
+
+**At-least-once.** An event whose push was cut short (the service stopped
+mid-dispatch) is dispatched again from the start after the restart, so a
+client may receive the same event twice. Clients deduplicate by the `eventId`
+in the push data. A failed send does not keep the event queued: the outcome
+is handled as in the table above and the event is dequeued once every
+recipient was tried. Retrying transient failures is roadmap R13. Events stored
+before this queue existed (V5) are not pushed.
+
+**Message.** The push is a signal to look, not a copy of the event:
+
+| `PushMessage` | From the event |
+|---|---|
+| title | `title` |
+| body | `message`, cut to 500 characters (ending in `…`); none if `message` is absent or empty |
+| data | `{"eventId": "<id>"}` |
+
+The client fetches the event itself with `GET /api/v1/events/{id}` (or the
+listing). Keeping the payload small keeps it within provider limits (FCM
+allows 4 KiB) and keeps metadata out of third-party transports.
+
+**Schema.** `V5__queue_event_pushes.sql` creates `pending_pushes`: `event_id`
+(primary key, references `events`) and `queued_at`. It holds only events not
+yet dispatched, so it stays small.
+
+**Configuration.** `signalhub.push.dispatch.background` (default `true`)
+controls the background thread. Tests turn it off and dispatch explicitly, so
+no background push reaches the test provider while a test inspects it. With it
+off, events queue up and are not pushed.
 
 ## Likely components
 
@@ -755,7 +800,9 @@ Implementation expectations:
   authentication filters, and the client APIs live in the `client` package.
   The push-provider boundary and delivery live in the `push` package; concrete
   providers (`FcmPushProvider`) are classes there too, and nothing outside it
-  references one. Authentication uses plain JAX-RS request
+  references one. Event-triggered dispatch (`EventPushDispatcher` and the
+  `pending_pushes` queue) lives in the `event` package and uses only
+  `PushDelivery`. Authentication uses plain JAX-RS request
   filters bound by annotation (`@ProducerAuthenticated`, `@AdminOnly`,
   `@ClientAuthenticated`, `@OwnerAuthenticated`) rather than an identity
   framework: a few bearer-token checks do not justify one.
@@ -786,6 +833,7 @@ These are deferred until the relevant implementation work:
 - How a client obtains its key without the operator copying it by hand
   (for example a pairing flow), once a client application exists.
 - Event retention and pruning policy.
-- Routing and filtering rules: which events trigger a push, quiet hours.
+- Routing and filtering rules: which events trigger a push (today: all of
+  them), quiet hours. See roadmap R12.
 - Client platforms: which clients (Android, iOS, web, CLI) are built first,
   and their technology.
