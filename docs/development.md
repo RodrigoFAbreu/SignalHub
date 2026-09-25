@@ -234,8 +234,9 @@ To reach SignalHub from other machines (phones, producers), enable the
 TLS reverse proxy (`COMPOSE_PROFILES=proxy` with `SIGNALHUB_DOMAIN` and
 `SIGNALHUB_TLS` in `.env`); see [deployment.md](deployment.md).
 
-Back up and restore the database with the commands in
-[Backup and restore](architecture.md#backup-and-restore), and see
+Upgrade to a new release, and monitor health, as in
+[deployment.md](deployment.md#upgrades). Back up and restore the database
+with the commands in [Backup and restore](architecture.md#backup-and-restore), and see
 [Resources](architecture.md#resources) for memory and CPU limits and
 database growth.
 
@@ -655,7 +656,11 @@ flutter build ios --debug --no-codesign
 # (and only those) are back, the producer key still works and the proxy kept
 # its CA, and that restoring over existing data fails, revokes the producer
 # key and expects 401, stops PostgreSQL and expects readiness 503, and checks that the image refuses to start without database
-# settings.
+# settings. The "Backend container (upgrade from the latest release)" job starts
+# the latest release tag with a producer, a client and a read event, backs up,
+# upgrades in place to the commit under test as in docs/deployment.md#upgrades,
+# checks the data, keys, migrations and health, and rolls back by restoring the
+# backup with the release.
 ```
 
 Each new component adds its own build, lint, and test commands to CI and to
@@ -673,7 +678,8 @@ repository:
 - Protect `main`: require a pull request, and require the status checks
   `Python (lint + test)`, `GitHub Actions lint`, `Backend (build + test)`,
   `Backend container (Compose smoke test)`, `Backend container (Compose
-  smoke test, ARM64)`, `Client (analyze + test +
+  smoke test, ARM64)`, `Backend container (upgrade from the latest
+  release)`, `Client (analyze + test +
   Android build)`, `Client (iOS build)`, and `Conventional Commit title`.
   Require branches to be up to date before merging.
 - Actions workflow permissions must allow `contents: write` for the release
