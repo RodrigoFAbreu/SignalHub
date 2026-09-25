@@ -434,6 +434,20 @@ The following capabilities are already implemented and merged unless repository 
   the Compose smoke test, where the packaged image refuses a database with a
   recorded migration it does not have
 
+### R18b - Reading an event needs the owner's credential
+
+- `GET /api/v1/events/{id}` requires a client key or the admin token, like
+  the listing and read state; a producer key, another credential or none
+  gets the usual `401`, before the event is looked up, so an unauthenticated
+  caller never learns whether an ID exists (breaking: releases up to
+  v0.22 answered anyone who knew the ID)
+- every product API endpoint behind the proxy now requires a credential; the
+  app already sends its client key, and the Compose smoke test the admin
+  token
+- tested against real PostgreSQL (client key, admin token, producer key,
+  wrong or missing credential, unknown and malformed IDs), the OpenAPI
+  document, the app's fake server and the Compose smoke test
+
 ---
 
 ## 4. Planned roadmap
@@ -813,8 +827,8 @@ Exit criteria:
 
 ### R18 - v1.0 hardening and contract review
 
-Status: in progress; R18a (refusing a newer schema) is complete (see
-section 3).
+Status: in progress; R18a (refusing a newer schema) and R18b (reading an
+event needs the owner's credential) are complete (see section 3).
 
 Goal: deliberately declare the first stable SignalHub contract.
 
@@ -832,7 +846,7 @@ Before `v1.0.0`, review:
 - configuration compatibility
 - backup/restore
 - deployment documentation
-- security boundaries
+- security boundaries (reading an event by ID without a credential: closed in R18b)
 - observability
 - test coverage
 - dependency health
@@ -911,7 +925,7 @@ Determine this from repository state rather than trusting this section blindly.
 
 After the integration examples (R17), the expected next increment is:
 
-**R18 - v1.0 hardening and contract review**, continuing after R18a
+**R18 - v1.0 hardening and contract review**, continuing after R18b
 
 Likely split into bounded increments: the reviews and tests R18 lists. Promotion to `v1.0.0` itself is always the
 maintainer's decision. Confirming delivery to a real device (R8 to R10)

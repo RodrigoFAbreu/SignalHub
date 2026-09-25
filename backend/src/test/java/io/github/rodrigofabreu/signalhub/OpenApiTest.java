@@ -54,7 +54,11 @@ class OpenApiTest {
         .body(EVENTS + ".post.responses", hasKey("401"))
         .body(EVENTS + ".post.responses", hasKey("413"))
         .body(EVENT + ".get.responses", hasKey("200"))
-        .body(EVENT + ".get.responses", hasKey("404"));
+        .body(EVENT + ".get.responses", hasKey("401"))
+        .body(EVENT + ".get.responses", hasKey("404"))
+        .body(
+            EVENT + ".get.security",
+            containsInAnyOrder(Map.of("clientKey", List.of()), Map.of("adminToken", List.of())));
   }
 
   @Test
@@ -172,8 +176,8 @@ class OpenApiTest {
         .body("components.securitySchemes.producerApiKey.type", equalTo("http"))
         .body("components.securitySchemes.producerApiKey.scheme", equalTo("bearer"))
         .body(EVENTS + ".post.security", equalTo(List.of(Map.of("producerApiKey", List.of()))))
-        // Reading is not authenticated yet; see docs/architecture.md.
-        .body(EVENT + ".get", not(hasKey("security")));
+        // Producers publish; reading an event takes the owner's credential instead.
+        .body(EVENT + ".get.security", not(hasItem(Map.of("producerApiKey", List.of()))));
   }
 
   @Test

@@ -249,7 +249,7 @@ database growth.
 |---|---|
 | `/api/v1/events` | `POST`: publish an event, with a producer API key. See [Events API](#events-api). |
 | `/api/v1/events` | `GET`: list events, newest first, with a client key or the admin token. See [Events API](#events-api). |
-| `/api/v1/events/{id}` | `GET`: read an event by its ID. |
+| `/api/v1/events/{id}` | `GET`: read an event by its ID, with a client key or the admin token. |
 | `/api/v1/admin/producers/...` | Producer management, with the admin token. See [Producers and API keys](#producers-and-api-keys). |
 | `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
 | `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
@@ -421,10 +421,12 @@ Content-Type: application/json;charset=UTF-8
 }
 ```
 
-Read it back, including after restarting the service:
+Read it back, including after restarting the service, with a client key or
+the admin token (a producer key gets `401`):
 
 ```sh
-curl http://localhost:8080/api/v1/events/01a0d931-9c33-7989-a9ea-adb6724470e6
+curl http://localhost:8080/api/v1/events/01a0d931-9c33-7989-a9ea-adb6724470e6 \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
 List events, newest first, with a client key (see [Clients](#clients)) or the

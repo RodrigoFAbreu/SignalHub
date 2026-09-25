@@ -79,7 +79,9 @@ class FakeBackend {
     if (offline) throw http.ClientException('offline', request.url);
     // Servers may sit below a base path behind a reverse proxy.
     final path = request.url.path.substring(request.url.path.indexOf('/api/'));
-    // Reading one event needs no credential (docs/architecture.md).
+    if (request.headers['Authorization'] != 'Bearer $acceptedKey') {
+      return _json(401, {'title': 'Unauthorized', 'status': 401});
+    }
     final eventId = RegExp(r'^/api/v1/events/([^/]+)$')
         .firstMatch(path)
         ?.group(1);
@@ -88,9 +90,6 @@ class FakeBackend {
         eventId != 'unread-count') {
       final event = _event(eventId);
       return event == null ? _eventNotFound() : _json(200, event);
-    }
-    if (request.headers['Authorization'] != 'Bearer $acceptedKey') {
-      return _json(401, {'title': 'Unauthorized', 'status': 401});
     }
     final readId = RegExp(r'^/api/v1/events/([^/]+)/read$')
         .firstMatch(path)

@@ -123,6 +123,10 @@ void main() {
     final event = await backend.api().getEvent('e-1');
 
     expect(backend.requests.single.url.path, '/api/v1/events/e-1');
+    expect(
+      backend.requests.single.headers['Authorization'],
+      'Bearer $clientKey',
+    );
     expect(event.title, 'Build failed');
     expect(event.message, '3 tests failed');
   });

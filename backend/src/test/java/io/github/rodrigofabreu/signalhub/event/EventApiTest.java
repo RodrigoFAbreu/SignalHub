@@ -1,6 +1,6 @@
 package io.github.rodrigofabreu.signalhub.event;
 
-import static io.restassured.RestAssured.given;
+import static io.github.rodrigofabreu.signalhub.TestProducers.asAdmin;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.endsWith;
@@ -118,7 +118,8 @@ class EventApiTest {
     var created = post(FULL_EVENT).statusCode(201).extract().asString();
     String id = json.readTree(created).get("id").asText();
 
-    var fetched = given().when().get(EVENTS + "/" + id).then().statusCode(200).extract().asString();
+    var fetched =
+        asAdmin().when().get(EVENTS + "/" + id).then().statusCode(200).extract().asString();
 
     assertEquals(json.readTree(created), json.readTree(fetched));
   }
@@ -135,7 +136,7 @@ class EventApiTest {
 
   @Test
   void unknownIdIsNotFound() {
-    given()
+    asAdmin()
         .when()
         .get(EVENTS + "/" + UUID.randomUUID())
         .then()
@@ -147,7 +148,7 @@ class EventApiTest {
 
   @Test
   void malformedIdIsNotFound() {
-    given().when().get(EVENTS + "/not-a-uuid").then().statusCode(404);
+    asAdmin().when().get(EVENTS + "/not-a-uuid").then().statusCode(404);
   }
 
   @Test
@@ -310,7 +311,8 @@ class EventApiTest {
         """;
     var created = post(withMetadata(metadata)).statusCode(201).extract().asString();
     String id = json.readTree(created).get("id").asText();
-    var fetched = given().when().get(EVENTS + "/" + id).then().statusCode(200).extract().asString();
+    var fetched =
+        asAdmin().when().get(EVENTS + "/" + id).then().statusCode(200).extract().asString();
 
     var expected = json.readTree(metadata);
     assertEquals(expected, json.readTree(created).get("metadata"));

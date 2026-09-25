@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub;
 
+import static io.github.rodrigofabreu.signalhub.TestProducers.asAdmin;
 import static io.github.rodrigofabreu.signalhub.TestProducers.asProducer;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
@@ -24,7 +25,7 @@ class MetricsTest {
   @Test
   void prometheusEndpointServesRuntimeDatabaseAndSignalHubMeters() {
     // One API request first, so the HTTP server meter exists; /q/ paths are not measured.
-    given().get("/api/v1/events/" + UUID.randomUUID()).then().statusCode(404);
+    asAdmin().get("/api/v1/events/" + UUID.randomUUID()).then().statusCode(404);
 
     given()
         .accept("text/plain")
@@ -67,7 +68,7 @@ class MetricsTest {
             .statusCode(201)
             .extract()
             .path("id");
-    given().get("/api/v1/events/" + id).then().statusCode(200);
+    asAdmin().get("/api/v1/events/" + id).then().statusCode(200);
 
     var metrics = given().get("/q/metrics").then().statusCode(200).extract().asString();
 
