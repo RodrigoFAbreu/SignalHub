@@ -4,7 +4,9 @@ import static java.util.stream.Collectors.toSet;
 
 import io.github.rodrigofabreu.signalhub.producer.ProducerIdentity;
 import io.github.rodrigofabreu.signalhub.producer.ProducerService;
+import io.github.rodrigofabreu.signalhub.push.PushMessage;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -17,15 +19,17 @@ class EventService {
 
   private final EventRepository repository;
   private final ProducerService producers;
+  private final Event<PushMessage> pushes;
 
-  EventService(EventRepository repository, ProducerService producers) {
+  EventService(EventRepository repository, ProducerService producers, Event<PushMessage> pushes) {
     this.repository = repository;
     this.producers = producers;
+    this.pushes = pushes;
   }
 
   /**
    * Persists the event, bound to the authenticated producer, and commits before returning, so a
-   * returned event is durable.
+   * returned event is durable. Requests a push about it, which is sent only after the commit.
    */
   @Transactional
   EventResponse create(ProducerIdentity producer, CreateEventRequest request) {
@@ -42,6 +46,9 @@ class EventService {
             request.occurredAt() == null ? null : toStoredInstant(request.occurredAt().toInstant()),
             toStoredInstant(Instant.now()));
     repository.persist(event);
+    pushes.fire(
+        new PushMessage(
+            event.id(), event.category(), event.severity(), event.title(), event.message()));
     return toResponse(event, producer);
   }
 

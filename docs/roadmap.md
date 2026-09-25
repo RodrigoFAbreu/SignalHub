@@ -148,6 +148,19 @@ The following capabilities are already implemented and merged unless repository 
 - no push delivery; tests against real PostgreSQL, OpenAPI, Compose smoke
   test, docs
 
+### R7 - Push-provider abstraction
+
+- `push` package: `PushProvider` port (`name()` + `send(message, token)`),
+  provider-neutral `PushMessage` (event ID, category, severity, title,
+  message) and `PushResult` (`DELIVERED`, `INVALID_TARGET`, `FAILED`)
+- storing an event requests a push; the dispatcher runs after the commit, on
+  one background thread, and sends to every push target whose provider is
+  available (a provider is a CDI bean; names unique and validated at startup)
+- `INVALID_TARGET` removes the push target unless the client replaced it;
+  failures and provider exceptions are logged, not retried (R13)
+- no concrete provider yet, and no schema or HTTP API change; a test-only
+  recording provider stands in for real ones in tests
+
 ---
 
 ## 4. Planned roadmap
@@ -211,6 +224,8 @@ Exit criteria:
 - SignalHub can persist and manage one or more notification-capable client installations without sending notifications
 
 ### R7 - Push-provider abstraction
+
+Status: complete (see section 3).
 
 Goal: create a minimal delivery boundary without coupling the domain to one provider.
 
@@ -584,11 +599,13 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After client/device registration (R6), the expected next milestone is:
+After the push-provider abstraction (R7), the expected next milestone is:
 
-**R7 - Push-provider abstraction**
+**R8 - FCM delivery**
 
-R7 builds on the push targets stored by R6 (`provider` + opaque token) and
-decides which provider names delivery recognizes.
+R8 adds an `fcm` `PushProvider` beside the R7 boundary, active only when its
+credentials are configured from the environment. CI uses a local substitute;
+proving delivery to a real device needs the maintainer's Firebase project
+and credentials.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

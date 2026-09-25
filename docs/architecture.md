@@ -4,8 +4,9 @@
 > (see [Backend platform](#backend-platform)), generic event ingestion and the
 > event listing (see [Events](#events)), producer authentication (see
 > [Producers and authentication](#producers-and-authentication)), and client
-> registration with client keys and push targets (see [Clients](#clients)).
-> Push delivery and client applications do not exist yet.
+> registration with client keys and push targets (see [Clients](#clients)),
+> and the push-provider boundary (see [Push delivery](#push-delivery)).
+> No concrete push provider and no client application exist yet.
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -462,7 +463,8 @@ This version protects publishing. It does not yet:
 ## Clients
 
 > Status: implemented. Clients are registered, authenticate with client keys,
-> read events, and store a push target. No push is sent yet.
+> read events, and store a push target. Pushes go through the provider
+> boundary in [Push delivery](#push-delivery); no provider is built in yet.
 
 A **client** is one installation of a SignalHub client application on one of
 the owner's devices: a phone app, a desktop app, a CLI. SignalHub has one
@@ -509,9 +511,10 @@ A **push target** is where pushes for a client go: the name of a push
 provider and the token that provider issued to the installation.
 
 - `provider` is a lowercase identifier (letters, digits and `. _ -`, starting
-  with a letter or digit, at most 50 characters), such as `fcm`. SignalHub
-  does not keep a list of providers yet; delivery (a later release) decides
-  which ones it supports.
+  with a letter or digit, at most 50 characters), such as `fcm`. Any such
+  name is accepted: a target whose provider is not available is stored but
+  receives nothing until the provider is added (see
+  [Push delivery](#push-delivery)).
 - `token` is opaque, 1–4096 characters, without NUL. SignalHub stores it and
   hands it to the provider, but never parses it, and never returns it: it
   addresses a device, so it is write-only in the API and never logged.
@@ -557,6 +560,58 @@ rather than one overwriting the other.
 Registration, revocation and push-target changes are logged at `INFO` with
 the client ID and provider name only; never the key, its hash, or the push
 token. Rejected client keys are logged at `DEBUG` like producer keys.
+
+## Push delivery
+
+> Status: provider boundary implemented. No concrete provider is built in yet,
+> so a running service sends nothing; the startup log line
+> `Push providers: ...` lists the available ones.
+
+After an event is stored, SignalHub pushes it to every client with a push
+target. Core code never depends on a provider: it hands a provider-neutral
+message to the dispatcher, and each **push provider** is a separate,
+replaceable transport at the edge.
+
+**Flow.**
+
+1. Storing an event fires a `PushMessage`: event ID, category, severity,
+   title and message. It carries no producer-specific data, and providers map
+   it onto their own payload. A push is a signal to look; clients read the
+   event itself from the API.
+2. The dispatcher receives it only after the event's transaction commits, so
+   a push never announces an event that was rolled back, and producers get
+   their `201` without waiting for any provider.
+3. On one background thread, in event order, it reads the current push
+   targets and sends the message through the provider each target names.
+   There are no routing rules yet: every target gets every event.
+
+**Providers.** A provider implements `push.PushProvider`: a `name()` that
+matches the push target's `provider` (the same naming rule), and
+`send(message, token)`. It is a CDI bean, and a provider that lacks the
+configuration or credentials it needs must not be active, so delivery never
+offers it targets it cannot serve. Names are unique; an invalid or duplicate
+name stops the service at startup. Targets whose provider is not available
+are skipped.
+
+**Results.** A provider reports one of three results, only the distinctions
+delivery acts on:
+
+| Result | Delivery does |
+|---|---|
+| `DELIVERED` | Nothing more. The provider accepted the push; that is not proof the device showed it. |
+| `INVALID_TARGET` | Removes the push target: the token no longer addresses an installation. A target the client replaced in the meantime is kept. |
+| `FAILED` | Logs a warning and keeps the target. An exception from a provider counts as `FAILED`. |
+
+**Guarantees and limits.** The event is durable before any push is tried, so
+a failed push never loses an event: it stays in the inbox. The push itself is
+best effort for now: it is not retried, and pushes still queued when the
+service stops are lost. Delivery reliability (retries, backoff, delivery
+state) is roadmap item R13. Clients must still tolerate duplicate pushes (by
+event ID), since that is the delivery contract.
+
+**Logging.** Delivery logs client IDs, event IDs and provider names, never
+push tokens. A provider's exception is logged by class name only, since its
+message may quote the request.
 
 ## Likely components
 
@@ -659,7 +714,10 @@ Implementation expectations:
   JPA entity with a Panache repository (persistence). The entity is package-private and never serialized.
   Producers, API keys, their authentication filters, and the management API
   live in the `producer` package. Clients, client keys, the client and owner
-  authentication filters, and the client APIs live in the `client` package. Authentication uses plain JAX-RS request
+  authentication filters, and the client APIs live in the `client` package.
+  The push-provider boundary (provider interface, message, results, and the
+  dispatcher) lives in the `push` package; concrete providers will live
+  beside it. Authentication uses plain JAX-RS request
   filters bound by annotation (`@ProducerAuthenticated`, `@AdminOnly`,
   `@ClientAuthenticated`, `@OwnerAuthenticated`) rather than an identity
   framework: a few bearer-token checks do not justify one.
@@ -691,5 +749,6 @@ These are deferred until the relevant implementation work:
   (for example a pairing flow), once a client application exists.
 - Event retention and pruning policy.
 - Routing and filtering rules: which events trigger a push, quiet hours.
+- Push retries and delivery state (roadmap R13).
 - Client platforms: which clients (Android, iOS, web, CLI) are built first,
   and their technology.

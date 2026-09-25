@@ -76,6 +76,10 @@ class ClientEntity {
     return pushProvider;
   }
 
+  String pushToken() {
+    return pushToken;
+  }
+
   Instant pushUpdatedAt() {
     return pushUpdatedAt;
   }

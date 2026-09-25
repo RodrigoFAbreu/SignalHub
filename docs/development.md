@@ -168,7 +168,10 @@ parsing and admin token (`ApiKeysTest`, `BearerTokenTest`, `AdminTokenTest`).
 Clients are covered by `ClientApiTest` (registration, revocation, client keys
 reading the listing, and push targets), `ClientPersistenceTest` (hashes only,
 and the schema's push-target constraints) and `ClientKeysTest` (the key
-format).
+format). Push delivery is covered by `PushDispatcherTest` (provider results,
+invalid targets, unavailable providers, provider names) and `EventPushTest`
+(publishing pushes after the commit), with `RecordingPushProvider`, a test-only
+provider named `test`, in place of a real one.
 The test profile uses a fixed, test-only admin token from
 `application.properties`.
 
@@ -320,7 +323,9 @@ curl -s "$API/$CLIENT" -H "$H"                  # one client
 curl -s -X POST "$API/$CLIENT/revoke" -H "$H"   # revoke it and drop its push target
 ```
 
-No push is sent yet; the push target is stored for delivery in a later release.
+No push provider is built in yet, so no push is sent; the backend logs
+`Push providers: none` at startup. See
+[architecture.md](architecture.md#push-delivery).
 
 ### Events API
 

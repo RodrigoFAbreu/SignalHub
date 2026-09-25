@@ -31,8 +31,10 @@ OpenAPI, Docker Compose) with generic event ingestion
 authentication (server-issued API keys, managed through
 `/api/v1/admin/producers` with an admin token), and client registration
 (per-installation client keys and provider-neutral push targets, managed
-through `/api/v1/admin/clients` and `/api/v1/client`). There is no push
-delivery or client application yet. Do not build components beyond
+through `/api/v1/admin/clients` and `/api/v1/client`), and a push-provider
+boundary that sends a push about each stored event to every push target whose
+provider is available. No concrete push provider (such as FCM) or client
+application exists yet. Do not build components beyond
 the scope of the task at hand.
 
 `docs/history/` is an archive of past prompts and decisions. It is context

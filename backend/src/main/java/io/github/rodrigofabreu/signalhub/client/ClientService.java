@@ -13,8 +13,8 @@ import org.hibernate.id.uuid.UuidVersion7Strategy;
 import org.jboss.logging.Logger;
 
 /**
- * Registers and revokes clients, authenticates client keys, and records push targets. Logs only
- * client IDs and provider names, never keys, hashes or push tokens.
+ * Registers and revokes clients, authenticates client keys, and records push targets for delivery.
+ * Logs only client IDs and provider names, never keys, hashes or push tokens.
  */
 @ApplicationScoped
 public class ClientService {
@@ -122,6 +122,27 @@ public class ClientService {
               LOG.infof("Client %s removed its push target", id);
               return toResponse(client);
             });
+  }
+
+  /** Every current push target, for delivery. */
+  @Transactional
+  public List<PushTarget> pushTargets() {
+    return clients.withPushTarget().stream()
+        .map(c -> new PushTarget(c.id(), c.pushProvider(), c.pushToken()))
+        .toList();
+  }
+
+  /**
+   * Removes a push target its provider reported as invalid, unless the client has replaced it
+   * since.
+   */
+  @Transactional
+  public void dropPushTarget(PushTarget target) {
+    if (clients.dropPushTarget(target.clientId(), target.provider(), target.token())) {
+      LOG.infof(
+          "Removed the push target of client %s (provider %s): the provider rejected it",
+          target.clientId(), target.provider());
+    }
   }
 
   private Optional<ClientEntity> active(UUID id) {
