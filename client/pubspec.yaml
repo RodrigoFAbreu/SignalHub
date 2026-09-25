@@ -1,0 +1,26 @@
+name: signalhub_client
+description: "SignalHub client app for Android and iOS."
+publish_to: 'none'
+
+# The app's own version. SignalHub releases are the repository's git tags; this
+# only feeds the platform build number and version name.
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+  flutter:
+    sdk: flutter
+  flutter_secure_storage: ^11.2.0
+  http: ^1.6.0
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

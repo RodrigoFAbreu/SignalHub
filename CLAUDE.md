@@ -16,8 +16,10 @@ Planned stack (details in `docs/architecture.md`):
   Hibernate ORM with Panache, Flyway, Jakarta Validation, SmallRye OpenAPI,
   SmallRye Health. Tested with JUnit 5 and RestAssured.
 - **Database:** PostgreSQL.
-- **Clients:** undecided (Android, iOS, web, CLI, or others). The backend API
-  must not assume any particular client platform.
+- **Client app:** Flutter, one codebase for Android and iOS, in `client/`.
+  Push through Firebase Cloud Messaging stays behind the app's provider-neutral
+  `PushService`. The backend API must not assume any particular client
+  platform.
 - **Push delivery:** a push provider, likely Firebase Cloud Messaging.
 - **Producer SDK/CLI:** optional thin clients over the HTTP API, for example
   in Python.
@@ -34,7 +36,8 @@ authentication (server-issued API keys, managed through
 through `/api/v1/admin/clients` and `/api/v1/client`), and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging
 provider enabled by a service account key file, and event-triggered push
-dispatch through a PostgreSQL outbox. There is no client application yet. Do not build components beyond
+dispatch through a PostgreSQL outbox, and the Flutter client app foundation
+in `client/` (setup with a client key, push registration and reception). Do not build components beyond
 the scope of the task at hand.
 
 `docs/history/` is an archive of past prompts and decisions. It is context
@@ -93,7 +96,8 @@ owner. Removing it in a later commit is not enough.
   future SDKs) is linted and formatted with `ruff` (version pinned in CI). The
   backend is formatted with google-java-format via Spotless
   (`./mvnw spotless:apply`) and analysed with SpotBugs and `javac -Xlint:all`;
-  `./mvnw verify` enforces both, locally and in CI.
+  `./mvnw verify` enforces both, locally and in CI. The client app is formatted with
+  `dart format` and analysed with `flutter analyze`; CI enforces both.
 - Do not add infrastructure (Redis, Kafka, RabbitMQ, Kubernetes, other
   distributed-system components) without a present need that PostgreSQL and a
   single backend service cannot meet.
@@ -125,4 +129,5 @@ python -m unittest discover --start-directory scripts/release --verbose
 python scripts/release/release.py check-title "feat: my change"   # preview release impact
 (cd backend && ./mvnw verify)      # backend build, tests (needs Docker), format, SpotBugs
 docker compose up --build --wait   # backend + PostgreSQL (after cp .env.example .env)
+(cd client && flutter analyze && flutter test)   # client app
 ```

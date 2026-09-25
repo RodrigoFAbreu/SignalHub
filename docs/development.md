@@ -333,7 +333,9 @@ curl -s "$API/$CLIENT" -H "$H"                  # one client
 curl -s -X POST "$API/$CLIENT/revoke" -H "$H"   # revoke it and drop its push target
 ```
 
-No push is sent yet; the push target is stored for delivery in a later release.
+Every published event is then pushed to the target (see
+[Push dispatch](architecture.md#push-dispatch)). The client app does all of
+this itself; see [Client](#client).
 
 ### Events API
 
@@ -481,6 +483,47 @@ startup the log shows `FCM push enabled for Firebase project ...` and
 `PUT /api/v1/client/push-target` and provider `fcm`. From then on, every
 published event is pushed to them.
 
+## Client
+
+The client app lives in `client/`: one Flutter codebase for Android and iOS.
+See [architecture.md](architecture.md#client-application) for its design and
+[`client/README.md`](../client/README.md) for running it against a backend
+and setting up push with your Firebase project.
+
+### Prerequisites
+
+- **Flutter 3.47.5** (stable), the version CI pins in `FLUTTER_VERSION` in
+  `.github/workflows/ci.yml`. It includes Dart.
+- For Android builds: the Android SDK (Android Studio or the command-line
+  tools) and JDK 17.
+- For iOS builds: macOS with Xcode.
+
+Dependencies are locked in `client/pubspec.lock`. Update them with
+`flutter pub upgrade` and commit the lock file.
+
+All commands below run in `client/`.
+
+### Build and test
+
+```sh
+flutter pub get --enforce-lockfile            # exactly the locked dependencies
+dart format --output=none --set-exit-if-changed .   # formatting check (`dart format .` fixes)
+flutter analyze                               # static analysis (lints in analysis_options.yaml)
+flutter test                                  # unit and widget tests
+flutter build apk --debug                     # Android build
+flutter build ios --debug --no-codesign       # iOS build (macOS only)
+```
+
+The tests need no device, network or credentials: `SignalHubApi` runs
+against `FakeBackend`, an in-memory stand-in for the client API built on the
+`http` package's `MockClient`, and push against `FakePushService`. They cover
+the API client (paths, bearer key, push-target bodies, error mapping), the
+models (every documented field, unknown enum values, contract violations),
+server address and key validation, the app controller (setup, restart,
+revoked key, unreachable server, push permission, token refresh, deduplicated
+pushes, disconnect), the Firebase options from build-time values, and the
+screens in widget tests. Builds without Firebase options run without push.
+
 ## Local validation
 
 CI runs:
@@ -493,6 +536,14 @@ ruff format --check .
 python -m unittest discover --start-directory scripts/release --verbose
 # Lints GitHub Actions workflows (needs Docker):
 docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color
+
+# Client (in client/, needs Flutter; the iOS build needs macOS)
+flutter pub get --enforce-lockfile
+dart format --output=none --set-exit-if-changed .
+flutter analyze
+flutter test
+flutter build apk --debug
+flutter build ios --debug --no-codesign
 
 # Backend (needs Docker)
 (cd backend && ./mvnw verify)
@@ -522,7 +573,8 @@ repository:
   instead of the validated PR title.
 - Protect `main`: require a pull request, and require the status checks
   `Python (lint + test)`, `GitHub Actions lint`, `Backend (build + test)`,
-  `Backend container (Compose smoke test)`, and `Conventional Commit title`.
+  `Backend container (Compose smoke test)`, `Client (analyze + test +
+  Android build)`, `Client (iOS build)`, and `Conventional Commit title`.
   Require branches to be up to date before merging.
 - Actions workflow permissions must allow `contents: write` for the release
   job (it requests this explicitly).
