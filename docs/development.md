@@ -125,6 +125,29 @@ docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -c
 Each new component adds its own build, lint, and test commands to CI and to
 this section in the PR that introduces it.
 
+The Python commands above cover repository tooling (release versioning) only.
+The backend is Java/Quarkus (see [architecture.md](architecture.md#backend-platform)).
+
+## Bootstrapping the backend
+
+No backend code exists yet. The PR that introduces the Quarkus backend must be
+releasable on its own. It must include:
+
+- a runnable Quarkus service on Java 21 with its build wrapper committed, so
+  contributors need only a JDK and Docker;
+- PostgreSQL connectivity, Flyway configured, and liveness and readiness
+  checks, where readiness verifies the database;
+- tests with JUnit 5 and RestAssured, run against real PostgreSQL;
+- a CI job that builds, checks formatting and static analysis, and runs the
+  tests on Java 21, plus the job name added to the required checks below;
+- a production Dockerfile and a Docker Compose setup for the backend with
+  PostgreSQL, with an `.env.example` holding placeholders only;
+- local commands (build, run, test, migrate, Compose) documented in this file,
+  its details recorded in `architecture.md`, and its status in `README.md`.
+
+It must not include event ingestion or other product features, unless that is
+the stated scope of the PR.
+
 ## Repository settings (GitHub)
 
 These settings are required for the model above and live outside the
