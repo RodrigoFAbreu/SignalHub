@@ -5,9 +5,10 @@
 > event listing (see [Events](#events)), producer authentication (see
 > [Producers and authentication](#producers-and-authentication)), and client
 > registration with client keys and push targets (see [Clients](#clients)),
-> the push-provider boundary with a Firebase Cloud Messaging provider, and
-> event-triggered push dispatch (see [Push delivery](#push-delivery)). No
-> client application exists yet.
+> the push-provider boundary with a Firebase Cloud Messaging provider,
+> event-triggered push dispatch (see [Push delivery](#push-delivery)), and the
+> foundation of the Flutter client app for Android and iOS (see
+> [Client application](#client-application)).
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -464,7 +465,8 @@ This version protects publishing. It does not yet:
 ## Clients
 
 > Status: implemented. Clients are registered, authenticate with client keys,
-> read events, and store a push target. No push is sent yet.
+> read events, and store a push target that receives pushes (see
+> [Push delivery](#push-delivery)).
 
 A **client** is one installation of a SignalHub client application on one of
 the owner's devices: a phone app, a desktop app, a CLI. SignalHub has one
@@ -687,6 +689,67 @@ preferences for which events push (roadmap R12). The push token never appears in
 providers must keep it out of outcome details, and an exception from a
 provider is logged by type only.
 
+## Client application
+
+> Status: foundation implemented in `client/`: setup with a client key,
+> push registration and reception, and the newest event. The inbox and event
+> detail views are roadmap R10.
+
+**Technology: Flutter**, chosen by the maintainer for roadmap R9. One Dart
+codebase targets Android and iOS. Other platforms Flutter supports (web,
+desktop) are possible later but not built or tested now.
+
+The app is a client like any other: it uses only the public HTTP API with its
+client key, and the backend knows nothing about Flutter, Android or iOS.
+
+```
+ ┌───────────────────────── client/lib ─────────────────────────┐
+ │ ui (setup, home) ──▶ AppController ──▶ SignalHubApi ──HTTPS──▶ backend
+ │                          │                                   │
+ │                          ▼                                   │
+ │               PushRegistration ──▶ PushService (port)         │
+ └──────────────────────────────────────────│───────────────────┘
+                                             ▼
+                          FirebasePushService (adapter) ◀── FCM / APNs
+```
+
+- **Provider-neutral core.** `PushService` is the app's push port, mirroring
+  the backend's `PushProvider`: a provider name, an opaque token, token
+  refreshes, and received pushes as `PushNotice` (title, body, event ID). The
+  controller, the push registration and the UI depend only on it.
+  `FirebasePushService` is the only Dart code that imports Firebase; its
+  provider name `fcm` matches the backend's provider.
+- **Registration.** The operator registers the installation as a client
+  (`POST /api/v1/admin/clients`) and the owner enters the server address and
+  client key in the app. The app checks the key with `GET /api/v1/client`
+  before saving it, then asks for notification permission and sets its push
+  target with `PUT /api/v1/client/push-target`, again on every start and
+  whenever the provider issues a new token. Disconnecting removes the target
+  (`DELETE`), deletes the provider token and forgets the key. A key the
+  server no longer accepts sends the app back to setup.
+- **Credentials.** The server address and client key are kept in the
+  platform's secure storage (Keychain on iOS, Keystore-backed encryption on
+  Android) and never logged.
+- **Reception.** In the background, the operating system shows the
+  notification from the push's title and body. In the foreground, and when
+  a notification opens the app, the push becomes a `PushNotice` in the app's
+  list, deduplicated by event ID (delivery is at least once), and the app
+  re-reads the newest event: a push is a signal to look.
+- **Events.** The app maps the API's events to a typed model. A category or
+  severity added in a later backend release maps to *unknown* rather than
+  failing, so older apps keep working (see
+  [Category and severity](#category-and-severity)). Metadata stays opaque.
+- **Platform edge.** Android and iOS specifics stay in `client/android` and
+  `client/ios`: the app ID `io.github.rodrigofabreu.signalhub`, the
+  notification permission, the iOS push entitlement and background mode, and
+  plain HTTP only for debug builds (Android) or local addresses (iOS).
+- **Firebase configuration.** The owner's Firebase project is passed at build
+  time (`--dart-define-from-file`), never committed. A build without it runs
+  without push, which is how CI and the tests build it.
+- **Tests.** Unit and widget tests run against an in-memory fake of the
+  client API (`MockClient`) and a fake `PushService`; no device, network or
+  credentials. CI also compiles the Android and iOS apps.
+
 ## Likely components
 
 | Component | Direction | Responsibility |
@@ -694,7 +757,7 @@ provider is logged by type only.
 | Backend | Java 21, Quarkus (see [Backend platform](#backend-platform)) | Producer API, validation, persistence, dispatch, client-facing API |
 | Database | PostgreSQL | System of record for events, producers, devices, delivery state |
 | Push | A push provider, likely Firebase Cloud Messaging | Transport to devices only, carrying minimal payloads |
-| Clients | Undecided (Android, iOS, web, CLI, ...) | Device registration, notifications, event browsing |
+| Clients | Flutter app for Android and iOS (see [Client application](#client-application)); other clients (CLI, web) may follow | Device registration, notifications, event browsing |
 | Producer SDK/CLI | Optional, for example Python | Thin client over the public HTTP API |
 | Deployment | Docker, Docker Compose | Reproducible self-hosted deployment |
 
@@ -824,5 +887,4 @@ These are deferred until the relevant implementation work:
 - Event retention and pruning policy.
 - Routing and filtering rules: which events trigger a push (all do for now),
   quiet hours.
-- Client platforms: which clients (Android, iOS, web, CLI) are built first,
-  and their technology.
+- Whether further clients (web, desktop, CLI) are built, and with what.

@@ -182,6 +182,25 @@ The following capabilities are already implemented and merged unless repository 
   characters, data `eventId`, `category`, `severity`
 - one attempt per client; retries are R13
 
+### R9 - Cross-platform client foundation
+
+- technology: **Flutter** (maintainer decision), one codebase for Android and
+  iOS in `client/`; recorded in `docs/architecture.md`
+- setup with the server address and a client key, checked with
+  `GET /api/v1/client` and kept in platform secure storage
+- provider-neutral `PushService` port; Firebase Cloud Messaging adapter at
+  the edge (provider `fcm`), configured with the owner's Firebase project at
+  build time and never committed; builds without it run without push
+- push target set through `PUT /api/v1/client/push-target` on setup, start
+  and token refresh; removed on disconnect; revoked keys return to setup
+- push reception: system notifications in the background, an in-app list in
+  the foreground, deduplicated by event ID; the newest event from the API
+- no backend changes; unit and widget tests against fakes; CI analyzes,
+  tests and builds Android and iOS
+- receiving a push on a real device needs the maintainer's Firebase project
+  (and Apple account for iOS); that confirmation also closes R8's exit
+  criterion
+
 ---
 
 ## 4. Planned roadmap
@@ -300,6 +319,8 @@ Exit criteria:
 - publishing an authenticated event can result in a real push notification on a registered test device
 
 ### R9 - Cross-platform client foundation
+
+Status: complete (see section 3). Flutter was chosen by the maintainer.
 
 Goal: create the first real user-facing client capable of targeting Android and iOS from one product codebase where practical.
 
@@ -625,14 +646,13 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After FCM delivery (R8a and R8b), the expected next milestone is:
+After the client foundation (R9), the expected next milestone is:
 
-**R9 - Cross-platform client foundation**
+**R10 - Notification inbox UI**
 
-R9 starts with a human gate: the maintainer chooses the client technology
-(for example Flutter, Kotlin/Compose Multiplatform or React Native). No
-client code is written before that decision is recorded in normative docs.
-Confirming R8's real-device exit criterion also needs the maintainer's
-Firebase project.
+It builds on the Flutter app in `client/`: the paginated inbox over
+`GET /api/v1/events`, an event detail view, and opening an event from its
+push. Confirming delivery to a real device (R8 and R9) still needs the
+maintainer's Firebase project.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

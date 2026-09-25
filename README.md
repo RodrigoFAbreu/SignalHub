@@ -19,8 +19,9 @@ optional SDK/CLI
 - **Backend:** Java 21, Quarkus (Quarkus REST, Hibernate ORM with Panache,
   Flyway, Jakarta Validation, SmallRye OpenAPI and Health), PostgreSQL
 - **Push delivery:** a push provider, likely Firebase Cloud Messaging
-- **Clients:** undecided. The API is client-agnostic, so Android, iOS, web,
-  and CLI clients are all possible.
+- **Client app:** Flutter, one codebase for Android and iOS, with push
+  through Firebase Cloud Messaging. The API is client-agnostic, so other
+  clients (web, CLI) remain possible.
 - **Producer client:** optional thin SDK/CLI over the HTTP API (for example in
   Python)
 - **Deployment:** Docker / Docker Compose
@@ -34,7 +35,7 @@ Early development.
 | Component | Status |
 |---|---|
 | Backend (`backend/`) | Quarkus service with PostgreSQL, Flyway, health checks, OpenAPI, Docker image and Compose. Generic event ingestion: `POST /api/v1/events` and `GET /api/v1/events/{id}`. Paginated, filterable event listing (the inbox): `GET /api/v1/events`. Producer authentication with server-issued API keys, managed through an admin-token-protected API. Client registration: each client installation gets its own key for reading events and stores a provider-neutral push target. Push notifications: every published event is pushed, durably and at least once, to every client with a push target, through Firebase Cloud Messaging (enabled by a service account key file) behind a provider-neutral boundary. |
-| Clients | Not started |
+| Client app (`client/`) | Flutter app for Android and iOS: connects to the server with a client key kept in secure storage, registers for push notifications (Firebase Cloud Messaging, configured with the owner's Firebase project at build time), and shows its status, the newest event and received pushes. See [client/README.md](client/README.md). The inbox is next. |
 | Producer SDK/CLI | Not started |
 
 Run the backend with PostgreSQL:
@@ -71,7 +72,8 @@ keys in
 and clients in [docs/architecture.md](docs/architecture.md#clients).
 
 See [docs/development.md](docs/development.md#backend) for dev mode, tests, and
-configuration.
+configuration, and [docs/development.md](docs/development.md#client) for the
+client app.
 
 ## Development philosophy
 

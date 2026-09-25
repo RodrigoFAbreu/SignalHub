@@ -24,3 +24,9 @@ updates:
       interval: weekly
     commit-message:
       prefix: build
+  - package-ecosystem: pub
+    directory: /client
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
