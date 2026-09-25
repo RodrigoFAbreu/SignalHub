@@ -2,9 +2,10 @@
 
 > Status: partly direction. Implemented so far: the backend runtime foundation
 > (see [Backend platform](#backend-platform)), generic event ingestion and the
-> event listing (see [Events](#events)), and producer authentication (see
-> [Producers and authentication](#producers-and-authentication)). Owner/client
-> authentication, dispatch, and clients do not exist yet.
+> event listing (see [Events](#events)), producer authentication (see
+> [Producers and authentication](#producers-and-authentication)), and client
+> registration with client keys and push targets (see [Clients](#clients)).
+> Push delivery and client applications do not exist yet.
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -74,8 +75,9 @@ needed, live outside the core and speak the generic API.
 ## Events
 
 > Status: implemented. Registered producers publish events with an API key;
-> the owner lists them with the admin token; reading one event by ID needs no
-> credential yet (see [Security limitations](#security-limitations)), so
+> the owner's clients list them with client keys (the operator may also use
+> the admin token); reading one event by ID needs
+> no credential yet (see [Security limitations](#security-limitations)), so
 > Compose publishes the API on localhost only.
 
 An event is a generic record of something that happened in a producer. The
@@ -182,7 +184,7 @@ contents. An absent or `null` value is stored and returned as `{}`.
 | Method and path | Result |
 |---|---|
 | `POST /api/v1/events` | Requires a producer API key. Validates and stores an event bound to that producer. `201 Created` with the canonical event and a `Location` header. |
-| `GET /api/v1/events` | Requires the admin token. One page of events, newest first, optionally filtered. See [Listing events](#listing-events). |
+| `GET /api/v1/events` | Requires a client key or the admin token. One page of events, newest first, optionally filtered. See [Listing events](#listing-events). |
 | `GET /api/v1/events/{id}` | `200` with the event, or `404`. No credential needed yet. |
 
 The event is committed to PostgreSQL before `201` is returned. Errors:
@@ -208,13 +210,13 @@ response schemas, with examples. See
 `GET /api/v1/events` is the inbox: what a client shows the owner without
 knowing any event ID in advance.
 
-**Credential.** It requires the admin token (see
-[Producer management](#producer-management)), which is the owner's credential
-until owner and client authentication exist. Without a configured admin token
-the listing is disabled and answers `404`, like the management API. A producer
-key is not accepted: producers publish, they do not read other producers'
-events. When owner/client authentication arrives, it is expected to be
-accepted here in addition to (or instead of) the admin token.
+**Credential.** It requires one of the owner's credentials: a client key (see
+[Clients](#clients)), which is how client applications read, or the admin
+token (see [Producer management](#producer-management)), which lets the
+operator read with curl. Without a configured admin token only client keys
+are accepted; the listing never answers `404`. Anything else, including a
+producer key, gets the same `401` as every credential failure: producers
+publish, they do not read other producers' events.
 
 **Order.** Events are ordered by `createdAt`, newest first, then by `id`
 (descending) among events stored in the same microsecond, so the order is
@@ -373,9 +375,9 @@ The operator manages producers through a small HTTP API under
   publishing. This is the default in every environment.
 - With the variable set, requests without the exact token get the same `401`
   as producer failures. Producer keys are not admin tokens and vice versa.
-- The same token also guards the event listing (see
-  [Listing events](#listing-events)): in a single-owner service the operator
-  is the owner, and no separate owner credential exists yet.
+- The same token also manages clients (see [Clients](#clients)) and may read
+  the event listing (see [Listing events](#listing-events)): in a
+  single-owner service the operator is the owner.
 
 This is a bootstrap mechanism for a single-owner, self-hosted service, not a
 user or role system. See [development.md](development.md#producers-and-api-keys)
@@ -441,11 +443,9 @@ This version protects publishing. It does not yet:
 - **Authenticate readers by ID.** `GET /api/v1/events/{id}` needs no
   credential. Event IDs are unguessable UUIDv7s returned only to the
   publishing producer and to the owner's listing, but anyone who learns one
-  and can reach the API can read the event. Listing events requires the admin
-  token.
-- **Authenticate owners and clients.** The admin token is the only owner
-  credential, shared by management and the listing. Per-client credentials
-  arrive with client/device registration.
+  and can reach the API can read the event. Listing events requires a client
+  key or the admin token. Requiring one here too is a breaking change,
+  deferred to a deliberate contract decision.
 - **Terminate TLS.** Keys and the admin token travel as bearer credentials, so
   any non-local access needs a TLS reverse proxy. Compose publishes the API on
   `127.0.0.1` only.
@@ -453,10 +453,110 @@ This version protects publishing. It does not yet:
   secrets), but a flood of requests still costs a database lookup each.
 - **Separate the management API** onto its own port or network. It is
   protected by the admin token and disabled by default; for the tightest
-  setup, set `SIGNALHUB_ADMIN_TOKEN` only while managing producers or reading
-  the listing, and restart without it afterwards.
+  setup, set `SIGNALHUB_ADMIN_TOKEN` only while managing producers or
+  clients, and restart without it afterwards; clients keep reading with
+  their own keys.
 - **Expire keys** automatically. Keys are valid until revoked.
 - **Scope keys**: every valid key may publish any event as its producer.
+
+## Clients
+
+> Status: implemented. Clients are registered, authenticate with client keys,
+> read events, and store a push target. No push is sent yet.
+
+A **client** is one installation of a SignalHub client application on one of
+the owner's devices: a phone app, a desktop app, a CLI. SignalHub has one
+owner, so a client is not a user account: it is a credential for reading the
+owner's events plus, optionally, where to push notifications. The model is
+the same for every platform.
+
+| Field | Meaning |
+|---|---|
+| `id` | Server-generated canonical ID (UUIDv7). |
+| `name` | Human-readable label chosen by the owner, e.g. `Pixel 8`. 1–100 characters, not blank. Need not be unique. |
+| `createdAt` | When it was registered. |
+| `revokedAt` | Set once the client is revoked; `null` while it is active. |
+| `pushTarget` | `{provider, updatedAt}`, or `null` if the client has no push target. |
+
+### Client keys
+
+The operator registers a client through the management API, which issues its
+**client key**, shown only in that response:
+
+```
+shck1_01a0da2c1f3e7a518d0c6b1f2e3d4c5b_Zt1v...(43 characters)
+```
+
+Client keys follow the producer key design (see [API keys](#api-keys)): a
+format prefix (`shck1_`, "SignalHub client key", version 1, distinct from
+producer keys so neither can be mistaken for the other), the client ID as 32
+hex digits, and a 256-bit secret. Only `SHA-256(key)` is stored
+(`clients.key_hash`), verification is one primary-key lookup with a
+constant-time comparison, and every failure is the same `401` (see
+[Authentication errors](#authentication-errors)).
+
+A client has exactly one key for its lifetime. A key belongs to one
+installation, so rotating it means registering the installation again as a
+new client and revoking the old one. Revocation is permanent and immediate.
+
+**What a client key may do:** read the event listing, and read and change its
+own registration under `/api/v1/client`. It cannot publish, manage producers
+or other clients, or see push targets of other clients.
+
+### Push targets
+
+A **push target** is where pushes for a client go: the name of a push
+provider and the token that provider issued to the installation.
+
+- `provider` is a lowercase identifier (letters, digits and `. _ -`, starting
+  with a letter or digit, at most 50 characters), such as `fcm`. SignalHub
+  does not keep a list of providers yet; delivery (a later release) decides
+  which ones it supports.
+- `token` is opaque, 1–4096 characters, without NUL. SignalHub stores it and
+  hands it to the provider, but never parses it, and never returns it: it
+  addresses a device, so it is write-only in the API and never logged.
+- The client sets it with `PUT /api/v1/client/push-target` whenever its
+  provider issues a new token, and removes it with `DELETE`. A client has at
+  most one push target.
+- **One installation, one client.** A push target belongs to at most one
+  client: setting it takes it away from any other client that had it (same
+  provider and token). An app that is reinstalled and registered again
+  therefore never receives each push twice, even before the old client is
+  revoked.
+- Revoking a client removes its push target, and a revoked client can never
+  get one; the database enforces both.
+
+### Client API
+
+| Method and path | Credential | Result |
+|---|---|---|
+| `POST /api/v1/admin/clients` | admin token | Registers a client (`{"name": ...}`). `201` with the client and `clientKey`. |
+| `GET /api/v1/admin/clients` | admin token | All clients, oldest first. |
+| `GET /api/v1/admin/clients/{id}` | admin token | One client. |
+| `POST /api/v1/admin/clients/{id}/revoke` | admin token | Revokes the client and removes its push target. Idempotent. |
+| `GET /api/v1/client` | client key | The calling client's registration. |
+| `PUT /api/v1/client/push-target` | client key | Sets the push target (`{"provider", "token"}`). `200` with the client. |
+| `DELETE /api/v1/client/push-target` | client key | Removes the push target. Idempotent. `200` with the client. |
+
+The management paths behave like producer management: `404` for every path
+while no admin token is configured, `404` for unknown IDs, and `400` for
+invalid bodies with the usual violations. See
+[development.md](development.md#clients) for curl examples.
+
+### Schema
+
+`V4__create_clients.sql` creates `clients`: `id`, `name`, `key_hash` (exactly
+32 bytes), `created_at`, `revoked_at`, and `push_provider`, `push_token`,
+`push_updated_at`, which are either all set or all `null`. A check constraint
+forbids a push target on a revoked client. Changes to one client lock its
+row, so a revocation and a concurrent push-target update apply in order
+rather than one overwriting the other.
+
+### Logging
+
+Registration, revocation and push-target changes are logged at `INFO` with
+the client ID and provider name only; never the key, its hash, or the push
+token. Rejected client keys are logged at `DEBUG` like producer keys.
 
 ## Likely components
 
@@ -558,9 +658,11 @@ Implementation expectations:
   listing query and its cursor, a service (transactions and mapping), and the
   JPA entity with a Panache repository (persistence). The entity is package-private and never serialized.
   Producers, API keys, their authentication filters, and the management API
-  live in the `producer` package. Authentication uses plain JAX-RS request
-  filters bound by annotation (`@ProducerAuthenticated`, `@AdminOnly`) rather
-  than an identity framework: two bearer-token checks do not justify one.
+  live in the `producer` package. Clients, client keys, the client and owner
+  authentication filters, and the client APIs live in the `client` package. Authentication uses plain JAX-RS request
+  filters bound by annotation (`@ProducerAuthenticated`, `@AdminOnly`,
+  `@ClientAuthenticated`, `@OwnerAuthenticated`) rather than an identity
+  framework: a few bearer-token checks do not justify one.
   Cross-cutting HTTP concerns (strict JSON reading, error bodies, identifier
   rules) live in `api`.
 - **Deployment:** `compose.yaml` runs the backend and PostgreSQL 17 with a
@@ -584,7 +686,9 @@ Implementation expectations:
 
 These are deferred until the relevant implementation work:
 
-- Owner and client authentication, including for reading events.
+- Requiring a credential for `GET /api/v1/events/{id}` (a breaking change).
+- How a client obtains its key without the operator copying it by hand
+  (for example a pairing flow), once a client application exists.
 - Event retention and pruning policy.
 - Routing and filtering rules: which events trigger a push, quiet hours.
 - Client platforms: which clients (Android, iOS, web, CLI) are built first,

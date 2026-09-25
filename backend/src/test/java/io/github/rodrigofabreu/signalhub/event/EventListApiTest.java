@@ -44,7 +44,7 @@ class EventListApiTest {
   @Inject AgroalDataSource dataSource;
 
   @Test
-  void requiresTheAdminToken() {
+  void requiresAnOwnerCredential() {
     var producer = TestProducers.register("list-auth");
     given().get(EVENTS).then().statusCode(401).header("WWW-Authenticate", containsString("Bearer"));
     given().header("Authorization", "Bearer wrong").get(EVENTS).then().statusCode(401);

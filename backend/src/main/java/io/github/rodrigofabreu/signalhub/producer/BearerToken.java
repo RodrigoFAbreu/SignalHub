@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** Reads {@code Authorization: Bearer <token>} (RFC 6750) and builds the matching 401. */
-final class BearerToken {
+public final class BearerToken {
 
   private static final String SCHEME = "Bearer";
 
@@ -18,7 +18,7 @@ final class BearerToken {
    * The token, or empty if the header is absent or not a single well-formed Bearer credential. The
    * scheme is case-insensitive; the token itself is checked by the caller.
    */
-  static Optional<String> from(String authorization) {
+  public static Optional<String> from(String authorization) {
     if (authorization == null
         || authorization.length() <= SCHEME.length() + 1
         || !authorization.regionMatches(true, 0, SCHEME, 0, SCHEME.length())
@@ -32,7 +32,7 @@ final class BearerToken {
    * The one response for every authentication failure, so callers cannot tell a missing, malformed,
    * unknown, revoked or disabled credential apart.
    */
-  static Response unauthorized() {
+  public static Response unauthorized() {
     return Response.status(Response.Status.UNAUTHORIZED)
         .header(HttpHeaders.WWW_AUTHENTICATE, SCHEME + " realm=\"signalhub\"")
         .type(MediaType.APPLICATION_JSON_TYPE)

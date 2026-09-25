@@ -25,10 +25,10 @@ import java.util.regex.Pattern;
  * <p>Only SHA-256 of the complete key is stored. A slow password hash would add nothing: with 256
  * random bits there is nothing to brute-force, and it would cost CPU on every event.
  */
-final class ApiKeys {
+public final class ApiKeys {
 
   static final String PREFIX = "shpk1_";
-  static final int HASH_BYTES = 32;
+  public static final int HASH_BYTES = 32;
 
   private static final int SECRET_BYTES = 32;
   private static final Pattern FORMAT =
@@ -58,7 +58,7 @@ final class ApiKeys {
     return Optional.of(new UUID(id.getLong(), id.getLong()));
   }
 
-  static byte[] hash(String key) {
+  public static byte[] hash(String key) {
     try {
       return MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8));
     } catch (NoSuchAlgorithmException e) {
@@ -67,7 +67,7 @@ final class ApiKeys {
   }
 
   /** Constant-time comparison, so response timing does not reveal how much of a hash matched. */
-  static boolean hashesMatch(byte[] presented, byte[] stored) {
+  public static boolean hashesMatch(byte[] presented, byte[] stored) {
     return MessageDigest.isEqual(presented, stored);
   }
 

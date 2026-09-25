@@ -1,4 +1,4 @@
-package io.github.rodrigofabreu.signalhub.producer;
+package io.github.rodrigofabreu.signalhub.client;
 
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.TYPE;
@@ -9,10 +9,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * Requires the operator's admin token ({@code Authorization: Bearer <token>}). It guards the
- * management API for producers and clients. Without a configured token these endpoints answer 404.
+ * Requires a valid client key ({@code Authorization: Bearer <key>}) before the endpoint runs, and
+ * makes the client available through {@link AuthenticatedClient}.
  */
 @NameBinding
 @Target({TYPE, METHOD})
 @Retention(RUNTIME)
-public @interface AdminOnly {}
+public @interface ClientAuthenticated {}

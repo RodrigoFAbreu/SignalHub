@@ -12,8 +12,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * Without an admin token the management API and the event listing do not exist, whatever the
- * request carries.
+ * Without an admin token the management API does not exist, whatever the request carries. The event
+ * listing still exists for client keys.
  */
 @QuarkusTest
 @TestProfile(AdminApiDisabledTest.Profile.class)
@@ -40,9 +40,22 @@ class AdminApiDisabledTest {
   }
 
   @Test
-  void theEventListingIsNotFound() {
-    given().header("Authorization", SOME_TOKEN).get("/api/v1/events").then().statusCode(404);
-    given().get("/api/v1/events").then().statusCode(404);
+  void clientManagementIsNotFound() {
+    given().header("Authorization", SOME_TOKEN).get("/api/v1/admin/clients").then().statusCode(404);
+    given()
+        .header("Authorization", SOME_TOKEN)
+        .contentType(ContentType.JSON)
+        .body("{\"name\": \"disabled-admin\"}")
+        .post("/api/v1/admin/clients")
+        .then()
+        .statusCode(404);
+  }
+
+  @Test
+  void theEventListingAcceptsOnlyClientKeys() {
+    // The former admin token is no credential at all once it is unset.
+    given().header("Authorization", SOME_TOKEN).get("/api/v1/events").then().statusCode(401);
+    given().get("/api/v1/events").then().statusCode(401);
   }
 
   @Test

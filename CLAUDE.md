@@ -27,10 +27,12 @@ Planned stack (details in `docs/architecture.md`):
 the backend in `backend/` (Quarkus service, PostgreSQL, Flyway, health,
 OpenAPI, Docker Compose) with generic event ingestion
 (`POST /api/v1/events`, `GET /api/v1/events/{id}`), a paginated event listing
-(`GET /api/v1/events`, with the admin token), and producer
+(`GET /api/v1/events`, with a client key or the admin token), producer
 authentication (server-issued API keys, managed through
-`/api/v1/admin/producers` with an admin token). There is no owner/client
-authentication, push delivery, or client yet. Do not build components beyond
+`/api/v1/admin/producers` with an admin token), and client registration
+(per-installation client keys and provider-neutral push targets, managed
+through `/api/v1/admin/clients` and `/api/v1/client`). There is no push
+delivery or client application yet. Do not build components beyond
 the scope of the task at hand.
 
 `docs/history/` is an archive of past prompts and decisions. It is context

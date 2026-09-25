@@ -14,3 +14,4 @@ creates or alters tables.
 | `V1__create_events.sql` | `events` table for generic producer events |
 | `V2__add_producer_authentication.sql` | `producers` and `producer_api_keys` tables; `events.source` replaced by `events.producer_id` |
 | `V3__index_events_for_listing.sql` | Indexes on `events` for the event listing |
+| `V4__create_clients.sql` | `clients` table: client credentials and push targets |

@@ -124,6 +124,33 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+      - name: A registered client lists events and sets its push target
+        run: |
+          created=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data '{"name": "ci-smoke-client"}' \
+            http://localhost:8080/api/v1/admin/clients)
+          client_key=$(jq --raw-output .clientKey <<<"$created")
+          client_id=$(jq --raw-output .client.id <<<"$created")
+          echo "::add-mask::$client_key"
+          curl --fail --silent --show-error --get \
+            --header "Authorization: Bearer $client_key" \
+            --data-urlencode "producerId=$PRODUCER_ID" \
+            http://localhost:8080/api/v1/events \
+            | jq --exit-status '.items[0].title == "Smoke test"'
+          curl --fail --silent --show-error --request PUT \
+            --header "Authorization: Bearer $client_key" \
+            --header 'Content-Type: application/json' \
+            --data '{"provider": "fcm", "token": "ci-smoke-token"}' \
+            http://localhost:8080/api/v1/client/push-target \
+            | jq --exit-status '.pushTarget.provider == "fcm" and (.pushTarget | has("token") | not)'
+          curl --fail --silent --show-error --output /dev/null --request POST \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            "http://localhost:8080/api/v1/admin/clients/$client_id/revoke"
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $client_key" http://localhost:8080/api/v1/events)
+          test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
       - name: A revoked key no longer authenticates
         run: |
           curl --fail --silent --show-error --output /dev/null --request POST \

@@ -1,7 +1,8 @@
 package io.github.rodrigofabreu.signalhub.event;
 
 import io.github.rodrigofabreu.signalhub.api.ApiError;
-import io.github.rodrigofabreu.signalhub.producer.AdminOnly;
+import io.github.rodrigofabreu.signalhub.client.ClientResource;
+import io.github.rodrigofabreu.signalhub.client.OwnerAuthenticated;
 import io.github.rodrigofabreu.signalhub.producer.AuthenticatedProducer;
 import io.github.rodrigofabreu.signalhub.producer.ProducerAdminResource;
 import io.github.rodrigofabreu.signalhub.producer.ProducerAuthenticated;
@@ -103,7 +104,8 @@ public class EventResource {
   }
 
   @GET
-  @AdminOnly
+  @OwnerAuthenticated
+  @SecurityRequirement(name = ClientResource.SECURITY_SCHEME)
   @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
   @Operation(
       summary = "List events, newest first",
@@ -113,9 +115,7 @@ public class EventResource {
               + " any of its values. To read the next page, repeat the request with the same"
               + " filters and cursor set to the previous page's nextCursor. Events published"
               + " after the first page never shift or repeat entries on later pages; they appear"
-              + " when the listing is started again. Requires the admin token, the owner's"
-              + " credential until owner and client authentication exist; answers 404 when no"
-              + " admin token is configured.")
+              + " when the listing is started again. Requires a client key or the admin token.")
   @APIResponse(
       responseCode = "200",
       description = "A page of events.",
@@ -126,11 +126,7 @@ public class EventResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "401",
-      description = "Missing or wrong admin token.",
-      content = @Content(schema = @Schema(implementation = ApiError.class)))
-  @APIResponse(
-      responseCode = "404",
-      description = "No admin token is configured, so the listing is disabled.",
+      description = "Missing or invalid client key or admin token.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public EventPage list(
       @Parameter(
