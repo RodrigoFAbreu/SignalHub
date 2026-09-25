@@ -21,6 +21,17 @@ class FakeBackend {
   Map<String, Object?>? pushTarget;
   String? pushToken;
 
+  /// The stored push preferences; `null` for a server released before they
+  /// existed, which leaves them out of the client and has no path for them.
+  Map<String, Object?>? pushPreferences = defaultPushPreferences;
+
+  static const defaultPushPreferences = <String, Object?>{
+    'enabled': true,
+    'minimumSeverity': 'LOW',
+    'mutedCategories': <String>[],
+    'mutedProducerIds': <String>[],
+  };
+
   /// When set, every request fails to connect.
   bool offline = false;
 
@@ -39,9 +50,13 @@ class FakeBackend {
     String? message,
     String? context,
     String? readAt,
+    Map<String, Object?> producer = const {
+      'id': 'p-1',
+      'name': 'nightly-build',
+    },
   }) => events.insert(0, {
     'id': id,
-    'producer': {'id': 'p-1', 'name': 'nightly-build'},
+    'producer': producer,
     'context': context,
     'category': 'BLOCKED',
     'severity': 'HIGH',
@@ -120,6 +135,23 @@ class FakeBackend {
           'updatedAt': '2026-09-25T12:00:00Z',
         };
         return _json(200, _client());
+      case 'PUT /api/v1/client/push-preferences' when pushPreferences != null:
+        final body = jsonDecode(request.body) as Map<String, Object?>;
+        // Replace, not patch: an absent field takes its default. Lists come
+        // back sorted without duplicates.
+        List<String> sorted(Object? list) =>
+            ((list as List<Object?>?) ?? const [])
+                .cast<String>()
+                .toSet()
+                .toList()
+              ..sort();
+        pushPreferences = {
+          'enabled': body['enabled'] ?? true,
+          'minimumSeverity': body['minimumSeverity'] ?? 'LOW',
+          'mutedCategories': sorted(body['mutedCategories']),
+          'mutedProducerIds': sorted(body['mutedProducerIds']),
+        };
+        return _json(200, _client());
       case 'DELETE /api/v1/client/push-target':
         pushTarget = null;
         pushToken = null;
@@ -156,6 +188,7 @@ class FakeBackend {
     'createdAt': '2026-09-25T18:02:11.108811Z',
     'revokedAt': null,
     'pushTarget': pushTarget,
+    'pushPreferences': ?pushPreferences,
   };
 
   static http.Response _json(int status, Object body) => http.Response(

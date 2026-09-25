@@ -273,4 +273,100 @@ void main() {
     expect(find.byKey(const Key('connect')), findsOneWidget);
     expect(backend.pushTarget, isNull);
   });
+
+  Future<void> openNotifications(WidgetTester tester) async {
+    // Tall enough to build every row of the list.
+    tester.view
+      ..physicalSize = const Size(800, 2000)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.tap(find.byType(PopupMenuButton<void>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('notifications')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapAndSave(WidgetTester tester, Finder finder) async {
+    await tester.tap(finder);
+    await settle(tester);
+  }
+
+  testWidgets('sets which events are pushed to this device', (tester) async {
+    backend.publish(
+      'e-2',
+      'Disk almost full',
+      producer: {'id': 'p-2', 'name': 'nas-monitor'},
+    );
+    await connect(tester);
+    await openNotifications(tester);
+
+    expect(find.text('nightly-build'), findsOneWidget);
+    expect(find.text('nas-monitor'), findsOneWidget);
+
+    await tapAndSave(tester, find.text('High'));
+    await tapAndSave(tester, find.byKey(const Key('category-INFO')));
+    await tapAndSave(tester, find.byKey(const Key('producer-p-2')));
+
+    expect(backend.pushPreferences, {
+      'enabled': true,
+      'minimumSeverity': 'HIGH',
+      'mutedCategories': ['INFO'],
+      'mutedProducerIds': ['p-2'],
+    });
+    final info = tester.widget<SwitchListTile>(
+      find.byKey(const Key('category-INFO')),
+    );
+    expect(info.value, isFalse);
+
+    await tapAndSave(tester, find.byKey(const Key('pushEnabled')));
+
+    expect(backend.pushPreferences?['enabled'], isFalse);
+    expect(
+      find.text('Paused. Events are still kept in the inbox.'),
+      findsOneWidget,
+    );
+    // Pausing keeps everything else.
+    expect(backend.pushPreferences?['minimumSeverity'], 'HIGH');
+  });
+
+  testWidgets('a muted producer without inbox events can be unmuted', (
+    tester,
+  ) async {
+    backend.pushPreferences = {
+      ...FakeBackend.defaultPushPreferences,
+      'mutedProducerIds': ['p-gone'],
+    };
+    await connect(tester);
+    await openNotifications(tester);
+
+    expect(find.text('p-gone'), findsOneWidget);
+    await tapAndSave(tester, find.byKey(const Key('producer-p-gone')));
+
+    expect(backend.pushPreferences?['mutedProducerIds'], isEmpty);
+  });
+
+  testWidgets('a failed change is reported and not shown', (tester) async {
+    await connect(tester);
+    await openNotifications(tester);
+    backend.offline = true;
+
+    await tapAndSave(tester, find.byKey(const Key('pushEnabled')));
+
+    expect(find.text('Could not reach the server'), findsOneWidget);
+    final enabled = tester.widget<SwitchListTile>(
+      find.byKey(const Key('pushEnabled')),
+    );
+    expect(enabled.value, isTrue);
+  });
+
+  testWidgets('a server without push preferences says so', (tester) async {
+    backend.pushPreferences = null;
+    await connect(tester);
+    await openNotifications(tester);
+
+    expect(
+      find.textContaining('does not support push preferences'),
+      findsOneWidget,
+    );
+  });
 }

@@ -17,6 +17,15 @@ extension JsonObject on Map<String, Object?> {
 
   int integer(String key) => _required<int>(key);
 
+  bool boolean(String key) => _required<bool>(key);
+
+  List<String> strings(String key) => list(key)
+      .map((item) {
+        if (item is String) return item;
+        throw FormatException('Expected "$key" to hold strings, got $item');
+      })
+      .toList(growable: false);
+
   DateTime timestamp(String key) => _parseTimestamp(key, string(key));
 
   DateTime? optionalTimestamp(String key) {

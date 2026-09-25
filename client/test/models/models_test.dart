@@ -94,6 +94,73 @@ void main() {
     expect(client.revokedAt, isNull);
   });
 
+  group('PushPreferences', () {
+    Map<String, Object?> client(Object? preferences) => {
+      'id': 'c-1',
+      'name': 'Phone',
+      'createdAt': '2026-09-25T12:00:00Z',
+      'revokedAt': null,
+      'pushTarget': null,
+      'pushPreferences': preferences,
+    };
+
+    test('are read from the registration', () {
+      final preferences = ClientRegistration.fromJson(
+        client({
+          'enabled': false,
+          'minimumSeverity': 'NORMAL',
+          'mutedCategories': ['COMPLETED', 'INFO'],
+          'mutedProducerIds': ['p-1'],
+        }),
+      ).pushPreferences!;
+
+      expect(preferences.enabled, isFalse);
+      expect(preferences.minimumSeverity, 'NORMAL');
+      expect(preferences.mutedCategories, ['COMPLETED', 'INFO']);
+      expect(preferences.mutedProducerIds, ['p-1']);
+    });
+
+    test('are absent from a server without them', () {
+      final json = client(null)..remove('pushPreferences');
+
+      expect(ClientRegistration.fromJson(json).pushPreferences, isNull);
+    });
+
+    test('keep values added in a later release when changed', () {
+      final preferences = PushPreferences.fromJson({
+        'enabled': true,
+        'minimumSeverity': 'URGENT',
+        'mutedCategories': ['DIGEST'],
+        'mutedProducerIds': <String>[],
+      });
+
+      expect(preferences.copyWith(enabled: false).toJson(), {
+        'enabled': false,
+        'minimumSeverity': 'URGENT',
+        'mutedCategories': ['DIGEST'],
+        'mutedProducerIds': <String>[],
+      });
+    });
+
+    test('reject a list that breaks the contract, naming the field', () {
+      expect(
+        () => PushPreferences.fromJson({
+          'enabled': true,
+          'minimumSeverity': 'LOW',
+          'mutedCategories': [1],
+          'mutedProducerIds': <String>[],
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('mutedCategories'),
+          ),
+        ),
+      );
+    });
+  });
+
   group('ServerCredentials', () {
     const key = 'shck1_abc_secret';
 

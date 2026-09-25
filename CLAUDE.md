@@ -40,7 +40,7 @@ push delivery boundary (`push` package) with a Firebase Cloud Messaging
 provider enabled by a service account key file, and event-triggered push
 dispatch through a PostgreSQL outbox, and the Flutter client app
 in `client/` (setup with a client key, push registration and reception, the
-event inbox and event details, and read state). Do not build components beyond
+event inbox and event details, read state, and push preferences). Do not build components beyond
 the scope of the task at hand.
 
 `docs/history/` is an archive of past prompts and decisions. It is context

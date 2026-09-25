@@ -547,7 +547,7 @@ The tests need no device, network or credentials: `SignalHubApi` runs
 against `FakeBackend`, an in-memory stand-in for the client API built on the
 `http` package's `MockClient`, and push against `FakePushService`. They cover
 the API client (paths, bearer key, cursors, reading one event, push-target
-bodies, error mapping), the models (every documented field, unknown enum
+bodies, push-preference bodies, error mapping), the models (every documented field, unknown enum
 values, contract violations), server address and key validation, the app
 controller (setup, restart, revoked key, unreachable server, push
 permission, token refresh, pushes re-reading the inbox, paging and its
@@ -556,7 +556,9 @@ options from build-time values, and the screens in widget tests (inbox,
 paging while scrolling, event details, opening from a notification) and
 read state (the API calls, the unread count, marking read on opening,
 marking unread, marking all read up to the newest event shown, and their
-failures). Builds without Firebase options run without push.
+failures), and push preferences (saving each change, what the server
+stored, muted producers without inbox events, failures, a server without
+them). Builds without Firebase options run without push.
 
 ## Local validation
 

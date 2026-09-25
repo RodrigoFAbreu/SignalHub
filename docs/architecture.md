@@ -770,8 +770,8 @@ provider is logged by type only.
 ## Client application
 
 > Status: implemented in `client/`: setup with a client key, push
-> registration and reception, the inbox and event details, and
-> [read state](#read-state).
+> registration and reception, the inbox and event details,
+> [read state](#read-state), and [push preferences](#push-preferences).
 
 **Technology: Flutter**, chosen by the maintainer for roadmap R9. One Dart
 codebase targets Android and iOS. Other platforms Flutter supports (web,
@@ -842,6 +842,18 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   newest event shown as `through` (`POST /api/v1/events/read`), so events
   that arrived since stay unread; older events not paged in yet are read
   too, as the owner asked for everything up to that point.
+- **Push preferences.** A *Notifications* screen sets this installation's
+  [push preferences](#push-preferences): pause, minimum severity, and a
+  switch for each category and each producer. Every change is saved at once
+  with `PUT /api/v1/client/push-preferences`, sending all of them (the
+  server replaces them), and the screen then shows what the server stored;
+  a failed change says so and leaves the switches as they were. Client keys
+  cannot list producers, so the producers offered are those of the events in
+  the inbox, by name; a muted producer with no event there is listed by ID so
+  it can be unmuted. Severities and categories are sent back as the server
+  sent them, so values added in a later backend release survive a change. A
+  server without push preferences (older than the app) is reported instead
+  of the screen.
 - **Events.** The app maps the API's events to a typed model. A category or
   severity added in a later backend release maps to *unknown* rather than
   failing, so older apps keep working (see

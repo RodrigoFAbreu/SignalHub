@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:signalhub_client/src/app_controller.dart';
 import 'package:signalhub_client/src/connection/server_credentials.dart';
+import 'package:signalhub_client/src/models/client_registration.dart';
 import 'package:signalhub_client/src/push/push_registration.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
 
@@ -423,5 +424,61 @@ void main() {
     expect(app.phase, ConnectionPhase.disconnected);
     expect(push.tokenDeleted, isTrue);
     expect(store.saved, isNull);
+  });
+
+  test('saves push preferences and shows what the server stored', () async {
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+
+    final error = await app.setPushPreferences(
+      const PushPreferences(mutedProducerIds: ['p-2', 'p-1', 'p-2']),
+    );
+
+    expect(error, isNull);
+    expect(app.savingPushPreferences, isFalse);
+    expect(app.registration?.pushPreferences?.mutedProducerIds, ['p-1', 'p-2']);
+    expect(backend.pushPreferences?['mutedProducerIds'], ['p-1', 'p-2']);
+  });
+
+  test('a failed push preference change is reported and not shown', () async {
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+    backend.offline = true;
+
+    final error = await app.setPushPreferences(
+      const PushPreferences(enabled: false),
+    );
+
+    expect(error, 'Could not reach the server');
+    expect(app.savingPushPreferences, isFalse);
+    expect(app.registration?.pushPreferences?.enabled, isTrue);
+  });
+
+  test(
+    'a revoked key while saving push preferences returns to setup',
+    () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      backend.acceptedKey = null;
+
+      await app.setPushPreferences(const PushPreferences(enabled: false));
+
+      expect(app.phase, ConnectionPhase.disconnected);
+      expect(store.saved, isNull);
+    },
+  );
+
+  test('the inbox producers are the distinct producers, by name', () async {
+    backend
+      ..publish('e-1', 'Disk full', producer: {'id': 'p-2', 'name': 'nas'})
+      ..publish('e-2', 'Build failed')
+      ..publish('e-3', 'Disk fine', producer: {'id': 'p-2', 'name': 'nas'});
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+
+    expect(
+      [for (final p in app.inboxProducers) (p.id, p.name)],
+      [('p-2', 'nas'), ('p-1', 'nightly-build')],
+    );
   });
 }
