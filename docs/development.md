@@ -175,7 +175,12 @@ covered by `FcmPushProviderTest` (request format, access-token signing and
 caching, and the mapping of every FCM error), `FcmCredentialsTest` (reading
 the key file, never echoing the key) and `FcmDeliveryTest` (the `fcm` provider
 active in a running backend), all against `FakeFcm`, an in-process stand-in
-for Google's token endpoint and the FCM API with a key generated per run. No
+for Google's token endpoint and the FCM API with a key generated per run.
+Event-triggered dispatch is covered by `EventPushDispatchTest` (the outbox
+row is written with the event, every client with a target gets one push,
+expired claims are dispatched again), `EventPushScheduleTest` (the dispatcher
+runs on its own timer) and `EventPushMessagesTest` (shortening the body). The
+test profile turns the scheduler off so tests run the dispatcher directly. No
 test needs a real push provider, network access or credentials.
 The test profile uses a fixed, test-only admin token from
 `application.properties`.
@@ -449,6 +454,7 @@ Optional in every profile:
 |---|---|
 | `SIGNALHUB_ADMIN_TOKEN` | Enables the management API for producers and clients, and lets the operator list events. At least 32 characters (`openssl rand -hex 32`); shorter stops startup. Unset or empty disables the management API; clients keep reading events with their keys. |
 
+| `SIGNALHUB_PUSH_DISPATCH_INTERVAL` | How often the push dispatcher looks for new events to push; default `2s`. See [Push dispatch](architecture.md#push-dispatch). |
 | `SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE` | Path to a Firebase service account key file (JSON). Enables push through Firebase Cloud Messaging (provider `fcm`); an unreadable or invalid file stops startup. Unset or empty: no `fcm` provider, and `fcm` push targets are reported as unsupported. See [Firebase Cloud Messaging](#firebase-cloud-messaging). |
 
 Compose derives them from `.env` (see `.env.example`). Never commit `.env`.
@@ -472,8 +478,8 @@ services:
 The container runs as UID 10001, which must be able to read the file. On
 startup the log shows `FCM push enabled for Firebase project ...` and
 `Push providers: [fcm]`. Clients register their FCM registration token with
-`PUT /api/v1/client/push-target` and provider `fcm`. Events do not trigger a
-push yet; see [roadmap](roadmap.md) R8.
+`PUT /api/v1/client/push-target` and provider `fcm`. From then on, every
+published event is pushed to them.
 
 ## Local validation
 

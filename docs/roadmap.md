@@ -171,6 +171,17 @@ The following capabilities are already implemented and merged unless repository 
 - tests against an in-process fake of the token endpoint and FCM API; no
   credentials or network in CI; operator documentation
 
+### R8b - Event-triggered push dispatch
+
+- every stored event is pushed to every client with a push target (no
+  filtering until R12)
+- `push_dispatches` outbox (V5) written in the event's transaction; a
+  scheduled dispatcher claims rows with an expiring lease, sends outside
+  transactions, and deletes them: at-least-once, no external queue
+- push content from generic fields: title, message shortened to 500
+  characters, data `eventId`, `category`, `severity`
+- one attempt per client; retries are R13
+
 ---
 
 ## 4. Planned roadmap
@@ -260,16 +271,10 @@ Exit criteria:
 
 ### R8 - FCM delivery
 
-Status: split. R8a (the `fcm` provider) is complete (see section 3). R8b,
-event-triggered dispatch, remains:
-
-- decide from generic event fields only which events cause a push (initially
-  every event to every client with a push target; preferences are R12)
-- map an event to a provider-neutral `PushMessage` (title, body, event ID)
-- durable, at-least-once dispatch after the event is committed, so a restart
-  between ingestion and push does not lose the push; no external queue
-- verifying delivery to a real device needs the maintainer's Firebase
-  project and a client (R9), so the R8 exit criterion is confirmed then
+Status: implemented as R8a (the `fcm` provider) and R8b (event-triggered
+dispatch); see section 3. Verifying delivery to a real device needs the
+maintainer's Firebase project and a client (R9), so the exit criterion is
+confirmed together with R9.
 
 Goal: deliver real push notifications to supported mobile clients.
 
@@ -620,14 +625,14 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After the FCM provider (R8a), the expected next milestone is:
+After FCM delivery (R8a and R8b), the expected next milestone is:
 
-**R8b - Event-triggered push dispatch**
+**R9 - Cross-platform client foundation**
 
-R8b decides which events trigger a push and dispatches them durably after the
-event is committed. Dispatch must respect at-least-once delivery (see
-`docs/architecture.md`), which an in-memory fire-and-forget dispatch would
-not. Real delivery to a device needs Firebase credentials that only the
-maintainer can provide.
+R9 starts with a human gate: the maintainer chooses the client technology
+(for example Flutter, Kotlin/Compose Multiplatform or React Native). No
+client code is written before that decision is recorded in normative docs.
+Confirming R8's real-device exit criterion also needs the maintainer's
+Firebase project.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

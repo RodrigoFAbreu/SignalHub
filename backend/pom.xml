@@ -65,6 +65,11 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-smallrye-openapi</artifactId>
     </dependency>
+    <!-- Runs the push dispatcher periodically (docs/architecture.md#push-dispatch). -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-scheduler</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>io.quarkus</groupId>
