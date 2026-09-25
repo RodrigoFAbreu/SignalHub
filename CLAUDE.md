@@ -40,7 +40,8 @@ push delivery boundary (`push` package) with a Firebase Cloud Messaging
 provider enabled by a service account key file, and event-triggered push
 dispatch through a PostgreSQL outbox with bounded retries of temporary
 failures, Prometheus metrics (`/q/metrics`) including event and push
-delivery meters, and the Flutter client app
+delivery meters, optional JSON logs and a startup configuration summary,
+and the Flutter client app
 in `client/` (setup with a client key, push registration and reception, the
 event inbox and event details, read state, and push preferences), and the
 Python producer package and `signalhub` command in `sdk/python/`. Do not build components beyond

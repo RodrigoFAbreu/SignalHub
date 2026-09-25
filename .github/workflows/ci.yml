@@ -258,6 +258,21 @@ jobs:
           grep --quiet '^signalhub_push_dispatch_pending ' <<<"$metrics"
           grep --quiet '^agroal_active_count' <<<"$metrics"
           grep --quiet '^http_server_requests_seconds_count{.*uri="/api/v1/events/{id}"' <<<"$metrics"
+      - name: JSON logs carry the startup summary and no secrets
+        run: |
+          echo 'SIGNALHUB_LOG_JSON=true' >> .env
+          docker compose up --wait --wait-timeout 120   # recreates the backend
+          logs=$(docker compose logs --no-log-prefix backend)
+          db_password=$(sed -n 's/^SIGNALHUB_DB_PASSWORD=//p' .env)
+          # Every line is a JSON object: jq fails on the first one that is not.
+          jq --raw-input 'fromjson | .message' <<<"$logs" > /dev/null
+          summary=$(jq --raw-input --raw-output \
+            'fromjson | select(.loggerName | endswith(".StartupDiagnostics")) | .message' <<<"$logs")
+          echo "$summary"
+          grep --quiet '^Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; .*JSON logs on' <<<"$summary"
+          if grep --quiet --fixed-strings --regexp="$ADMIN_TOKEN" --regexp="$db_password" <<<"$logs"; then
+            echo "a secret reached the logs"; exit 1
+          fi
       - name: A revoked key no longer authenticates
         run: |
           curl --fail --silent --show-error --output /dev/null --request POST \

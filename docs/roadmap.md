@@ -311,6 +311,20 @@ The following capabilities are already implemented and merged unless repository 
 - tests against real PostgreSQL with the fake provider; the Compose smoke test
   reads the metrics
 
+### R15b - Structured logs and startup diagnostics
+
+- optional JSON console logs (`SIGNALHUB_LOG_JSON=true`, Quarkus
+  `quarkus-logging-json`), one object per line for log collectors; plain text
+  stays the default; levels through the standard Quarkus variables
+- one `INFO` line at startup with the effective configuration: profile,
+  database URL (without parameters or user information) and user, management
+  API on or off, FCM credentials file, dispatch interval, log format, Java
+  version, CPUs and maximum heap; never a secret value
+- configuration errors keep stopping startup with the setting to fix
+- tests of the summary and the prod configuration; the Compose smoke test
+  restarts the backend with JSON logs and checks every line, the summary, and
+  that no secret is logged
+
 ---
 
 ## 4. Planned roadmap
@@ -609,9 +623,9 @@ Exit criteria:
 
 ### R15 - Observability and operational hardening
 
-Status: in progress. R15a (metrics) is complete (see section 3). Remaining,
-each its own increment: R15b structured logs and startup diagnostics, R15c a
-retention policy for historical events, R15d backup/restore and
+Status: in progress. R15a (metrics) and R15b (structured logs and startup
+diagnostics) are complete (see section 3). Remaining, each its own increment:
+R15c a retention policy for historical events, R15d backup/restore and
 container/resource guidance. OpenTelemetry tracing is not justified for a
 single service yet.
 
@@ -775,13 +789,13 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After metrics (R15a), the expected next increment is:
+After structured logs and startup diagnostics (R15b), the expected next
+increment is:
 
-**R15b - Structured logs and startup diagnostics**
+**R15c - Retention policy for historical events**
 
-Optional JSON logs for log collectors, and a startup summary of the effective
-configuration (without secrets). Then R15c (retention) and R15d
-(backup/restore and resource guidance).
+A bounded, operator-configured policy for pruning old events so storage
+growth stays predictable. Then R15d (backup/restore and resource guidance).
 Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 

@@ -11,7 +11,8 @@
 > Flutter client app for Android and iOS (see
 > [Client application](#client-application)), and the Python producer SDK
 > and command (see [Producer SDK and CLI](#producer-sdk-and-cli)), and
-> Prometheus metrics (see [Metrics](#metrics)).
+> Prometheus metrics, optional JSON logs and a startup configuration summary
+> (see [Operations](#operations)).
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -922,6 +923,39 @@ internals, and everything it does is documented as plain HTTP too.
   whether a possible duplicate is acceptable.
 
 ## Operations
+
+### Logs
+
+The backend logs to the console (standard output), where Docker and Compose
+collect it. Credentials never reach the logs (see the Logging sections of
+[Producers](#logging) and [Clients](#logging-1)).
+
+- **Format.** Plain text by default, for reading. With
+  `SIGNALHUB_LOG_JSON=true`, every record is one JSON object per line
+  (Quarkus `quarkus-logging-json`: `timestamp`, `level`, `loggerName`,
+  `message`, thread, host and, for errors, the exception), for log collectors
+  such as Loki, Elasticsearch or a cloud log service. Collecting and keeping
+  logs is the operator's choice, not part of SignalHub.
+- **Levels.** `INFO` by default; the standard Quarkus variables change them,
+  for example `QUARKUS_LOG_LEVEL=DEBUG` or
+  `QUARKUS_LOG_CATEGORY__IO_GITHUB_RODRIGOFABREU_SIGNALHUB__LEVEL=DEBUG` for
+  SignalHub only (rejected credentials are logged at `DEBUG`).
+- **Startup summary.** Once started, the backend logs one `INFO` line with
+  the effective configuration, so the log alone tells which database,
+  features and resources a running service uses:
+
+  ```text
+  Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; FCM credentials file /run/secrets/fcm.json; push dispatch every 2s; JSON logs off; Java 21.0.8+9-LTS, 2 CPUs, max heap 768 MiB
+  ```
+
+  It names settings, never secret values: the admin token appears only as
+  enabled or disabled, the database password never, and the database URL
+  without its parameters or user information, which could carry
+  credentials. `Push providers: [...]` follows it, naming the providers
+  actually active.
+- **Configuration errors stop startup** with a message naming the setting to
+  fix: a missing database, a short admin token, an unreadable FCM key file,
+  or a value of the wrong type (for example `SIGNALHUB_LOG_JSON=yes`).
 
 ### Metrics
 

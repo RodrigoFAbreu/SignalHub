@@ -29,6 +29,8 @@ class ProductionConfigTest {
 
   private static final String ADMIN_TOKEN = "signalhub.admin.token";
 
+  private static final String JSON_LOGS = "quarkus.log.console.json.enabled";
+
   @Test
   void databaseSettingsComeFromTheEnvironment() throws IOException {
     var env = new HashMap<String, String>();
@@ -69,6 +71,13 @@ class ProductionConfigTest {
         Optional.of("from the environment"),
         prodConfig(Map.of("SIGNALHUB_ADMIN_TOKEN", "from the environment"))
             .getOptionalValue(ADMIN_TOKEN, String.class));
+  }
+
+  @Test
+  void jsonLogsAreOptIn() throws IOException {
+    assertEquals(false, prodConfig(Map.of()).getValue(JSON_LOGS, Boolean.class));
+    assertEquals(
+        true, prodConfig(Map.of("SIGNALHUB_LOG_JSON", "true")).getValue(JSON_LOGS, Boolean.class));
   }
 
   private static SmallRyeConfig prodConfig(Map<String, String> env) throws IOException {
