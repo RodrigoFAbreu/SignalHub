@@ -154,12 +154,14 @@ export SIGNALHUB_ADMIN_TOKEN=$(openssl rand -hex 32)
 and Testcontainers), so Docker must be running. They cover liveness, readiness
 with the database up and after it stops, Flyway startup migration, the
 production configuration, the OpenAPI document, and the events API: the HTTP
-contract and validation (`EventApiTest`), and what reaches PostgreSQL,
-including the schema's own constraints (`EventPersistenceTest`). Producer
+contract and validation (`EventApiTest`), the listing's order, filters,
+pagination and parameter validation (`EventListApiTest`, with the cursor
+format in `EventCursorTest`), and what reaches PostgreSQL, including the
+schema's own constraints (`EventPersistenceTest`). Producer
 authentication is covered by `EventAuthenticationTest` (every way publishing
 can be rejected, rotation, revocation, disabling, and that the payload cannot
 claim a producer), `ProducerAdminApiTest` and `AdminApiDisabledTest` (the
-management API and its admin-token guard), `ProducerPersistenceTest` (only
+management API, the listing, and their admin-token guard), `ProducerPersistenceTest` (only
 hashes are stored), `ProducerMigrationTest` (upgrading a database that holds
 events from before authentication), and unit tests for the key format, bearer
 parsing and admin token (`ApiKeysTest`, `BearerTokenTest`, `AdminTokenTest`).
@@ -203,6 +205,7 @@ not published.
 | Path | Purpose |
 |---|---|
 | `/api/v1/events` | `POST`: publish an event, with a producer API key. See [Events API](#events-api). |
+| `/api/v1/events` | `GET`: list events, newest first, with the admin token. See [Events API](#events-api). |
 | `/api/v1/events/{id}` | `GET`: read an event by its ID. |
 | `/api/v1/admin/producers/...` | Producer management, with the admin token. See [Producers and API keys](#producers-and-api-keys). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
@@ -311,6 +314,28 @@ Read it back, including after restarting the service:
 curl http://localhost:8080/api/v1/events/01a0d931-9c33-7989-a9ea-adb6724470e6
 ```
 
+List events, newest first, with the admin token (see
+[architecture.md](architecture.md#listing-events) for every parameter):
+
+```sh
+H="Authorization: Bearer $ADMIN_TOKEN"
+curl -s "http://localhost:8080/api/v1/events?limit=20" -H "$H"
+curl -s "http://localhost:8080/api/v1/events?severity=HIGH&severity=CRITICAL&createdFrom=2026-09-25T00:00:00Z" -H "$H"
+curl -s "http://localhost:8080/api/v1/events?producerId=$PRODUCER&limit=20&cursor=$NEXT_CURSOR" -H "$H"
+```
+
+```json
+{
+  "items": [
+    {"id": "01a0d931-9c33-7989-a9ea-adb6724470e6", "producer": {"id": "01a0d96b-4298-7ce4-981a-5ed853d075b9", "name": "ci-build-runner"}, "category": "BLOCKED", "severity": "HIGH", "title": "Nightly build failed", "createdAt": "2026-09-25T15:31:42.209368Z", "...": "..."}
+  ],
+  "nextCursor": "MToxNzkwMzUwMzAyMjA5MzY4OjAxYTBkOTMxLTljMzMtNzk4OS1hOWVhLWFkYjY3MjQ0NzBlNg"
+}
+```
+
+`nextCursor` is `null` on the last page. Pass it back unchanged, with the same
+filters, to read the next page.
+
 Without a valid key (missing, malformed, unknown, revoked, or of a disabled
 producer) the answer is always the same `401`:
 
@@ -357,7 +382,7 @@ Optional in every profile:
 
 | Variable | Effect |
 |---|---|
-| `SIGNALHUB_ADMIN_TOKEN` | Enables the producer management API. At least 32 characters (`openssl rand -hex 32`); shorter stops startup. Unset or empty disables it. |
+| `SIGNALHUB_ADMIN_TOKEN` | Enables the producer management API and the event listing. At least 32 characters (`openssl rand -hex 32`); shorter stops startup. Unset or empty disables both. |
 
 Compose derives them from `.env` (see `.env.example`). Never commit `.env`.
 
@@ -380,7 +405,8 @@ docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -c
 # starts the stack with `docker compose up --build --wait` and a random admin
 # token, checks liveness, readiness and OpenAPI, registers a producer, checks
 # that publishing without a valid key gets 401, publishes an event with the key
-# and reads it back after restarting the backend, revokes the key and expects
+# and reads it back after restarting the backend, lists it with the admin
+# token (and expects 401 without it), revokes the key and expects
 # 401, stops PostgreSQL and expects readiness 503, and checks that the image
 # refuses to start without database settings.
 ```

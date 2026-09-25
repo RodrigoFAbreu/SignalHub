@@ -123,6 +123,17 @@ The following capabilities are already implemented and merged unless repository 
 - event identity bound to authenticated producer
 - authenticated ingestion
 
+### R5 - Event inbox/query API
+
+- `GET /api/v1/events`: events newest first (`createdAt`, then `id`)
+- cursor (keyset) pagination with opaque, versioned cursors; `limit` 1-100
+- filters: producer, category, severity (each repeatable), `createdAt` range
+- per-parameter `400` validation errors
+- listing guarded by the admin token, the owner's credential until
+  owner/client authentication exists (R6); disabled (`404`) without one
+- `(created_at, id)` and `(producer_id, created_at, id)` indexes (V3)
+- tests against real PostgreSQL, OpenAPI, Compose smoke test, docs
+
 ---
 
 ## 4. Planned roadmap
@@ -130,6 +141,8 @@ The following capabilities are already implemented and merged unless repository 
 Roadmap items are ordered by dependency, but each item may be split into smaller releasable increments if implementation evidence shows that doing so is safer or more reviewable.
 
 ### R5 - Event inbox/query API
+
+Status: complete (see section 3).
 
 Goal: provide the read model required by real clients.
 
@@ -555,8 +568,11 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-At the time this roadmap was authored, the expected next milestone after producer authentication is:
+After the event inbox/query API (R5), the expected next milestone is:
 
-**R5 - Event inbox/query API**
+**R6 - Client/device registration**
+
+R6 should also decide how clients authenticate to read events, since the R5
+listing currently accepts only the admin token.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

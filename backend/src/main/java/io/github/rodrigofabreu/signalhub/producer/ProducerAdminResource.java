@@ -50,7 +50,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Produces(MediaType.APPLICATION_JSON)
 public class ProducerAdminResource {
 
-  static final String SECURITY_SCHEME = "adminToken";
+  public static final String SECURITY_SCHEME = "adminToken";
 
   private final ProducerService producers;
 

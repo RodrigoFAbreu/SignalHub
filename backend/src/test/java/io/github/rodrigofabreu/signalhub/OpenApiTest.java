@@ -54,6 +54,42 @@ class OpenApiTest {
   }
 
   @Test
+  void describesTheEventListing() {
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(EVENTS + ".get.security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(EVENTS + ".post.security", equalTo(List.of(Map.of("producerApiKey", List.of()))))
+        .body(
+            EVENTS + ".get.parameters.name",
+            containsInAnyOrder(
+                "producerId",
+                "category",
+                "severity",
+                "createdFrom",
+                "createdBefore",
+                "cursor",
+                "limit"))
+        .body(
+            EVENTS + ".get.parameters.find { it.name == 'category' }.schema.type", equalTo("array"))
+        .body(EVENTS + ".get.parameters.find { it.name == 'limit' }.schema.maximum", equalTo(100))
+        .body(EVENTS + ".get.responses", hasKey("200"))
+        .body(EVENTS + ".get.responses", hasKey("400"))
+        .body(EVENTS + ".get.responses", hasKey("401"))
+        .body(EVENTS + ".get.responses", hasKey("404"))
+        .body(
+            EVENTS + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/EventPage"))
+        .body(SCHEMAS + ".EventPage.required", containsInAnyOrder("items"))
+        .body(
+            SCHEMAS + ".EventPage.properties.items.items.$ref",
+            equalTo("#/components/schemas/Event"));
+  }
+
+  @Test
   void describesTheEventModels() {
     given()
         .queryParam("format", "json")

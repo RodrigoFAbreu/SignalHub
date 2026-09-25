@@ -1,5 +1,7 @@
 package io.github.rodrigofabreu.signalhub.event;
 
+import static java.util.stream.Collectors.toSet;
+
 import io.github.rodrigofabreu.signalhub.producer.ProducerIdentity;
 import io.github.rodrigofabreu.signalhub.producer.ProducerService;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -46,6 +48,24 @@ class EventService {
   @Transactional
   Optional<EventResponse> find(UUID id) {
     return repository.findByIdOptional(id).map(event -> toResponse(event, producerOf(event)));
+  }
+
+  /**
+   * One page of events matching the query, newest first. Reads one row more than the page holds to
+   * learn whether another page follows, and loads the page's producers in one query.
+   */
+  @Transactional
+  EventPage list(EventQuery query) {
+    var rows = repository.find(query, query.limit() + 1);
+    var page = rows.subList(0, Math.min(rows.size(), query.limit()));
+    var producersById = producers.find(page.stream().map(EventEntity::producerId).collect(toSet()));
+    var items = page.stream().map(e -> toResponse(e, producersById.get(e.producerId()))).toList();
+    String nextCursor = null;
+    if (rows.size() > page.size()) {
+      var last = page.get(page.size() - 1);
+      nextCursor = new EventCursor(last.createdAt(), last.id()).encode();
+    }
+    return new EventPage(items, nextCursor);
   }
 
   // The foreign key guarantees the producer exists.
