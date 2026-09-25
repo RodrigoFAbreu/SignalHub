@@ -1,6 +1,7 @@
 # Architecture
 
-> Status: direction, not implementation. No runtime component exists yet. This
+> Status: mostly direction. The backend runtime foundation exists (see
+> [Backend platform](#backend-platform)); no product feature does yet. This
 > document defines boundaries, vocabulary, and the chosen technology. Concrete
 > schemas, APIs, and implementation details are decided in the PRs that
 > implement them, and this document is updated in the same PRs.
@@ -83,8 +84,8 @@ needed, live outside the core and speak the generic API.
 
 ## Backend platform
 
-> Status: decided, not yet implemented. The stack changed from Python/FastAPI
-> to Java/Quarkus before any backend code reached `main`.
+> Status: runtime foundation implemented in `backend/` (service, database
+> connectivity, migrations, health, OpenAPI, container). No product API yet.
 
 The backend is a single Quarkus service in JVM mode, backed by one PostgreSQL
 database. That is enough for a personal notification service and leaves room
@@ -130,9 +131,43 @@ Implementation expectations:
 - **Tests against real PostgreSQL**, for example with Quarkus Dev Services or
   a CI service container. HTTP behaviour is tested with RestAssured.
 
-The PR that bootstraps the backend fixes the remaining details, including the
-build tool, formatting and static analysis, directory layout, configuration
-names, and endpoint paths. That PR records them here.
+### Backend implementation decisions
+
+- **Build tool: Maven** with the committed wrapper (`backend/mvnw`). It is
+  Quarkus's primary build tool: its guides, extension tooling, and platform BOM
+  assume it, and a single-module service needs nothing Gradle adds. The
+  Quarkus version comes from the `io.quarkus.platform:quarkus-bom` import.
+- **Layout:** one Maven module in `backend/`, one top-level directory per
+  component. Java code lives under the `io.github.rodrigofabreu.signalhub`
+  package. Packages are split by feature as features arrive, not by
+  speculative technical layer.
+- **Formatting:** google-java-format through the Spotless Maven plugin.
+  It is fully automatic (`./mvnw spotless:apply`), so style is never debated
+  in review.
+- **Static analysis:** SpotBugs on production bytecode, plus
+  `javac -Xlint:all` with warnings as errors. Both run in `./mvnw verify`
+  alongside the tests, which is exactly what CI runs.
+- **Packaging:** Quarkus fast-jar in JVM mode. `backend/Dockerfile` builds it
+  in a Maven stage and runs it on an Eclipse Temurin 21 JRE as a non-root
+  user, with base images pinned by digest. Heap is sized from the container
+  limit (`-XX:MaxRAMPercentage=75`). Native images are out of scope.
+- **Configuration:** `application.properties` holds non-secret defaults.
+  Dev and test get PostgreSQL from Quarkus Dev Services. The `prod` profile
+  reads `SIGNALHUB_DB_URL`, `SIGNALHUB_DB_USERNAME`, and
+  `SIGNALHUB_DB_PASSWORD`, and the service refuses to start without a
+  database URL, because Quarkus would otherwise deactivate the datasource
+  and report ready without a database.
+- **Schema:** Flyway runs at startup in every profile from
+  `classpath:db/migration`, with migration naming validated. Hibernate's
+  schema management is `none`. There are no tables yet: the first feature that
+  stores data adds the first migration.
+- **Endpoints:** Quarkus's standard management paths under `/q/`:
+  `/q/health/live` (liveness, no dependency checks), `/q/health/ready`
+  (readiness, includes the PostgreSQL connection check), and `/q/openapi`.
+  The product API will live under `/api/v1/...`, so the two never collide.
+- **Deployment:** `compose.yaml` runs the backend and PostgreSQL 17 with a
+  named volume. The backend starts after the database is healthy and is
+  itself health-checked through readiness.
 
 ## Cross-cutting principles
 
@@ -155,5 +190,3 @@ These are deferred until the relevant implementation work:
 - Routing and filtering rules: which events trigger a push, quiet hours.
 - Client platforms: which clients (Android, iOS, web, CLI) are built first,
   and their technology.
-- Repository layout for multiple components (expected: one top-level directory
-  per component).

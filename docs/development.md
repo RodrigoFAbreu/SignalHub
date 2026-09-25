@@ -109,44 +109,130 @@ Every commit on `main` must:
 - include migrations for any persisted data or configuration change it
   introduces.
 
-## Local validation
+## Backend
 
-CI currently runs:
+The backend lives in `backend/`: a Quarkus service on Java 21, built with
+Maven. See [architecture.md](architecture.md#backend-platform) for its design.
+
+### Prerequisites
+
+- **JDK 21** (for example Eclipse Temurin). Maven itself is not needed: the
+  committed wrapper `./mvnw` downloads the pinned version.
+- **Docker** with Docker Compose v2. Dev mode and the tests start PostgreSQL in
+  a container through Quarkus Dev Services, and Compose runs the full stack.
+
+All `./mvnw` commands below run in `backend/`.
+
+### Dev mode
 
 ```sh
+./mvnw quarkus:dev
+```
+
+Starts the service on <http://localhost:8080> with live reload. Quarkus Dev
+Services starts a throwaway PostgreSQL container, applies the migrations, and
+removes it on exit, so no database setup or credentials are needed. Swagger UI
+is at <http://localhost:8080/q/swagger-ui> in dev mode only.
+
+### Build and test
+
+```sh
+./mvnw verify              # compile, test, format check, static analysis
+./mvnw spotless:apply      # reformat Java sources (google-java-format)
+./mvnw package -DskipTests # build target/quarkus-app/ only
+```
+
+`verify` is exactly what CI runs. The tests use real PostgreSQL (Dev Services
+and Testcontainers), so Docker must be running. They cover liveness, readiness
+with the database up and after it stops, Flyway startup migration, the
+production configuration, and the OpenAPI document.
+
+Formatting is [google-java-format](https://github.com/google/google-java-format)
+through Spotless, and static analysis is [SpotBugs](https://spotbugs.github.io/)
+plus `javac -Xlint:all` with warnings as errors. Both fail `verify`.
+
+### Migrations
+
+Flyway is the only way the schema changes. Migrations are SQL files in
+`backend/src/main/resources/db/migration`, named `V<version>__<description>.sql`,
+and are applied automatically at startup in every mode (dev, test, Compose,
+production). A misnamed migration or one edited after it was applied fails
+startup. Hibernate never creates or alters tables. There is no separate migrate
+command: start the service (dev mode or Compose) to migrate its database. There
+are no migrations yet.
+
+### Docker Compose
+
+`compose.yaml` at the repository root runs the backend image (built from
+`backend/Dockerfile`) and PostgreSQL 17 with a persistent volume:
+
+```sh
+cp .env.example .env          # set SIGNALHUB_DB_PASSWORD
+docker compose up --build --wait
+curl http://localhost:8080/q/health/ready
+docker compose down           # keeps the database volume; add --volumes to delete it
+```
+
+The backend waits for PostgreSQL to be healthy, applies migrations, and is
+reported healthy once readiness passes. The HTTP port is published on
+`127.0.0.1` only (`SIGNALHUB_HTTP_PORT`, default 8080); the database port is
+not published.
+
+### Endpoints
+
+| Path | Purpose |
+|---|---|
+| `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
+| `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
+| `/q/health` | Both of the above combined. |
+| `/q/openapi` | OpenAPI document (YAML; `?format=json` for JSON). |
+| `/q/swagger-ui` | Swagger UI, dev mode only. |
+
+### Configuration
+
+Configuration is `backend/src/main/resources/application.properties`, which
+holds non-secret defaults only. Every property can be overridden by its Quarkus
+environment variable (for example `QUARKUS_HTTP_PORT`).
+
+| Profile | Used by | Database |
+|---|---|---|
+| `dev` | `./mvnw quarkus:dev` | Dev Services container |
+| `test` | `./mvnw verify` | Dev Services or Testcontainers |
+| `prod` | the packaged app and Docker image | environment variables below |
+
+In `prod` the service refuses to start unless these are set:
+
+| Variable | Example |
+|---|---|
+| `SIGNALHUB_DB_URL` | `jdbc:postgresql://postgres:5432/signalhub` |
+| `SIGNALHUB_DB_USERNAME` | `signalhub` |
+| `SIGNALHUB_DB_PASSWORD` | from your secret store |
+
+Compose derives them from `.env` (see `.env.example`). Never commit `.env`.
+
+## Local validation
+
+CI runs:
+
+```sh
+# Repository tooling
 pip install ruff==0.16.9
 ruff check .
 ruff format --check .
 python -m unittest discover --start-directory scripts/release --verbose
 # Lints GitHub Actions workflows (needs Docker):
 docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color
+
+# Backend (needs Docker)
+(cd backend && ./mvnw verify)
+# Container smoke test: the "Backend container" job in .github/workflows/ci.yml
+# starts the stack with `docker compose up --build --wait`, checks liveness,
+# readiness and OpenAPI, stops PostgreSQL and expects readiness 503, and checks
+# that the image refuses to start without database settings.
 ```
 
 Each new component adds its own build, lint, and test commands to CI and to
 this section in the PR that introduces it.
-
-The Python commands above cover repository tooling (release versioning) only.
-The backend is Java/Quarkus (see [architecture.md](architecture.md#backend-platform)).
-
-## Bootstrapping the backend
-
-No backend code exists yet. The PR that introduces the Quarkus backend must be
-releasable on its own. It must include:
-
-- a runnable Quarkus service on Java 21 with its build wrapper committed, so
-  contributors need only a JDK and Docker;
-- PostgreSQL connectivity, Flyway configured, and liveness and readiness
-  checks, where readiness verifies the database;
-- tests with JUnit 5 and RestAssured, run against real PostgreSQL;
-- a CI job that builds, checks formatting and static analysis, and runs the
-  tests on Java 21, plus the job name added to the required checks below;
-- a production Dockerfile and a Docker Compose setup for the backend with
-  PostgreSQL, with an `.env.example` holding placeholders only;
-- local commands (build, run, test, migrate, Compose) documented in this file,
-  its details recorded in `architecture.md`, and its status in `README.md`.
-
-It must not include event ingestion or other product features, unless that is
-the stated scope of the PR.
 
 ## Repository settings (GitHub)
 
@@ -158,7 +244,8 @@ repository:
   description). Without this, a single-commit PR uses its commit message
   instead of the validated PR title.
 - Protect `main`: require a pull request, and require the status checks
-  `Python (lint + test)`, `GitHub Actions lint`, and `Conventional Commit title`.
+  `Python (lint + test)`, `GitHub Actions lint`, `Backend (build + test)`,
+  `Backend container (Compose smoke test)`, and `Conventional Commit title`.
   Require branches to be up to date before merging.
 - Actions workflow permissions must allow `contents: write` for the release
   job (it requests this explicitly).

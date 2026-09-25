@@ -24,6 +24,9 @@ dist/
 .coverage
 htmlcov/
 
+# Java / Maven
+target/
+
 # Android / Gradle / Kotlin
 .gradle/
 local.properties
