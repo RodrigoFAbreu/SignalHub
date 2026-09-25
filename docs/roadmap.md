@@ -385,6 +385,26 @@ The following capabilities are already implemented and merged unless repository 
   the proxy and its own CA, reads the inbox over HTTPS, and checks the
   `404`s, however the path is spelled, and the redirect
 
+### R16c - Upgrade procedure and health monitoring
+
+- `docs/deployment.md` documents upgrades: read the release notes, back up,
+  check out the new tag, compare `.env.example`, `docker compose up --build
+  --wait`, check health; rolling back is restoring the pre-upgrade backup
+  with the older release, since migrations only go forward; a new
+  PostgreSQL major version is moved with a backup and restore
+- health monitoring: what Docker's restart policy and health checks already
+  do, readiness checked from the host and the API (`401`) from another
+  machine, alerting through a channel that does not depend on SignalHub,
+  disk space, delivery metrics and logs
+- no backend changes; a new CI job, `Backend container (upgrade from the
+  latest release)`, starts the latest release, stores a producer, a client
+  and a read event, backs up, upgrades in place to the commit under test,
+  checks the data, keys, preferences, every migration and the health of
+  every service, then rolls back to the release by restoring the backup
+- deferred to R18 (upgrade path review): an older release may still start on
+  a database a newer one migrated (Flyway ignores future migrations by
+  default); the documentation forbids it, the backend does not yet refuse
+
 ---
 
 ## 4. Planned roadmap
@@ -708,11 +728,12 @@ Exit criteria:
 
 ### R16 - Raspberry Pi / self-hosted deployment
 
-Status: in progress. R16a (ARM64 images and a verified ARM64 build) and
-R16b (TLS reverse proxy, secrets and network exposure) are complete (see
-section 3); durable storage, the restart policy, backup and resource
-expectations already exist (R2, R15d). Remaining: R16c, the upgrade
-procedure and health monitoring.
+Status: complete, as R16a (ARM64 images and a verified ARM64 build), R16b
+(TLS reverse proxy, secrets and network exposure) and R16c (upgrade
+procedure and health monitoring), see section 3; durable storage, the
+restart policy, backup and resource expectations come from R2 and R15d.
+Running unattended on a real Raspberry Pi is the maintainer's to confirm;
+CI builds and runs the stack natively on ARM64.
 
 Goal: provide a supported practical deployment for a small home server such as Raspberry Pi 5.
 
@@ -770,7 +791,7 @@ Before `v1.0.0`, review:
 - event schema
 - enum evolution strategy
 - pagination
-- migrations and upgrade path
+- migrations and upgrade path, including refusing to start an older release on a newer schema (see R16c)
 - client/device lifecycle
 - push semantics
 - error formats
@@ -854,12 +875,13 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After the TLS reverse proxy (R16b), the expected next increment is:
+After the upgrade procedure and health monitoring (R16c), which complete
+R16, the expected next increment is:
 
-**R16c - Upgrade procedure and health monitoring**
+**R17 - Integration examples**
 
-It completes R16. Backup and restore (R15d) are already documented.
-Confirming delivery to a real device (R8 to R10) still needs the
+Small, edge-only examples for several unrelated producers over the public
+API. Confirming delivery to a real device (R8 to R10) still needs the
 maintainer's Firebase project.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

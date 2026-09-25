@@ -413,3 +413,113 @@ jobs:
         run: docker compose logs
       - if: always()
         run: docker compose down --volumes
+
+  # The upgrade and rollback of docs/deployment.md#upgrades: a stack of the
+  # latest release, with data, upgraded in place to this commit and rolled
+  # back to the release again by restoring a backup.
+  upgrade:
+    name: Backend container (upgrade from the latest release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the release tags
+      - name: Start the latest release
+        run: |
+          # The newest release before this commit (HEAD^ is main's tip on a pull request).
+          previous=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD^)
+          echo "upgrading from $previous"
+          {
+            echo "PREVIOUS=$previous"
+            echo "CURRENT=$(git rev-parse HEAD)"
+          } >> "$GITHUB_ENV"
+          cp .env.example .env
+          admin_token=$(openssl rand -hex 32)
+          echo "::add-mask::$admin_token"
+          echo "ADMIN_TOKEN=$admin_token" >> "$GITHUB_ENV"
+          sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" .env
+          git checkout --quiet "$previous"
+          docker compose up --build --wait --wait-timeout 180
+      - name: Store a producer, a client and a read event
+        run: |
+          created=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data '{"name": "ci-upgrade-test"}' \
+            http://localhost:8080/api/v1/admin/producers)
+          api_key=$(jq --raw-output .apiKey <<<"$created")
+          echo "::add-mask::$api_key"
+          created=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data '{"name": "ci-upgrade-client"}' \
+            http://localhost:8080/api/v1/admin/clients)
+          client_key=$(jq --raw-output .clientKey <<<"$created")
+          echo "::add-mask::$client_key"
+          {
+            echo "API_KEY=$api_key"
+            echo "CLIENT_KEY=$client_key"
+          } >> "$GITHUB_ENV"
+          id=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $api_key" \
+            --header 'Content-Type: application/json' \
+            --data '{"category": "INFO", "severity": "LOW", "title": "Before the upgrade", "metadata": {"release": "previous"}}' \
+            http://localhost:8080/api/v1/events | jq --raw-output .id)
+          curl --fail --silent --show-error --output /dev/null --request PUT \
+            --header "Authorization: Bearer $client_key" \
+            "http://localhost:8080/api/v1/events/$id/read"
+          curl --fail --silent --show-error --output /dev/null --request PUT \
+            --header "Authorization: Bearer $client_key" \
+            --header 'Content-Type: application/json' \
+            --data '{"minimumSeverity": "HIGH"}' \
+            http://localhost:8080/api/v1/client/push-preferences
+      - name: Back up and upgrade to this commit
+        run: |
+          docker compose exec -T postgres sh -c \
+            'pg_dump --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --format=custom' \
+            > "$RUNNER_TEMP/signalhub.dump"
+          git checkout --quiet "$CURRENT"
+          docker compose up --build --wait --wait-timeout 180
+          docker compose ps --format '{{.Service}}: {{.Health}}' | sort | tee "$RUNNER_TEMP/health"
+          test "$(cat "$RUNNER_TEMP/health")" = "$(printf 'backend: healthy\npostgres: healthy')"
+      - name: The data and keys of the release survive the upgrade
+        run: |
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $CLIENT_KEY" \
+            http://localhost:8080/api/v1/events \
+            | jq --exit-status '(.items | length) == 1 and .items[0].title == "Before the upgrade"
+                and .items[0].metadata.release == "previous" and .items[0].readAt != null'
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $CLIENT_KEY" \
+            http://localhost:8080/api/v1/client \
+            | jq --exit-status '.pushPreferences.minimumSeverity == "HIGH"'
+          curl --fail --silent --show-error --output /dev/null \
+            --header "Authorization: Bearer $API_KEY" \
+            --header 'Content-Type: application/json' \
+            --data '{"category": "INFO", "severity": "LOW", "title": "After the upgrade"}' \
+            http://localhost:8080/api/v1/events
+          # Every migration of this commit is applied, and none failed.
+          migrations=$(find backend/src/main/resources/db/migration -name 'V*__*.sql' | wc -l)
+          docker compose exec -T postgres sh -c \
+            'psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --tuples-only --no-align --command "SELECT count(*) FILTER (WHERE success), count(*) FILTER (WHERE NOT success) FROM flyway_schema_history WHERE version IS NOT NULL"' \
+            | tee "$RUNNER_TEMP/migrations"
+          test "$(cat "$RUNNER_TEMP/migrations")" = "$migrations|0"
+      - name: Rolling back to the release restores its backup
+        run: |
+          git checkout --quiet "$PREVIOUS"
+          docker compose down
+          docker volume rm signalhub_postgres-data
+          docker compose up --wait --wait-timeout 120 postgres
+          docker compose exec -T postgres sh -c \
+            'pg_restore --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-owner --no-privileges --exit-on-error --single-transaction' \
+            < "$RUNNER_TEMP/signalhub.dump"
+          docker compose up --build --wait --wait-timeout 180
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $CLIENT_KEY" \
+            http://localhost:8080/api/v1/events \
+            | jq --exit-status '[.items[].title] == ["Before the upgrade"]'
+          git checkout --quiet "$CURRENT"
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down --volumes

@@ -8,7 +8,7 @@ and Docker Compose works the same way.
 The Compose stack, backups and resources are described in
 [development.md](development.md#docker-compose) and
 [architecture.md](architecture.md#operations); this page adds TLS, network
-exposure and the handling of secrets.
+exposure, the handling of secrets, upgrades and health monitoring.
 
 ## Topology
 
@@ -154,3 +154,139 @@ runtime; none is in the repository or the images.
   the same `.env`, so one file describes the whole deployment. Resource
   limits and the FCM key mount go into a git-ignored `compose.override.yaml`
   (see [Resources](architecture.md#resources)).
+
+## Upgrades
+
+Every release is a `vX.Y.Z` tag with notes on GitHub. An upgrade checks
+out the new tag and rebuilds; the backend migrates the database at startup,
+forward only, applying every migration between the two releases, so
+skipping releases works the same way. CI upgrades a stack of the previous
+release to the current code, with its data, and rolls it back again, on
+every change (the `Backend container (upgrade from the latest release)`
+job).
+
+1. **Read the release notes** of every release since yours. They list the
+   pull requests merged; one marked breaking (`!` in its title) has
+   migration notes saying what to change: a setting, the API, or the
+   PostgreSQL major version (see below).
+2. **Back up** the database, as in
+   [Backup and restore](architecture.md#backup-and-restore). It is the way
+   back if the new release does not work for you.
+3. **Check out the release** and look for new settings:
+
+   ```sh
+   git fetch --tags
+   git diff HEAD v1.2.3 -- .env.example   # settings added or changed
+   git checkout v1.2.3
+   ```
+
+   `.env` and `compose.override.yaml` are git-ignored, so they stay as
+   they are; add new settings to `.env` as needed.
+4. **Rebuild and restart:**
+
+   ```sh
+   docker compose up --build --wait
+   docker image prune --force   # removes the images the upgrade replaced
+   ```
+
+   This builds the new backend image while the old one keeps serving,
+   pulls PostgreSQL and Caddy only if the release pins new images, and
+   recreates what changed. The backend is unavailable while it restarts
+   and migrates, usually well under a minute: producers get connection
+   errors (the `signalhub` command exits with status 3, a temporary
+   failure) and should retry; pushes that were pending are sent once it is
+   back. Nothing that was acknowledged is lost.
+5. **Check** that every service is healthy and the startup summary is as
+   expected (see [Health monitoring](#health-monitoring)):
+
+   ```sh
+   docker compose ps --format '{{.Service}}: {{.Health}}'
+   docker compose logs backend | grep 'Configuration:'
+   ```
+
+If the backend does not become healthy, its log names the cause: a
+setting to fix, or a migration that failed. Each migration runs in its own
+transaction, so a failed one leaves no partial change behind; the
+migrations before it stay applied, so go back by
+[rolling back](#rolling-back).
+
+### Rolling back
+
+Migrations only go forward. Never start an older release on a database
+that a newer one has migrated: it may start, but its code does not know
+the newer schema. To go back, restore the backup from step 2 with the
+older release:
+
+```sh
+git checkout v1.2.2
+docker compose down
+docker volume rm signalhub_postgres-data   # the upgraded database
+docker compose up --wait postgres
+docker compose exec -T postgres sh -c \
+  'pg_restore --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-owner --no-privileges --exit-on-error --single-transaction' \
+  < signalhub-2026-09-25.dump
+docker compose up --build --wait
+```
+
+Everything published or changed since the backup is gone, as after any
+restore.
+
+### A new PostgreSQL major version
+
+`compose.yaml` pins PostgreSQL's major version (17), and a database
+volume works only with the major version that created it. A release that
+moves to a new major version says so in its notes; PostgreSQL refuses to
+start on the old volume, so nothing is lost, but the stack does not start
+until the data is moved. Back up while the old release is still running
+(step 2), check out the new release, and then restore into the new,
+empty database: the restore commands of
+[Backup and restore](architecture.md#backup-and-restore), from
+`docker compose down` on.
+
+## Health monitoring
+
+What already happens without an operator:
+
+- **Restarts.** Every service restarts when its process exits and after
+  the host reboots (`restart: unless-stopped`).
+- **Health checks.** The backend image checks readiness
+  (`/q/health/ready`) every 10 seconds, and PostgreSQL its own
+  `pg_isready`; `docker compose ps` shows each service as `healthy` or
+  `unhealthy`. Readiness fails while PostgreSQL is unreachable and
+  recovers by itself once it is back, so Docker does not restart an
+  unhealthy backend (and a restart would not help).
+
+What is left is noticing when something is wrong. SignalHub cannot report
+its own outage, so check it from outside, and alert through a channel that
+does not depend on it: cron's mail, or a heartbeat ("dead man's switch")
+service that alerts when the checks stop reporting, which also covers the
+host itself being down.
+
+- **On the host**, every few minutes from cron: the backend and its
+  database, without credentials.
+
+  ```sh
+  curl --fail --silent --max-time 10 --output /dev/null http://localhost:8080/q/health/ready
+  ```
+
+- **From another machine**, if the proxy is enabled: the whole path
+  producers and clients use, including DNS, the certificate and the proxy.
+  An API request without a key answers `401` when all of it works:
+
+  ```sh
+  test "$(curl --silent --max-time 10 --output /dev/null --write-out '%{http_code}' \
+    https://signalhub.example.com/api/v1/events)" = 401
+  ```
+
+- **Disk space.** The database only grows unless a
+  [retention](architecture.md#retention) period is set; check the free
+  space on the host (`df -h /var/lib/docker`) and the database size (see
+  [Resources](architecture.md#resources)).
+- **Delivery**, with a metrics scraper (see
+  [Metrics](architecture.md#metrics)): a `signalhub_push_dispatch_pending`
+  that keeps growing means dispatch is stuck; a rising
+  `signalhub_push_deliveries_total{result="transient_failure"}` or
+  `signalhub_push_retries_abandoned_total` means the push provider is
+  unreachable.
+- **Logs.** Warnings and errors, such as failed pushes, are in
+  `docker compose logs backend`; see [Logs](architecture.md#logs).
