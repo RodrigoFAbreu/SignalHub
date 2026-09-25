@@ -37,3 +37,55 @@ jobs:
       - uses: actions/checkout@v7
       # The actionlint image bundles shellcheck, so `run:` scripts are checked too.
       - run: docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color
+
+  backend:
+    name: Backend (build + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      # Compiles, runs the tests against real PostgreSQL (Dev Services and
+      # Testcontainers use the runner's Docker), checks formatting (Spotless)
+      # and runs static analysis (SpotBugs).
+      - run: ./mvnw --batch-mode --no-transfer-progress verify
+
+  compose:
+    name: Backend container (Compose smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start PostgreSQL and the backend
+        run: |
+          cp .env.example .env
+          docker compose up --build --wait --wait-timeout 180
+      - name: Liveness, readiness and OpenAPI respond
+        run: |
+          curl --fail --silent --show-error http://localhost:8080/q/health/live
+          curl --fail --silent --show-error http://localhost:8080/q/health/ready
+          curl --fail --silent --show-error --output /dev/null http://localhost:8080/q/openapi
+      - name: Readiness reports DOWN while PostgreSQL is stopped
+        run: |
+          docker compose stop postgres
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8080/q/health/ready)
+          test "$status" = 503 || { echo "expected 503, got $status"; exit 1; }
+          curl --fail --silent --show-error http://localhost:8080/q/health/live
+          docker compose start postgres
+          docker compose up --wait --wait-timeout 120
+      - name: The image refuses to start without database settings
+        run: |
+          docker run --detach --name no-database signalhub-backend:local
+          code=$(timeout 60 docker wait no-database) || { echo "still running after 60s"; exit 1; }
+          docker logs no-database 2>&1 | grep 'No database configured'
+          test "$code" != 0
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down --volumes

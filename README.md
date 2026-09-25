@@ -29,8 +29,24 @@ See [docs/architecture.md](docs/architecture.md).
 
 ## Status
 
-Early bootstrap. The repository contains its engineering baseline:
-documentation, CI, and automated releases. No product components exist yet.
+Early development.
+
+| Component | Status |
+|---|---|
+| Backend (`backend/`) | Runtime foundation: Quarkus service, PostgreSQL, Flyway, health checks, OpenAPI, Docker image and Compose. No product API yet. |
+| Clients | Not started |
+| Producer SDK/CLI | Not started |
+
+Run the backend with PostgreSQL:
+
+```sh
+cp .env.example .env   # set SIGNALHUB_DB_PASSWORD
+docker compose up --build --wait
+curl http://localhost:8080/q/health/ready
+```
+
+See [docs/development.md](docs/development.md#backend) for dev mode, tests, and
+configuration.
 
 ## Development philosophy
 

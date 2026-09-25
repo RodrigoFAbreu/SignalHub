@@ -1,0 +1,45 @@
+# SignalHub backend and PostgreSQL.
+#
+#   cp .env.example .env    # then set SIGNALHUB_DB_PASSWORD
+#   docker compose up --build --wait
+#
+# See docs/development.md#docker-compose.
+name: signalhub
+
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${SIGNALHUB_DB_NAME:-signalhub}
+      POSTGRES_USER: ${SIGNALHUB_DB_USERNAME:-signalhub}
+      POSTGRES_PASSWORD: ${SIGNALHUB_DB_PASSWORD:?set SIGNALHUB_DB_PASSWORD, see .env.example}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username \"$$POSTGRES_USER\" --dbname \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Not published to the host: only the backend talks to the database.
+
+  backend:
+    build: ./backend
+    image: signalhub-backend:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+    environment:
+      SIGNALHUB_DB_URL: jdbc:postgresql://postgres:5432/${SIGNALHUB_DB_NAME:-signalhub}
+      SIGNALHUB_DB_USERNAME: ${SIGNALHUB_DB_USERNAME:-signalhub}
+      SIGNALHUB_DB_PASSWORD: ${SIGNALHUB_DB_PASSWORD:?set SIGNALHUB_DB_PASSWORD, see .env.example}
+    ports:
+      # Localhost only until the API has authentication. Put a TLS reverse
+      # proxy in front of it for remote access.
+      - "127.0.0.1:${SIGNALHUB_HTTP_PORT:-8080}:8080"
+    # The image's HEALTHCHECK polls readiness (/q/health/ready).
+
+volumes:
+  postgres-data:
