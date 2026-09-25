@@ -18,3 +18,4 @@ creates or alters tables.
 | `V5__create_push_dispatches.sql` | `push_dispatches` table: events whose push is not yet dispatched |
 | `V6__add_event_read_state.sql` | `events.read_at` and an index over unread events |
 | `V7__add_client_push_preferences.sql` | Push preferences on `clients`: paused, minimum severity, muted categories and producers |
+| `V8__create_push_retries.sql` | `push_retries` table: pushes to one client waiting to be sent again after a temporary failure |

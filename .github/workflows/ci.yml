@@ -128,7 +128,17 @@ jobs:
           echo "::add-mask::$admin_token"
           echo "ADMIN_TOKEN=$admin_token" >> "$GITHUB_ENV"
           sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" .env
+          # The resource limits recommended in docs/architecture.md#resources.
+          cat > compose.override.yaml <<'YAML'
+          services:
+            backend:
+              mem_limit: 512m
+              cpus: 1
+            postgres:
+              mem_limit: 256m
+          YAML
           docker compose up --build --wait --wait-timeout 180
+          test "$(docker inspect --format '{{.HostConfig.Memory}}' "$(docker compose ps --quiet backend)")" = 536870912
       - name: Liveness, readiness and OpenAPI respond
         run: |
           curl --fail --silent --show-error http://localhost:8080/q/health/live
@@ -274,6 +284,49 @@ jobs:
           if grep --quiet --fixed-strings --regexp="$ADMIN_TOKEN" --regexp="$db_password" <<<"$logs"; then
             echo "a secret reached the logs"; exit 1
           fi
+      # The commands of docs/architecture.md#backup-and-restore.
+      - name: A backup restores into an empty database
+        run: |
+          backup="$RUNNER_TEMP/signalhub.dump"
+          docker compose exec -T postgres sh -c \
+            'pg_dump --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --format=custom' \
+            > "$backup"
+          docker compose exec -T postgres pg_restore --list < "$backup" > /dev/null
+          publish() {
+            curl --fail --silent --show-error \
+              --header "Authorization: Bearer $API_KEY" \
+              --header 'Content-Type: application/json' \
+              --data "{\"category\": \"INFO\", \"severity\": \"LOW\", \"title\": \"$1\"}" \
+              http://localhost:8080/api/v1/events | jq --raw-output .id
+          }
+          later=$(publish "After the backup")
+          docker compose down --volumes
+          docker compose up --wait --wait-timeout 120 postgres
+          restore() {
+            docker compose exec -T postgres sh -c \
+              'pg_restore --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-owner --no-privileges --exit-on-error --single-transaction' \
+              < "$backup"
+          }
+          restore
+          docker compose up --wait --wait-timeout 120
+          # Events from before the backup are back, with their read state; later ones are gone.
+          curl --fail --silent --show-error --get \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --data-urlencode "producerId=$PRODUCER_ID" \
+            http://localhost:8080/api/v1/events \
+            | jq --exit-status '[.items[].title] == ["From the command", "Smoke test"]
+                and .items[1].readAt != null'
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            "http://localhost:8080/api/v1/events/$later")
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
+          # The producer's key still works: the backup holds its hash.
+          publish "After the restore" > /dev/null
+          # Restoring over existing data fails and changes nothing.
+          if restore 2> /dev/null; then echo "restored over existing data"; exit 1; fi
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            http://localhost:8080/api/v1/events/unread-count \
+            | jq --exit-status '.unread == 2'
       - name: A revoked key no longer authenticates
         run: |
           curl --fail --silent --show-error --output /dev/null --request POST \
@@ -299,6 +352,8 @@ jobs:
           code=$(timeout 60 docker wait no-database) || { echo "still running after 60s"; exit 1; }
           docker logs no-database 2>&1 | grep 'No database configured'
           test "$code" != 0
+      - if: always()
+        run: docker stats --no-stream
       - if: failure()
         run: docker compose logs
       - if: always()
