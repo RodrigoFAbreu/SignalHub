@@ -1,0 +1,43 @@
+# Secrets and local environment — never commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.jks
+*.keystore
+google-services.json
+GoogleService-Info.plist
+*service-account*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Android / Gradle / Kotlin
+.gradle/
+local.properties
+*.apk
+*.aab
+captures/
+.kotlin/
+
+# Editors and OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings
+.claude/settings.local.json

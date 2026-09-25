@@ -1,0 +1,45 @@
+name: Release
+
+# Every commit on main is a release: re-run CI on the merged commit, then tag it
+# with the next semantic version and publish a GitHub release.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Serialize releases so two runs never compute the same version. Queued runs
+# are never cancelled mid-flight; a superseded pending run is covered by the
+# next one (see docs/development.md).
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history and tags are needed to find the last release
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - id: version
+        run: |
+          next=$(python scripts/release/release.py next-version)
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+      - if: steps.version.outputs.next != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.next }}
+        run: gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
+      - if: steps.version.outputs.next == ''
+        run: echo "HEAD is already released; nothing to do."

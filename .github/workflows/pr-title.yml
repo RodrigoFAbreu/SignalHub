@@ -1,0 +1,23 @@
+name: PR title
+
+# The PR title becomes the squash-merged commit subject on main, which decides
+# the release version. Validate it with the same code the release uses.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  conventional-commit:
+    name: Conventional Commit title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: python scripts/release/release.py check-title "$TITLE"
