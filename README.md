@@ -26,8 +26,22 @@ See [docs/architecture.md](docs/architecture.md).
 
 ## Status
 
-Early bootstrap. The repository contains its engineering baseline:
-documentation, CI, and automated releases. No product components exist yet.
+Early development. The repository has its engineering baseline
+(documentation, CI, and automated releases) and these components:
+
+| Component | Status |
+|---|---|
+| Backend (`backend/`) | Runtime foundation: configuration, PostgreSQL, Alembic migrations, health endpoints, Docker Compose. Does not ingest events yet. |
+| Mobile app | Not started |
+| Producer SDK/CLI | Not started |
+
+Quick start (requires Docker):
+
+```sh
+cp .env.example .env    # then set POSTGRES_PASSWORD
+docker compose up --build --detach --wait
+curl http://127.0.0.1:8000/health/ready
+```
 
 ## Development philosophy
 

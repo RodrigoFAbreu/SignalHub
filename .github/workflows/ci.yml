@@ -30,6 +30,58 @@ jobs:
       - name: Test release versioning
         run: python -m unittest discover --start-directory scripts/release --verbose
 
+  backend:
+    name: Backend (test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: signalhub
+          # Throwaway credential for this ephemeral CI container only.
+          POSTGRES_PASSWORD: signalhub-ci
+          POSTGRES_DB: signalhub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username=signalhub"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      SIGNALHUB_TEST_DATABASE_URL: postgresql+psycopg://signalhub:signalhub-ci@localhost:5432/signalhub
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.19"
+      # --locked fails if uv.lock is out of date with pyproject.toml.
+      - run: uv sync --locked
+      # Includes the migration tests: upgrade, drift check, and downgrade.
+      - run: uv run --locked pytest -v
+
+  compose:
+    name: Docker Compose smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure environment from the example
+        run: sed "s/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=$(openssl rand -hex 24)/" .env.example > .env
+      - name: Build and start the stack
+        run: docker compose up --build --detach --wait --wait-timeout 180
+      - run: curl --fail-with-body --silent --show-error http://127.0.0.1:8000/health/live
+      - run: curl --fail-with-body --silent --show-error http://127.0.0.1:8000/health/ready
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down --volumes
+
   workflows:
     name: GitHub Actions lint
     runs-on: ubuntu-latest
