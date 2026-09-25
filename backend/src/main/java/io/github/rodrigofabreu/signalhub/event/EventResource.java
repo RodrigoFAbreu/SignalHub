@@ -202,11 +202,20 @@ public class EventResource {
 
   @GET
   @Path("/{id}")
-  @Operation(summary = "Get an event by its canonical ID")
+  @OwnerAuthenticated
+  @SecurityRequirement(name = ClientResource.SECURITY_SCHEME)
+  @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
+  @Operation(
+      summary = "Get an event by its canonical ID",
+      description = "Requires a client key or the admin token.")
   @APIResponse(
       responseCode = "200",
       description = "The event.",
       content = @Content(schema = @Schema(implementation = EventResponse.class)))
+  @APIResponse(
+      responseCode = "401",
+      description = "Missing or invalid client key or admin token.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "404",
       description = "No event has this ID.",

@@ -208,9 +208,14 @@ jobs:
           echo "created event $id"
           docker compose restart backend
           docker compose up --wait --wait-timeout 120
-          curl --fail --silent --show-error "http://localhost:8080/api/v1/events/$id" \
+          curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+            "http://localhost:8080/api/v1/events/$id" \
             | jq --exit-status '.title == "Smoke test" and .metadata.check == "restart"
                 and .producer.name == "ci-smoke-test" and .producer.id == env.PRODUCER_ID'
+          # Reading an event needs the owner's credential, not only its ID.
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            "http://localhost:8080/api/v1/events/$id")
+          test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
       - name: The owner lists the event with the admin token
         run: |
           curl --fail --silent --show-error --get \
@@ -309,7 +314,8 @@ jobs:
           id=$(SIGNALHUB_API_KEY=$API_KEY signalhub send --category action-required \
             --severity HIGH --title "From the command" --context ci/sdk \
             --metadata '{"run": 42}' --meta step=smoke)
-          curl --fail --silent --show-error "http://localhost:8080/api/v1/events/$id" \
+          curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+            "http://localhost:8080/api/v1/events/$id" \
             | jq --exit-status '.category == "ACTION_REQUIRED" and .title == "From the command"
                 and .metadata == {"run": 42, "step": "smoke"} and .producer.id == env.PRODUCER_ID'
           status=0
@@ -376,7 +382,7 @@ jobs:
             | jq --exit-status '[.items[].title] == ["From the command", "Smoke test"]
                 and .items[1].readAt != null'
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
-            "http://localhost:8080/api/v1/events/$later")
+            --header "Authorization: Bearer $ADMIN_TOKEN" "http://localhost:8080/api/v1/events/$later")
           test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
           # The producer's key still works: the backup holds its hash.
           publish "After the restore" > /dev/null

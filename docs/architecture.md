@@ -83,9 +83,9 @@ needed, live outside the core and speak the generic API.
 
 > Status: implemented. Registered producers publish events with an API key;
 > the owner's clients list them with client keys (the operator may also use
-> the admin token); reading one event by ID needs
-> no credential yet (see [Security limitations](#security-limitations)), so
-> Compose publishes the API on localhost only.
+> the admin token), which also read single events by ID. Compose publishes
+> the API on localhost only; a TLS reverse proxy exposes it (see
+> [deployment.md](deployment.md)).
 
 An event is a generic record of something that happened in a producer. The
 model is deliberately small: fields that every producer understands the same
@@ -192,7 +192,7 @@ contents. An absent or `null` value is stored and returned as `{}`.
 |---|---|
 | `POST /api/v1/events` | Requires a producer API key. Validates and stores an event bound to that producer. `201 Created` with the canonical event and a `Location` header. |
 | `GET /api/v1/events` | Requires a client key or the admin token. One page of events, newest first, optionally filtered. See [Listing events](#listing-events). |
-| `GET /api/v1/events/{id}` | `200` with the event, or `404`. No credential needed yet. |
+| `GET /api/v1/events/{id}` | Requires a client key or the admin token. `200` with the event, or `404`. |
 | `PUT /api/v1/events/{id}/read` | Requires a client key or the admin token. Marks the event read; `200` with the event, or `404`. See [Read state](#read-state). |
 | `DELETE /api/v1/events/{id}/read` | Requires a client key or the admin token. Marks the event unread; `200` with the event, or `404`. |
 | `POST /api/v1/events/read` | Requires a client key or the admin token. Marks read every unread event up to a given one; `200` with the count. |
@@ -200,9 +200,11 @@ contents. An absent or `null` value is stored and returned as `{}`.
 
 The event is committed to PostgreSQL before `201` is returned. Errors:
 
-- `401` when publishing without a valid producer API key. Authentication runs
-  before the body is read, so an unauthenticated request gets `401` whatever
-  its body contains. See [Authentication errors](#authentication-errors).
+- `401` when publishing without a valid producer API key, or reading without
+  a client key or the admin token. Authentication runs before the body is
+  read and before the event is looked up, so an unauthenticated request gets
+  `401` whatever its body contains, and never learns whether an event ID
+  exists. See [Authentication errors](#authentication-errors).
 
 - `400` with a JSON body `{"title", "status", "violations": [{"field", "message"}]}`
   for malformed JSON, unknown fields, wrong JSON types (values are never
@@ -211,6 +213,12 @@ The event is committed to PostgreSQL before `201` is returned. Errors:
 - `404` with the same body shape (no violations) for an unknown event ID. A
   malformed ID is also `404`, without a body.
 - `413` for request bodies over 64 KiB, and `415` for non-JSON bodies.
+
+Reading an event by its ID needs the same credential as the
+[listing](#listing-events): a client key or the admin token. A producer key
+is refused with `401`, even for an event it published: producers publish,
+and the `201` response already holds the stored event. Releases before
+v0.23.0 let anyone who knew an event's ID read it.
 
 The OpenAPI document at `/q/openapi` is the reference for the request and
 response schemas, with examples. See
@@ -478,14 +486,8 @@ type that holds a key, omits it from `toString()`.
 
 ### Security limitations
 
-This version protects publishing. It does not yet:
+Every product API endpoint requires a credential. This version does not yet:
 
-- **Authenticate readers by ID.** `GET /api/v1/events/{id}` needs no
-  credential. Event IDs are unguessable UUIDv7s returned only to the
-  publishing producer and to the owner's listing, but anyone who learns one
-  and can reach the API can read the event. Listing events requires a client
-  key or the admin token. Requiring one here too is a breaking change,
-  deferred to a deliberate contract decision.
 - **Terminate TLS itself.** Keys and the admin token travel as bearer
   credentials, so any non-local access goes through a TLS reverse proxy: the
   `proxy` profile of `compose.yaml` (Caddy), which forwards only `/api/`
@@ -1289,7 +1291,6 @@ Implementation expectations:
 
 These are deferred until the relevant implementation work:
 
-- Requiring a credential for `GET /api/v1/events/{id}` (a breaking change).
 - How a client obtains its key without the operator copying it by hand
   (for example a pairing flow), once a client application exists.
 - Routing and filtering rules: which events trigger a push (all do for now),

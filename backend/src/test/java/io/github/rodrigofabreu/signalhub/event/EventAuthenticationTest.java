@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.event;
 
+import static io.github.rodrigofabreu.signalhub.TestClients.asClient;
 import static io.github.rodrigofabreu.signalhub.TestProducers.ADMIN;
 import static io.github.rodrigofabreu.signalhub.TestProducers.asAdmin;
 import static io.github.rodrigofabreu.signalhub.TestProducers.asProducer;
@@ -8,16 +9,21 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 
+import io.github.rodrigofabreu.signalhub.TestClients;
 import io.github.rodrigofabreu.signalhub.TestProducers;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import io.restassured.specification.RequestSpecification;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** Publishing requires a valid producer API key, and the event is bound to that producer. */
+/**
+ * Publishing requires a valid producer API key, and the event is bound to that producer. Reading an
+ * event requires one of the owner's credentials.
+ */
 @QuarkusTest
 class EventAuthenticationTest {
 
@@ -36,7 +42,7 @@ class EventAuthenticationTest {
             .extract()
             .path("id");
 
-    given()
+    asAdmin()
         .when()
         .get(EVENTS + "/" + id)
         .then()
@@ -169,11 +175,34 @@ class EventAuthenticationTest {
   }
 
   @Test
-  void readingAnEventDoesNotNeedAKey() {
+  void readingAnEventNeedsAClientKeyOrTheAdminToken() {
     var producer = TestProducers.register("auth-read");
     String id = publish(asProducer(producer.apiKey()), EVENT).statusCode(201).extract().path("id");
 
-    given().when().get(EVENTS + "/" + id).then().statusCode(200);
+    asClient(TestClients.register("auth-read").clientKey())
+        .get(EVENTS + "/" + id)
+        .then()
+        .statusCode(200)
+        .body("id", equalTo(id));
+    asAdmin().get(EVENTS + "/" + id).then().statusCode(200);
+  }
+
+  @Test
+  void readingAnEventWithoutAnOwnerCredentialIsRejected() {
+    var producer = TestProducers.register("auth-read-rejected");
+    String id = publish(asProducer(producer.apiKey()), EVENT).statusCode(201).extract().path("id");
+
+    expectUnauthorized(given().get(EVENTS + "/" + id).then());
+    expectUnauthorized(
+        given().header("Authorization", "Bearer wrong").get(EVENTS + "/" + id).then());
+    // The key that published the event reads only through the owner, like the listing.
+    expectUnauthorized(asProducer(producer.apiKey()).get(EVENTS + "/" + id).then());
+  }
+
+  @Test
+  void unauthenticatedReadsDoNotRevealWhetherAnEventExists() {
+    expectUnauthorized(given().get(EVENTS + "/" + UUID.randomUUID()).then());
+    expectUnauthorized(given().get(EVENTS + "/not-a-uuid").then());
   }
 
   private static void revoke(String producerId, String keyId) {

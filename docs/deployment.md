@@ -121,10 +121,8 @@ Not reachable from other machines:
   exposed.
 - **PostgreSQL**: no published port at all.
 
-Every request through the proxy carries a producer API key or a client key,
-with one exception: `GET /api/v1/events/{id}` needs only the event's
-unguessable ID (see
-[Security limitations](architecture.md#security-limitations)). On the host,
+Every request through the proxy carries a producer API key or a client key;
+none of the product API answers without one. On the host,
 allow only ports 22 (SSH, from the home network), 80 and 443 in the
 firewall. Ports 80 and 443 need to be open to the internet only for Let's
 Encrypt, or for clients outside the home network; a VPN is the tighter

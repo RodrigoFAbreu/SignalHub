@@ -39,7 +39,7 @@ class EventReadStateApiTest {
   void aNewEventIsUnread() {
     var event = publish(TestProducers.register("read-new"), "New");
 
-    given().get(EVENTS + "/" + event).then().statusCode(200).body("readAt", nullValue());
+    asAdmin().get(EVENTS + "/" + event).then().statusCode(200).body("readAt", nullValue());
   }
 
   @Test
@@ -67,7 +67,7 @@ class EventReadStateApiTest {
         .then()
         .statusCode(200)
         .body("items[0].readAt", equalTo(readAt));
-    given().get(EVENTS + "/" + event).then().body("readAt", equalTo(readAt));
+    asAdmin().get(EVENTS + "/" + event).then().body("readAt", equalTo(readAt));
 
     // Marking it read again, from any client, changes nothing.
     asClient(tablet.clientKey())
@@ -91,7 +91,7 @@ class EventReadStateApiTest {
         .body("readAt", nullValue());
     // Idempotent.
     asAdmin().delete(EVENTS + "/" + event + "/read").then().statusCode(200);
-    given().get(EVENTS + "/" + event).then().body("readAt", nullValue());
+    asAdmin().get(EVENTS + "/" + event).then().body("readAt", nullValue());
   }
 
   @Test
@@ -237,7 +237,7 @@ class EventReadStateApiTest {
           .statusCode(401);
       stranger.get().get(UNREAD_COUNT).then().statusCode(401);
     }
-    given().get(EVENTS + "/" + event).then().body("readAt", nullValue());
+    asAdmin().get(EVENTS + "/" + event).then().body("readAt", nullValue());
   }
 
   private static UUID publish(TestProducers.Registered producer, String title) {
