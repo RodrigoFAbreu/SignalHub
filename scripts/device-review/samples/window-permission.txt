@@ -1,0 +1,2 @@
+  mCurrentFocus=Window{71c0e2f u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity}
+  mFocusedApp=ActivityRecord{5d1e0b2 u0 io.github.rodrigofabreu.signalhub/.MainActivity t41}

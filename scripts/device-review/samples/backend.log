@@ -1,0 +1,7 @@
+signalhub-backend-1  | 2026-09-26 16:40:01,112 INFO  [io.quarkus] (main) signalhub 0.27.1 on JVM started in 2.841s. Listening on: http://0.0.0.0:8080
+signalhub-backend-1  | 2026-09-26 16:40:05,380 INFO  [io.git.rod.sig.pus.PushDispatcher] (executor-thread-1) Push sent to 1 client
+signalhub-backend-1  | 2026-09-26 16:41:17,004 WARN  [io.agroal.pool] (agroal-11) Datasource '<default>': Connection refused
+signalhub-backend-1  | 2026-09-26 16:41:17,009 ERROR [io.qua.ver.htt.run.QuarkusErrorHandler] (executor-thread-3) HTTP Request to /api/v1/events failed
+signalhub-backend-1  | 2026-09-26 16:41:30,220 INFO  [io.git.rod.sig.eve.EventResource] (executor-thread-2) Event stored: title=WARNING signs in production
+signalhub-backend-1  | {"timestamp":"2026-09-26T16:42:00.1Z","sequence":88,"loggerClassName":"org.jboss.logging.Logger","loggerName":"io.quarkus","level":"WARN","message":"Slow query"}
+signalhub-backend-1  | {"timestamp":"2026-09-26T16:42:01.1Z","sequence":89,"loggerClassName":"org.jboss.logging.Logger","loggerName":"io.quarkus","level":"INFO","message":"ERROR budget fine"}

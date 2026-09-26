@@ -657,6 +657,31 @@ The following capabilities are already implemented and merged unless repository 
   an event whose marking on opening failed
 - client only: no backend, API or schema changes
 
+### R18q - Device-review tooling in the repository
+
+- the `adb` script of the `v0.27.0` device review is kept in
+  `scripts/device-review/` as review tooling, never product runtime code:
+  the phone's serial, the server's address, the client ID, the output
+  directory and the Compose directory come from the environment or
+  arguments, and the producer key, client key and admin token from files;
+  there are no defaults naming a device, host, path or key
+- a safety guard checks the focused window before every tap and swipe and
+  aborts the run unless SignalHub, or the notification shade a check
+  opened, is in front
+- the checks of the `v0.27.0` review, with R18p's toggle in both
+  directions (*Mark as read* on an event whose marking on opening failed
+  while the backend was down); the checks that stop the backend or turn
+  on airplane mode restore them even when they fail, and push preferences
+  are restored
+- `scripts/device-review/README.md` covers the prerequisites, usage, the
+  guard, and what each check does and changes; `docs/development.md`
+  links it
+- CI lints it with ruff and runs its unit tests (the focused window, the
+  guard's decision, notification channels and records, the screen's
+  elements and unread badge, log levels, configuration) on recorded
+  samples; the device run itself stays manual
+- no backend, API, schema or client changes
+
 ---
 
 ## 4. Planned roadmap
@@ -1116,7 +1141,7 @@ that closes an item updates its row.
 | Release automation | Reviewed; sound | No PR title can produce `1.0.0` (`scripts/release/release.py` turns a major bump into a minor one below 1.0). Promotion is decision D4: not yet. |
 | End-to-end, fresh-install and upgrade tests | Done | R18d, R18e, R18h. |
 | Real-device push | Done on Android; its defect fixed in R18p | Verified on the maintainer's Android phone with their Firebase project at `v0.27.0` (R18o): a functional review passed its 19 checks (foreground, background, killed app and cold start, pop-up over another app, read state, push preferences, idempotent publishing, backend down and restarted, phone offline). It found that the event screen only offered *Mark as unread*, fixed in R18p (the action now follows the event's read state; verifying it on the device is the maintainer's, with R18q's review). iOS with APNs does not block 1.0 unless another issue requires it. |
-| Device-review tooling | Open (R18q) | The review's script exists only on the maintainer's machine; R18q keeps it in the repository. |
+| Device-review tooling | Done (R18q) | The review's `adb` script is in `scripts/device-review/`, configured only from the environment, arguments and key files, with a guard that touches the screen only while SignalHub or the shade it opened is in front; CI lints it and unit tests its parsing and guard on recorded samples. The device run stays manual. |
 | Maintainer usability review | Open, maintainer (G1) | After R18p to R18r: the maintainer uses the app and signs off. |
 
 Open items, each small enough for one increment and needing no decision:
@@ -1170,8 +1195,8 @@ an orchestrator: Java 25 and PostgreSQL 18 never move ahead of `v1.0.0`.
 | Order | Item | Kind | Status |
 |---|---|---|---|
 | 1 | R18p - Read-state toggle on the event screen | Increment (`fix(client)`) | Done (see section 3) |
-| 2 | R18q - Device-review tooling in the repository | Increment (`test`) | **Next** |
-| 3 | R18r - Stale branch cleanup | Repository hygiene (no PR, no release) | Queued |
+| 2 | R18q - Device-review tooling in the repository | Increment (`test`) | Done (see section 3) |
+| 3 | R18r - Stale branch cleanup | Repository hygiene (no PR, no release) | **Next** |
 | - | Clearing local device-test data | Documentation | Done with this queue ([development.md](development.md#clearing-local-test-data)) |
 | 4 | G1 - Maintainer usability review and sign-off | Human gate | Waiting for 1 to 3 |
 | 5 | G2 - Explicit approval of `v1.0.0` (decision D4) | Human gate | Not given |
@@ -1372,8 +1397,7 @@ The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-af
 (section 4) is authoritative. After the functional review of `v0.27.0`, the
 expected next increment is:
 
-**R18q - Device-review tooling in the repository** (R18p is done), then
-R18r (stale branch cleanup). Then the maintainer's usability
+**R18r - Stale branch cleanup** (R18p and R18q are done). Then the maintainer's usability
 review (G1) and explicit approval (G2) gate `v1.0.0` (R19); Java 25 (R20)
 and PostgreSQL 18 (R21) follow `v1.0.0`, each in its own PR. `v1.0.0` is
 never released without the maintainer's explicit approval.

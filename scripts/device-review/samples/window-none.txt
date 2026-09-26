@@ -1,0 +1,3 @@
+  mTopFocusedDisplayId=-1
+  mCurrentFocus=null
+  mFocusedApp=null
