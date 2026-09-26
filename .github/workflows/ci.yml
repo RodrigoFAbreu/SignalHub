@@ -51,7 +51,7 @@ jobs:
       # shellcheck comes with the runner image; the tests need curl and jq too.
       - name: Lint and test the integration examples
         run: |
-          shellcheck examples/*/*.sh
+          shellcheck examples/*/*.sh scripts/release/*.sh
           python -m unittest discover --start-directory examples/tests --verbose
 
   workflows:
@@ -190,6 +190,12 @@ jobs:
           curl --fail --silent --show-error http://localhost:8080/q/health/live
           curl --fail --silent --show-error http://localhost:8080/q/health/ready
           curl --fail --silent --show-error --output /dev/null http://localhost:8080/q/openapi
+      # Compose builds from source, not as the release does, so the image is not a release.
+      - name: An image built from source reports a development version
+        run: |
+          curl --fail --silent --show-error http://localhost:8080/q/info | tee /dev/stderr |
+            jq --exit-status '.signalhub == {"version": "development"}'
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' signalhub-backend:local)" = development
       - name: Register a producer through the management API
         run: |
           created=$(curl --fail --silent --show-error \
@@ -360,7 +366,7 @@ jobs:
           summary=$(jq --raw-input --raw-output \
             'fromjson | select(.loggerName | endswith(".StartupDiagnostics")) | .message' <<<"$logs")
           echo "$summary"
-          grep --quiet '^Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; .*event retention 400d; JSON logs on' <<<"$summary"
+          grep --quiet '^SignalHub development build; Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; .*event retention 400d; JSON logs on' <<<"$summary"
           if grep --quiet --fixed-strings --regexp="$ADMIN_TOKEN" --regexp="$db_password" <<<"$logs"; then
             echo "a secret reached the logs"; exit 1
           fi
@@ -514,6 +520,27 @@ jobs:
   # back to the release again by restoring a backup. From the latest release,
   # and from the oldest one docs/deployment.md#upgrades says is tested, which
   # skips every release and migration in between.
+  # The release's build of the backend image (scripts/release/build-image.sh), on
+  # each platform it publishes, with a test version; the release runs the same
+  # checks on the images it pushed.
+  image:
+    name: ${{ matrix.arch == 'arm64' && 'Backend image (release build, ARM64)' || 'Backend image (release build)' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the image as the release does
+        run: scripts/release/build-image.sh 0.0.0-ci "$GITHUB_SHA" load
+      - name: The image reports the version and commit it was built with
+        run: scripts/release/check-image.sh signalhub-backend:check 0.0.0-ci "$GITHUB_SHA"
+
   upgrade:
     name: Backend container (upgrade from ${{ matrix.from }})
     runs-on: ubuntu-latest

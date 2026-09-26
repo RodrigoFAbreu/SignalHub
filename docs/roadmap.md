@@ -725,6 +725,41 @@ The following capabilities are already implemented and merged unless repository 
   development placeholders (see
   [One version, many artifacts](#one-version-many-artifacts))
 - no backend, API, schema, client or SDK changes
+- the release workflow published `v1.0.0` on 2026-09-26
+
+### R20 - Version identity and the published backend image
+
+- the release workflow builds the backend image from the tagged commit
+  natively on an x86-64 and an ARM64 runner
+  (`scripts/release/build-image.sh`), pushes both to GHCR by digest and
+  tags them as one multi-platform image,
+  `ghcr.io/rodrigofabreu/signalhub:X.Y.Z`; only exact versions are tagged
+  (no `latest`, no `X.Y`), so a reference always names one release
+- the image carries the version, the commit (`SIGNALHUB_VERSION`,
+  `SIGNALHUB_REVISION`) and OCI labels for version, revision, source and
+  creation time (the commit's time, the same on both platforms); the
+  backend reports them at `/q/info` (Quarkus `quarkus-info`, section
+  `signalhub`, beside Java and the OS; its `build` and `git` sections are
+  off) and at the start of the startup summary; the proxy does not forward
+  `/q/`, and the product API has no version endpoint
+- any other build reports version `development` and calls itself a
+  development build; nothing rewrites the source placeholders
+- after pushing, the release pulls the tag on both platforms and checks
+  labels, architecture, `/q/info` and the startup summary
+  (`scripts/release/check-image.sh`), and only then publishes the GitHub
+  release, whose notes name the image and its digest
+- provenance (`mode=max`) and SBOM attestations from BuildKit, stored
+  beside the image in GHCR (no other service); releases attach no files
+  yet, so there are no checksums to publish until R22 and R24 attach some
+- pull requests build the image the same way on both platforms with the
+  test version `0.0.0-ci` and run the same checks, without pushing; the
+  Compose smoke tests check that an image built from source reports
+  `development`
+- making the GHCR package public is a one-time step for the repository
+  owner, documented in `docs/development.md#release-process`; the release
+  logs in to pull, so it works while the package is private
+- no API, schema or configuration change for operators; `docs/deployment.md`
+  mentions the published images, and switching the procedures to them is R21
 
 ---
 
@@ -1251,9 +1286,9 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | - | Clearing local device-test data | Documentation | Done with this queue ([development.md](development.md#clearing-local-test-data)) |
 | 4 | G1 - Maintainer usability review and sign-off | Human gate | Passed (2026-09-26) |
 | 5 | G2 - Explicit approval of `v1.0.0` (decision D4) | Human gate | Given (2026-09-26) |
-| 6 | R19 - `v1.0.0` | Increment (`!`, the release) | Done (see section 3); its merge releases `v1.0.0` |
-| 7 | R20 - Version identity and the published backend image | Increment (`feat`) | Blocked until `v1.0.0` is released |
-| 8 | R21 - Deploying from published images | Increment | Blocked until R20 is merged |
+| 6 | R19 - `v1.0.0` | Increment (`!`, the release) | Done (see section 3); released `v1.0.0` on 2026-09-26 |
+| 7 | R20 - Version identity and the published backend image | Increment (`feat`) | Done (see section 3) |
+| 8 | R21 - Deploying from published images | Increment | Next |
 | 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Blocked until R21 is merged |
 | 10 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Not given (may be answered at any time) |
 | 11 | R23 - Push configuration served by the backend | Increment (`feat`), only if D5 chooses it | Blocked by G3 |
@@ -1516,7 +1551,7 @@ change is scheduled, and no new API version (`/api/v2`) is planned.
 
 ### R20 - Version identity and the published backend image
 
-Status: planned; blocked until `v1.0.0` is released.
+Status: done (see section 3).
 
 Goal: every release publishes its backend as a multi-platform container
 image that identifies itself as that SignalHub release, so a release can be
@@ -1572,7 +1607,7 @@ that release's backend on x86-64 and ARM64, and it reports that version.
 
 ### R21 - Deploying from published images
 
-Status: planned; blocked until R20 is merged.
+Status: next.
 
 Goal: operators install, upgrade and roll back a release by pulling its
 images instead of building from a checkout.
@@ -1947,15 +1982,14 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. After R19 (G1 passed and G2 given on
-2026-09-26), the expected next item is:
+(section 4) is authoritative. After R20, the expected next item is:
 
-**R20 - Version identity and the published backend image**, once the
-release workflow has published `v1.0.0` from R19's merge commit: check that
-the `v1.0.0` tag and its GitHub release exist before starting it. If that
-release failed, correcting it comes first. The queue then continues with
-R21 to R24 (with the maintainer's decisions D5 and D6 at G3), then Java 25
-(R25) and PostgreSQL 18 (R26), each in its own PR (see
+**R21 - Deploying from published images**, once the release workflow has
+published R20's release with its backend image: check that the GitHub
+release exists and names `ghcr.io/rodrigofabreu/signalhub:X.Y.Z` before
+starting it. If that release failed, correcting it comes first. The queue
+then continues with R22 to R24 (with the maintainer's decisions D5 and D6
+at G3), then Java 25 (R25) and PostgreSQL 18 (R26), each in its own PR (see
 [section 5](#5-after-v100)).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
