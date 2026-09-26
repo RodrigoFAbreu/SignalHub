@@ -462,6 +462,23 @@ The following capabilities are already implemented and merged unless repository 
 - tested against real PostgreSQL (`ApiErrorsTest`) and in the OpenAPI
   document
 
+### R18d - End-to-end test from producer to push and client inbox
+
+- a new CI job, `End-to-end (producer to push and client inbox)`, runs the
+  packaged backend in Compose with FCM push enabled, pointed at
+  `scripts/e2e/fake_fcm.py` (a standard-library stand-in for Google's token
+  endpoint and the FCM HTTP v1 API) with a throwaway service account key, so
+  no Firebase project or credential is needed
+- a producer publishes with the `signalhub` command; the event is persisted,
+  dispatched through the outbox and pushed as FCM expects it (the event's ID,
+  category and severity as data) only to the client whose preferences allow
+  it; FCM's `UNREGISTERED` answer removes another client's push target; the
+  delivery metrics count both; the client opens the pushed event by its ID,
+  finds both events in its inbox and marks the pushed one read
+- no backend, schema or client changes; the app's side of the contract stays
+  covered by its tests against its fake server, and receiving a push on a
+  real device still needs the maintainer's Firebase project
+
 ---
 
 ## 4. Planned roadmap
@@ -842,8 +859,8 @@ Exit criteria:
 ### R18 - v1.0 hardening and contract review
 
 Status: in progress; R18a (refusing a newer schema), R18b (reading an
-event needs the owner's credential) and R18c (one error format) are complete
-(see section 3).
+event needs the owner's credential), R18c (one error format) and R18d (the
+end-to-end test) are complete (see section 3).
 
 Goal: deliberately declare the first stable SignalHub contract.
 
@@ -872,7 +889,7 @@ Perform:
 - compatibility review
 - cleanup of temporary/pre-1.0 decisions
 - removal of obsolete compatibility paths where appropriate
-- full end-to-end test from producer -> API -> persistence -> push -> client inbox
+- full end-to-end test from producer -> API -> persistence -> push -> client inbox (done in R18d)
 - fresh-install deployment test
 - upgrade-from-supported-previous-release test
 
@@ -940,7 +957,7 @@ Determine this from repository state rather than trusting this section blindly.
 
 After the integration examples (R17), the expected next increment is:
 
-**R18 - v1.0 hardening and contract review**, continuing after R18c
+**R18 - v1.0 hardening and contract review**, continuing after R18d
 
 Likely split into bounded increments: the reviews and tests R18 lists. Promotion to `v1.0.0` itself is always the
 maintainer's decision. Confirming delivery to a real device (R8 to R10)
