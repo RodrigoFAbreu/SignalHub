@@ -703,7 +703,7 @@ jobs:
                 - host.docker.internal:host-gateway
           YAML
           docker compose up --build --wait --wait-timeout 180
-          docker compose logs backend | grep --quiet 'Push providers: \[fcm\]'
+          grep --quiet 'Push providers: \[fcm\]' <<<"$(docker compose logs backend)"
       - name: Register a producer and two clients with push targets
         run: |
           admin() {
