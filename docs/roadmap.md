@@ -760,6 +760,12 @@ The following capabilities are already implemented and merged unless repository 
   logs in to pull, so it works while the package is private
 - no API, schema or configuration change for operators; `docs/deployment.md`
   mentions the published images, and switching the procedures to them is R21
+- the first release run after R20 merged failed before tagging: the ARM64
+  image check piped the backend's log into `grep --quiet`, and under
+  `pipefail` the SIGPIPE of the log once grep had matched failed the check,
+  depending on timing; a `fix(release)` PR reads the log first (in
+  `check-image.sh` and one CI step), with a test of `check-image.sh` that
+  reproduces the race, and its release is the first to publish the image
 
 ---
 

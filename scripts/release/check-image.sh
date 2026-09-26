@@ -79,8 +79,11 @@ else
   release="SignalHub $version"
 fi
 [ -z "$revision" ] || release="$release (commit $revision)"
-if ! docker logs "$name-backend" 2>&1 | grep --quiet --fixed-strings "$release; Configuration: profile prod;"; then
-  docker logs "$name-backend" >&2
+# Not piped into grep: grep --quiet stops reading at the first match, and under
+# pipefail the writer's SIGPIPE would fail the check.
+logs=$(docker logs "$name-backend" 2>&1)
+if ! grep --quiet --fixed-strings "$release; Configuration: profile prod;" <<< "$logs"; then
+  echo "$logs" >&2
   echo "the startup summary does not begin with '$release'" >&2
   exit 1
 fi
