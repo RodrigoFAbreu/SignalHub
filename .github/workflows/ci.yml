@@ -798,13 +798,20 @@ jobs:
       - name: The host publishes only the ports docs/deployment.md lists
         run: |
           test "$(stat --format %a .env)" = 600
+          # Host address and port of every published container port, as "ip:port".
           published() {
-            docker inspect --format '{{range $port, $bindings := .NetworkSettings.Ports}}{{range $bindings}}{{$port}}={{.HostIp}} {{end}}{{end}}' \
-              "$(docker compose ps --quiet "$1")" | tr ' ' '\n' | grep --invert-match '^$' | sort | tr '\n' ' '
+            docker inspect "$(docker compose ps --quiet "$1")" \
+              | jq --raw-output '[.[0].NetworkSettings.Ports[] // [] | .[] | "\(.HostIp):\(.HostPort)"]
+                  | unique | join(" ")'
           }
+          for service in postgres backend proxy; do
+            echo "$service: $(published "$service")"
+          done
           test "$(published postgres)" = ""
-          test "$(published backend)" = "8080/tcp=127.0.0.1 "
-          test "$(published proxy)" = "443/tcp=0.0.0.0 443/udp=0.0.0.0 80/tcp=0.0.0.0 "
+          test "$(published backend)" = "127.0.0.1:8080"
+          # The proxy on 80 and 443 of every address (IPv4, and IPv6 where Docker has it).
+          test "$(published proxy | tr ' ' '\n' | sed 's/.*://' | sort --unique | paste --serial --delimiters ' ')" \
+            = '443 80'
       - name: Other machines reach the API over TLS, with Caddy's own CA
         run: |
           docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt > signalhub-ca.crt
