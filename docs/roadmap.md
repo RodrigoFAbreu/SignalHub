@@ -798,6 +798,33 @@ The following capabilities are already implemented and merged unless repository 
 - tests of the packing (only the backend's build replaced, fixed contents,
   refusals); no backend, API, schema, client or SDK changes
 
+### R22 - SDK and command version, and SDK files in each release
+
+- each release attaches the Python SDK's wheel and source archive,
+  `signalhub-X.Y.Z-py3-none-any.whl` and `signalhub-X.Y.Z.tar.gz`, with
+  their checksums in the release's `SHA256SUMS`;
+  `scripts/release/sdk_files.py` builds them from a copy of `sdk/python/`
+  with the release's version in place of the placeholder (the repository is
+  never rewritten), using `build` (pinned in
+  `.github/tools/requirements.txt`) and the pinned setuptools, then
+  installs the wheel into a new virtual environment and refuses files whose
+  `signalhub --version` is not `SignalHub X.Y.Z`
+- `signalhub --version` prints `SignalHub X.Y.Z`, SignalHub's version, and
+  the package's metadata (`importlib.metadata`) carries `X.Y.Z`; the
+  version names one tag and so one commit, and the package carries no other
+  build information
+- the placeholder in `sdk/python/pyproject.toml` is now `0.0.0.dev0`
+  instead of `0.1.0`, which could be mistaken for SignalHub `v0.1.0`; any
+  build the release did not make, from a checkout or a tag, reports
+  `SignalHub development build`; setuptools cannot take the version from
+  the tag without a new build dependency (such as setuptools-scm), so
+  installing from a tag keeps working but reports a development build, and
+  `sdk/python/README.md` recommends the release's wheel
+- the CI Python job builds and checks the files with the test version
+  `0.0.0+ci` (Python packaging refuses `0.0.0-ci`); tests of `--version`,
+  of the development identity and of the version substitution
+- no backend, API, schema or client changes
+
 ---
 
 ## 4. Planned roadmap
@@ -1326,8 +1353,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 6 | R19 - `v1.0.0` | Increment (`!`, the release) | Done (see section 3); released `v1.0.0` on 2026-09-26 |
 | 7 | R20 - Version identity and the published backend image | Increment (`feat`) | Done (see section 3) |
 | 8 | R21 - Deploying from published images | Increment (`feat`) | Done (see section 3) |
-| 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Next |
-| 10 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Not given (may be answered at any time) |
+| 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Done (see section 3) |
+| 10 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Next; not given (may be answered at any time) |
 | 11 | R23 - Push configuration served by the backend | Increment (`feat`), only if D5 chooses it | Blocked by G3 |
 | 12 | R24 - Installable Android app in each release | Increment (`feat`) | Blocked by G3 (and R23 if D5 chooses it) |
 | 13 | R25 - Java 25 (decision D2) | Increment | Blocked until R24 is merged |
@@ -1511,9 +1538,10 @@ SignalHub v1.2.3            (one tag, one GitHub release)
 - The version fields in the sources are **development placeholders**, not
   release versions, and stay so: `backend/pom.xml` (`0.0.0-SNAPSHOT`),
   `client/pubspec.yaml` (`0.1.0+1`) and `sdk/python/pyproject.toml`
-  (`0.1.0`). Today the release builds no artifact, and anything built from a
-  release's source reports its placeholder: an app built from `v0.27.4` says
-  `0.1.0`. R20, R22 and R24 close that gap.
+  (`0.1.0` until R22 made it `0.0.0.dev0`). At `v0.27.4` the release built no
+  artifact, and anything built from a release's source reported its
+  placeholder: an app built from `v0.27.4` says `0.1.0`. R20, R22 and R24
+  close that gap.
 - How artifacts identify their release, the rule for R20 to R24:
   - the release workflow computes the version, then builds each artifact
     from the tagged commit and injects that version (and the commit) at
@@ -1678,7 +1706,7 @@ Exit criteria: a fresh install and an upgrade that follow
 
 ### R22 - SDK and command version, and SDK files in each release
 
-Status: next.
+Status: done (see section 3).
 
 Goal: the Python SDK and the `signalhub` command identify the SignalHub
 release they belong to, and each release carries them ready to install.
@@ -2020,14 +2048,15 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. After R21, the expected next item is:
+(section 4) is authoritative. After R22, the expected next item is:
 
-**R22 - SDK and command version, and SDK files in each release**, once the
-release workflow has published R21's release: check that the GitHub release
-exists and attaches `signalhub-X.Y.Z-deployment.tar.gz` and `SHA256SUMS`
-before starting it. If that release failed, correcting it comes first. The
-queue then continues with R23 and R24 (with the maintainer's decisions D5 and D6
-at G3), then Java 25 (R25) and PostgreSQL 18 (R26), each in its own PR (see
-[section 5](#5-after-v100)).
+**G3 - decisions D5 and D6**, a human gate: R23 and R24 need the
+maintainer's answers (D6 also needs a signing key only they can create), and
+R25 onwards waits for R24 in the queue. Before stopping there, check that
+R22's release exists and attaches the SDK's wheel and source archive beside
+`signalhub-X.Y.Z-deployment.tar.gz` and `SHA256SUMS`; if that release
+failed, correcting it comes first. Once G3 is answered, the queue continues
+with R23 (if D5 chooses it) and R24, then Java 25 (R25) and PostgreSQL 18
+(R26), each in its own PR (see [section 5](#5-after-v100)).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

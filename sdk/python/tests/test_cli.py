@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import importlib.metadata
 import io
 import json
 import os
@@ -9,7 +11,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from signalhub.cli import main
+from signalhub.cli import main, version
 
 from tests.fake_server import start
 from tests.test_client import KEY, unused_url
@@ -188,6 +190,43 @@ class CommandTest(unittest.TestCase):
 
         self.assertIn("--category", result.stdout)
         self.assertIn("SIGNALHUB_API_KEY", result.stdout)
+
+
+class VersionTest(unittest.TestCase):
+    def test_a_release_build_reports_its_signalhub_version(self) -> None:
+        with mock.patch("importlib.metadata.version", return_value="1.2.3"):
+            self.assertEqual(version(), "SignalHub 1.2.3")
+
+    def test_any_other_build_reports_a_development_build(self) -> None:
+        with mock.patch("importlib.metadata.version", return_value="0.0.0.dev0"):
+            self.assertEqual(version(), "SignalHub development build")
+        missing = importlib.metadata.PackageNotFoundError("signalhub")
+        with mock.patch("importlib.metadata.version", side_effect=missing):
+            self.assertEqual(version(), "SignalHub development build")
+
+    def test_the_command_prints_its_version_without_a_subcommand(self) -> None:
+        stdout = io.StringIO()
+        with (
+            mock.patch("importlib.metadata.version", return_value="1.2.3"),
+            contextlib.redirect_stdout(stdout),
+        ):
+            status = main(["--version"])
+
+        self.assertEqual(status, 0)
+        self.assertEqual(stdout.getvalue(), "SignalHub 1.2.3\n")
+
+    def test_an_install_from_the_repository_is_a_development_build(self) -> None:
+        # The tests run against `pip install ./sdk/python`, which is not a
+        # release's build.
+        result = subprocess.run(
+            [sys.executable, "-m", "signalhub", "--version"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        self.assertEqual(result.stdout, "SignalHub development build\n")
+        self.assertEqual(importlib.metadata.version("signalhub"), "0.0.0.dev0")
 
 
 if __name__ == "__main__":

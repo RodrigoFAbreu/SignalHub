@@ -1,2 +1,3 @@
 # Python tools CI installs, pinned here so Dependabot (pip) proposes updates.
 ruff==0.16.9
+build==1.6.1

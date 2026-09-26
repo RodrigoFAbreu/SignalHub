@@ -10,16 +10,39 @@ Anything the package does can also be done with plain HTTP; see
 
 ## Install
 
-The package is not on PyPI. Install it from the repository, pinned to a
-release tag:
+The package is not on PyPI. Each SignalHub release attaches it, built with
+that release's version: a wheel (`signalhub-X.Y.Z-py3-none-any.whl`), a
+source archive (`signalhub-X.Y.Z.tar.gz`) and their checksums in
+`SHA256SUMS`. Download the wheel, check it and install it:
+
+```sh
+version=1.2.3
+curl --fail --location --remote-name-all \
+  "https://github.com/RodrigoFAbreu/SignalHub/releases/download/v$version/signalhub-$version-py3-none-any.whl" \
+  "https://github.com/RodrigoFAbreu/SignalHub/releases/download/v$version/SHA256SUMS"
+sha256sum --check --ignore-missing SHA256SUMS
+pip install "signalhub-$version-py3-none-any.whl"
+# or, isolated, just for the command:
+pipx install "signalhub-$version-py3-none-any.whl"
+```
+
+`signalhub --version` then prints the release, `SignalHub 1.2.3`, and so
+does the package's metadata (`importlib.metadata.version("signalhub")`).
+The SDK is part of SignalHub and has no version of its own; installing the
+release your server runs is the simplest choice.
+
+Releases up to v1.2.0 attach no SDK files; install those from the
+repository at their tag, which also works for any later release:
 
 ```sh
 pip install "signalhub @ git+https://github.com/RodrigoFAbreu/SignalHub@vX.Y.Z#subdirectory=sdk/python"
-# or, isolated, just for the command:
-pipx install "git+https://github.com/RodrigoFAbreu/SignalHub@vX.Y.Z#subdirectory=sdk/python"
 ```
 
-From a checkout: `pip install ./sdk/python`.
+A package built from the repository, at a tag or from a checkout
+(`pip install ./sdk/python`), was not built by a release: it has the
+development placeholder version `0.0.0.dev0`, and `signalhub --version`
+prints `SignalHub development build`. Prefer the release's wheel, which
+names its release.
 
 ## Configure
 
