@@ -971,6 +971,11 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   sent them, so values added in a later backend release survive a change. A
   server without push preferences (older than the app) is reported instead
   of the screen.
+- **This device.** A screen from the inbox menu shows the installation's
+  name, server and push status, and which build the app is: "SignalHub
+  X.Y.Z" for an app a release built, "SignalHub development build" for any
+  other, and "Commit" with the first 7 characters of the commit it was built
+  from, or "Commit unknown" (see [Version](#version)).
 - **Events.** The app maps the API's events to a typed model. A category or
   severity added in a later backend release maps to *unknown* rather than
   failing, so older apps keep working (see
@@ -1113,6 +1118,17 @@ the placeholder `0.0.0.dev0` of `sdk/python/pyproject.toml`:
 `signalhub --version` prints `SignalHub 1.2.3`, and the package's metadata
 carries `1.2.3`. A package built any other way keeps the placeholder and
 prints `SignalHub development build`.
+
+The app shows its build on its *This device* screen (see
+[Client application](#client-application)). It takes two values at build
+time as `--dart-define`s, never the placeholder `version:` of
+`client/pubspec.yaml`: `SIGNALHUB_REVISION`, the commit, which the build
+commands in [client/README.md](../client/README.md#build-identity) pass for
+every build, and `SIGNALHUB_VERSION`, which only a release's own app build
+sets (none does yet: the release attaches no app until R24). So an app built
+locally, even from a release's tag, says "SignalHub development build" and
+names its commit; one built without the commit, such as by a plain
+`flutter run`, says "Commit unknown".
 
 ### Metrics
 

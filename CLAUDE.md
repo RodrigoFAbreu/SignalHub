@@ -50,7 +50,8 @@ Compose that exposes only the product API, and the upgrade procedure
 (tested from the latest release and from v0.13.0) and health monitoring (`docs/deployment.md`),
 and the Flutter client app
 in `client/` (setup with a client key, push registration and reception, the
-event inbox and event details, read state, and push preferences), and the
+event inbox and event details, read state, push preferences, and its build
+and commit on the *This device* screen), and the
 Python producer package and `signalhub` command in `sdk/python/` (its wheel
 attached to every release, reporting that release), and
 integration examples for unrelated producers in `examples/`, which use only

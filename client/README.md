@@ -23,6 +23,7 @@ commands that CI runs.
 | `lib/src/push/push_service.dart` | `PushService`, the provider-neutral push port, and `PushNotice`. |
 | `lib/src/push/push_registration.dart` | Keeps the server's push target in step with the provider's token. |
 | `lib/src/push/firebase_push_service.dart` | The Firebase Cloud Messaging adapter: the only Dart code that knows Firebase. |
+| `lib/src/build_identity.dart` | Which SignalHub build the app is: release version and commit, from build-time defines. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
 | `lib/src/ui/` | The setup, inbox, event, device and notifications screens. |
 | `android/`, `ios/` | Platform projects: identifiers, permissions, push capability. |
@@ -37,7 +38,7 @@ simulator or device:
 
 ```sh
 flutter pub get
-flutter run
+flutter run --dart-define=SIGNALHUB_REVISION="$(git rev-parse HEAD)"
 ```
 
 Without Firebase options the app runs without push and says so. To connect
@@ -79,8 +80,10 @@ needs the owner's own Firebase project; nothing about it is committed.
 5. Build or run with the options:
 
    ```sh
-   flutter run --dart-define-from-file=firebase-options.json
-   flutter build apk --release --dart-define-from-file=firebase-options.json
+   flutter run --dart-define-from-file=firebase-options.json \
+     --dart-define=SIGNALHUB_REVISION="$(git rev-parse HEAD)"
+   flutter build apk --release --dart-define-from-file=firebase-options.json \
+     --dart-define=SIGNALHUB_REVISION="$(git rev-parse HEAD)"
    ```
 
 After setup the home screen says *Push notifications are on*, and the
@@ -91,6 +94,26 @@ Events* changes how. While the app is in the foreground, pushes appear in
 its list instead of as a system notification; pushes that arrived in the
 background are in the list when you return to the app. Pushes are delivered
 at least once; the app lists each event once.
+
+## Build identity
+
+The *This device* screen (from the inbox menu) says which build the app is,
+in two lines: the release and the exact source.
+
+| Build | Shows |
+|---|---|
+| Built by a SignalHub release as its app | "SignalHub X.Y.Z" and "Commit <first 7 characters>" |
+| Any other build, including one from a release's tag | "SignalHub development build" and "Commit <first 7 characters>" |
+| Built without its commit (a plain `flutter run`) | "SignalHub development build" and "Commit unknown" |
+
+Both come in at build time as `--dart-define`s, never from the placeholder
+`version:` in `pubspec.yaml`. The commands above pass the commit,
+`SIGNALHUB_REVISION` (`git rev-parse HEAD`). The version,
+`SIGNALHUB_VERSION`, is set only by a release's own app build; it is not a
+setting for local builds, so a build from a release's tag never claims to be
+that release (see
+[docs/architecture.md](../docs/architecture.md#version)). No release builds
+the app yet, so every installed app is a development build.
 
 ## Icon
 
