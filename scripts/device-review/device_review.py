@@ -76,9 +76,18 @@ def focused_window(dumpsys_window: str) -> str | None:
     return match.group(1).split("/", 1)[0]
 
 
-def may_touch(window: str | None, allow_shade: bool) -> bool:
+def keyguard_showing(dumpsys_window: str) -> bool:
+    """Whether `dumpsys window` says the lock screen is up. The lock screen
+    is focused as NotificationShade too, so the window alone cannot tell it
+    from the shade a check opened."""
+    return re.search(r"isKeyguardShowing=true\b", dumpsys_window) is not None
+
+
+def may_touch(window: str | None, allow_shade: bool, locked: bool = False) -> bool:
     """The guard's decision: only SignalHub, or the shade when a check opened
-    it, may receive taps and swipes."""
+    it, may receive taps and swipes, and never while the phone is locked."""
+    if locked:
+        return False
     if window == APP_PACKAGE:
         return True
     return allow_shade and window in SHADE_WINDOWS
@@ -336,11 +345,11 @@ class Device:
         return focused_window(self.shell("dumpsys window"))
 
     def guard(self) -> None:
-        window = self.window()
-        if not may_touch(window, self.shade_allowed):
-            raise GuardError(
-                f"not touching the screen: {window or 'nothing'} is in front"
-            )
+        dump = self.shell("dumpsys window")
+        window, locked = focused_window(dump), keyguard_showing(dump)
+        if not may_touch(window, self.shade_allowed, locked):
+            what = "the lock screen" if locked else (window or "nothing")
+            raise GuardError(f"not touching the screen: {what} is in front")
 
     def tap(self, node: Node) -> None:
         self.guard()

@@ -72,8 +72,13 @@ The script touches the screen only through taps and swipes it makes with
 (`ABORT`), unless SignalHub is in front, or the notification shade while a
 check has opened it to tap a notification. A permission dialog, another
 app, the lock screen or anything else in front stops it, so a run never
-taps into something it did not expect. Keys (home, back) and `am`
-commands are not touches and are not guarded.
+taps into something it did not expect. The lock screen is focused under the
+same window name as the shade (`NotificationShade`), so the guard also reads
+whether it is showing (`isKeyguardShowing`) and never touches a locked phone,
+even while a check has opened the shade. Keys (home, back) and `am`
+commands are not touches and are not guarded. Unlock the phone before a run,
+and keep it from locking during one (for example *Stay awake* in the
+developer options while it charges).
 
 ## Checks
 

@@ -681,6 +681,18 @@ The following capabilities are already implemented and merged unless repository 
   elements and unread badge, log levels, configuration) on recorded
   samples; the device run itself stays manual
 - no backend, API, schema or client changes
+- at the start of G1 the guard was found to take a locked phone for the
+  shade (both are focused as `NotificationShade`); it now also reads
+  whether the lock screen is showing and never touches a locked phone
+
+### R18r - Stale branch cleanup
+
+- the branches of PRs #51 to #54 (`fix/client-refresh-on-resume`,
+  `feat/client-app-icon`, `feat/client-events-notification-channel`,
+  `feat/client-device-verification`) were already gone from the remote when
+  G1 started; PRs #51 to #53 were closed, superseded by #54, which is
+  merged; the only other remote branches are Dependabot's, of open PRs
+- nothing to delete, no product change
 
 ---
 
@@ -1196,9 +1208,9 @@ an orchestrator: Java 25 and PostgreSQL 18 never move ahead of `v1.0.0`.
 |---|---|---|---|
 | 1 | R18p - Read-state toggle on the event screen | Increment (`fix(client)`) | Done (see section 3) |
 | 2 | R18q - Device-review tooling in the repository | Increment (`test`) | Done (see section 3) |
-| 3 | R18r - Stale branch cleanup | Repository hygiene (no PR, no release) | **Next** |
+| 3 | R18r - Stale branch cleanup | Repository hygiene (no PR, no release) | Done (see section 3) |
 | - | Clearing local device-test data | Documentation | Done with this queue ([development.md](development.md#clearing-local-test-data)) |
-| 4 | G1 - Maintainer usability review and sign-off | Human gate | Waiting for 1 to 3 |
+| 4 | G1 - Maintainer usability review and sign-off | Human gate | **Next** |
 | 5 | G2 - Explicit approval of `v1.0.0` (decision D4) | Human gate | Not given |
 | 6 | R19 - `v1.0.0` | Increment (`!`, the release) | Blocked by G2 |
 | 7 | R20 - Java 25 (decision D2) | Increment | Blocked until `v1.0.0` is released |
@@ -1397,8 +1409,9 @@ The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-af
 (section 4) is authoritative. After the functional review of `v0.27.0`, the
 expected next increment is:
 
-**R18r - Stale branch cleanup** (R18p and R18q are done). Then the maintainer's usability
-review (G1) and explicit approval (G2) gate `v1.0.0` (R19); Java 25 (R20)
+**G1 - Maintainer usability review and sign-off** (R18p to R18r are done).
+The maintainer's usability review (G1) and explicit approval (G2) gate
+`v1.0.0` (R19); Java 25 (R20)
 and PostgreSQL 18 (R21) follow `v1.0.0`, each in its own PR. `v1.0.0` is
 never released without the maintainer's explicit approval.
 

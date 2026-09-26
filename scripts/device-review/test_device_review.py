@@ -11,6 +11,7 @@ from device_review import (
     channel_importance,
     find_node,
     focused_window,
+    keyguard_showing,
     log_problems,
     may_touch,
     parse_args,
@@ -43,6 +44,16 @@ class FocusedWindowTest(unittest.TestCase):
         self.assertIsNone(focused_window("WINDOW MANAGER WINDOWS\n"))
 
 
+class KeyguardTest(unittest.TestCase):
+    def test_locked(self):
+        self.assertTrue(keyguard_showing(sample("window-locked.txt")))
+
+    def test_unlocked(self):
+        for name in ("window-app.txt", "window-shade.txt", "window-other-app.txt"):
+            with self.subTest(name):
+                self.assertFalse(keyguard_showing(sample(name)))
+
+
 class GuardDecisionTest(unittest.TestCase):
     def test_signalhub_in_front(self):
         self.assertTrue(may_touch(APP_PACKAGE, allow_shade=False))
@@ -53,6 +64,11 @@ class GuardDecisionTest(unittest.TestCase):
             with self.subTest(shade):
                 self.assertTrue(may_touch(shade, allow_shade=True))
                 self.assertFalse(may_touch(shade, allow_shade=False))
+
+    def test_never_while_locked(self):
+        for window in (APP_PACKAGE, "NotificationShade"):
+            with self.subTest(window):
+                self.assertFalse(may_touch(window, allow_shade=True, locked=True))
 
     def test_anything_else_is_refused(self):
         for window in (
@@ -114,6 +130,16 @@ class GuardTest(unittest.TestCase):
         device.close_shade()
         with self.assertRaises(GuardError):
             device.tap(self.node)
+
+    def test_refuses_the_lock_screen_even_with_the_shade_opened(self):
+        # Locked, the focused window is NotificationShade, as for the shade.
+        device = FakeDevice("window-locked.txt")
+        device.open_shade()
+        with self.assertRaises(GuardError):
+            device.tap(self.node)
+        with self.assertRaises(GuardError):
+            device.pull_to_refresh()
+        self.assertEqual(device.commands, ["cmd statusbar expand-notifications"])
 
     def test_pull_to_refresh_swipes_down(self):
         device = FakeDevice("window-app.txt")
