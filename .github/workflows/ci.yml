@@ -112,6 +112,7 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze
+      - run: shellcheck icon/render.sh
       - run: flutter test
       # Without Firebase options the app builds and runs without push, so no
       # credentials are needed here.

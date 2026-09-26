@@ -25,6 +25,7 @@ commands that CI runs.
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
 | `lib/src/ui/` | The setup, inbox, event, device and notifications screens. |
 | `android/`, `ios/` | Platform projects: identifiers, permissions, push capability. |
+| `icon/` | The app icon (`icon.svg`) and `render.sh`, which renders its PNGs for both platforms. |
 | `test/` | Unit and widget tests against a fake backend and a fake push service. |
 
 ## Run it
@@ -87,6 +88,15 @@ provider `fcm`. Publish an event and it arrives as a notification. While the
 app is in the foreground, pushes appear in its list instead of as a system
 notification. Pushes are delivered at least once; the app lists each event
 once.
+
+## Icon
+
+`icon/icon.svg` is the app icon. After changing it, run `icon/render.sh`
+(needs `rsvg-convert` and ImageMagick 7) to render the iOS icons and the
+Android icons for Android 7, and copy the glyph into the Android vector
+drawables `ic_launcher_foreground.xml` (the adaptive and themed icons from
+Android 8) and `ic_notification.xml` (the status bar icon of pushes). Commit
+the results.
 
 ## Signing
 
