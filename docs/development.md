@@ -244,6 +244,45 @@ with the commands in [Backup and restore](architecture.md#backup-and-restore), a
 [Resources](architecture.md#resources) for memory and CPU limits and
 database growth.
 
+### Clearing local test data
+
+Testing on a device publishes real events into the local database, and
+they stay in the inbox. These commands are for a local development stack
+only; never run them against a deployment whose events you want to keep.
+
+To delete the events of one test producer and keep everything else
+(producers, clients, their keys, read state of other events, push
+preferences), name the producer and run, with the stack up:
+
+```sh
+docker compose exec -T postgres sh -c 'psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1' <<'SQL'
+DELETE FROM events
+WHERE producer_id = (SELECT id FROM producers WHERE name = 'device-test');
+SQL
+```
+
+It prints `DELETE` and the number of events deleted; their pending pushes
+and retries go with them. The app shows the change on its next refresh.
+Wrap the statement in `BEGIN;` and `ROLLBACK;`, with a `SELECT count(*)`
+instead, to see what it would delete first.
+
+To start over from an empty database instead:
+
+```sh
+docker compose down
+docker volume rm signalhub_postgres-data   # compose.yaml names the project signalhub
+docker compose up --build --wait
+```
+
+**This permanently deletes the local database**: every event, producer,
+client and key. Producer keys and client keys issued before stop working,
+so register the producer and the client again (see
+[Producers and API keys](#producers-and-api-keys) and [Clients](#clients))
+and set the app up with the new client key. Removing only that volume keeps
+the proxy's certificates; `docker compose down --volumes` would delete
+those too. Take a [backup](architecture.md#backup-and-restore) first if in
+doubt.
+
 ### Endpoints
 
 | Path | Purpose |
