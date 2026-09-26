@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:signalhub_client/src/app.dart';
 import 'package:signalhub_client/src/app_controller.dart';
+import 'package:signalhub_client/src/build_identity.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
 
 import 'support/fakes.dart';
@@ -48,17 +51,89 @@ void main() {
     );
   });
 
-  testWidgets('shows this device and its push status', (tester) async {
-    await connect(tester);
-
+  Future<void> openDevice(WidgetTester tester) async {
     await tester.tap(find.byType(PopupMenuButton<void>));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('device')));
     await tester.pumpAndSettle();
+  }
+
+  AppController controllerOf(BuildIdentity build) => AppController(
+    store: InMemoryCredentialsStore(),
+    apiFactory: (credentials) =>
+        backend.api(credentials.baseUrl, credentials.clientKey),
+    push: push = FakePushService(),
+    build: build,
+  );
+
+  const revision = '0123456789abcdef0123456789abcdef01234567';
+
+  Finder buildEntry(String text) => find.descendant(
+    of: find.byKey(const Key('build')),
+    matching: find.text(text),
+  );
+
+  testWidgets('shows this device and its push status', (tester) async {
+    await connect(tester);
+
+    await openDevice(tester);
 
     expect(find.text('Pixel 8'), findsOneWidget);
     expect(find.text(serverUrl), findsOneWidget);
     expect(find.text('Push notifications are on'), findsOneWidget);
+  });
+
+  testWidgets('a release build shows its version and commit', (tester) async {
+    controller = controllerOf(
+      const BuildIdentity(version: '1.4.0', revision: revision),
+    );
+    await connect(tester);
+
+    await openDevice(tester);
+
+    expect(buildEntry('SignalHub 1.4.0'), findsOneWidget);
+    expect(buildEntry('Commit 0123456'), findsOneWidget);
+  });
+
+  testWidgets('a build with only its commit is a development build', (
+    tester,
+  ) async {
+    controller = controllerOf(const BuildIdentity(revision: revision));
+    await connect(tester);
+
+    await openDevice(tester);
+
+    expect(buildEntry('SignalHub development build'), findsOneWidget);
+    expect(buildEntry('Commit 0123456'), findsOneWidget);
+  });
+
+  testWidgets('a build given neither says its commit is unknown', (
+    tester,
+  ) async {
+    controller = controllerOf(const BuildIdentity());
+    await connect(tester);
+
+    await openDevice(tester);
+
+    expect(buildEntry('SignalHub development build'), findsOneWidget);
+    expect(buildEntry('Commit unknown'), findsOneWidget);
+  });
+
+  testWidgets('the build entry never shows the pubspec placeholder', (
+    tester,
+  ) async {
+    final placeholder = RegExp(
+      r'^version:\s*(\S+)',
+      multiLine: true,
+    ).firstMatch(File('pubspec.yaml').readAsStringSync())!.group(1)!;
+    await connect(tester);
+
+    await openDevice(tester);
+
+    final placeholderName = placeholder.split('+').first;
+    expect(find.textContaining(placeholderName), findsNothing);
+    expect(buildEntry('SignalHub development build'), findsOneWidget);
+    expect(buildEntry('Commit unknown'), findsOneWidget);
   });
 
   testWidgets('an empty inbox says so', (tester) async {

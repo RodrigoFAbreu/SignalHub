@@ -825,6 +825,26 @@ The following capabilities are already implemented and merged unless repository 
   of the development identity and of the version substitution
 - no backend, API, schema or client changes
 
+### R22a - The app's version and commit on the *This device* screen
+
+- the *This device* screen has a build entry of two lines: "SignalHub
+  X.Y.Z" for an app a release built, "SignalHub development build" for any
+  other, and "Commit" with the first 7 characters of the commit it was built
+  from, or "Commit unknown" for a build not given it
+- both values come in at build time as `--dart-define`s,
+  `SIGNALHUB_VERSION` and `SIGNALHUB_REVISION` (the names the backend's
+  image build uses), read by `BuildIdentity` in
+  `client/lib/src/build_identity.dart`; the placeholder `version:` of
+  `client/pubspec.yaml` is never read or shown
+- the build commands in `client/README.md` pass the commit
+  (`git rev-parse HEAD`) and never the version, so a local build from a
+  release's tag says it is a development build; no release builds the app
+  until R24, which sets the version through the same define
+- widget tests against the fake server: a release build, a build with only
+  its commit, a build with neither, and that the placeholder is never shown
+- client only: no backend, API or schema changes; the exit criterion's
+  check on a real phone is the maintainer's
+
 ---
 
 ## 4. Planned roadmap
@@ -1354,8 +1374,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 7 | R20 - Version identity and the published backend image | Increment (`feat`) | Done (see section 3) |
 | 8 | R21 - Deploying from published images | Increment (`feat`) | Done (see section 3) |
 | 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Done (see section 3) |
-| 10 | R22a - The app's version and commit on the *This device* screen | Increment (`feat(client)`) | Next |
-| 11 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Not given (may be answered at any time) |
+| 10 | R22a - The app's version and commit on the *This device* screen | Increment (`feat(client)`) | Done (see section 3) |
+| 11 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Not given (may be answered at any time); next |
 | 12 | R23 - Push configuration served by the backend | Increment (`feat`), only if D5 chooses it | Blocked by G3 |
 | 13 | R24 - Installable Android app in each release | Increment (`feat`) | Blocked by G3 (and R23 if D5 chooses it) |
 | 14 | R25 - Java 25 (decision D2) | Increment | Blocked until R24 is merged |
@@ -1740,7 +1760,7 @@ release's version.
 
 ### R22a - The app's version and commit on the *This device* screen
 
-Status: planned; next (added at the maintainer's request on 2026-09-26).
+Status: done (see section 3).
 
 Goal: the owner sees which SignalHub build the app on a phone is from the
 app itself, without `adb` and without remembering how it was built. Release
@@ -2114,15 +2134,8 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. After R22, the expected next item is:
-
-**R22a - the app's version and commit on the *This device* screen**, a
-client increment that needs no decision. Before starting it, check that R22's
-release exists and attaches the SDK's wheel and source archive beside
-`signalhub-X.Y.Z-deployment.tar.gz` and `SHA256SUMS`; if that release
-failed, correcting it comes first.
-
-After R22a comes **G3 - decisions D5 and D6**, a human gate: R23 and R24
+(section 4) is authoritative. After R22a, the expected next item is
+**G3 - decisions D5 and D6**, a human gate: R23 and R24
 need the maintainer's answers (D6 also needs a signing key only they can
 create), and R25 onwards waits for R24 in the queue. Once G3 is answered,
 the queue continues

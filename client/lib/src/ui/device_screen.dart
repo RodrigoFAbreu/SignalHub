@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
 
-/// This installation: its registration, server and push status.
+/// This installation: its registration, server, push status and build.
 class DeviceScreen extends StatelessWidget {
   const DeviceScreen({super.key, required this.controller});
 
@@ -29,6 +29,14 @@ class DeviceScreen extends StatelessWidget {
             child: ListTile(
               leading: const Icon(Icons.notifications_outlined),
               title: Text(controller.pushStatus.description),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              key: const Key('build'),
+              leading: const Icon(Icons.info_outline),
+              title: Text(controller.build.versionLine),
+              subtitle: Text(controller.build.commitLine),
             ),
           ),
         ],

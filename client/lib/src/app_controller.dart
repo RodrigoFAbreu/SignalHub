@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'api/signalhub_api.dart';
+import 'build_identity.dart';
 import 'connection/server_credentials.dart';
 import 'models/client_registration.dart';
 import 'models/event.dart';
@@ -29,6 +30,7 @@ class AppController extends ChangeNotifier {
     required this._store,
     required this._apiFactory,
     PushService? push,
+    this.build = BuildIdentity.compiled,
   }) : _push = push {
     _notices = push?.notices.listen(_onNotice);
   }
@@ -40,6 +42,9 @@ class AppController extends ChangeNotifier {
   final ApiFactory _apiFactory;
   final PushService? _push;
   StreamSubscription<PushNotice>? _notices;
+
+  /// Which SignalHub build this app is.
+  final BuildIdentity build;
 
   SignalHubApi? _api;
   PushRegistration? _pushRegistration;
