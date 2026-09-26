@@ -737,6 +737,10 @@ jobs:
               private_key: $key, client_email: "signalhub@signalhub-e2e.iam.gserviceaccount.com",
               token_uri: "http://host.docker.internal:8099/token"}' > "$RUNNER_TEMP/fcm.json"
           chmod a+r "$RUNNER_TEMP/fcm.json" # the backend runs as UID 10001
+          # The app's Firebase options, served to clients (client/firebase-options.example.json).
+          jq '.FIREBASE_PROJECT_ID = "signalhub-e2e"' client/firebase-options.example.json \
+            > "$RUNNER_TEMP/firebase-options.json"
+          chmod a+r "$RUNNER_TEMP/firebase-options.json"
           cp .env.example .env
           admin_token=$(openssl rand -hex 32)
           echo "::add-mask::$admin_token"
@@ -749,14 +753,17 @@ jobs:
             backend:
               environment:
                 SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE: /run/secrets/fcm.json
+                SIGNALHUB_PUSH_FCM_CLIENT_OPTIONS_FILE: /run/config/firebase-options.json
                 SIGNALHUB_PUSH_FCM_API_URL: http://host.docker.internal:8099
               volumes:
                 - $RUNNER_TEMP/fcm.json:/run/secrets/fcm.json:ro
+                - $RUNNER_TEMP/firebase-options.json:/run/config/firebase-options.json:ro
               extra_hosts:
                 - host.docker.internal:host-gateway
           YAML
           docker compose up --build --wait --wait-timeout 180
           grep --quiet 'Push providers: \[fcm\]' <<<"$(docker compose logs backend)"
+          grep --quiet 'Push client options: served for fcm' <<<"$(docker compose logs backend)"
       - name: Register a producer and two clients with push targets
         run: |
           admin() {
@@ -779,6 +786,11 @@ jobs:
           stale_key=$(register_client e2e-stale unregistered-e2e-token)
           echo "::add-mask::$phone_key"
           echo "::add-mask::$stale_key"
+          # The phone's app gets the Firebase options it registers its token with.
+          curl --fail --silent --show-error --header "Authorization: Bearer $phone_key" \
+            "$SIGNALHUB_URL/api/v1/client/push-config" \
+            | jq --exit-status --slurpfile served "$RUNNER_TEMP/firebase-options.json" \
+              '.provider == "fcm" and .options == $served[0]'
           curl --fail --silent --show-error --output /dev/null --request PUT \
             --header "Authorization: Bearer $phone_key" --header 'Content-Type: application/json' \
             --data '{"minimumSeverity": "HIGH"}' "$SIGNALHUB_URL/api/v1/client/push-preferences"

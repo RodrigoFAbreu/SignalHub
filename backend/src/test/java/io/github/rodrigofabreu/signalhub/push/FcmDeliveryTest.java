@@ -87,7 +87,10 @@ class FcmDeliveryTest {
     }
   }
 
-  /** Runs {@link FakeFcm} and points the {@code fcm} provider at it. */
+  /**
+   * Runs {@link FakeFcm}, points the {@code fcm} provider at it, and serves {@link
+   * FcmPushConfigTest#OPTIONS} to clients.
+   */
   public static class FakeFcmResource implements QuarkusTestResourceLifecycleManager {
     private FakeFcm fcm;
 
@@ -98,7 +101,9 @@ class FcmDeliveryTest {
           FcmPushProvider.CREDENTIALS_FILE,
           fcm.writeCredentials().toString(),
           "signalhub.push.fcm.api-url",
-          fcm.apiUrl().toString());
+          fcm.apiUrl().toString(),
+          FcmClientOptions.OPTIONS_FILE,
+          FcmPushConfigTest.writeOptions().toString());
     }
 
     @Override

@@ -28,6 +28,9 @@ class StartupDiagnosticsTest {
     assertThat(summary, containsString("database jdbc:postgresql://"));
     assertThat(summary, containsString("management API enabled"));
     assertThat(summary, containsString("FCM credentials file not set (no fcm provider)"));
+    assertThat(
+        summary,
+        containsString("FCM client options file not set (apps need built-in Firebase options)"));
     assertThat(summary, containsString("push dispatch every 2s"));
     assertThat(summary, containsString("event retention off (events are kept forever)"));
     assertThat(summary, containsString("JSON logs off"));

@@ -845,6 +845,27 @@ The following capabilities are already implemented and merged unless repository 
 - client only: no backend, API or schema changes; the exit criterion's
   check on a real phone is the maintainer's
 
+### R23a - Push client options served by the backend
+
+- `GET /api/v1/client/push-config` (client key): `{"provider", "options"}`,
+  the provider name and an opaque map of option names to strings; `404`
+  with the usual error body when the operator configured none; OpenAPI
+  schema `PushConfig`
+- provider-neutral core: a `PushClientOptions` bean at the edge supplies
+  them; `PushClientConfig` checks at startup that they are for an enabled
+  provider and for one provider only, and logs `Push client options:
+  served for fcm` or `none`
+- FCM edge: `SIGNALHUB_PUSH_FCM_CLIENT_OPTIONS_FILE` names the app's
+  `firebase-options.json`; a JSON object of at most 32 names and non-empty
+  strings; a file that looks like a service account key is refused, and an
+  invalid file stops startup without echoing values; the startup summary
+  names the file
+- no schema change; unit tests of the file checks and the startup checks,
+  API tests against real PostgreSQL (served, not configured, no key,
+  revoked key), the OpenAPI document, and the end-to-end job reading the
+  served options with a client key
+- backend only; the app uses the options in R23b
+
 ---
 
 ## 4. Planned roadmap
@@ -1384,8 +1405,9 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Done (see section 3) |
 | 10 | R22a - The app's version and commit on the *This device* screen | Increment (`feat(client)`) | Done (see section 3) |
 | 11 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Given (2026-09-26): D5 = a, D6 = one stable release key |
-| 12 | R23 - Push configuration served by the backend | Increment (`feat`; may be split into backend and app) | Next |
-| 13 | R24 - Installable Android app in each release | Increment (`feat`) | Blocked until R23 is merged; needs the D6 key in GitHub Actions secrets (maintainer) |
+| 12 | R23a - Push client options served by the backend (first half of R23) | Increment (`feat`) | Done (see section 3) |
+| 12b | R23b - The app sets up push from served options (second half of R23) | Increment (`feat(client)`) | Next |
+| 13 | R24 - Installable Android app in each release | Increment (`feat`) | Blocked until R23b is merged; needs the D6 key in GitHub Actions secrets (maintainer) |
 | 14 | R25 - Java 25 (decision D2) | Increment | Blocked until R24 is merged |
 | 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Blocked until R25 is merged |
 | 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Blocked until R26 is merged |
@@ -1912,7 +1934,11 @@ APKs. Requirements, binding on R24:
 
 ### R23 - Push configuration served by the backend
 
-Status: next. D5 chose **a** (G3, 2026-09-26); the
+Status: split in two, as its scope allowed. **R23a** (the backend: the
+setting, `GET /api/v1/client/push-config`, the startup checks and the
+end-to-end check) is done (see section 3). **R23b** (the app: the three
+app bullets below, its tests against the fake server, and
+`client/README.md`) is next. D5 chose **a** (G3, 2026-09-26); the
 [G3 answers](#g3-answers) are binding on its scope.
 
 Goal: an app that has no compiled-in push options gets them from its
@@ -1941,7 +1967,7 @@ would be too large to review. Compatible (`feat`).
 
 ### R24 - Installable Android app in each release
 
-Status: planned; blocked until R23 is merged. D6 chose one stable release
+Status: planned; blocked until R23b is merged. D6 chose one stable release
 key (G3, 2026-09-26); the maintainer creates it and stores it as GitHub
 Actions secrets (see [G3 answers](#g3-answers)).
 
@@ -2206,9 +2232,9 @@ Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
 (section 4) is authoritative. G3 was answered on 2026-09-26 (D5 = a,
-D6 = one stable release key), so the expected next item is **R23 - push
-configuration served by the backend**, under the requirements in
-[G3 answers](#g3-answers). R24 follows and needs the maintainer's release
+D6 = one stable release key), and R23a (the backend half of R23) is done, so
+the expected next item is **R23b - the app sets up push from served
+options**, under the requirements in [G3 answers](#g3-answers). R24 follows and needs the maintainer's release
 key in GitHub Actions secrets; then Java 25 (R25) and PostgreSQL 18 (R26),
 each in its own PR (see [section 5](#5-after-v100)).
 
