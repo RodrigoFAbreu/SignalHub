@@ -47,13 +47,13 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   void _open(String id, [Event? event]) {
-    unawaited(_controller.markRead(id));
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => EventScreen(
           load: () => _controller.event(id),
           initial: event,
-          markUnread: () => _controller.markUnread(id),
+          markOpened: () => _controller.markRead(id),
+          setRead: (read) => _controller.setRead(id, read: read),
         ),
       ),
     );

@@ -203,22 +203,31 @@ class AppController extends ChangeNotifier {
   }
 
   /// Marks the event with [id] read, for every client of the owner, when the
-  /// owner opens it. Failing is harmless: the event stays unread and is
+  /// owner opens it. Returns the event as the server returned it, or `null`
+  /// if marking failed. Failing is harmless: the event stays unread and is
   /// marked again the next time it is opened.
-  Future<void> markRead(String id) async {
-    if (_eventWithId(id)?.isRead ?? false) return;
-    await _changeReadState(() async {
-      _replaceEvent(await _api!.markRead(id));
-      await _readUnreadCount();
-    });
+  Future<Event?> markRead(String id) async {
+    if (_eventWithId(id) case final event? when event.isRead) return event;
+    return (await setRead(id, read: true)).event;
   }
 
-  /// Marks the event with [id] unread again. Returns an error message, or
-  /// `null` on success.
-  Future<String?> markUnread(String id) => _changeReadState(() async {
-    _replaceEvent(await _api!.markUnread(id));
-    await _readUnreadCount();
-  });
+  /// Marks the event with [id] read when [read], unread otherwise. Returns
+  /// the event as the server returned it, or an error message; neither if
+  /// the key was revoked and the app returned to setup.
+  Future<({Event? event, String? error})> setRead(
+    String id, {
+    required bool read,
+  }) async {
+    Event? changed;
+    final error = await _changeReadState(() async {
+      final api = _api!;
+      final event = await (read ? api.markRead(id) : api.markUnread(id));
+      _replaceEvent(event);
+      changed = event;
+      await _readUnreadCount();
+    });
+    return (event: error == null ? changed : null, error: error);
+  }
 
   /// Marks read every event up to the newest one shown. Events that arrived
   /// since stay unread, so nothing the owner has not seen is marked. Returns

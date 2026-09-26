@@ -179,6 +179,107 @@ void main() {
     expect(unreadDot('Nightly build failed'), findsOneWidget);
   });
 
+  Finder unreadCount(String count) => find.descendant(
+    of: find.byKey(const Key('unreadCount')),
+    matching: find.text(count),
+  );
+
+  testWidgets('an opened event offers to mark it unread', (tester) async {
+    await connect(tester);
+
+    await tester.tap(find.text('Nightly build failed'));
+    await settle(tester);
+
+    // The server's answer to marking it read on opening.
+    expect(find.byKey(const Key('markUnread')), findsOneWidget);
+    expect(find.byKey(const Key('markRead')), findsNothing);
+    expect(find.byTooltip('Mark as unread'), findsOneWidget);
+    expect(find.text('Unread'), findsNothing);
+  });
+
+  testWidgets('an event not marked read on opening can be marked read', (
+    tester,
+  ) async {
+    await connect(tester);
+    backend.offline = true;
+
+    await tester.tap(find.text('Nightly build failed'));
+    await settle(tester);
+
+    // Marking on opening failed: still unread, and the action says so.
+    expect(backend.isRead('e-1'), isFalse);
+    expect(find.text('Unread'), findsOneWidget);
+    expect(find.byTooltip('Mark as read'), findsOneWidget);
+    expect(find.byKey(const Key('markUnread')), findsNothing);
+
+    backend.offline = false;
+    await tester.tap(find.byKey(const Key('markRead')));
+    await settle(tester);
+
+    // Still on the event, now read.
+    expect(backend.isRead('e-1'), isTrue);
+    expect(find.text('Unread'), findsNothing);
+    expect(find.byKey(const Key('markUnread')), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(unreadDot('Nightly build failed'), findsNothing);
+    expect(find.byKey(const Key('unreadCount')), findsNothing);
+  });
+
+  testWidgets('a failed mark read says why and changes nothing', (
+    tester,
+  ) async {
+    await connect(tester);
+    backend.offline = true;
+
+    await tester.tap(find.text('Nightly build failed'));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('markRead')));
+    await settle(tester);
+
+    expect(find.text('Could not reach the server'), findsOneWidget);
+    expect(find.byKey(const Key('markRead')), findsOneWidget);
+    expect(find.text('Unread'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(unreadDot('Nightly build failed'), findsOneWidget);
+    expect(unreadCount('1'), findsOneWidget);
+  });
+
+  testWidgets('a failed mark unread says why and changes nothing', (
+    tester,
+  ) async {
+    backend.events.single['readAt'] = '2026-09-25T12:04:00Z';
+    await connect(tester);
+
+    await tester.tap(find.text('Nightly build failed'));
+    await settle(tester);
+    backend.offline = true;
+    await tester.tap(find.byKey(const Key('markUnread')));
+    await settle(tester);
+
+    expect(find.text('Could not reach the server'), findsOneWidget);
+    expect(find.byKey(const Key('markUnread')), findsOneWidget);
+    expect(backend.isRead('e-1'), isTrue);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(unreadDot('Nightly build failed'), findsNothing);
+  });
+
+  testWidgets('marking unread updates the unread count', (tester) async {
+    await connect(tester);
+    expect(unreadCount('1'), findsOneWidget);
+
+    await tester.tap(find.text('Nightly build failed'));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('markUnread')));
+    await settle(tester);
+
+    expect(backend.isRead('e-1'), isFalse);
+    expect(unreadDot('Nightly build failed'), findsOneWidget);
+    expect(unreadCount('1'), findsOneWidget);
+  });
+
   testWidgets('marks everything shown read', (tester) async {
     backend.publish('e-2', 'Deploy done');
     await connect(tester);

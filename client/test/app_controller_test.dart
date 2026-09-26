@@ -358,14 +358,51 @@ void main() {
     await app.connect(serverUrl, clientKey);
     expect(app.unreadCount, 0);
 
-    expect(await app.markUnread('e-1'), isNull);
+    final unread = await app.setRead('e-1', read: false);
 
+    expect(unread.error, isNull);
+    expect(unread.event?.isRead, isFalse);
     expect(backend.isRead('e-1'), isFalse);
     expect(app.events.single.isRead, isFalse);
     expect(app.unreadCount, 1);
 
     backend.offline = true;
-    expect(await app.markUnread('e-1'), 'Could not reach the server');
+    final failed = await app.setRead('e-1', read: false);
+    expect(failed.error, 'Could not reach the server');
+    expect(failed.event, isNull);
+  });
+
+  test('marks an event read again from its screen', () async {
+    backend.publish('e-1', 'Build failed');
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+
+    final read = await app.setRead('e-1', read: true);
+
+    expect(read.error, isNull);
+    expect(read.event?.isRead, isTrue);
+    expect(app.events.single.isRead, isTrue);
+    expect(app.unreadCount, 0);
+
+    backend.offline = true;
+    final failed = await app.setRead('e-1', read: false);
+    expect(failed.error, 'Could not reach the server');
+    expect(app.events.single.isRead, isTrue);
+    expect(app.unreadCount, 0);
+  });
+
+  test('marking read on opening returns the server\'s event', () async {
+    backend.publish('e-1', 'Build failed');
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+
+    expect((await app.markRead('e-1'))?.readAt, isNotNull);
+    // Already read: the inbox's event, without a request.
+    backend.offline = true;
+    expect((await app.markRead('e-1'))?.isRead, isTrue);
+
+    backend.publish('e-2', 'Not in the inbox');
+    expect(await app.markRead('e-2'), isNull);
   });
 
   test('marks all read up to the newest event shown, not newer ones', () async {
