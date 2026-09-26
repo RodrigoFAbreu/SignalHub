@@ -14,6 +14,7 @@ does and changes.
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import re
@@ -511,6 +512,10 @@ class Server:
             ) from error
         except urllib.error.URLError as error:
             raise CheckFailed(f"{method} {path}: {error.reason}") from error
+        except (OSError, http.client.HTTPException) as error:
+            # A backend that is starting behind Docker's port proxy accepts the
+            # connection and then resets or closes it.
+            raise CheckFailed(f"{method} {path}: {error!r}") from error
         return json.loads(text) if text else None
 
     def publish(
@@ -779,15 +784,19 @@ def check_push_preferences(review: Review) -> str:
         device.home()
         paused = review.title("paused")
         server.publish(paused)
+        # Preferences apply when the dispatcher sends an event, not when it is
+        # published, so the paused event must be dispatched before they change.
+        time.sleep(QUIET_WAIT)
+        if device.app_notifications(paused):
+            raise CheckFailed(f"{paused!r} was pushed while push was off")
         server.set_push_preferences({"enabled": True, "minimumSeverity": "HIGH"})
         low, high = review.title("low"), review.title("high")
         server.publish(low, severity="LOW")
         server.publish(high, severity="HIGH")
         device.wait_for_notification(high)
         time.sleep(QUIET_WAIT)
-        for title in (paused, low):
-            if device.app_notifications(title):
-                raise CheckFailed(f"{title!r} was pushed despite the preferences")
+        if device.app_notifications(low):
+            raise CheckFailed(f"{low!r} was pushed below the minimum severity")
     finally:
         server.set_push_preferences(saved)
     return "paused: no push; minimum HIGH: only the HIGH event pushed"

@@ -683,7 +683,11 @@ The following capabilities are already implemented and merged unless repository 
 - no backend, API, schema or client changes
 - at the start of G1 the guard was found to take a locked phone for the
   shade (both are focused as `NotificationShade`); it now also reads
-  whether the lock screen is showing and never touches a locked phone
+  whether the lock screen is showing and never touches a locked phone;
+  the first G1 run also found two races in the script, not in the app:
+  `push-preferences` changed the preferences before the paused event was
+  dispatched (preferences apply at dispatch), and waiting for a restarting
+  backend stopped the run on a reset connection; both are fixed
 
 ### R18r - Stale branch cleanup
 

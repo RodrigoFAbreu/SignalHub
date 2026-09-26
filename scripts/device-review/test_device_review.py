@@ -1,14 +1,19 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import device_review
 from device_review import (
     APP_PACKAGE,
+    CheckFailed,
     Device,
     GuardError,
     Node,
+    Review,
+    Server,
     channel_importance,
+    check_push_preferences,
     find_node,
     focused_window,
     keyguard_showing,
@@ -305,3 +310,76 @@ class ConfigTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def fake_config() -> device_review.Config:
+    return device_review.Config(
+        serial="test-serial",
+        server="http://localhost:8080",
+        producer_key="shpk1_p",
+        client_key="shck1_c",
+        client_id="client-id",
+        admin_token="a" * 40,
+        output=Path("."),
+        compose_dir=Path("."),
+        compose_service="backend",
+    )
+
+
+class ServerTest(unittest.TestCase):
+    def test_a_reset_connection_is_not_reachable(self):
+        # As a backend starting behind Docker's port proxy answers.
+        server = Server(fake_config())
+        for error in (
+            ConnectionResetError(104, "Connection reset by peer"),
+            device_review.http.client.RemoteDisconnected("closed"),
+        ):
+            with (
+                self.subTest(type(error).__name__),
+                mock.patch("urllib.request.urlopen", side_effect=error),
+            ):
+                with self.assertRaises(CheckFailed):
+                    server.unread()
+                self.assertFalse(server.reachable())
+
+
+class PushPreferencesTest(unittest.TestCase):
+    """The order of the check's steps, with fakes recording what the device,
+    the server and the clock are asked."""
+
+    def run_check(self, pushed: set[str]) -> list[str]:
+        steps: list[str] = []
+        saved = {"enabled": True, "minimumSeverity": "NORMAL"}
+        server = mock.Mock()
+        server.own_registration.side_effect = lambda: {
+            "pushPreferences": {"enabled": False} if "switch" in steps else saved
+        }
+        server.publish.side_effect = lambda title, **_: steps.append(title)
+        server.set_push_preferences.side_effect = lambda p: steps.append(
+            "restore" if p == saved else f"minimum {p['minimumSeverity']}"
+        )
+        device = mock.Mock()
+        device.tap_label.side_effect = lambda *_, **__: steps.append("switch")
+        device.app_notifications.side_effect = lambda title: (
+            [title] if title in pushed else []
+        )
+        review = Review(fake_config(), device, server)
+        review.title = lambda what: what
+        review.open_menu_item = lambda item: None
+        self.addCleanup(lambda: self.assertEqual(steps[-1], "restore"))
+        with mock.patch("time.sleep", side_effect=lambda _: steps.append("wait")):
+            check_push_preferences(review)
+        return steps
+
+    def test_the_paused_event_is_dispatched_before_the_preferences_change(self):
+        steps = self.run_check(pushed={"high"})
+        paused, changed = steps.index("paused"), steps.index("minimum HIGH")
+        self.assertIn("wait", steps[paused:changed])
+
+    def test_a_push_while_paused_fails(self):
+        with self.assertRaisesRegex(CheckFailed, "while push was off"):
+            self.run_check(pushed={"paused", "high"})
+
+    def test_a_push_below_the_minimum_fails(self):
+        with self.assertRaisesRegex(CheckFailed, "below the minimum"):
+            self.run_check(pushed={"low", "high"})
