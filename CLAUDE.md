@@ -43,7 +43,8 @@ dispatch through a PostgreSQL outbox with bounded retries of temporary
 failures, Prometheus metrics (`/q/metrics`) including event and push
 delivery meters, optional JSON logs and a startup configuration summary,
 the running release and commit at `/q/info`, a backend image published to
-GHCR for x86-64 and ARM64 by every release (`scripts/release/`),
+GHCR for x86-64 and ARM64 by every release (`scripts/release/`) with the
+deployment files that run it (installs and upgrades build nothing),
 an optional event retention period, an optional Caddy TLS reverse proxy in
 Compose that exposes only the product API, and the upgrade procedure
 (tested from the latest release and from v0.13.0) and health monitoring (`docs/deployment.md`),

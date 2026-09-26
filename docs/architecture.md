@@ -1080,7 +1080,9 @@ collect it. Credentials never reach the logs (see the Logging sections of
 SignalHub has one version, the repository's release tag. Every release
 publishes the backend as a multi-platform image (`linux/amd64` and
 `linux/arm64`), `ghcr.io/rodrigofabreu/signalhub:X.Y.Z`, built from the
-tagged commit (see [development.md](development.md#release-process)). The
+tagged commit (see [development.md](development.md#release-process)), and
+attaches the deployment files that run it, `compose.yaml` naming the image by
+version and digest (see [deployment.md](deployment.md#deployment-files)). The
 release bakes its version and commit into the image, and the backend
 reports them:
 
@@ -1306,7 +1308,7 @@ cannot meet.
 | API description | SmallRye OpenAPI |
 | Health checks | SmallRye Health |
 | Tests | JUnit 5, RestAssured, real PostgreSQL |
-| Packaging | Docker image, run with Docker Compose; each release publishes it to GHCR (see [Version](#version)) |
+| Packaging | Docker image, run with Docker Compose; each release publishes it to GHCR and attaches the Compose files that run it (see [Version](#version)) |
 
 Implementation expectations:
 
@@ -1423,7 +1425,10 @@ change bumps the major version; before it, it bumped the minor version.
   public names;
 - the published backend image, `ghcr.io/rodrigofabreu/signalhub:X.Y.Z` for
   `linux/amd64` and `linux/arm64`, and the `signalhub` section of `/q/info`
-  (see [Version](#version)).
+  (see [Version](#version));
+- a release's deployment files, `signalhub-X.Y.Z-deployment.tar.gz` and
+  `SHA256SUMS`: their names and the files they hold (see
+  [deployment.md](deployment.md#deployment-files)).
 
 Not part of it: the database schema itself (only migrations touch it), the
 backend's Java code, the built-in metrics of Quarkus and its libraries, log
