@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app icon's background (client/icon/icon.svg), also the accent of
+         push notifications. -->
+    <color name="ic_launcher_background">#3949AB</color>
+</resources>

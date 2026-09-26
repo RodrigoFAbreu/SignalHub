@@ -593,6 +593,7 @@ All commands below run in `client/`.
 flutter pub get --enforce-lockfile            # exactly the locked dependencies
 dart format --output=none --set-exit-if-changed .   # formatting check (`dart format .` fixes)
 flutter analyze                               # static analysis (lints in analysis_options.yaml)
+shellcheck icon/render.sh                     # the app icon's render script (see client/README.md)
 flutter test                                  # unit and widget tests
 flutter build apk --debug                     # Android build
 flutter build ios --debug --no-codesign       # iOS build (macOS only)
@@ -687,6 +688,7 @@ docker run --rm --volume "$PWD:/repo" --workdir /repo actionlint -color .github/
 flutter pub get --enforce-lockfile
 dart format --output=none --set-exit-if-changed .
 flutter analyze
+shellcheck icon/render.sh
 flutter test
 flutter build apk --debug
 flutter build ios --debug --no-codesign
