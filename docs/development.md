@@ -703,7 +703,8 @@ flutter build ios --debug --no-codesign
 # restores it into an empty one and checks that events from before the backup
 # (and only those) are back, the producer key still works and the proxy kept
 # its CA, and that restoring over existing data fails, runs the integration
-# examples as four new producers and lists their events, revokes the producer
+# examples as five new producers (the GitHub Actions step twice for one run
+# attempt, as a retry would) and lists their events, one each, revokes the producer
 # key and expects 401, stops PostgreSQL and expects readiness 503, and checks that the image refuses to start without database
 # settings. The "Backend container (upgrade from the latest release)" job starts
 # the latest release tag with a producer, a client and a read event, backs up,

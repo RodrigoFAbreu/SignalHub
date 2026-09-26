@@ -1,18 +1,18 @@
 # Architecture
 
-> Status: partly direction. Implemented so far: the backend runtime foundation
-> (see [Backend platform](#backend-platform)), generic event ingestion and the
-> event listing (see [Events](#events)), producer authentication (see
-> [Producers and authentication](#producers-and-authentication)), and client
+> Status: implemented: the backend (see [Backend platform](#backend-platform)),
+> generic event ingestion, the event listing and read state (see
+> [Events](#events)), producer authentication (see
+> [Producers and authentication](#producers-and-authentication)), client
 > registration with client keys, push targets and push preferences (see
-> [Clients](#clients)),
-> the push-provider boundary with a Firebase Cloud Messaging provider,
-> event-triggered push dispatch (see [Push delivery](#push-delivery)), the
-> Flutter client app for Android and iOS (see
-> [Client application](#client-application)), and the Python producer SDK
-> and command (see [Producer SDK and CLI](#producer-sdk-and-cli)), and
-> Prometheus metrics, optional JSON logs, a startup configuration summary and
-> an optional event retention period (see [Operations](#operations)).
+> [Clients](#clients)), push delivery through Firebase Cloud Messaging with
+> bounded retries (see [Push delivery](#push-delivery)), the Flutter client
+> app for Android and iOS (see [Client application](#client-application)),
+> the Python producer SDK and command (see
+> [Producer SDK and CLI](#producer-sdk-and-cli)), the
+> [integration examples](#integration-examples), and metrics, logs,
+> retention, backup and restore (see [Operations](#operations)); what stays
+> compatible is in [Compatibility](#compatibility).
 > This document defines boundaries, vocabulary, and the chosen technology.
 > Concrete schemas, APIs, and implementation details are decided in the PRs
 > that implement them, and this document is updated in the same PRs.
@@ -383,8 +383,9 @@ unique index on `(producer_id, idempotency_key)` over events that have one.
 
 ## Producers and authentication
 
-> Status: implemented. Producers authenticate with API keys. There is no
-> owner, user, or client authentication yet.
+> Status: implemented. Producers authenticate with API keys; the owner's
+> clients have their own keys (see [Clients](#clients)), and the operator an
+> admin token. There are no user accounts: SignalHub has one owner.
 
 A **producer** is a registered external system that publishes events: a CI
 pipeline, an agent, a monitor, a script. SignalHub treats every producer the
@@ -449,7 +450,7 @@ Authorization: Bearer shpk1_3f1c0b8e5d2a4c7e9b610a8d4e2f7c13_...
 
 The scheme name is case-insensitive; exactly one space separates it from the
 key. The authenticated producer becomes the event's `producer`. Only
-`POST /api/v1/events` requires a key.
+`POST /api/v1/events` takes a producer key.
 
 #### Authentication errors
 
@@ -615,9 +616,10 @@ A **push target** is where pushes for a client go: the name of a push
 provider and the token that provider issued to the installation.
 
 - `provider` is a lowercase identifier (letters, digits and `. _ -`, starting
-  with a letter or digit, at most 50 characters), such as `fcm`. SignalHub
-  does not keep a list of providers yet; delivery (a later release) decides
-  which ones it supports.
+  with a letter or digit, at most 50 characters), such as `fcm`. Any such
+  name is accepted, so a client never depends on how the server is
+  configured; delivery skips a target whose provider the server does not
+  have (`UNSUPPORTED_PROVIDER`, see [Push delivery](#push-delivery)).
 - `token` is opaque, 1–4096 characters, without NUL. SignalHub stores it and
   hands it to the provider, but never parses it, and never returns it: it
   addresses a device, so it is write-only in the API and never logged.
@@ -1420,6 +1422,6 @@ These are deferred until the relevant implementation work:
 
 - How a client obtains its key without the operator copying it by hand
   (for example a pairing flow), once a client application exists.
-- Routing and filtering rules: which events trigger a push (all do for now),
-  quiet hours.
+- Time-based push rules such as quiet hours; which events are pushed is
+  already decided per client by its [push preferences](#push-preferences).
 - Whether further clients (web, desktop, CLI) are built, and with what.

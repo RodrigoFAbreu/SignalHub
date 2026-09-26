@@ -544,6 +544,21 @@ The following capabilities are already implemented and merged unless repository 
   that older releases apply the same migrations untested
 - no backend, schema or client changes
 
+### R18i - Pre-1.0 cleanup: retries in the examples and stale statements
+
+- the GitHub Actions example sends an `Idempotency-Key` naming the failed
+  run and its attempt, so `curl --retry` after a timeout no longer stores the
+  event twice; a failed re-run is a new attempt and is published again; the
+  examples README no longer says publishing is not idempotent
+- statements that were true only before later increments are corrected in
+  `docs/architecture.md`: the status summary, "no client authentication
+  yet", "no list of providers yet; delivery a later release", and the open
+  question on which events are pushed (answered by push preferences)
+- tests: the step sends the key, and curl's retries repeat the same event
+  with the same key; the Compose smoke test runs the step twice for one run
+  attempt against the real backend and finds one event
+- no backend, schema, client or SDK changes
+
 ---
 
 ## 4. Planned roadmap
@@ -926,8 +941,9 @@ Exit criteria:
 Status: in progress; R18a (refusing a newer schema), R18b (reading an
 event needs the owner's credential), R18c (one error format), R18d (the
 end-to-end test), R18e (the fresh-install deployment test), R18f (the
-compatibility policy and enum evolution), R18g (idempotent publishing) and
-R18h (the upgrade from an older release) are complete (see section 3).
+compatibility policy and enum evolution), R18g (idempotent publishing),
+R18h (the upgrade from an older release) and R18i (pre-1.0 cleanup: retries
+in the examples and stale statements) are complete (see section 3).
 
 Goal: deliberately declare the first stable SignalHub contract.
 
@@ -1024,7 +1040,7 @@ Determine this from repository state rather than trusting this section blindly.
 
 After the integration examples (R17), the expected next increment is:
 
-**R18 - v1.0 hardening and contract review**, continuing after R18h
+**R18 - v1.0 hardening and contract review**, continuing after R18i
 
 Likely split into bounded increments: the reviews and tests R18 lists. Promotion to `v1.0.0` itself is always the
 maintainer's decision. Confirming delivery to a real device (R8 to R10)

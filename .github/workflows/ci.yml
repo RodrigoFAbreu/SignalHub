@@ -419,12 +419,23 @@ jobs:
           register example-usage
           python examples/usage-threshold/usage_threshold.py \
             --name "Example quota" --used 95 --limit 100 2>> "$RUNNER_TEMP/errors.log"
+          # The workflow's step, run twice for one run attempt as a retry would:
+          # its idempotency key stores the event once.
+          register example-github
+          sed -n '/^        run: |$/,$p' examples/github-actions/notify-on-failure.yml \
+            | tail -n +2 | sed 's/^          //' > "$RUNNER_TEMP/notify-step.sh"
+          for _ in 1 2; do
+            REPOSITORY=owner/repo WORKFLOW=CI BRANCH=main COMMIT=0123456789abcdef \
+              RUN_URL=https://github.com/owner/repo/actions/runs/7 RUN_NUMBER=3 \
+              RUN_ID=7 RUN_ATTEMPT=1 bash -eo pipefail "$RUNNER_TEMP/notify-step.sh" > /dev/null
+          done
           # The shell and agent examples report a failed publish without failing.
           if test -s "$RUNNER_TEMP/errors.log"; then cat "$RUNNER_TEMP/errors.log"; exit 1; fi
           curl --fail --silent --show-error --get \
-            --header "Authorization: Bearer $ADMIN_TOKEN" --data limit=4 \
+            --header "Authorization: Bearer $ADMIN_TOKEN" --data limit=5 \
             http://localhost:8080/api/v1/events \
             | jq --exit-status '[.items[] | [.producer.name, .category]] == [
+                ["example-github", "BLOCKED"],
                 ["example-usage", "ACTION_REQUIRED"], ["example-agent", "ACTION_REQUIRED"],
                 ["example-disk-usage", "ACTION_REQUIRED"], ["example-shell", "COMPLETED"]]'
       - name: A revoked key no longer authenticates
