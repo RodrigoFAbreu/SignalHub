@@ -624,6 +624,22 @@ The following capabilities are already implemented and merged unless repository 
 - tested against real PostgreSQL and in the OpenAPI document; no schema or
   client changes
 
+### R18o - Pop-up notifications, app icon and refresh on return
+
+- found while verifying push on the maintainer's Android phone (PR #54,
+  `v0.27.0`, superseding PRs #51 to #53): pushes go to an *Events* channel
+  of high importance, so they pop up on Android instead of landing silently
+  in Firebase's fallback channel; the owner's own settings for the channel
+  are kept
+- the app has its own launcher and notification icon (`client/icon/`, with
+  `render.sh`, which CI lints)
+- the inbox and unread count are read again when the app returns to the
+  foreground, so pushes that arrived in the background are listed
+- a functional review on a real Android device at `v0.27.0` passed its 19
+  checks (the "Real-device push" row of the v1.0 readiness checklist); it
+  found the read-state defect of R18p
+- no backend, schema or contract changes
+
 ---
 
 ## 4. Planned roadmap
@@ -1010,9 +1026,11 @@ compatibility policy and enum evolution), R18g (idempotent publishing),
 R18h (the upgrade from an older release), R18i (pre-1.0 cleanup: retries
 in the examples and stale statements), R18j (the v1.0 readiness review) and
 R18k (events visible in listing order, closing O1), R18l (dispatcher
-tests, closing O2), R18m (Dependabot coverage, closing O3) and R18n (admin
-listings in an items envelope, decision D1) are complete (see section 3). What remains is in the v1.0 readiness
-checklist below.
+tests, closing O2), R18m (Dependabot coverage, closing O3), R18n (admin
+listings in an items envelope, decision D1) and R18o (pop-up notifications,
+app icon and refresh on return) are complete (see section 3). What remains
+is the queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
+below.
 
 Goal: deliberately declare the first stable SignalHub contract.
 
@@ -1079,7 +1097,9 @@ that closes an item updates its row.
 | Dependency health | Done; D2 and D3 decided (deferred past 1.0) | Versions and image digests are pinned; Dependabot tracks Actions, Maven, Docker, Compose, pub, the SDK's build backend, ruff and actionlint; CI checks that the tests' PostgreSQL image follows Compose's; Flutter is raised by hand (O3, closed in R18m; `docs/development.md#dependency-updates`). |
 | Release automation | Reviewed; sound | No PR title can produce `1.0.0` (`scripts/release/release.py` turns a major bump into a minor one below 1.0). Promotion is decision D4: not yet. |
 | End-to-end, fresh-install and upgrade tests | Done | R18d, R18e, R18h. |
-| Real-device push | Open, maintainer | Receiving a push on a real device needs the maintainer's Firebase project (R8 to R10). The maintainer verifies it before `v1.0.0`; Android with FCM is enough for acceptance, iOS with APNs does not block 1.0 unless another issue requires it. |
+| Real-device push | Done on Android; one defect open (R18p) | Verified on the maintainer's Android phone with their Firebase project at `v0.27.0` (R18o): a functional review passed its 19 checks (foreground, background, killed app and cold start, pop-up over another app, read state, push preferences, idempotent publishing, backend down and restarted, phone offline). It found that the event screen only offers *Mark as unread* (R18p). iOS with APNs does not block 1.0 unless another issue requires it. |
+| Device-review tooling | Open (R18q) | The review's script exists only on the maintainer's machine; R18q keeps it in the repository. |
+| Maintainer usability review | Open, maintainer (G1) | After R18p to R18r: the maintainer uses the app and signs off. |
 
 Open items, each small enough for one increment and needing no decision:
 
@@ -1119,7 +1139,162 @@ Decisions for the maintainer (human gates), with the maintainer's answers:
   and updates `docs/development.md#versioning` and `CLAUDE.md`. **Decided:
   not yet.** The maintainer first verifies push on a real device (Android
   with FCM is enough), and `v1.0.0` needs their explicit approval after that
-  test.
+  test. Push was verified on Android at `v0.27.0` (R18o); the approval now
+  follows the queue below and is still not given.
+
+### Remaining work to v1.0.0 and after
+
+Recorded after the real-device functional review of `v0.27.0`. This table
+is the queue of the remaining work, in order; each row is one increment
+(one PR, one release) or one human gate. Nothing below may be reordered by
+an orchestrator: Java 25 and PostgreSQL 18 never move ahead of `v1.0.0`.
+
+| Order | Item | Kind | Status |
+|---|---|---|---|
+| 1 | R18p - Read-state toggle on the event screen | Increment (`fix(client)`) | **Next** |
+| 2 | R18q - Device-review tooling in the repository | Increment (`test`) | Queued |
+| 3 | R18r - Stale branch cleanup | Repository hygiene (no PR, no release) | Queued |
+| - | Clearing local device-test data | Documentation | Done with this queue ([development.md](development.md#clearing-local-test-data)) |
+| 4 | G1 - Maintainer usability review and sign-off | Human gate | Waiting for 1 to 3 |
+| 5 | G2 - Explicit approval of `v1.0.0` (decision D4) | Human gate | Not given |
+| 6 | R19 - `v1.0.0` | Increment (`!`, the release) | Blocked by G2 |
+| 7 | R20 - Java 25 (decision D2) | Increment | Blocked until `v1.0.0` is released |
+| 8 | R21 - PostgreSQL 18 (decision D3) | Increment | Blocked until R20 is merged |
+
+How an autonomous run uses it:
+
+1. Confirm from `main`, the releases and the open PRs that the table is
+   current (an item's PR may have merged without its row being updated;
+   then update the row first, in the next PR).
+2. Take the first row whose status is not *Done*. If it is a human gate, or
+   *Blocked*, stop and report: nothing after it may start.
+3. Implement exactly that one item on a branch from the latest `main`, with
+   its tests and docs, and in the same PR mark its row *Done*, mark the
+   following row *Next* if it is an increment, and add the item to section
+   3 (and, where it applies, the v1.0 readiness checklist).
+4. Open the PR, wait for required CI, let GitHub auto-merge it, verify the
+   release, and stop. The next run takes the next row.
+
+R18r changes no files; its run records the deleted branches in the PR of
+the next item, or, if none is left before a gate, in a `docs` PR that
+marks the row *Done*.
+
+#### R18p - Read-state toggle on the event screen
+
+The highest-priority remaining product defect, found by the functional
+review. An event's screen (opened from the inbox or by tapping a
+notification) has one read-state action, *Mark as unread*
+(`client/lib/src/ui/event_screen.dart`, key `markUnread`), whatever the
+event's state. Opening an event marks it read in the background, and a
+failure leaves it unread, so the screen can show an unread event whose
+only action makes it unread.
+
+Implement:
+
+- the action follows the event's current read state: *Mark as read* when
+  it is unread, *Mark as unread* when it is read (label, tooltip, icon and
+  call: `PUT` or `DELETE /api/v1/events/{id}/read`)
+- the state shown is the server's: the event as marking it read on opening
+  returned it, and after each change the event the call returned; a failed
+  change shows its error and leaves the state and the action as they were
+- the event screen stays consistent with the inbox's bold title, dot and
+  unread count, which follow the same changes; whether a successful change
+  closes the screen (as *Mark as unread* does today) follows the existing
+  semantics unless the review of the change finds a reason to change it
+- widget and controller tests for both directions, a failure in each, and
+  an event whose marking on opening failed; the existing read-state tests
+  keep passing
+- `client/README.md` and `docs/architecture.md` describe the action if they
+  describe the current one
+
+Constraints: client only, no backend, API or schema changes. The Android
+notification in the tray has no actions today; adding one is a separate
+feature, not this fix. Verifying on a real Android device is the
+maintainer's (with R18q's review, if it has landed) and does not block the
+merge.
+
+#### R18q - Device-review tooling in the repository
+
+The functional review of `v0.27.0` was driven by a Python script over
+`adb` that exists only on the maintainer's machine, outside the
+repository. Keep it in `scripts/device-review/` as review tooling, never
+product runtime code.
+
+Implement:
+
+- the script, with every value specific to one machine or device taken
+  from the environment or arguments: the adb serial (`ANDROID_SERIAL`), the
+  server address, the producer and client keys (from files, never on a
+  command line), the client ID, the admin token and the output directory;
+  no default that names a real device, host, path or key
+- the safety guard: before every tap or swipe it checks the focused window
+  and refuses to touch the screen (and aborts the run) unless SignalHub is
+  in front, or the notification shade where a check opens it
+- the checks of the `v0.27.0` review: connected start with a matching
+  unread count; the device screen shows push on; the server has an `fcm`
+  push target; the *Events* channel at high importance; a foreground push
+  goes to the inbox without a system notification; a background push is in
+  the *Events* channel and tapping it opens the event and marks it read;
+  returning to the app refreshes the inbox; a push to a killed app arrives
+  and a cold start opens its event; force-stop and relaunch re-register the
+  push target; read state syncs (with R18p's toggle in both directions);
+  push preferences filter and pause; idempotent publishing gives one push;
+  the backend down, then recovering; a push sent while the phone is offline
+  arrives after it reconnects; a pop-up over another app; a backend
+  restart; no keyboard focus border; no `WARN`/`ERROR` in the backend log
+- checks that change the phone or the stack (airplane mode, stopping the
+  backend) restore them even when they fail
+- `scripts/device-review/README.md`: prerequisites (a debug build set up
+  with a client key, `adb`, `adb reverse`, the local Compose stack with FCM,
+  ImageMagick for the screenshot checks), usage, what each check does and
+  changes, and that it publishes events (see
+  [development.md](development.md#clearing-local-test-data))
+- ruff lint and format in CI, and unit tests of the parts that need no
+  device (parsing `dumpsys` and `uiautomator` output, the guard's decision)
+  with recorded samples; the device run itself stays manual
+
+If the maintainer's copy is not available to the run, write the script from
+this description; it is a reference, not a contract.
+
+#### R18r - Stale branch cleanup
+
+Repository hygiene, no product change. The branches of PRs #51 to #54
+remain on the remote: `fix/client-refresh-on-resume` (#51, closed),
+`feat/client-app-icon` (#52, closed), `feat/client-events-notification-channel`
+(#53, closed), superseded by #54, and `feat/client-device-verification`
+(#54, merged).
+
+- delete a branch only after confirming that its PR is merged, or closed
+  and superseded by a merged one, and that it has no commit whose change is
+  missing from `main`
+- delete nothing ambiguous: another branch without such confirmation is
+  listed in the report and left alone
+
+#### G1 - Maintainer usability review and sign-off
+
+After R18p to R18r, the maintainer uses the app on their device and signs
+off, or reports defects; each defect becomes a new row before G1.
+Automation never marks G1 done.
+
+#### G2 and R19 - `v1.0.0`
+
+Decision D4. Only after G1 and the maintainer's explicit approval, stated
+in a PR or issue by the maintainer, does the release PR (R19, titled with
+`!`) remove the pre-1.0 rule from `scripts/release/release.py` and its
+tests and update `docs/development.md#versioning` and `CLAUDE.md`.
+
+#### R20 - Java 25, after `v1.0.0`
+
+Decision D2: its own milestone and PR. Build and runtime images, CI and the
+docs move to Java 25 LTS together; the Dependabot PRs that raise the JDK
+images are closed or replaced by it.
+
+#### R21 - PostgreSQL 18, after R20
+
+Decision D3: its own milestone and PR, separate from R20. A breaking
+operator change (`!`) with migration notes: dump and restore, and the
+changed data directory mount in `compose.yaml`; the tests' PostgreSQL image
+follows Compose's. After `v1.0.0`, `!` makes it a major release.
 
 ---
 
@@ -1175,13 +1350,14 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 Determine this from repository state rather than trusting this section blindly.
 
-After the integration examples (R17), the expected next increment is:
+The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
+(section 4) is authoritative. After the functional review of `v0.27.0`, the
+expected next increment is:
 
-**R18 - v1.0 hardening and contract review**: its open items (O1 to O3)
-and decision D1 are done (R18k to R18n). D2 and D3 are deferred past 1.0 by
-the maintainer. What remains is the maintainer's: verifying push on a real
-Android device with their Firebase project, then deciding D4. No increment
-starts until then; `v1.0.0` is never released without the maintainer's
-explicit approval after that test.
+**R18p - Read-state toggle on the event screen**, then R18q (device-review
+tooling) and R18r (stale branch cleanup). Then the maintainer's usability
+review (G1) and explicit approval (G2) gate `v1.0.0` (R19); Java 25 (R20)
+and PostgreSQL 18 (R21) follow `v1.0.0`, each in its own PR. `v1.0.0` is
+never released without the maintainer's explicit approval.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
