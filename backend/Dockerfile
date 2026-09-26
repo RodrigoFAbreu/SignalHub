@@ -18,7 +18,7 @@ COPY src/ src/
 RUN --mount=type=cache,target=/root/.m2 \
   mvn --batch-mode --quiet package -DskipTests -Dspotless.check.skip -Dspotbugs.skip
 
-FROM eclipse-temurin:21-jre-noble@sha256:7739f0ffce786528961eea6bf46d9610ee968ac6127c9b2e93494757bdecce9f
+FROM eclipse-temurin:24-jre-noble@sha256:b416d02335e702b0403ff280de9475a3348e29382285969c9d4e17862ce632e7
 RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin signalhub
 WORKDIR /app
 # Quarkus fast-jar layout: dependencies first, since they change least often.
