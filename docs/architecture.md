@@ -330,6 +330,13 @@ text, and no full-text search.
   events after that position that match the new filters.
 - Cursors are versioned internally; a client must not construct or parse
   them, only pass them back.
+- An event's `createdAt` is taken when the backend accepts it, before it is
+  stored, so an event can become visible a moment after a newer one. A
+  client that pages only until the newest event it already had can miss
+  such an event until it reads the whole listing again, and
+  `POST /api/v1/events/read` can mark it read. The window is normally
+  milliseconds; it is open item O1 of the
+  [v1.0 readiness checklist](roadmap.md#v10-readiness-checklist).
 
 Invalid parameters get `400` with one violation per problem, naming the
 parameter in `field` (e.g. `limit`, `category`, `cursor`). An unknown
@@ -562,6 +569,8 @@ Every product API endpoint requires a credential. This version does not yet:
   their own keys.
 - **Expire keys** automatically. Keys are valid until revoked.
 - **Scope keys**: every valid key may publish any event as its producer.
+- **Delete** revoked producer keys or revoked clients. They are kept, and
+  listed by the management API, as a record of what was issued.
 
 ## Clients
 
@@ -1031,7 +1040,7 @@ collect it. Credentials never reach the logs (see the Logging sections of
   features and resources a running service uses:
 
   ```text
-  Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; FCM credentials file /run/secrets/fcm.json; push dispatch every 2s; JSON logs off; Java 21.0.8+9-LTS, 2 CPUs, max heap 768 MiB
+  Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; FCM credentials file /run/secrets/fcm.json; push dispatch every 2s; event retention off (events are kept forever); JSON logs off; Java 21.0.8+9-LTS, 2 CPUs, max heap 768 MiB
   ```
 
   It names settings, never secret values: the admin token appears only as

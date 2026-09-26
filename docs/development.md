@@ -535,7 +535,12 @@ Optional in every profile:
 | `SIGNALHUB_PUSH_DISPATCH_INTERVAL` | How often the push dispatcher looks for new events to push; default `2s`. See [Push dispatch](architecture.md#push-dispatch). |
 | `SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE` | Path to a Firebase service account key file (JSON). Enables push through Firebase Cloud Messaging (provider `fcm`); an unreadable or invalid file stops startup. Unset or empty: no `fcm` provider, and `fcm` push targets are reported as unsupported. See [Firebase Cloud Messaging](#firebase-cloud-messaging). |
 
-Compose derives them from `.env` (see `.env.example`). Never commit `.env`.
+Compose passes `SIGNALHUB_ADMIN_TOKEN`, `SIGNALHUB_EVENTS_RETENTION`,
+`SIGNALHUB_LOG_JSON` and the database settings from `.env` (see
+`.env.example`); any other variable, such as
+`SIGNALHUB_PUSH_DISPATCH_INTERVAL` or a log level, goes in the backend's
+`environment` in `compose.override.yaml`, as for FCM below. Never commit
+`.env`.
 Log levels use the standard Quarkus variables, for example
 `QUARKUS_LOG_LEVEL=DEBUG`. On startup the log shows a `Configuration: ...`
 line with the effective settings, without secrets.
