@@ -2,7 +2,8 @@ name: Release
 
 # Every commit on main is a release: re-run CI on the merged commit, publish the
 # backend image for it, check that image on both platforms, then tag the commit
-# with the next semantic version and publish a GitHub release naming the image.
+# with the next semantic version and publish a GitHub release naming the image,
+# with the deployment files that run it attached.
 on:
   push:
     branches: [main]
@@ -149,6 +150,11 @@ jobs:
           NEXT: ${{ needs.version.outputs.next }}
           DIGEST: ${{ needs.image.outputs.digest }}
         run: |
+          version=${NEXT#v}
+          # The files docs/deployment.md installs and upgrades from, running this image.
+          mkdir "$RUNNER_TEMP/assets"
+          archive=$(python3 scripts/release/deployment_files.py "$IMAGE:$version@$DIGEST" "$version" "$RUNNER_TEMP/assets")
+          (cd "$RUNNER_TEMP/assets" && sha256sum -- * > SHA256SUMS)
           notes=$(printf '%s\n' \
             '## Backend image' \
             '' \
@@ -157,6 +163,8 @@ jobs:
             "$IMAGE@$DIGEST" \
             '```' \
             '' \
-            "For \`linux/amd64\` and \`linux/arm64\`. See [docs/deployment.md](https://github.com/$GITHUB_REPOSITORY/blob/$NEXT/docs/deployment.md).")
-          # The generated notes follow these.
-          gh release create "$NEXT" --target "$GITHUB_SHA" --title "$NEXT" --notes "$notes" --generate-notes
+            "For \`linux/amd64\` and \`linux/arm64\`. Install or upgrade with the attached \`$(basename "$archive")\`, which runs this image; see [docs/deployment.md](https://github.com/$GITHUB_REPOSITORY/blob/$NEXT/docs/deployment.md).")
+          # The generated notes follow these; the deployment files and their
+          # checksums are the release's assets.
+          gh release create "$NEXT" --target "$GITHUB_SHA" --title "$NEXT" --notes "$notes" --generate-notes \
+            "$archive" "$RUNNER_TEMP/assets/SHA256SUMS"

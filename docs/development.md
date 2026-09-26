@@ -100,16 +100,24 @@ On every push to `main`:
    `scripts/release/check-image.sh`: the labels, the architecture, and,
    started with PostgreSQL, the version and commit at `/q/info` and in the
    startup summary.
-6. `gh release create` tags the commit and publishes a GitHub release whose
-   notes name the image and its digest, followed by the generated notes.
+6. `scripts/release/deployment_files.py` packs the release's deployment
+   files, `signalhub-X.Y.Z-deployment.tar.gz`: the commit's `compose.yaml`,
+   `.env.example` and `proxy/Caddyfile`, with `compose.yaml` running the
+   image just published, by tag and digest, instead of building the backend
+   (see [deployment.md](deployment.md#setup)). A `SHA256SUMS` file lists
+   its checksum.
+7. `gh release create` tags the commit and publishes a GitHub release whose
+   notes name the image and its digest, followed by the generated notes,
+   with the deployment files and `SHA256SUMS` attached.
 
 The release is complete only when its GitHub release exists. If a run fails
 after pushing the image but before the GitHub release, the version is not
 released: the git tag does not exist, and re-running the workflow, or the
 next merge's run, builds and pushes that version's image again from its own
 commit. An image tag of a published release is never pushed again, because
-the next run computes a higher version. Releases attach no files yet, so there
-are no checksums to publish; the image is identified by its digest.
+the next run computes a higher version. The deployment files name the image
+by its digest, so they run exactly the image the release checked. Releases
+up to v1.1.0 attach no deployment files.
 
 The first release that publishes an image creates the GHCR package
 `signalhub`, private at first. Making it public, so that pulling needs no
@@ -119,7 +127,9 @@ release itself logs in to pull, so it works either way.
 
 Pull requests build the image the same way on both platforms (the
 `Backend image (release build)` jobs), with the test version `0.0.0-ci`, and
-run the same checks, without pushing. Any other build of the image, such as
+run the same checks, without pushing. The upgrade and fresh-install jobs pack
+deployment files naming that image and install from them, as operators do
+with a release's. Any other build of the image, such as
 `docker compose up --build`, has no version and reports itself as a
 development build.
 
@@ -253,7 +263,8 @@ migrations are listed in
 ### Docker Compose
 
 `compose.yaml` at the repository root runs the backend image (built from
-`backend/Dockerfile`) and PostgreSQL 17 with a persistent volume:
+`backend/Dockerfile`) and PostgreSQL 17 with a persistent volume, building
+the backend from source:
 
 ```sh
 cp .env.example .env          # set SIGNALHUB_DB_PASSWORD and SIGNALHUB_ADMIN_TOKEN
@@ -261,6 +272,10 @@ docker compose up --build --wait
 curl http://localhost:8080/q/health/ready
 docker compose down           # keeps the database volume; add --volumes to delete it
 ```
+
+Deployments run a release's published image instead, from its deployment
+files (see [deployment.md](deployment.md#deployment-files)): this
+`compose.yaml` with the image in place of the build, so they build nothing.
 
 The backend waits for PostgreSQL to be healthy, applies migrations, and is
 reported healthy once readiness passes. The HTTP port is published on
@@ -816,12 +831,15 @@ scripts/release/check-image.sh signalhub-backend:check 0.0.0-ci "$(git rev-parse
 # attempt, as a retry would) and lists their events, one each, revokes the producer
 # key and expects 401, stops PostgreSQL and expects readiness 503, and checks that the image refuses to start without database
 # settings. The "Backend container (upgrade from the latest release)" job starts
-# the latest release tag with a producer, a client and a read event, backs up,
-# upgrades in place to the commit under test as in docs/deployment.md#upgrades,
-# checks the data, keys, migrations and health, and rolls back by restoring the
-# backup with the release. The "Backend container (upgrade from v0.13.0)" job
-# does the same from v0.13.0, the oldest release upgrades are tested from,
-# skipping every release since. The "End-to-end (producer to push and client inbox)"
+# the latest release (from its deployment files if it has them, otherwise from
+# its tag with its published image if it has one, or built) with a producer, a
+# client and a read event, backs up, upgrades in place to deployment files of
+# the commit under test that name the image CI built for it, as in
+# docs/deployment.md#upgrades, checks that nothing was built, the data, keys,
+# migrations and health, and rolls back by restoring the backup with the
+# release. The "Backend container (upgrade from v0.13.0)" job does the same
+# from v0.13.0, the oldest release upgrades are tested from, skipping every
+# release since. The "End-to-end (producer to push and client inbox)"
 # job starts the stack with FCM push enabled through a throwaway service account
 # key and scripts/e2e/fake_fcm.py (a stand-in for Google's token endpoint and
 # the FCM HTTP v1 API, on the runner), registers a producer and two clients,
@@ -831,7 +849,9 @@ scripts/release/check-image.sh signalhub-backend:check 0.0.0-ci "$(git rev-parse
 # push target, and the delivery metrics, then opens the pushed event with the
 # client key, lists both events in the inbox and marks the pushed one read.
 # The "Deployment (fresh install from docs/deployment.md)" job follows
-# docs/deployment.md#setup on a clean runner: .env from the example with mode
+# docs/deployment.md#setup on a clean runner, from deployment files (checked
+# against their SHA256SUMS) that name the image CI built for the commit, so
+# nothing is built on the host: .env from the example with mode
 # 600 and generated secrets, the proxy with Caddy's own CA for a name that
 # resolves to the runner, a throwaway FCM key mounted with the permissions of
 # docs/deployment.md#secrets and the resource limits, then checks that no

@@ -515,11 +515,6 @@ jobs:
       - if: always()
         run: docker compose down --volumes
 
-  # The upgrade and rollback of docs/deployment.md#upgrades: a stack of an
-  # earlier release, with data, upgraded in place to this commit and rolled
-  # back to the release again by restoring a backup. From the latest release,
-  # and from the oldest one docs/deployment.md#upgrades says is tested, which
-  # skips every release and migration in between.
   # The release's build of the backend image (scripts/release/build-image.sh), on
   # each platform it publishes, with a test version; the release runs the same
   # checks on the images it pushed.
@@ -541,6 +536,12 @@ jobs:
       - name: The image reports the version and commit it was built with
         run: scripts/release/check-image.sh signalhub-backend:check 0.0.0-ci "$GITHUB_SHA"
 
+  # The upgrade and rollback of docs/deployment.md#upgrades: a stack of an
+  # earlier release, with data, upgraded in place to this commit's deployment
+  # files and rolled back to the release again by restoring a backup. From the
+  # latest release, and from the oldest one docs/deployment.md#upgrades says is
+  # tested, which skips every release and migration in between. The image CI
+  # builds for this commit stands in for the one its release will publish.
   upgrade:
     name: Backend container (upgrade from ${{ matrix.from }})
     runs-on: ubuntu-latest
@@ -554,6 +555,8 @@ jobs:
           # preferences.
           - from: v0.13.0
             release: v0.13.0
+    env:
+      IMAGE: ghcr.io/rodrigofabreu/signalhub
     steps:
       - uses: actions/checkout@v7
         with:
@@ -561,21 +564,47 @@ jobs:
       - name: Start ${{ matrix.from }}
         env:
           RELEASE: ${{ matrix.release }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Otherwise the newest release before this commit (HEAD^ is main's tip on a pull request).
           previous=${RELEASE:-$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD^)}
           echo "upgrading from $previous"
-          {
-            echo "PREVIOUS=$previous"
-            echo "CURRENT=$(git rev-parse HEAD)"
-          } >> "$GITHUB_ENV"
-          cp .env.example .env
+          current=$(git rev-parse HEAD)
+          install=$RUNNER_TEMP/signalhub
+          mkdir "$install"
           admin_token=$(openssl rand -hex 32)
           echo "::add-mask::$admin_token"
-          echo "ADMIN_TOKEN=$admin_token" >> "$GITHUB_ENV"
-          sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" .env
-          git checkout --quiet "$previous"
-          docker compose up --build --wait --wait-timeout 180
+          cp .env.example "$install/.env"
+          sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" "$install/.env"
+          # The checkout's compose commands (logs, clean-up) need the settings too.
+          cp "$install/.env" .env
+          # Releases that attach their deployment files are installed from them,
+          # as docs/deployment.md#setup says; older ones from their tag.
+          archive=signalhub-${previous#v}-deployment.tar.gz
+          if gh release view "$previous" --json assets --jq '.assets[].name' | grep --quiet --line-regexp --fixed-strings "$archive"; then
+            gh release download "$previous" --pattern "$archive" --dir "$RUNNER_TEMP"
+            tar --extract --file "$RUNNER_TEMP/$archive" --directory "$install"
+            previous_dir=$install
+          else
+            archive=
+            previous_dir=$GITHUB_WORKSPACE
+            git checkout --quiet "$previous"
+            # With its published image if it has one (releases since R20 of
+            # docs/roadmap.md); Compose builds the missing image otherwise.
+            if docker pull "$IMAGE:${previous#v}"; then
+              docker tag "$IMAGE:${previous#v}" signalhub-backend:local
+            fi
+          fi
+          {
+            echo "PREVIOUS=$previous"
+            echo "PREVIOUS_ARCHIVE=$archive"
+            echo "PREVIOUS_DIR=$previous_dir"
+            echo "CURRENT=$current"
+            echo "INSTALL=$install"
+            echo "ADMIN_TOKEN=$admin_token"
+          } >> "$GITHUB_ENV"
+          cd "$previous_dir"
+          docker compose up --wait --wait-timeout 180
       - name: Store a producer, a client and a read event
         run: |
           created=$(curl --fail --silent --show-error \
@@ -609,15 +638,26 @@ jobs:
             --header 'Content-Type: application/json' \
             --data '{"minimumSeverity": "HIGH"}' \
             http://localhost:8080/api/v1/client/push-preferences
-      - name: Back up and upgrade to this commit
+      - name: Back up and upgrade to this commit's deployment files
         run: |
           docker compose exec -T postgres sh -c \
             'pg_dump --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --format=custom' \
             > "$RUNNER_TEMP/signalhub.dump"
           git checkout --quiet "$CURRENT"
-          docker compose up --build --wait --wait-timeout 180
+          # What the release of this commit would publish and attach.
+          scripts/release/build-image.sh 0.0.0-ci "$CURRENT" load
+          python3 scripts/release/deployment_files.py signalhub-backend:check 0.0.0-ci "$RUNNER_TEMP"
+          # As docs/deployment.md#upgrades: the new files over the old ones, or
+          # beside the .env of an install from a checkout; .env stays.
+          tar --extract --file "$RUNNER_TEMP/signalhub-0.0.0-ci-deployment.tar.gz" --directory "$INSTALL"
+          cd "$INSTALL"
+          docker compose up --wait --wait-timeout 180
           docker compose ps --format '{{.Service}}: {{.Health}}' | sort | tee "$RUNNER_TEMP/health"
           test "$(cat "$RUNNER_TEMP/health")" = "$(printf 'backend: healthy\npostgres: healthy')"
+          # Nothing was built: the backend runs the image of the deployment files.
+          test "$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps --quiet backend)")" = signalhub-backend:check
+          curl --fail --silent --show-error http://localhost:8080/q/info \
+            | jq --exit-status '.signalhub.version == "0.0.0-ci" and .signalhub.revision == env.CURRENT'
       - name: The data and keys of the release survive the upgrade
         run: |
           curl --fail --silent --show-error \
@@ -642,18 +682,27 @@ jobs:
           test "$(cat "$RUNNER_TEMP/migrations")" = "$migrations|0"
       - name: Rolling back to the release restores its backup
         run: |
-          git checkout --quiet "$PREVIOUS"
+          # The release's own deployment files, or its tag.
+          up=(up --wait --wait-timeout 180)
+          if [ -n "$PREVIOUS_ARCHIVE" ]; then
+            tar --extract --file "$RUNNER_TEMP/$PREVIOUS_ARCHIVE" --directory "$INSTALL"
+          else
+            git checkout --quiet "$PREVIOUS"
+            up+=(--build)
+          fi
+          cd "$PREVIOUS_DIR"
           docker compose down
           docker volume rm signalhub_postgres-data
           docker compose up --wait --wait-timeout 120 postgres
           docker compose exec -T postgres sh -c \
             'pg_restore --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-owner --no-privileges --exit-on-error --single-transaction' \
             < "$RUNNER_TEMP/signalhub.dump"
-          docker compose up --build --wait --wait-timeout 180
+          docker compose "${up[@]}"
           curl --fail --silent --show-error \
             --header "Authorization: Bearer $CLIENT_KEY" \
             http://localhost:8080/api/v1/events \
             | jq --exit-status '[.items[].title] == ["Before the upgrade"]'
+          cd "$GITHUB_WORKSPACE"
           git checkout --quiet "$CURRENT"
       - if: failure()
         run: docker compose logs
@@ -800,9 +849,11 @@ jobs:
       - if: always()
         run: docker compose down --volumes
 
-  # A fresh install that follows docs/deployment.md#setup to the letter, with
-  # the FCM key and resource limits it points to, then the tightest secret
-  # setup and a restart of Docker, as after a host reboot.
+  # A fresh install that follows docs/deployment.md#setup to the letter, from
+  # a release's deployment files, with the FCM key and resource limits it
+  # points to, then the tightest secret setup and a restart of Docker, as after
+  # a host reboot. The image CI builds for this commit, and the deployment
+  # files naming it, stand in for what its release will publish and attach.
   fresh-install:
     name: Deployment (fresh install from docs/deployment.md)
     runs-on: ubuntu-latest
@@ -815,7 +866,22 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install ./sdk/python
+      - name: Build what the release publishes and attaches
+        run: |
+          scripts/release/build-image.sh 0.0.0-ci "$GITHUB_SHA" load
+          mkdir "$RUNNER_TEMP/release"
+          python scripts/release/deployment_files.py signalhub-backend:check 0.0.0-ci "$RUNNER_TEMP/release"
+          (cd "$RUNNER_TEMP/release" && sha256sum signalhub-0.0.0-ci-deployment.tar.gz > SHA256SUMS)
+      - name: Get the deployment files as documented
+        run: |
+          mkdir "$RUNNER_TEMP/signalhub"
+          cd "$RUNNER_TEMP/signalhub"
+          # Stands in for the download from the release.
+          cp "$RUNNER_TEMP"/release/* .
+          sha256sum --check --ignore-missing SHA256SUMS
+          tar --extract --file signalhub-0.0.0-ci-deployment.tar.gz
       - name: Set up .env, the FCM key and the resource limits as documented
+        working-directory: ${{ runner.temp }}/signalhub
         run: |
           # The name clients use resolves to this host.
           echo "127.0.0.1 $DOMAIN" | sudo tee --append /etc/hosts
@@ -856,15 +922,20 @@ jobs:
               mem_limit: 256m
           YAML
       - name: Start the stack
+        working-directory: ${{ runner.temp }}/signalhub
         run: |
-          docker compose up --build --wait
+          docker compose up --wait
+          # Nothing was built: the backend runs the image the files name.
+          test "$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps --quiet backend)")" = signalhub-backend:check
           logs=$(docker compose logs backend)
+          grep --quiet --fixed-strings 'SignalHub 0.0.0-ci (commit' <<<"$logs"
           grep --quiet 'FCM push enabled for Firebase project signalhub-fresh-install' <<<"$logs"
           grep --quiet 'Push providers: \[fcm\]' <<<"$logs"
           if grep --quiet --fixed-strings --regexp "$DB_PASSWORD" --regexp "$ADMIN_TOKEN" <<<"$logs"; then
             echo "a secret was logged"; exit 1
           fi
       - name: The host publishes only the ports docs/deployment.md lists
+        working-directory: ${{ runner.temp }}/signalhub
         run: |
           test "$(stat --format %a .env)" = 600
           # Host address and port of every published container port, as "ip:port".
@@ -882,6 +953,7 @@ jobs:
           test "$(published proxy | tr ' ' '\n' | sed 's/.*://' | sort --unique | paste --serial --delimiters ' ')" \
             = '443 80'
       - name: Other machines reach the API over TLS, with Caddy's own CA
+        working-directory: ${{ runner.temp }}/signalhub
         run: |
           docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt > signalhub-ca.crt
           echo "SSL_CERT_FILE=$PWD/signalhub-ca.crt" >> "$GITHUB_ENV"
@@ -892,6 +964,7 @@ jobs:
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
           jq --exit-status '.status == 401' response.json
       - name: The operator manages on the host; producers and clients go through the proxy
+        working-directory: ${{ runner.temp }}/signalhub
         run: |
           admin() {
             curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
@@ -913,6 +986,7 @@ jobs:
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' --cacert signalhub-ca.crt \
             --header "Authorization: Bearer $ADMIN_TOKEN" "$SIGNALHUB_URL/api/v1/admin/producers")" = 404
       - name: Without the admin token, management is off and clients keep reading
+        working-directory: ${{ runner.temp }}/signalhub
         run: |
           # The tightest setup of docs/deployment.md#secrets.
           sed -i 's/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=/' .env
@@ -923,6 +997,7 @@ jobs:
             --header "Authorization: Bearer $CLIENT_KEY" "$SIGNALHUB_URL/api/v1/events" \
             | jq --exit-status '[.items[].id] == [env.EVENT_ID]'
       - name: Every service comes back by itself when Docker restarts, as after a reboot
+        working-directory: ${{ runner.temp }}/signalhub
         run: |
           sudo systemctl restart docker
           # No docker compose command: the restart policy alone brings the stack back.
@@ -941,6 +1016,8 @@ jobs:
             --header "Authorization: Bearer $CLIENT_KEY" "$SIGNALHUB_URL/api/v1/events" \
             | jq --exit-status '[.items[].id] == [env.EVENT_ID]'
       - if: failure()
+        working-directory: ${{ runner.temp }}/signalhub
         run: docker compose logs
       - if: always()
+        working-directory: ${{ runner.temp }}/signalhub
         run: docker compose down --volumes

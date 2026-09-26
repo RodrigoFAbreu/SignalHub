@@ -1,11 +1,13 @@
 # SignalHub backend and PostgreSQL.
 #
 #   cp .env.example .env    # then set SIGNALHUB_DB_PASSWORD
-#   docker compose up --build --wait
+#   docker compose up --wait
 #
-# See docs/development.md#docker-compose. The "proxy" profile adds the TLS
-# reverse proxy that serves SignalHub to other machines; see
-# docs/deployment.md.
+# A release's deployment files run its published backend image; see
+# docs/deployment.md. In a checkout, the backend is built from source with
+# `docker compose up --build --wait`; see docs/development.md#docker-compose.
+# The "proxy" profile adds the TLS reverse proxy that serves SignalHub to
+# other machines.
 name: signalhub
 
 services:
@@ -26,6 +28,8 @@ services:
     # Not published to the host: only the backend talks to the database.
 
   backend:
+    # Built from source. A release's deployment files replace these two lines
+    # with the release's published image (scripts/release/deployment_files.py).
     build: ./backend
     image: signalhub-backend:local
     restart: unless-stopped

@@ -766,6 +766,37 @@ The following capabilities are already implemented and merged unless repository 
   depending on timing; a `fix(release)` PR reads the log first (in
   `check-image.sh` and one CI step), with a test of `check-image.sh` that
   reproduces the race, and its release is the first to publish the image
+  (`v1.1.0`, with R20's own change, on 2026-09-26)
+
+### R21 - Deploying from published images
+
+- each release attaches its deployment files,
+  `signalhub-X.Y.Z-deployment.tar.gz` (`compose.yaml`, `.env.example`,
+  `proxy/Caddyfile`), and their checksum in `SHA256SUMS`; the release's
+  `compose.yaml` runs its published backend image, by version and digest,
+  instead of building it (`scripts/release/deployment_files.py`, which
+  replaces the repository's build of the backend and refuses a
+  `compose.yaml` that builds it differently); the files come with the
+  release, not from its tag, because a tag's own `compose.yaml` cannot name
+  the version it is about to become, and no version setting is needed
+- `docs/deployment.md`: setup downloads and checks the files, then
+  `docker compose up --wait` pulls the images; upgrades unpack the new files
+  over the old (`.env` and `compose.override.yaml` stay), compare
+  `.env.example`, pull and restart; rolling back unpacks the older release's
+  files and restores the backup; an install from a clone moves to the files
+  with its next upgrade (the Compose project name keeps its volumes), and
+  releases up to `v1.1.0`, which have no files, still run from a clone
+- the repository's `compose.yaml` still builds from source, for local
+  development and for installs that keep upgrading in a clone, so no
+  existing install or procedure breaks: `feat`
+- the fresh-install job installs from files naming the image CI built for
+  the commit (checked against their `SHA256SUMS`) and checks that nothing
+  was built; the upgrade jobs start the older release from its files when
+  it has them, from its tag with its published image when it has one (`v1.1.0`),
+  and built from its tag otherwise (`v0.13.0`), then upgrade to files for
+  the commit under test and roll back with the release's files or tag
+- tests of the packing (only the backend's build replaced, fixed contents,
+  refusals); no backend, API, schema, client or SDK changes
 
 ---
 
@@ -1294,8 +1325,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 5 | G2 - Explicit approval of `v1.0.0` (decision D4) | Human gate | Given (2026-09-26) |
 | 6 | R19 - `v1.0.0` | Increment (`!`, the release) | Done (see section 3); released `v1.0.0` on 2026-09-26 |
 | 7 | R20 - Version identity and the published backend image | Increment (`feat`) | Done (see section 3) |
-| 8 | R21 - Deploying from published images | Increment | Next |
-| 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Blocked until R21 is merged |
+| 8 | R21 - Deploying from published images | Increment (`feat`) | Done (see section 3) |
+| 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Next |
 | 10 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Not given (may be answered at any time) |
 | 11 | R23 - Push configuration served by the backend | Increment (`feat`), only if D5 chooses it | Blocked by G3 |
 | 12 | R24 - Installable Android app in each release | Increment (`feat`) | Blocked by G3 (and R23 if D5 chooses it) |
@@ -1613,7 +1644,7 @@ that release's backend on x86-64 and ARM64, and it reports that version.
 
 ### R21 - Deploying from published images
 
-Status: next.
+Status: done (see section 3).
 
 Goal: operators install, upgrade and roll back a release by pulling its
 images instead of building from a checkout.
@@ -1647,7 +1678,7 @@ Exit criteria: a fresh install and an upgrade that follow
 
 ### R22 - SDK and command version, and SDK files in each release
 
-Status: planned; blocked until R21 is merged.
+Status: next.
 
 Goal: the Python SDK and the `signalhub` command identify the SignalHub
 release they belong to, and each release carries them ready to install.
@@ -1658,7 +1689,8 @@ Scope:
   version, not a separate SDK version), and the package's metadata
   (`importlib.metadata`) carries it
 - the release attaches the SDK's wheel and source archive, built from the
-  tag with that version, and their checksums; `sdk/python/README.md` shows
+  tag with that version, and their checksums (in the release's
+  `SHA256SUMS`, which R21 started); `sdk/python/README.md` shows
   installing the release's wheel
 - installing from a tag, as documented today, keeps working; it reports that
   release's version if the build backend can do so without a heavy new
@@ -1988,13 +2020,13 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. After R20, the expected next item is:
+(section 4) is authoritative. After R21, the expected next item is:
 
-**R21 - Deploying from published images**, once the release workflow has
-published R20's release with its backend image: check that the GitHub
-release exists and names `ghcr.io/rodrigofabreu/signalhub:X.Y.Z` before
-starting it. If that release failed, correcting it comes first. The queue
-then continues with R22 to R24 (with the maintainer's decisions D5 and D6
+**R22 - SDK and command version, and SDK files in each release**, once the
+release workflow has published R21's release: check that the GitHub release
+exists and attaches `signalhub-X.Y.Z-deployment.tar.gz` and `SHA256SUMS`
+before starting it. If that release failed, correcting it comes first. The
+queue then continues with R23 and R24 (with the maintainer's decisions D5 and D6
 at G3), then Java 25 (R25) and PostgreSQL 18 (R26), each in its own PR (see
 [section 5](#5-after-v100)).
 
