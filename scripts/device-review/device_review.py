@@ -49,6 +49,10 @@ EVENT_SCREEN_TITLE = "Event"
 
 PUSH_WAIT = 90.0
 QUIET_WAIT = 20.0
+POPUP_WAIT = 30.0
+# How many screen rows' worth of pixels a pop-up changes at least: Samsung's
+# brief pop-up changes about 17 rows, the clock and status icons less than 1.
+POPUP_ROWS = 5
 # The level field of a log line, in the text format or as JSON.
 LOG_PROBLEM = re.compile(
     r"\s(?:WARN|ERROR|FATAL)\s+\[|\"level\"\s*:\s*\"(?:WARN|WARNING|ERROR|SEVERE|FATAL)\""
@@ -871,16 +875,24 @@ def check_offline_push(review: Review) -> str:
 def check_popup_over_other_app(review: Review) -> str:
     device = review.device
     device.shell("am start -W -a android.settings.SETTINGS")
-    time.sleep(2)
+    # The pop-up of an earlier check's push may still be on show; the
+    # baseline must be taken once it has gone.
+    time.sleep(QUIET_WAIT)
     before = device.screenshot("popup-before")
     title = review.title("pop-up")
-    review.server.publish(title)
-    device.wait_for_notification(title)
-    after = device.screenshot("popup-after")
     width, height = device.screen_size()
-    changed = pixels_differ(before, after, f"{width}x{height // 5}+0+0")
+    review.server.publish(title)
+    # A pop-up shows for a few seconds only, often gone by the time polling
+    # finds the notification, so watch the screen from the publish on.
+    deadline = time.monotonic() + POPUP_WAIT
+    while True:
+        after = device.screenshot("popup-after")
+        changed = pixels_differ(before, after, f"{width}x{height // 5}+0+0")
+        if changed >= width * POPUP_ROWS or time.monotonic() > deadline:
+            break
+    device.wait_for_notification(title)
     device.home()
-    if changed < width * 20:
+    if changed < width * POPUP_ROWS:
         raise CheckFailed(f"only {changed} pixels changed at the top: no pop-up shown")
     return f"a pop-up over Settings ({changed} pixels changed at the top)"
 

@@ -684,10 +684,13 @@ The following capabilities are already implemented and merged unless repository 
 - at the start of G1 the guard was found to take a locked phone for the
   shade (both are focused as `NotificationShade`); it now also reads
   whether the lock screen is showing and never touches a locked phone;
-  the first G1 run also found two races in the script, not in the app:
-  `push-preferences` changed the preferences before the paused event was
-  dispatched (preferences apply at dispatch), and waiting for a restarting
-  backend stopped the run on a reset connection; both are fixed
+  the first G1 runs also found three defects in the script, not in the
+  app: `push-preferences` changed the preferences before the paused event
+  was dispatched (preferences apply at dispatch); waiting for a restarting
+  backend stopped the run on a reset connection; and `popup-over-other-app`
+  could take its baseline with an earlier pop-up still on show, looked only
+  after the notification was found (Samsung's brief pop-up shows for about
+  4 s) and needed more changed pixels than that pop-up changes; all are fixed
 
 ### R18r - Stale branch cleanup
 
