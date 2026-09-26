@@ -110,7 +110,13 @@ public class EventResource {
           "Missing, malformed, unknown or revoked API key, or the producer is disabled. The"
               + " response does not say which.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
-  @APIResponse(responseCode = "413", description = "The body is larger than 64 KiB.")
+  @APIResponse(
+      responseCode = "413",
+      description = "The body is larger than 64 KiB. The HTTP layer refuses it without a body.")
+  @APIResponse(
+      responseCode = "415",
+      description = "The body is not JSON.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
   public Response create(@NotNull @Valid CreateEventRequest request) {
     var event = events.create(producer.get(), request);
     // Counted once committed: create returns only after the transaction.

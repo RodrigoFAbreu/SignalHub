@@ -211,8 +211,19 @@ The event is committed to PostgreSQL before `201` is returned. Errors:
   coerced, e.g. `42` is not a string), and failed validation. `field` is the
   JSON path, or empty for the whole body.
 - `404` with the same body shape (no violations) for an unknown event ID. A
-  malformed ID is also `404`, without a body.
+  malformed ID is also `404`.
 - `413` for request bodies over 64 KiB, and `415` for non-JSON bodies.
+
+Every error from the product API (paths under `/api/`) has this JSON body,
+with an empty `violations` list when no field is at fault. That includes the
+errors Quarkus raises before a resource runs: an unknown path or malformed ID
+(`404`), an unsupported method (`405`), an
+unacceptable `Accept` header (`406`) and a non-JSON body (`415`); their
+`title` is the HTTP reason phrase, such as `"Method Not Allowed"`. The one
+exception is `413`: the HTTP server refuses an oversized body before the
+request is routed, so it has no body and closes the connection. Clients
+should decide by the status and treat the body as a description. Releases
+before v0.24.0 answered those errors without a body.
 
 Reading an event by its ID needs the same credential as the
 [listing](#listing-events): a client key or the admin token. A producer key

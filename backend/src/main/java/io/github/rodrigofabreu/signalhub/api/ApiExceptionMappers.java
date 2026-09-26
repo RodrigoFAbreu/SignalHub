@@ -11,7 +11,9 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.ElementKind;
 import jakarta.validation.Path;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import java.time.temporal.Temporal;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -21,7 +23,8 @@ import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 
 /**
  * Turns request validation and JSON binding failures into {@link ApiError} bodies that name fields
- * by their JSON path, never by Java method or class names.
+ * by their JSON path, never by Java method or class names, and gives the product API's other errors
+ * the same body.
  */
 class ApiExceptionMappers {
 
@@ -48,15 +51,28 @@ class ApiExceptionMappers {
 
   /**
    * Quarkus wraps JSON syntax errors (and nesting or length limits) in a plain 400; give them the
-   * same body as other invalid input. Every other exception keeps its own response.
+   * same body as other invalid input. Other errors Quarkus raises without a body (an unknown path,
+   * a malformed ID, an unsupported method or media type) get an {@link ApiError} named after their
+   * status, so every product API error has the same shape. Responses that have a body keep it.
    */
   @ServerExceptionMapper
-  Response webApplicationException(WebApplicationException e) {
-    if (e.getResponse().getStatus() == 400
-        && e.getCause() instanceof JsonProcessingException json) {
+  Response webApplicationException(WebApplicationException e, UriInfo uri) {
+    var response = e.getResponse();
+    if (response.getStatus() == 400 && e.getCause() instanceof JsonProcessingException json) {
       return unreadableBody(json);
     }
-    return e.getResponse();
+    if (response.getStatus() < 400 || response.hasEntity() || !isProductApi(uri)) {
+      return response;
+    }
+    return Response.fromResponse(response)
+        .entity(ApiError.of(response.getStatusInfo()))
+        .type(MediaType.APPLICATION_JSON_TYPE)
+        .build();
+  }
+
+  /** Quarkus's own endpoints under {@code /q} keep their responses. */
+  private static boolean isProductApi(UriInfo uri) {
+    return uri.getPath().startsWith("/api/");
   }
 
   private static Response badRequest(List<ApiError.Violation> violations) {
