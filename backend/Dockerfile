@@ -9,7 +9,7 @@
 
 # Base images are pinned by digest for reproducible builds; Dependabot updates them.
 # The build image's Maven version matches .mvn/wrapper/maven-wrapper.properties.
-FROM maven:3.9.16-eclipse-temurin-21-noble@sha256:c2a2c58516d160f43b50f12baa427ca86989e0bc942609e04aff61da5d9a7d74 AS build
+FROM maven:3-eclipse-temurin-24-noble@sha256:a137a467ec89b5713d0be817b55bdba6b4d6ef16e3d05565a79bc08d8e775a1c AS build
 WORKDIR /build
 # Resolve dependencies in their own layer so source changes do not re-download them.
 COPY pom.xml ./
