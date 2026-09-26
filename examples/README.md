@@ -46,10 +46,12 @@ system's secret store; never in the script or a repository. The Python
 examples and the disk monitor need the package: `pip install
 "signalhub @ git+https://github.com/RodrigoFAbreu/SignalHub@vX.Y.Z#subdirectory=sdk/python"`.
 
-None of the examples retries by itself (except `curl --retry` in the
-GitHub Actions one): publishing is not idempotent yet (see
-[docs/architecture.md](../docs/architecture.md#ids)), so a retry after a
-timeout may store an event twice.
+Only the GitHub Actions example retries (`curl --retry`), and it sends an
+`Idempotency-Key` naming the run and its attempt, so a retry after a timeout
+never stores the event twice (see
+[docs/architecture.md](../docs/architecture.md#idempotent-publishing)). The
+others publish once per run and report a failure; a producer that adds
+retries should send such a key too.
 
 ## Shell: run a command and report its outcome
 
@@ -94,7 +96,8 @@ Copy [`notify-on-failure.yml`](github-actions/notify-on-failure.yml) to
 watch under `workflows:`. In the repository settings, add a variable
 `SIGNALHUB_URL` and a secret `SIGNALHUB_API_KEY`. When a listed workflow
 fails, it publishes the workflow, branch, commit and a link to the run, with
-the repository as the context. The server must be reachable from GitHub's
+the repository as the context, once per run attempt however often `curl`
+retries. The server must be reachable from GitHub's
 runners (see [docs/deployment.md](../docs/deployment.md)); on a self-hosted
 runner it can be a private address.
 

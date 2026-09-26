@@ -31,6 +31,8 @@ jobs:
           COMMIT: ${{ github.event.workflow_run.head_sha }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
         run: |
           event=$(jq --null-input \
             '{category: "BLOCKED", severity: "HIGH",
@@ -39,9 +41,11 @@ jobs:
               context: env.REPOSITORY,
               metadata: {workflow: env.WORKFLOW, branch: env.BRANCH, commit: env.COMMIT,
                          runNumber: (env.RUN_NUMBER | tonumber), url: env.RUN_URL}}')
-          # Retrying after a timeout may store the event twice (publishing is
-          # not idempotent); for a failed run, a duplicate beats a lost event.
+          # The idempotency key names this run and attempt, so a retry after a
+          # timeout stores the event once; a re-run that fails again is a new
+          # attempt and is published again.
           printf 'Authorization: Bearer %s\n' "$SIGNALHUB_API_KEY" |
             curl --fail-with-body --silent --show-error --max-time 10 --retry 3 \
               --header @- --header 'Content-Type: application/json' \
+              --header "Idempotency-Key: github-run-$RUN_ID-$RUN_ATTEMPT" \
               --data "$event" "$SIGNALHUB_URL/api/v1/events"

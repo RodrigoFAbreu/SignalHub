@@ -173,7 +173,7 @@ class GitHubActionsTest(ExampleTest):
         _, block = lines.split("        run: |\n")
         return textwrap.dedent(block)
 
-    def test_the_step_publishes_the_failed_run(self) -> None:
+    def run_step(self) -> subprocess.CompletedProcess[str]:
         env = dict(
             self.env,
             REPOSITORY="owner/repo",
@@ -182,10 +182,11 @@ class GitHubActionsTest(ExampleTest):
             COMMIT="0123456789abcdef0123456789abcdef01234567",
             RUN_URL="https://github.com/owner/repo/actions/runs/1",
             RUN_NUMBER="42",
+            RUN_ID="1",
+            RUN_ATTEMPT="2",
         )
-
         # The shell GitHub Actions runs `run:` scripts with.
-        result = self.run_example(
+        return self.run_example(
             "bash",
             "--noprofile",
             "--norc",
@@ -196,7 +197,12 @@ class GitHubActionsTest(ExampleTest):
             env=env,
         )
 
+    def test_the_step_publishes_the_failed_run(self) -> None:
+        result = self.run_step()
+
         self.assertEqual(result.returncode, 0, result.stderr)
+        [request] = self.server.requests
+        self.assertEqual(request["headers"]["Idempotency-Key"], "github-run-1-2")
         [event] = self.server.events
         self.assertEqual(event["category"], "BLOCKED")
         self.assertEqual(event["severity"], "HIGH")
@@ -205,6 +211,20 @@ class GitHubActionsTest(ExampleTest):
         self.assertIn("CI #42 failed for 0123456789ab on feature/x", event["message"])
         self.assertEqual(event["metadata"]["runNumber"], 42)
         self.assertEqual(event["metadata"]["branch"], "feature/x")
+
+    def test_retries_send_the_same_event_with_the_same_idempotency_key(self) -> None:
+        self.server.status = 503
+
+        result = self.run_step()
+
+        self.assertNotEqual(result.returncode, 0)
+        # The first attempt and curl's three retries.
+        self.assertEqual(len(self.server.requests), 4)
+        self.assertEqual(
+            {r["headers"]["Idempotency-Key"] for r in self.server.requests},
+            {"github-run-1-2"},
+        )
+        self.assertEqual(len({json.dumps(e) for e in self.server.events}), 1)
 
 
 class AgentHookTest(ExampleTest):
