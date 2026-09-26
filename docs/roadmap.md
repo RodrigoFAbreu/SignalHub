@@ -479,6 +479,23 @@ The following capabilities are already implemented and merged unless repository 
   covered by its tests against its fake server, and receiving a push on a
   real device still needs the maintainer's Firebase project
 
+### R18e - Fresh-install deployment test
+
+- a new CI job, `Deployment (fresh install from docs/deployment.md)`,
+  follows the setup of `docs/deployment.md` on a clean runner: `.env` from
+  the example with mode 600 and generated secrets, the proxy with Caddy's
+  own CA for a name that resolves to the host, a throwaway FCM key mounted
+  with the documented permissions, and the documented resource limits
+- checks that no secret is logged, that only the documented ports are
+  published (the backend on `127.0.0.1`, PostgreSQL not at all), `401` over
+  TLS from "another machine", publishing with the `signalhub` command and
+  reading the inbox with a client key through the proxy, the management API
+  off once the admin token is emptied (clients keep reading), and every
+  service back by itself after Docker restarts, as after a reboot
+- fixes the documented FCM key permissions: `chmod 400` before
+  `sudo chown 10001`, since only the owner may change the mode
+- no backend, schema or client changes
+
 ---
 
 ## 4. Planned roadmap
@@ -859,8 +876,9 @@ Exit criteria:
 ### R18 - v1.0 hardening and contract review
 
 Status: in progress; R18a (refusing a newer schema), R18b (reading an
-event needs the owner's credential), R18c (one error format) and R18d (the
-end-to-end test) are complete (see section 3).
+event needs the owner's credential), R18c (one error format), R18d (the
+end-to-end test) and R18e (the fresh-install deployment test) are complete
+(see section 3).
 
 Goal: deliberately declare the first stable SignalHub contract.
 
@@ -890,7 +908,7 @@ Perform:
 - cleanup of temporary/pre-1.0 decisions
 - removal of obsolete compatibility paths where appropriate
 - full end-to-end test from producer -> API -> persistence -> push -> client inbox (done in R18d)
-- fresh-install deployment test
+- fresh-install deployment test (done in R18e)
 - upgrade-from-supported-previous-release test
 
 Human gate:
@@ -957,7 +975,7 @@ Determine this from repository state rather than trusting this section blindly.
 
 After the integration examples (R17), the expected next increment is:
 
-**R18 - v1.0 hardening and contract review**, continuing after R18d
+**R18 - v1.0 hardening and contract review**, continuing after R18e
 
 Likely split into bounded increments: the reviews and tests R18 lists. Promotion to `v1.0.0` itself is always the
 maintainer's decision. Confirming delivery to a real device (R8 to R10)

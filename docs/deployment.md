@@ -137,7 +137,7 @@ runtime; none is in the repository or the images.
 |---|---|---|
 | Database password | `.env` (`SIGNALHUB_DB_PASSWORD`) | Set when the database volume is created; changing it later needs `ALTER ROLE` in PostgreSQL too. |
 | Admin token | `.env` (`SIGNALHUB_ADMIN_TOKEN`) | Only needed while managing producers and clients. For the tightest setup, set it, `docker compose up --wait`, manage, then empty it and `docker compose up --wait` again; clients keep reading with their own keys. |
-| FCM service account key | A file outside the repository, mounted read-only (see [development.md](development.md#firebase-cloud-messaging)) | Owned by you, readable by UID 10001 (the backend's user): `sudo chown 10001 fcm.json && chmod 400 fcm.json`. |
+| FCM service account key | A file outside the repository, mounted read-only (see [development.md](development.md#firebase-cloud-messaging)) | Readable only by UID 10001 (the backend's user): `chmod 400 fcm.json && sudo chown 10001 fcm.json`, in this order, since only the owner may change the mode. |
 | Producer API keys and client keys | Each producer's and client's own configuration | The server keeps only hashes; revoke and reissue a key through the management API. |
 | TLS keys, internal CA | `proxy-data` volume | Managed by Caddy. |
 
