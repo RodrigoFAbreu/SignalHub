@@ -656,6 +656,23 @@ failures), and push preferences (saving each change, what the server
 stored, muted producers without inbox events, failures, a server without
 them). Builds without Firebase options run without push.
 
+### Device review
+
+A functional review of the app on a real Android phone is scripted in
+[`scripts/device-review/`](../scripts/device-review/README.md): over `adb`,
+against the local Compose stack with FCM, it publishes events and checks
+start-up, pushes in the foreground, the background and to a killed app,
+read state, push preferences, idempotent publishing, a stopped and a
+restarted backend, a phone that was offline, and the backend log. It never
+touches the screen unless SignalHub (or the notification shade it opened)
+is in front. It is run by hand, with a debug build set up with a client
+key, and publishes events (see [Clearing local test data](#clearing-local-test-data)).
+CI runs only its unit tests, which need no device:
+
+```sh
+python -m unittest discover --start-directory scripts/device-review --verbose
+```
+
 ## Python SDK
 
 The producer package and `signalhub` command live in `sdk/python/`. See
@@ -713,6 +730,7 @@ pip install --requirement .github/tools/requirements.txt   # ruff
 ruff check .
 ruff format --check .
 python -m unittest discover --start-directory scripts/release --verbose
+python -m unittest discover --start-directory scripts/device-review --verbose
 # Python SDK, also run with python3.10 in CI
 pip install ./sdk/python && signalhub send --help
 python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python --verbose

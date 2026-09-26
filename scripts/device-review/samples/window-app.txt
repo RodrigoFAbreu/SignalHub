@@ -1,0 +1,11 @@
+WINDOW MANAGER WINDOWS (dumpsys window windows)
+  Window #0 Window{c1a2b3d u0 StatusBar}:
+    mDisplayId=0 rootTaskId=1 mSession=Session{8e1f0aa 1520:u0a10123} mClient=android.os.BinderProxy@4f2d1e7
+  Window #1 Window{8f3c2a1 u0 io.github.rodrigofabreu.signalhub/io.github.rodrigofabreu.signalhub.MainActivity}:
+    mDisplayId=0 rootTaskId=41 mSession=Session{2b7c9d1 22417:u0a10234} mClient=android.os.BinderProxy@7a0e3c5
+
+  mGlobalConfiguration={1.0 ?mcc?mnc [en_US] ldltr sw411dp w411dp h914dp 420dpi nrml long port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2400)}}
+  mHasPermanentDpad=false
+  mTopFocusedDisplayId=0
+  mCurrentFocus=Window{8f3c2a1 u0 io.github.rodrigofabreu.signalhub/io.github.rodrigofabreu.signalhub.MainActivity}
+  mFocusedApp=ActivityRecord{5d1e0b2 u0 io.github.rodrigofabreu.signalhub/.MainActivity t41}

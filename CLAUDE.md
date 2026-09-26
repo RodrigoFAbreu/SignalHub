@@ -141,6 +141,7 @@ owner. Removing it in a later commit is not enough.
 ruff check . && ruff format --check .
 python -m unittest discover --start-directory scripts/release --verbose
 python scripts/release/release.py check-title "feat: my change"   # preview release impact
+python -m unittest discover --start-directory scripts/device-review --verbose   # device-review script (no device needed)
 pip install ./sdk/python && python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python   # Python SDK/CLI
 shellcheck examples/*/*.sh && python -m unittest discover --start-directory examples/tests   # integration examples (after installing the SDK)
 (cd backend && ./mvnw verify)      # backend build, tests (needs Docker), format, SpotBugs

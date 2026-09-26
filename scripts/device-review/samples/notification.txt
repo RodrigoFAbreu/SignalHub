@@ -1,0 +1,29 @@
+Current Notification Manager state:
+  Notification List:
+    NotificationRecord(0x0e2f5c1a: pkg=io.github.rodrigofabreu.signalhub user=UserHandle{0} id=0 tag=FCM-Notification:84532891 importance=4 key=0|io.github.rodrigofabreu.signalhub|0|FCM-Notification:84532891|10234 appImportanceLocked=false: Notification(channel=events shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x10 color=0x00000000 vis=PRIVATE))
+      uid=10234 userId=0
+      opPkg=io.github.rodrigofabreu.signalhub
+      icon=Icon(typ=RESOURCE pkg=io.github.rodrigofabreu.signalhub id=0x7f080001)
+      flags=AUTO_CANCEL
+      extras={
+        android.title=String (Device review: background 3f9a1c)
+        android.text=String (Published by the device review.)
+        android.reduced.images=Boolean (true)
+      }
+    NotificationRecord(0x7b1d9e40: pkg=com.android.systemui user=UserHandle{0} id=7 tag=null importance=2 key=0|com.android.systemui|7|null|10123 appImportanceLocked=true: Notification(channel=BAT shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x2 color=0x00000000 vis=PRIVATE))
+      uid=10123 userId=0
+      extras={
+        android.title=String (Battery at 81%)
+      }
+    NotificationRecord(0x3a5c8e11: pkg=io.github.rodrigofabreu.signalhub user=UserHandle{0} id=0 tag=FCM-Notification:84533002 importance=3 key=0|io.github.rodrigofabreu.signalhub|0|FCM-Notification:84533002|10234 appImportanceLocked=false: Notification(channel=fcm_fallback_notification_channel shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x10 color=0x00000000 vis=PRIVATE))
+      uid=10234 userId=0
+      extras={
+        android.title=String (An older push (in parentheses))
+      }
+
+  Notification Preferences:
+    AppSettings: com.android.systemui (10123) importance=DEFAULT userLockedFields=0
+      NotificationChannel{mId='events', mName=System events, mDescription=, mImportance=2, mBypassDnd=false, mLockscreenVisibility=-1000, mSound=null}
+    AppSettings: io.github.rodrigofabreu.signalhub (10234) importance=DEFAULT userLockedFields=0
+      NotificationChannel{mId='fcm_fallback_notification_channel', mName=Miscellaneous, mDescription=, mImportance=3, mBypassDnd=false, mLockscreenVisibility=-1000, mSound=content://settings/system/notification_sound}
+      NotificationChannel{mId='events', mName=Events, mDescription=hasDescription , mImportance=4, mBypassDnd=false, mLockscreenVisibility=-1000, mSound=content://settings/system/notification_sound}

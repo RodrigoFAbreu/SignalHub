@@ -1,0 +1,3 @@
+  mTopFocusedDisplayId=0
+  mCurrentFocus=Window{a4d91c0 u0 NotificationShade}
+  mFocusedApp=ActivityRecord{5d1e0b2 u0 io.github.rodrigofabreu.signalhub/.MainActivity t41}

@@ -37,6 +37,9 @@ jobs:
       - run: ruff format --check .
       - name: Test release versioning
         run: python -m unittest discover --start-directory scripts/release --verbose
+      # The device run itself stays manual (scripts/device-review/README.md).
+      - name: Test the device-review script
+        run: python -m unittest discover --start-directory scripts/device-review --verbose
       # Installing the SDK also checks its build and the `signalhub` command.
       - run: pip install ./sdk/python && signalhub send --help
       - name: Test the Python SDK
