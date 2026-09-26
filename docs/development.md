@@ -55,18 +55,20 @@ settings and PR description text. Use `!` in the title.
 
 Versions are `vMAJOR.MINOR.PATCH` git tags.
 
-| Title | Version 1.0.0 or later | Before 1.0.0 (now) |
-|---|---|---|
-| `feat!:` / any `type!:` (breaking) | major | **minor** |
-| `feat:` | minor | minor |
-| `fix:` and all other types | patch | patch |
+| Title | Bump |
+|---|---|
+| `feat!:` / any `type!:` (breaking) | major |
+| `feat:` | minor |
+| `fix:` and all other types | patch |
 
-**Pre-1.0 rule:** SignalHub is in initial development. A breaking change bumps
-the minor version (`0.4.2` → `0.5.0`), as SemVer allows for `0.y.z`. A `!`
-never produces `1.0.0` by accident. This means a `0.x` minor release may be
-breaking; read the release notes. Moving to `1.0.0` is a deliberate decision.
-It is made in a PR that changes the release policy in
-`scripts/release/release.py` and its tests, and updates this document.
+SignalHub follows SemVer from `1.0.0`: a breaking change of the public
+contract ([architecture.md](architecture.md#compatibility)) is a major
+release, and only a title with `!` produces one. The version is the whole
+repository's; the backend, the app and the SDK have no versions of their own.
+
+Before `1.0.0` a breaking change bumped the minor version (`0.4.2` →
+`0.5.0`), so a `0.x` minor release may be breaking. `1.0.0` was a deliberate
+decision of the maintainer, released by the PR that removed that rule.
 
 The first release has no previous tag, so it is computed from `0.0.0`. A `feat:`
 bootstrap PR releases `v0.1.0`.

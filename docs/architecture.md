@@ -1370,8 +1370,8 @@ Implementation expectations:
 
 What SignalHub promises to keep working from one release to the next, and
 what a release must mark as breaking (`!` in its title, see
-[development.md](development.md#versioning)). Until `1.0.0`, a breaking
-change bumps the minor version; from `1.0.0` it bumps the major version.
+[development.md](development.md#versioning)). From `1.0.0` a breaking
+change bumps the major version; before it, it bumped the minor version.
 
 **The public contract** is what producers, clients and operators depend on:
 

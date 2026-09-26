@@ -60,10 +60,6 @@ class Version:
         return cls(*(int(part) for part in match.groups()))
 
     def bump(self, bump: Bump) -> Version:
-        # Pre-1.0: a breaking change bumps minor. 1.0.0 is a deliberate decision,
-        # never an automatic side effect of a `!` in a commit title.
-        if bump is Bump.MAJOR and self.major == 0:
-            bump = Bump.MINOR
         if bump is Bump.MAJOR:
             return Version(self.major + 1, 0, 0)
         if bump is Bump.MINOR:
@@ -153,10 +149,7 @@ def main(argv: list[str]) -> int:
         except InvalidTitle as error:
             print(f"error: {error}", file=sys.stderr)
             return 1
-        impact = bump.name.lower()
-        if bump is Bump.MAJOR:
-            impact += " (bumps minor while the version is below 1.0.0)"
-        print(f"Valid title. Release impact: {impact}")
+        print(f"Valid title. Release impact: {bump.name.lower()}")
         return 0
     if argv == ["next-version"]:
         version = next_version()
