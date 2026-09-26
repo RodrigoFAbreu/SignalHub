@@ -97,10 +97,10 @@ public class ProducerAdminResource {
   @Operation(summary = "List producers", description = "All producers and their keys, by name.")
   @APIResponse(
       responseCode = "200",
-      description = "The producers.",
-      content = @Content(schema = @Schema(implementation = ProducerResponse[].class)))
-  public List<ProducerResponse> list() {
-    return producers.list();
+      description = "The producers, in items.",
+      content = @Content(schema = @Schema(implementation = ProducerList.class)))
+  public ProducerList list() {
+    return new ProducerList(producers.list());
   }
 
   @GET

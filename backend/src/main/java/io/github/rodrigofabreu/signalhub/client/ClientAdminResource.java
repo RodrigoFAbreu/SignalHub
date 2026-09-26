@@ -74,10 +74,10 @@ public class ClientAdminResource {
   @Operation(summary = "List clients", description = "All clients, revoked or not, oldest first.")
   @APIResponse(
       responseCode = "200",
-      description = "The clients.",
-      content = @Content(schema = @Schema(implementation = ClientResponse[].class)))
-  public List<ClientResponse> list() {
-    return clients.list();
+      description = "The clients, in items.",
+      content = @Content(schema = @Schema(implementation = ClientList.class)))
+  public ClientList list() {
+    return new ClientList(clients.list());
   }
 
   @GET

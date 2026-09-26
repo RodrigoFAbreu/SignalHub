@@ -210,6 +210,13 @@ class OpenApiTest {
         .body("paths", hasKey("/api/v1/admin/producers/{id}/enable"))
         .body("paths", hasKey("/api/v1/admin/producers/{id}/keys"))
         .body("paths", hasKey("/api/v1/admin/producers/{id}/keys/{keyId}/revoke"))
+        .body(
+            ADMIN + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/ProducerList"))
+        .body(SCHEMAS + ".ProducerList.required", containsInAnyOrder("items"))
+        .body(
+            SCHEMAS + ".ProducerList.properties.items.items.$ref",
+            equalTo("#/components/schemas/Producer"))
         .body(SCHEMAS + ".IssuedApiKey.required", containsInAnyOrder("producer", "keyId", "apiKey"))
         .body(SCHEMAS + ".Producer.properties", not(hasKey("apiKey")))
         .body(SCHEMAS + ".ApiKey.properties", not(hasKey("keyHash")));
@@ -232,6 +239,14 @@ class OpenApiTest {
             "paths.'/api/v1/admin/clients'.post.responses.'201'.content.'application/json'"
                 + ".schema.$ref",
             equalTo("#/components/schemas/IssuedClientKey"))
+        .body(
+            "paths.'/api/v1/admin/clients'.get.responses.'200'.content.'application/json'"
+                + ".schema.$ref",
+            equalTo("#/components/schemas/ClientList"))
+        .body(SCHEMAS + ".ClientList.required", containsInAnyOrder("items"))
+        .body(
+            SCHEMAS + ".ClientList.properties.items.items.$ref",
+            equalTo("#/components/schemas/Client"))
         .body("paths", hasKey("/api/v1/admin/clients/{id}"))
         .body("paths", hasKey("/api/v1/admin/clients/{id}/revoke"))
         .body(

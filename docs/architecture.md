@@ -508,7 +508,7 @@ for curl examples.
 | Method and path | Result |
 |---|---|
 | `POST /api/v1/admin/producers` | Registers a producer (`{"name": ...}`) and issues its first key. `201` with the producer, `keyId`, and `apiKey`; `409` if the name is taken. |
-| `GET /api/v1/admin/producers` | All producers with their key records, by name. |
+| `GET /api/v1/admin/producers` | All producers with their key records, by name, as `{"items": [...]}`. |
 | `GET /api/v1/admin/producers/{id}` | One producer with its key records. |
 | `POST /api/v1/admin/producers/{id}/keys` | Issues an additional key. `201` with `keyId` and `apiKey`. |
 | `POST /api/v1/admin/producers/{id}/keys/{keyId}/revoke` | Revokes a key, immediately and permanently. Idempotent. |
@@ -517,6 +517,12 @@ for curl examples.
 
 Unknown producer or key IDs get `404`, as does a key ID used with another
 producer's path.
+
+Both management listings (producers and [clients](#client-api)) answer an
+object, `{"items": [...]}`, like the [event listing](#listing-events), so
+fields such as paging can be added later without breaking them. Releases
+before v0.26.0 answered a bare JSON array: a script that read them with, for
+example, `jq '.[]'` now reads `.items[]`.
 
 ### Key lifecycle
 
@@ -690,7 +696,7 @@ suppressed push is simply not sent to that client.
 | Method and path | Credential | Result |
 |---|---|---|
 | `POST /api/v1/admin/clients` | admin token | Registers a client (`{"name": ...}`). `201` with the client and `clientKey`. |
-| `GET /api/v1/admin/clients` | admin token | All clients, oldest first. |
+| `GET /api/v1/admin/clients` | admin token | All clients, oldest first, as `{"items": [...]}`. |
 | `GET /api/v1/admin/clients/{id}` | admin token | One client. |
 | `POST /api/v1/admin/clients/{id}/revoke` | admin token | Revokes the client and removes its push target. Idempotent. |
 | `GET /api/v1/client` | client key | The calling client's registration. |
@@ -1391,6 +1397,9 @@ text, and the rest of `/q/`.
 - a new optional configuration variable whose default keeps the previous
   behaviour;
 - a new migration that keeps existing data.
+
+Every listing answers an object with its entries in `items`, never a bare
+array, so that paging or other fields can be added compatibly.
 
 **Breaking changes** need `!` and migration notes in the release: removing or
 renaming anything above, making an optional field required, changing a
