@@ -35,10 +35,15 @@ class EventService {
    * {@link EventPushDispatcher}. With an idempotency key the producer already used, nothing is
    * stored and the event stored then is returned, if the request is the same.
    *
+   * <p>Publishing is serialized, and {@code createdAt} is taken under the lock and kept after every
+   * stored event's, so events become visible in listing order: a client that has read an event
+   * never later finds an older one it had not seen.
+   *
    * @throws IdempotencyKeyReusedException if the key was used for a different event
    */
   @Transactional
   Published create(ProducerIdentity producer, CreateEventRequest request, String idempotencyKey) {
+    repository.lockPublishing();
     var metadata = request.metadata();
     var event =
         new EventEntity(
@@ -50,10 +55,9 @@ class EventService {
             request.message(),
             metadata == null ? "{}" : metadata.toString(),
             request.occurredAt() == null ? null : toStoredInstant(request.occurredAt().toInstant()),
-            toStoredInstant(Instant.now()),
+            nextCreatedAt(),
             idempotencyKey);
     if (idempotencyKey != null) {
-      repository.lockIdempotencyKey(producer.id(), idempotencyKey);
       var stored = repository.findByIdempotencyKey(producer.id(), idempotencyKey);
       if (stored.isPresent()) {
         if (!sameRequest(stored.get(), event)) {
@@ -65,6 +69,19 @@ class EventService {
     repository.persist(event);
     dispatches.add(event);
     return new Published(toResponse(event, producer), true);
+  }
+
+  /**
+   * Now, or just after the newest stored event if that is later (same microsecond, or a clock set
+   * back), so the listing never orders a new event before one already visible.
+   */
+  private Instant nextCreatedAt() {
+    var now = toStoredInstant(Instant.now());
+    return repository
+        .latestCreatedAt()
+        .map(latest -> latest.plus(1, ChronoUnit.MICROS))
+        .filter(next -> next.isAfter(now))
+        .orElse(now);
   }
 
   /** Whether the stored event holds what {@code sent} would have stored, its own fields aside. */

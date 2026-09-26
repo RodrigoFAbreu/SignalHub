@@ -67,18 +67,23 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
   }
 
   /**
-   * Waits until no other transaction is publishing with this producer's key, and holds the key
-   * until this transaction ends, so concurrent requests with one key store one event. A lock on the
-   * key rather than the unique index, whose violation would abort the transaction.
+   * Waits until no other transaction is publishing and holds the lock until this transaction ends,
+   * so events commit one at a time in {@code createdAt} order: a reader that sees an event also
+   * sees every event listed after it. Also makes concurrent requests with one idempotency key store
+   * one event, without relying on the unique index, whose violation would abort the transaction.
    */
-  void lockIdempotencyKey(UUID producerId, String key) {
+  void lockPublishing() {
     getEntityManager()
-        .createNativeQuery(
-            "SELECT pg_advisory_xact_lock(hashtextextended(CAST(:producerId AS text) || ' ' || :key,"
-                + " 0))")
-        .setParameter("producerId", producerId)
-        .setParameter("key", key)
+        .createNativeQuery("SELECT pg_advisory_xact_lock(hashtextextended('signalhub.publish', 0))")
         .getSingleResult();
+  }
+
+  /** The newest stored {@code createdAt}, if any event is stored. */
+  Optional<Instant> latestCreatedAt() {
+    return Optional.ofNullable(
+        getEntityManager()
+            .createQuery("SELECT max(e.createdAt) FROM EventEntity e", Instant.class)
+            .getSingleResult());
   }
 
   Optional<EventEntity> findByIdempotencyKey(UUID producerId, String key) {

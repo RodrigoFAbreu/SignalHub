@@ -574,6 +574,19 @@ The following capabilities are already implemented and merged unless repository 
   become visible after a newer one (see open item O1)
 - no backend, schema, client or SDK changes
 
+### R18k - Events visible in listing order
+
+- closes open item O1: publishing is serialized with a transaction-scoped
+  PostgreSQL advisory lock held until the event commits, and `createdAt` is
+  taken under it, one microsecond after the newest stored event's if the
+  clock has not moved on or was set back; so events become visible in
+  listing order, and a client that stops paging at the newest event it
+  already had, or marks read through it, never skips one
+- the lock replaces the per-key lock of idempotent publishing (R18g), which
+  it covers
+- no contract, schema or client changes; tested against real PostgreSQL
+  with a publication held uncommitted while another is published
+
 ---
 
 ## 4. Planned roadmap
@@ -958,8 +971,8 @@ event needs the owner's credential), R18c (one error format), R18d (the
 end-to-end test), R18e (the fresh-install deployment test), R18f (the
 compatibility policy and enum evolution), R18g (idempotent publishing),
 R18h (the upgrade from an older release), R18i (pre-1.0 cleanup: retries
-in the examples and stale statements) and R18j (the v1.0 readiness review)
-are complete (see section 3). What remains is in the v1.0 readiness
+in the examples and stale statements), R18j (the v1.0 readiness review) and
+R18k (events visible in listing order, closing O1) are complete (see section 3). What remains is in the v1.0 readiness
 checklist below.
 
 Goal: deliberately declare the first stable SignalHub contract.
@@ -1013,7 +1026,7 @@ that closes an item updates its row.
 | Authentication and key lifecycle | Reviewed; limitations documented | Producer keys rotate without downtime (issue, switch, revoke). A client key is rotated by registering a new client and revoking the old one; read state is the owner's and stays, push preferences start from the defaults. No key expiry, scopes or rate limiting: `docs/architecture.md#security-limitations`. |
 | Event schema | Done | Idempotent publishing (R18g); the contract and how it may change (R18f). |
 | Enum evolution | Done | R18f. |
-| Pagination | Reviewed; open item O1 | The event listing's keyset cursor matches its documentation. The admin listings are unpaginated arrays (D1). |
+| Pagination | Done; decision D1 open | The event listing's keyset cursor matches its documentation, and events become visible in listing order (O1, closed in R18k). The admin listings are unpaginated arrays (D1). |
 | Migrations and upgrade path | Done | An older release refuses a newer schema (R18a); upgrades tested in CI from the latest release and from v0.13.0 (R18h). |
 | Client/device lifecycle | Reviewed; limitations documented | A revoked client loses its push target and gets no pending retries; invalid push targets are dropped. Revoked clients and producer keys are kept and listed. |
 | Push semantics | Reviewed; sound | The outbox, leases, retries (up to 5 sends over about 40 minutes), preference filtering and payload match `docs/architecture.md#push-delivery`; at least once, clients deduplicate by event ID. |
@@ -1031,14 +1044,8 @@ that closes an item updates its row.
 
 Open items, each small enough for one increment and needing no decision:
 
-- **O1 - event creation time and commit order.** `createdAt` is taken
-  before the event is stored (and, with an `Idempotency-Key`, before
-  waiting for the key's lock), so an event can commit after a newer one was
-  already listed. A client that stops paging at the newest event it already
-  had can miss it, and `POST /api/v1/events/read` can mark it read unseen.
-  The window is normally milliseconds. Documented under Pagination in
-  `docs/architecture.md`; to be narrowed or closed without a contract
-  change.
+- **O1 - event creation time and commit order.** Done in R18k: an event
+  could commit after a newer one was already listed.
 - **O2 - dispatcher tests.** No test covers a retry whose client was
   revoked meanwhile, or that dispatching an event again leaves a pending
   retry as it is.
@@ -1126,8 +1133,8 @@ Determine this from repository state rather than trusting this section blindly.
 After the integration examples (R17), the expected next increment is:
 
 **R18 - v1.0 hardening and contract review**, continuing after R18j
-with the open items of the v1.0 readiness checklist (O1 to O3), one
-increment each. Decisions D1 to D4 are the maintainer's. Promotion to
+with the open items of the v1.0 readiness checklist (O2 and O3; O1 is
+done in R18k), one increment each. Decisions D1 to D4 are the maintainer's. Promotion to
 `v1.0.0` itself is always the maintainer's decision. Confirming delivery to a real device (R8 to R10)
 still needs the maintainer's Firebase project.
 
