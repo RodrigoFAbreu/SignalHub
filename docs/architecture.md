@@ -189,8 +189,9 @@ Idempotency-Key: nightly-1842-1
   kept with its event and freed when [retention](#retention) deletes it, so a
   producer that retries for longer than the retention period may store the
   event again.
-- **Concurrent requests** with the same key wait for each other: one stores
-  the event, the others answer it.
+- **Concurrent requests** with the same key wait for each other (publishing
+  is serialized, see [Listing events](#listing-events)): one stores the event, the
+  others answer it.
 
 Authentication and validation come first: a request with an invalid key or
 body gets the same `401` or `400` as without the header.
@@ -200,8 +201,10 @@ body gets the same `401` or `400` as without the header.
 - All timestamps are ISO-8601 strings with an explicit UTC offset, stored as
   PostgreSQL `timestamptz` and returned in UTC (`Z`) with up to microsecond
   precision. Finer precision is truncated.
-- `createdAt` is canonical: the server's clock when it stored the event.
-  Ordering and [retention](#retention) use it.
+- `createdAt` is canonical: the server's clock when it stored the event,
+  always later than every event stored before it (see
+  [Listing events](#listing-events)). Ordering and [retention](#retention)
+  use it.
 - `occurredAt` is producer context. SignalHub stores and returns it but does
   not trust it for ordering: producer clocks may be wrong, and events may be
   published late. A timestamp without an offset (`2026-09-25T14:03:00`) is
@@ -293,8 +296,9 @@ producer key, gets the same `401` as every credential failure: producers
 publish, they do not read other producers' events.
 
 **Order.** Events are ordered by `createdAt`, newest first, then by `id`
-(descending) among events stored in the same microsecond, so the order is
-total and stable. `occurredAt` is not used for ordering (see
+(descending) among events with the same `createdAt` (which publishing no
+longer produces, but events stored by releases up to v0.25.3 may have), so
+the order is total and stable. `occurredAt` is not used for ordering (see
 [Timestamps](#timestamps)).
 
 **Filters.** All optional, and combined with AND. Repeating a parameter
@@ -330,13 +334,17 @@ text, and no full-text search.
   events after that position that match the new filters.
 - Cursors are versioned internally; a client must not construct or parse
   them, only pass them back.
-- An event's `createdAt` is taken when the backend accepts it, before it is
-  stored, so an event can become visible a moment after a newer one. A
-  client that pages only until the newest event it already had can miss
-  such an event until it reads the whole listing again, and
-  `POST /api/v1/events/read` can mark it read. The window is normally
-  milliseconds; it is open item O1 of the
-  [v1.0 readiness checklist](roadmap.md#v10-readiness-checklist).
+- Events become visible in listing order: publishing is serialized (a
+  PostgreSQL advisory lock held until the event commits), and `createdAt` is
+  taken under that lock, later than every stored event's (one microsecond
+  after the newest if the clock has not moved on or was set back). So a
+  reader that sees an event also sees every event listed after it, and a
+  client may stop paging at the newest event it already had without missing
+  one; `POST /api/v1/events/read` never marks an event its client has not
+  had a chance to list. Releases up to v0.25.3 took `createdAt` before
+  storing the event, so one could become visible a moment after a newer one.
+  Serializing costs throughput only with many producers publishing at once,
+  far beyond one owner's events.
 
 Invalid parameters get `400` with one violation per problem, naming the
 parameter in `field` (e.g. `limit`, `category`, `cursor`). An unknown
