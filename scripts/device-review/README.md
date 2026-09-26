@@ -72,8 +72,13 @@ The script touches the screen only through taps and swipes it makes with
 (`ABORT`), unless SignalHub is in front, or the notification shade while a
 check has opened it to tap a notification. A permission dialog, another
 app, the lock screen or anything else in front stops it, so a run never
-taps into something it did not expect. Keys (home, back) and `am`
-commands are not touches and are not guarded.
+taps into something it did not expect. The lock screen is focused under the
+same window name as the shade (`NotificationShade`), so the guard also reads
+whether it is showing (`isKeyguardShowing`) and never touches a locked phone,
+even while a check has opened the shade. Keys (home, back) and `am`
+commands are not touches and are not guarded. Unlock the phone before a run,
+and keep it from locking during one (for example *Stay awake* in the
+developer options while it charges).
 
 ## Checks
 
@@ -92,11 +97,11 @@ it. Titles of the events they publish start with `Device review:`.
 | `killed-app-push` | Kills the app in the background (`am kill`, as the system would), publishes; the notification must arrive and tapping it must cold-start the app on the event. | Kills the app, publishes 1 event, marks it read. |
 | `force-stop-reregisters` | Force-stops and starts the app; the server's push target must be set again (a newer `updatedAt`). | Stops the app. |
 | `read-state` | Publishes, opens the event from the inbox (the server must say read), taps *Mark as unread* (the server must say unread, and the badge follow), then marks it read on the server; the badge must follow after a refresh. | Publishes 1 event (`LOW`), changes its read state. |
-| `push-preferences` | Switches push off on the *Notifications* screen (the server must store it) and publishes: no notification; then sets a minimum severity of `HIGH` through the API and publishes a `LOW` and a `HIGH` event: only the `HIGH` one is pushed. The preferences as they were before are restored, even when the check fails. | Publishes 3 events; restores the preferences. |
+| `push-preferences` | Switches push off on the *Notifications* screen (the server must store it) and publishes: no notification, waiting 20 s before changing the preferences again, since they apply when the event is dispatched, not when it is published; then sets a minimum severity of `HIGH` through the API and publishes a `LOW` and a `HIGH` event: only the `HIGH` one is pushed. The preferences as they were before are restored, even when the check fails. | Publishes 3 events; restores the preferences. |
 | `idempotent-publish` | Publishes twice with one idempotency key; both answers must be one event, with one notification. | Publishes 1 event. |
 | `backend-down` | Publishes and shows the event, **stops the backend**, refreshes (the app must stay up), opens the event (marking it read fails, so it must offer *Mark as read*), **starts the backend**, and taps *Mark as read*: the server must say read. The backend is started again even when the check fails. | Stops and starts the backend; publishes 1 event (`LOW`). |
 | `offline-push` | **Turns airplane mode on**, publishes, and expects no notification; turns it off, and the notification must arrive within 3 minutes. Airplane mode is turned off even when the check fails. | Toggles airplane mode; publishes 1 event. |
-| `popup-over-other-app` | Opens the system Settings, publishes, and compares screenshots of the top of the screen before and after with ImageMagick: a pop-up must show over Settings. Nothing is tapped. | Opens Settings; publishes 1 event. |
+| `popup-over-other-app` | Opens the system Settings, waits 20 s for any earlier pop-up to go, publishes, and compares screenshots of the top of the screen with one taken before, from the publish on for up to 30 s (a pop-up shows for a few seconds only), with ImageMagick: a pop-up must show over Settings. Samsung's compact *brief* pop-up counts. Nothing is tapped. | Opens Settings; publishes 1 event. |
 | `backend-restart` | **Restarts the backend**, then publishes: the push and the inbox must work. | Restarts the backend; publishes 1 event. |
 | `no-focus-border` | On the inbox, no element may have keyboard focus; the screenshot `inbox.png` is kept for a look. | Nothing. |
 | `backend-log` | The backend's log since the run started (`docker compose logs`) must have no line at `WARN` or `ERROR`, in the text or the JSON format. `backend-down` and `backend-restart` may cause some on purpose; run this check alone afterwards to look at the rest. | Nothing. |

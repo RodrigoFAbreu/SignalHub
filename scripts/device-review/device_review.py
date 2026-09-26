@@ -14,6 +14,7 @@ does and changes.
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import re
@@ -48,6 +49,10 @@ EVENT_SCREEN_TITLE = "Event"
 
 PUSH_WAIT = 90.0
 QUIET_WAIT = 20.0
+POPUP_WAIT = 30.0
+# How many screen rows' worth of pixels a pop-up changes at least: Samsung's
+# brief pop-up changes about 17 rows, the clock and status icons less than 1.
+POPUP_ROWS = 5
 # The level field of a log line, in the text format or as JSON.
 LOG_PROBLEM = re.compile(
     r"\s(?:WARN|ERROR|FATAL)\s+\[|\"level\"\s*:\s*\"(?:WARN|WARNING|ERROR|SEVERE|FATAL)\""
@@ -76,9 +81,18 @@ def focused_window(dumpsys_window: str) -> str | None:
     return match.group(1).split("/", 1)[0]
 
 
-def may_touch(window: str | None, allow_shade: bool) -> bool:
+def keyguard_showing(dumpsys_window: str) -> bool:
+    """Whether `dumpsys window` says the lock screen is up. The lock screen
+    is focused as NotificationShade too, so the window alone cannot tell it
+    from the shade a check opened."""
+    return re.search(r"isKeyguardShowing=true\b", dumpsys_window) is not None
+
+
+def may_touch(window: str | None, allow_shade: bool, locked: bool = False) -> bool:
     """The guard's decision: only SignalHub, or the shade when a check opened
-    it, may receive taps and swipes."""
+    it, may receive taps and swipes, and never while the phone is locked."""
+    if locked:
+        return False
     if window == APP_PACKAGE:
         return True
     return allow_shade and window in SHADE_WINDOWS
@@ -336,11 +350,11 @@ class Device:
         return focused_window(self.shell("dumpsys window"))
 
     def guard(self) -> None:
-        window = self.window()
-        if not may_touch(window, self.shade_allowed):
-            raise GuardError(
-                f"not touching the screen: {window or 'nothing'} is in front"
-            )
+        dump = self.shell("dumpsys window")
+        window, locked = focused_window(dump), keyguard_showing(dump)
+        if not may_touch(window, self.shade_allowed, locked):
+            what = "the lock screen" if locked else (window or "nothing")
+            raise GuardError(f"not touching the screen: {what} is in front")
 
     def tap(self, node: Node) -> None:
         self.guard()
@@ -502,6 +516,10 @@ class Server:
             ) from error
         except urllib.error.URLError as error:
             raise CheckFailed(f"{method} {path}: {error.reason}") from error
+        except (OSError, http.client.HTTPException) as error:
+            # A backend that is starting behind Docker's port proxy accepts the
+            # connection and then resets or closes it.
+            raise CheckFailed(f"{method} {path}: {error!r}") from error
         return json.loads(text) if text else None
 
     def publish(
@@ -770,15 +788,19 @@ def check_push_preferences(review: Review) -> str:
         device.home()
         paused = review.title("paused")
         server.publish(paused)
+        # Preferences apply when the dispatcher sends an event, not when it is
+        # published, so the paused event must be dispatched before they change.
+        time.sleep(QUIET_WAIT)
+        if device.app_notifications(paused):
+            raise CheckFailed(f"{paused!r} was pushed while push was off")
         server.set_push_preferences({"enabled": True, "minimumSeverity": "HIGH"})
         low, high = review.title("low"), review.title("high")
         server.publish(low, severity="LOW")
         server.publish(high, severity="HIGH")
         device.wait_for_notification(high)
         time.sleep(QUIET_WAIT)
-        for title in (paused, low):
-            if device.app_notifications(title):
-                raise CheckFailed(f"{title!r} was pushed despite the preferences")
+        if device.app_notifications(low):
+            raise CheckFailed(f"{low!r} was pushed below the minimum severity")
     finally:
         server.set_push_preferences(saved)
     return "paused: no push; minimum HIGH: only the HIGH event pushed"
@@ -853,16 +875,24 @@ def check_offline_push(review: Review) -> str:
 def check_popup_over_other_app(review: Review) -> str:
     device = review.device
     device.shell("am start -W -a android.settings.SETTINGS")
-    time.sleep(2)
+    # The pop-up of an earlier check's push may still be on show; the
+    # baseline must be taken once it has gone.
+    time.sleep(QUIET_WAIT)
     before = device.screenshot("popup-before")
     title = review.title("pop-up")
-    review.server.publish(title)
-    device.wait_for_notification(title)
-    after = device.screenshot("popup-after")
     width, height = device.screen_size()
-    changed = pixels_differ(before, after, f"{width}x{height // 5}+0+0")
+    review.server.publish(title)
+    # A pop-up shows for a few seconds only, often gone by the time polling
+    # finds the notification, so watch the screen from the publish on.
+    deadline = time.monotonic() + POPUP_WAIT
+    while True:
+        after = device.screenshot("popup-after")
+        changed = pixels_differ(before, after, f"{width}x{height // 5}+0+0")
+        if changed >= width * POPUP_ROWS or time.monotonic() > deadline:
+            break
+    device.wait_for_notification(title)
     device.home()
-    if changed < width * 20:
+    if changed < width * POPUP_ROWS:
         raise CheckFailed(f"only {changed} pixels changed at the top: no pop-up shown")
     return f"a pop-up over Settings ({changed} pixels changed at the top)"
 

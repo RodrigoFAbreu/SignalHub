@@ -1,0 +1,6 @@
+  mCurrentFocus=Window{5374845 u0 NotificationShade}
+  mFocusedApp=ActivityRecord{5d1e0b2 u0 io.github.rodrigofabreu.signalhub/.MainActivity t41}
+    mShowingDream=false mDreamingLockscreen=true
+    mStatusBar=Window{73ddd6d u0 StatusBar}
+    mExpandedPanel=Window{5374845 u0 NotificationShade}
+    isKeyguardShowing=true

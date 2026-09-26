@@ -1,16 +1,23 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import device_review
 from device_review import (
     APP_PACKAGE,
+    CheckFailed,
     Device,
     GuardError,
     Node,
+    Review,
+    Server,
     channel_importance,
+    check_popup_over_other_app,
+    check_push_preferences,
     find_node,
     focused_window,
+    keyguard_showing,
     log_problems,
     may_touch,
     parse_args,
@@ -43,6 +50,16 @@ class FocusedWindowTest(unittest.TestCase):
         self.assertIsNone(focused_window("WINDOW MANAGER WINDOWS\n"))
 
 
+class KeyguardTest(unittest.TestCase):
+    def test_locked(self):
+        self.assertTrue(keyguard_showing(sample("window-locked.txt")))
+
+    def test_unlocked(self):
+        for name in ("window-app.txt", "window-shade.txt", "window-other-app.txt"):
+            with self.subTest(name):
+                self.assertFalse(keyguard_showing(sample(name)))
+
+
 class GuardDecisionTest(unittest.TestCase):
     def test_signalhub_in_front(self):
         self.assertTrue(may_touch(APP_PACKAGE, allow_shade=False))
@@ -53,6 +70,11 @@ class GuardDecisionTest(unittest.TestCase):
             with self.subTest(shade):
                 self.assertTrue(may_touch(shade, allow_shade=True))
                 self.assertFalse(may_touch(shade, allow_shade=False))
+
+    def test_never_while_locked(self):
+        for window in (APP_PACKAGE, "NotificationShade"):
+            with self.subTest(window):
+                self.assertFalse(may_touch(window, allow_shade=True, locked=True))
 
     def test_anything_else_is_refused(self):
         for window in (
@@ -114,6 +136,16 @@ class GuardTest(unittest.TestCase):
         device.close_shade()
         with self.assertRaises(GuardError):
             device.tap(self.node)
+
+    def test_refuses_the_lock_screen_even_with_the_shade_opened(self):
+        # Locked, the focused window is NotificationShade, as for the shade.
+        device = FakeDevice("window-locked.txt")
+        device.open_shade()
+        with self.assertRaises(GuardError):
+            device.tap(self.node)
+        with self.assertRaises(GuardError):
+            device.pull_to_refresh()
+        self.assertEqual(device.commands, ["cmd statusbar expand-notifications"])
 
     def test_pull_to_refresh_swipes_down(self):
         device = FakeDevice("window-app.txt")
@@ -279,3 +311,110 @@ class ConfigTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def fake_config() -> device_review.Config:
+    return device_review.Config(
+        serial="test-serial",
+        server="http://localhost:8080",
+        producer_key="shpk1_p",
+        client_key="shck1_c",
+        client_id="client-id",
+        admin_token="a" * 40,
+        output=Path("."),
+        compose_dir=Path("."),
+        compose_service="backend",
+    )
+
+
+class ServerTest(unittest.TestCase):
+    def test_a_reset_connection_is_not_reachable(self):
+        # As a backend starting behind Docker's port proxy answers.
+        server = Server(fake_config())
+        for error in (
+            ConnectionResetError(104, "Connection reset by peer"),
+            device_review.http.client.RemoteDisconnected("closed"),
+        ):
+            with (
+                self.subTest(type(error).__name__),
+                mock.patch("urllib.request.urlopen", side_effect=error),
+            ):
+                with self.assertRaises(CheckFailed):
+                    server.unread()
+                self.assertFalse(server.reachable())
+
+
+class PushPreferencesTest(unittest.TestCase):
+    """The order of the check's steps, with fakes recording what the device,
+    the server and the clock are asked."""
+
+    def run_check(self, pushed: set[str]) -> list[str]:
+        steps: list[str] = []
+        saved = {"enabled": True, "minimumSeverity": "NORMAL"}
+        server = mock.Mock()
+        server.own_registration.side_effect = lambda: {
+            "pushPreferences": {"enabled": False} if "switch" in steps else saved
+        }
+        server.publish.side_effect = lambda title, **_: steps.append(title)
+        server.set_push_preferences.side_effect = lambda p: steps.append(
+            "restore" if p == saved else f"minimum {p['minimumSeverity']}"
+        )
+        device = mock.Mock()
+        device.tap_label.side_effect = lambda *_, **__: steps.append("switch")
+        device.app_notifications.side_effect = lambda title: (
+            [title] if title in pushed else []
+        )
+        review = Review(fake_config(), device, server)
+        review.title = lambda what: what
+        review.open_menu_item = lambda item: None
+        self.addCleanup(lambda: self.assertEqual(steps[-1], "restore"))
+        with mock.patch("time.sleep", side_effect=lambda _: steps.append("wait")):
+            check_push_preferences(review)
+        return steps
+
+    def test_the_paused_event_is_dispatched_before_the_preferences_change(self):
+        steps = self.run_check(pushed={"high"})
+        paused, changed = steps.index("paused"), steps.index("minimum HIGH")
+        self.assertIn("wait", steps[paused:changed])
+
+    def test_a_push_while_paused_fails(self):
+        with self.assertRaisesRegex(CheckFailed, "while push was off"):
+            self.run_check(pushed={"paused", "high"})
+
+    def test_a_push_below_the_minimum_fails(self):
+        with self.assertRaisesRegex(CheckFailed, "below the minimum"):
+            self.run_check(pushed={"low", "high"})
+
+
+class PopupTest(unittest.TestCase):
+    def run_check(self, differences: list[int]) -> list[str]:
+        steps: list[str] = []
+        device, server = mock.Mock(), mock.Mock()
+        device.shell.side_effect = lambda command: steps.append(command)
+        device.screenshot.side_effect = lambda name: steps.append(name)
+        device.screen_size.return_value = (1080, 2340)
+        review = Review(fake_config(), device, server)
+        with (
+            mock.patch("time.sleep", side_effect=lambda s: steps.append(f"wait {s}")),
+            mock.patch("time.monotonic", side_effect=range(0, 1000, 3)),
+            mock.patch.object(device_review, "pixels_differ", side_effect=differences),
+        ):
+            check_popup_over_other_app(review)
+        return steps
+
+    def test_the_baseline_waits_for_an_earlier_pop_up_to_go(self):
+        steps = self.run_check([90000])
+        before = steps.index("popup-before")
+        self.assertIn(f"wait {device_review.QUIET_WAIT}", steps[:before])
+
+    def test_the_screen_is_watched_from_the_publish_on(self):
+        steps = self.run_check([64, 64, 90000])
+        self.assertEqual(steps.count("popup-after"), 3)
+
+    def test_a_brief_pop_up_is_enough(self):
+        # As measured for Samsung's brief pop-up; the clock changes < 700.
+        self.run_check([677, 18766])
+
+    def test_no_pop_up(self):
+        with self.assertRaisesRegex(CheckFailed, "no pop-up shown"):
+            self.run_check([677] * 20)
