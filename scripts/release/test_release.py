@@ -1,3 +1,5 @@
+import contextlib
+import io
 import os
 import subprocess
 import tempfile
@@ -48,11 +50,11 @@ class VersionTest(unittest.TestCase):
             with self.subTest(tag=tag):
                 self.assertIsNone(Version.parse_tag(tag))
 
-    def test_bump_pre_1_0(self):
-        base = Version(0, 3, 4)
-        self.assertEqual(base.bump(Bump.PATCH), Version(0, 3, 5))
-        self.assertEqual(base.bump(Bump.MINOR), Version(0, 4, 0))
-        self.assertEqual(base.bump(Bump.MAJOR), Version(0, 4, 0))
+    def test_bump_0_x(self):
+        base = Version(0, 27, 5)
+        self.assertEqual(base.bump(Bump.PATCH), Version(0, 27, 6))
+        self.assertEqual(base.bump(Bump.MINOR), Version(0, 28, 0))
+        self.assertEqual(base.bump(Bump.MAJOR), Version(1, 0, 0))
 
     def test_bump_post_1_0(self):
         base = Version(1, 3, 4)
@@ -120,6 +122,34 @@ class NextVersionTest(unittest.TestCase):
         self.commit("fix: two")
         self.assertEqual(release.next_version(), Version(0, 10, 1))
 
+    def test_breaking_change_on_0_x_releases_1_0_0(self):
+        self.commit("feat: bootstrap repository")
+        self.git("tag", "v0.27.5")
+        self.commit("chore(release)!: promote SignalHub to v1.0.0")
+        self.assertEqual(release.next_version(), Version(1, 0, 0))
+
+    def test_non_breaking_changes_on_0_x_stay_below_1_0_0(self):
+        self.commit("feat: bootstrap repository")
+        self.git("tag", "v0.27.5")
+        self.commit("fix: one")
+        self.assertEqual(release.next_version(), Version(0, 27, 6))
+        self.commit("feat: two")
+        self.assertEqual(release.next_version(), Version(0, 28, 0))
+
+    def test_after_1_0_0(self):
+        self.commit("feat: bootstrap repository")
+        self.git("tag", "v1.0.0")
+        cases = [
+            ("docs: one", Version(1, 0, 1)),
+            ("feat: two", Version(1, 1, 0)),
+            ("fix(api)!: three", Version(2, 0, 0)),
+        ]
+        for subject, expected in cases:
+            with self.subTest(subject=subject):
+                self.commit(subject)
+                self.assertEqual(release.next_version(), expected)
+                self.git("tag", str(expected))
+
     def test_non_conventional_subject_on_main_is_patch(self):
         self.commit("feat: bootstrap repository")
         self.git("tag", "v0.1.0")
@@ -132,6 +162,11 @@ class MainTest(unittest.TestCase):
         self.assertEqual(release.main(["check-title", "feat: add thing"]), 0)
         self.assertEqual(release.main(["check-title", "add thing"]), 1)
         self.assertEqual(release.main(["bogus"]), 2)
+
+    def test_check_title_reports_breaking_as_major(self):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            release.main(["check-title", "feat!: replace event schema"])
+        self.assertEqual(out.getvalue(), "Valid title. Release impact: major\n")
 
 
 if __name__ == "__main__":

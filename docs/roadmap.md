@@ -709,6 +709,23 @@ The following capabilities are already implemented and merged unless repository 
   merged; the only other remote branches are Dependabot's, of open PRs
 - nothing to delete, no product change
 
+### R19 - `v1.0.0`
+
+- G1 passed and G2 (decision D4) was given: on 2026-09-26 the maintainer
+  signed off their usability review and approved SignalHub for promotion to
+  `v1.0.0`, stated in the R19 pull request
+- `scripts/release/release.py` no longer turns a major bump into a minor one
+  below 1.0: a title with `!` bumps the major version, so R19's own title
+  releases `v1.0.0` from `v0.27.5`; its tests cover the promotion, `0.x`
+  releases without `!` staying below 1.0, and patch, minor and major
+  releases after 1.0
+- `docs/development.md#versioning`, `docs/architecture.md#compatibility` and
+  `CLAUDE.md` state the SemVer rules from 1.0
+- `v1.0.0` is the whole repository's version; the source version fields stay
+  development placeholders (see
+  [One version, many artifacts](#one-version-many-artifacts))
+- no backend, API, schema, client or SDK changes
+
 ---
 
 ## 4. Planned roadmap
@@ -1088,7 +1105,7 @@ Exit criteria:
 
 ### R18 - v1.0 hardening and contract review
 
-Status: in progress; R18a (refusing a newer schema), R18b (reading an
+Status: complete; R18a (refusing a newer schema), R18b (reading an
 event needs the owner's credential), R18c (one error format), R18d (the
 end-to-end test), R18e (the fresh-install deployment test), R18f (the
 compatibility policy and enum evolution), R18g (idempotent publishing),
@@ -1097,10 +1114,12 @@ in the examples and stale statements), R18j (the v1.0 readiness review) and
 R18k (events visible in listing order, closing O1), R18l (dispatcher
 tests, closing O2), R18m (Dependabot coverage, closing O3), R18n (admin
 listings in an items envelope, decision D1), R18o (pop-up notifications,
-app icon and refresh on return) and R18p (the read-state toggle on the
-event screen) are complete (see section 3). What remains
-is the queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-below.
+app icon and refresh on return), R18p (the read-state toggle on the
+event screen), R18q (device-review tooling) and R18r (stale branch cleanup)
+are complete (see section 3). The maintainer passed G1 and gave G2, and R19
+releases `v1.0.0`. The queue in
+[Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
+continues after it.
 
 Goal: deliberately declare the first stable SignalHub contract.
 
@@ -1165,12 +1184,12 @@ that closes an item updates its row.
 | Observability | Reviewed; sound | The metrics table matches the code and `MetricsTest`; the startup summary example now matches the code. |
 | Test coverage | Done | Unit, PostgreSQL-backed, client, SDK and example tests; Compose smoke tests on x86-64 and ARM64; upgrade, end-to-end and fresh-install jobs. The dispatcher gaps (O2) are closed in R18l. |
 | Dependency health | Done; D2 and D3 decided (deferred past 1.0) | Versions and image digests are pinned; Dependabot tracks Actions, Maven, Docker, Compose, pub, the SDK's build backend, ruff and actionlint; CI checks that the tests' PostgreSQL image follows Compose's; Flutter is raised by hand (O3, closed in R18m; `docs/development.md#dependency-updates`). |
-| Release automation | Reviewed; sound | No PR title can produce `1.0.0` (`scripts/release/release.py` turns a major bump into a minor one below 1.0). Promotion is decision D4: not yet. |
+| Release automation | Done (R19) | Below 1.0 no PR title could produce `1.0.0`; R19, approved by the maintainer (D4), removed that rule, and its `!` title releases `v1.0.0`. From 1.0 a `!` title bumps the major version. |
 | End-to-end, fresh-install and upgrade tests | Done | R18d, R18e, R18h. |
 | Real-device push | Done on Android; its defect fixed in R18p | Verified on the maintainer's Android phone with their Firebase project at `v0.27.0` (R18o): a functional review passed its 19 checks (foreground, background, killed app and cold start, pop-up over another app, read state, push preferences, idempotent publishing, backend down and restarted, phone offline). It found that the event screen only offered *Mark as unread*, fixed in R18p (the action now follows the event's read state; verifying it on the device is the maintainer's, with R18q's review). iOS with APNs does not block 1.0 unless another issue requires it. |
 | Device-review tooling | Done (R18q) | The review's `adb` script is in `scripts/device-review/`, configured only from the environment, arguments and key files, with a guard that touches the screen only while SignalHub or the shade it opened is in front; CI lints it and unit tests its parsing and guard on recorded samples. The device run stays manual. |
 | Real-device review after R18p and R18q | Passed; evidence for G1, not G1 | The maintainer's automated review of `v0.27.3` with R18q's script, as fixed in PR #58 (`v0.27.4`, tooling only): 18 of 18 checks passed, no app or backend defect. Non-blocking observations are queued after 1.0 as R27. |
-| Maintainer usability review | Open, maintainer (G1) | After R18p to R18r: the maintainer uses the app and signs off. |
+| Maintainer usability review | Passed (G1) | The maintainer signed off on 2026-09-26, after R18p to R18r. |
 
 Open items, each small enough for one increment and needing no decision:
 
@@ -1211,8 +1230,8 @@ Decisions for the maintainer (human gates), with the maintainer's answers:
   and updates `docs/development.md#versioning` and `CLAUDE.md`. **Decided:
   not yet.** The maintainer first verifies push on a real device (Android
   with FCM is enough), and `v1.0.0` needs their explicit approval after that
-  test. Push was verified on Android at `v0.27.0` (R18o); the approval now
-  follows the queue below and is still not given.
+  test. Push was verified on Android at `v0.27.0` (R18o). **Approved on
+  2026-09-26 (G2), after G1; released by R19.**
 
 ### Remaining work to v1.0.0 and after
 
@@ -1230,9 +1249,9 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 2 | R18q - Device-review tooling in the repository | Increment (`test`) | Done (see section 3) |
 | 3 | R18r - Stale branch cleanup | Repository hygiene (no PR, no release) | Done (see section 3) |
 | - | Clearing local device-test data | Documentation | Done with this queue ([development.md](development.md#clearing-local-test-data)) |
-| 4 | G1 - Maintainer usability review and sign-off | Human gate | **Next** |
-| 5 | G2 - Explicit approval of `v1.0.0` (decision D4) | Human gate | Not given |
-| 6 | R19 - `v1.0.0` | Increment (`!`, the release) | Blocked by G2 |
+| 4 | G1 - Maintainer usability review and sign-off | Human gate | Passed (2026-09-26) |
+| 5 | G2 - Explicit approval of `v1.0.0` (decision D4) | Human gate | Given (2026-09-26) |
+| 6 | R19 - `v1.0.0` | Increment (`!`, the release) | Done (see section 3); its merge releases `v1.0.0` |
 | 7 | R20 - Version identity and the published backend image | Increment (`feat`) | Blocked until `v1.0.0` is released |
 | 8 | R21 - Deploying from published images | Increment | Blocked until R20 is merged |
 | 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Blocked until R21 is merged |
@@ -1359,12 +1378,16 @@ remain on the remote: `fix/client-refresh-on-resume` (#51, closed),
 
 #### G1 - Maintainer usability review and sign-off
 
+Status: passed; the maintainer signed off on 2026-09-26.
+
 After R18p to R18r, the maintainer uses the app on their device and signs
 off, or reports defects; each defect becomes a new row before G1.
 Automation never marks G1 done. The automated device review of `v0.27.3`
 (18 of 18 checks, see R18q) is evidence for G1, not G1 itself.
 
 #### G2 and R19 - `v1.0.0`
+
+Status: G2 given on 2026-09-26; R19 complete (see section 3).
 
 Decision D4. Only after G1 and the maintainer's explicit approval, stated
 in a PR or issue by the maintainer, does the release PR (R19, titled with
@@ -1924,15 +1947,15 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. At `v0.27.4`, after the device review of
-`v0.27.3`, the expected next item is:
+(section 4) is authoritative. After R19 (G1 passed and G2 given on
+2026-09-26), the expected next item is:
 
-**G1 - Maintainer usability review and sign-off** (R18p to R18r are done).
-The maintainer's usability review (G1) and explicit approval (G2) gate
-`v1.0.0` (R19). After `v1.0.0` the queue continues with release distribution
-and version identity (R20 to R24, with the maintainer's decisions D5 and D6
-at G3), then Java 25 (R25) and PostgreSQL 18 (R26), each in its own PR (see
-[section 5](#5-after-v100)). `v1.0.0` is never released without the
-maintainer's explicit approval, and nothing after it starts before it.
+**R20 - Version identity and the published backend image**, once the
+release workflow has published `v1.0.0` from R19's merge commit: check that
+the `v1.0.0` tag and its GitHub release exist before starting it. If that
+release failed, correcting it comes first. The queue then continues with
+R21 to R24 (with the maintainer's decisions D5 and D6 at G3), then Java 25
+(R25) and PostgreSQL 18 (R26), each in its own PR (see
+[section 5](#5-after-v100)).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
