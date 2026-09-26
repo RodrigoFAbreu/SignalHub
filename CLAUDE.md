@@ -44,7 +44,7 @@ failures, Prometheus metrics (`/q/metrics`) including event and push
 delivery meters, optional JSON logs and a startup configuration summary,
 an optional event retention period, an optional Caddy TLS reverse proxy in
 Compose that exposes only the product API, and the upgrade procedure
-(tested from the latest release) and health monitoring (`docs/deployment.md`),
+(tested from the latest release and from v0.13.0) and health monitoring (`docs/deployment.md`),
 and the Flutter client app
 in `client/` (setup with a client key, push registration and reception, the
 event inbox and event details, read state, and push preferences), and the

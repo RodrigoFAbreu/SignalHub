@@ -481,20 +481,34 @@ jobs:
       - if: always()
         run: docker compose down --volumes
 
-  # The upgrade and rollback of docs/deployment.md#upgrades: a stack of the
-  # latest release, with data, upgraded in place to this commit and rolled
-  # back to the release again by restoring a backup.
+  # The upgrade and rollback of docs/deployment.md#upgrades: a stack of an
+  # earlier release, with data, upgraded in place to this commit and rolled
+  # back to the release again by restoring a backup. From the latest release,
+  # and from the oldest one docs/deployment.md#upgrades says is tested, which
+  # skips every release and migration in between.
   upgrade:
-    name: Backend container (upgrade from the latest release)
+    name: Backend container (upgrade from ${{ matrix.from }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - from: the latest release
+          # The oldest release that stores every kind of data this job
+          # checks: events, producer keys, clients, read state and push
+          # preferences.
+          - from: v0.13.0
+            release: v0.13.0
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # the release tags
-      - name: Start the latest release
+      - name: Start ${{ matrix.from }}
+        env:
+          RELEASE: ${{ matrix.release }}
         run: |
-          # The newest release before this commit (HEAD^ is main's tip on a pull request).
-          previous=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD^)
+          # Otherwise the newest release before this commit (HEAD^ is main's tip on a pull request).
+          previous=${RELEASE:-$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD^)}
           echo "upgrading from $previous"
           {
             echo "PREVIOUS=$previous"
