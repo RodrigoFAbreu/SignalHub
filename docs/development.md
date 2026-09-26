@@ -635,6 +635,7 @@ Optional in every profile:
 | `SIGNALHUB_EVENTS_RETENTION` | How long events are kept, a duration of at least `1d` such as `365d`; older events are deleted every hour. Shorter stops startup. Unset or empty keeps events forever (the default). See [Retention](architecture.md#retention). |
 | `SIGNALHUB_LOG_JSON` | `true` writes console logs as JSON, one object per line, for log collectors; default `false` (plain text). See [Logs](architecture.md#logs). |
 | `SIGNALHUB_PUSH_DISPATCH_INTERVAL` | How often the push dispatcher looks for new events to push; default `2s`. See [Push dispatch](architecture.md#push-dispatch). |
+| `SIGNALHUB_PUSH_FCM_CLIENT_OPTIONS_FILE` | Path to the app's Firebase options (JSON, the `firebase-options.json` of [client/README.md](../client/README.md#push-notifications)), served to clients at `GET /api/v1/client/push-config`. Needs `SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE`; an unreadable or invalid file, or a service account key, stops startup. Unset or empty: no options are served. See [Firebase Cloud Messaging](#firebase-cloud-messaging). |
 | `SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE` | Path to a Firebase service account key file (JSON). Enables push through Firebase Cloud Messaging (provider `fcm`); an unreadable or invalid file stops startup. Unset or empty: no `fcm` provider, and `fcm` push targets are reported as unsupported. See [Firebase Cloud Messaging](#firebase-cloud-messaging). |
 
 Compose passes `SIGNALHUB_ADMIN_TOKEN`, `SIGNALHUB_EVENTS_RETENTION`,
@@ -668,6 +669,30 @@ startup the log shows `FCM push enabled for Firebase project ...` and
 `Push providers: [fcm]`. Clients register their FCM registration token with
 `PUT /api/v1/client/push-target` and provider `fcm`. From then on, every
 published event is pushed to them.
+
+To let apps get the Firebase options from the server instead of having them
+built in, also mount the app's `firebase-options.json` (see
+[client/README.md](../client/README.md#push-notifications)); it holds only
+client identifiers, never the service account key:
+
+```yaml
+services:
+  backend:
+    environment:
+      SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE: /run/secrets/fcm.json
+      SIGNALHUB_PUSH_FCM_CLIENT_OPTIONS_FILE: /run/config/firebase-options.json
+    volumes:
+      - /path/outside/the/repo/fcm-service-account.json:/run/secrets/fcm.json:ro
+      - /path/outside/the/repo/firebase-options.json:/run/config/firebase-options.json:ro
+```
+
+The log then shows `Push client options: served for fcm`, and a client key
+reads them:
+
+```sh
+curl -H "Authorization: Bearer $CLIENT_KEY" http://localhost:8080/api/v1/client/push-config
+# {"provider":"fcm","options":{"FIREBASE_PROJECT_ID":"...", ...}}
+```
 
 ## Client
 

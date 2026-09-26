@@ -703,6 +703,7 @@ suppressed push is simply not sent to that client.
 | `PUT /api/v1/client/push-target` | client key | Sets the push target (`{"provider", "token"}`). `200` with the client. |
 | `DELETE /api/v1/client/push-target` | client key | Removes the push target. Idempotent. `200` with the client. |
 | `PUT /api/v1/client/push-preferences` | client key | Replaces the push preferences (`{"enabled", "minimumSeverity", "mutedCategories", "mutedProducerIds"}`, each optional). `200` with the client. |
+| `GET /api/v1/client/push-config` | client key | The options an app needs to set up push with the server's provider, `{"provider", "options"}` (see [Push client options](#push-client-options)); `404` if the operator configured none. |
 
 The management paths behave like producer management: `404` for every path
 while no admin token is configured, `404` for unknown IDs, and `400` for
@@ -815,6 +816,40 @@ key.
 
 The file is the only FCM credential. Mount it read-only into the container;
 never commit it (see [Cross-cutting principles](#cross-cutting-principles)).
+
+### Push client options
+
+An app needs its push provider's client options before it can get a push
+token: for FCM, the identifiers of the operator's Firebase project and apps.
+So that one app build works with any SignalHub server, the server can hand
+them to its clients: `GET /api/v1/client/push-config` answers
+`{"provider": "fcm", "options": {...}}` to any client key, and `404` when the
+operator configured none (an app then needs its own, built in).
+
+- **Provider-neutral.** The core sees a provider name and an opaque map of
+  option names to strings (`PushClientOptions`, a CDI bean at the edge like a
+  `PushProvider`). It never interprets them; their names and meaning are the
+  provider's and the app's. At startup, options for a provider that is not
+  enabled, or for two providers, stop the service, since an app would
+  register a target that never receives anything. The log says
+  `Push client options: served for fcm` or `none`.
+- **FCM.** `SIGNALHUB_PUSH_FCM_CLIENT_OPTIONS_FILE` names a JSON object of
+  names and strings: the same `firebase-options.json` the app is built with
+  (`client/firebase-options.example.json`). SignalHub checks only that it is
+  such an object (at most 32 options, names of letters, digits and
+  underscores, non-empty values of at most 1024 characters), and refuses a
+  file that looks like a service account key (`"type": "service_account"`,
+  a `private_key`, or a `PRIVATE KEY` block). An invalid file stops startup;
+  the message names the problem, never a value.
+- **Only client-safe values.** Every client key can read the options, so
+  they must be what any installed app carries anyway: Firebase's client
+  identifiers and API keys, which identify the project and are not an
+  authorization secret. Nothing able to send a push is ever served: the
+  service account key stays in its own setting. A push token alone is never
+  SignalHub authentication; setting a push target still needs the client
+  key. If Firebase services beyond FCM are ever used, their security rules
+  must stay restrictive, since the client API key is not a security
+  boundary.
 
 ### Push dispatch
 
@@ -986,7 +1021,9 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   plain HTTP only for debug builds (Android) or local addresses (iOS).
 - **Firebase configuration.** The owner's Firebase project is passed at build
   time (`--dart-define-from-file`), never committed. A build without it runs
-  without push, which is how CI and the tests build it.
+  without push, which is how CI and the tests build it. The backend can
+  already serve these options ([Push client options](#push-client-options));
+  the app starts using them in R23b.
 - **Tests.** Unit and widget tests run against an in-memory fake of the
   client API (`MockClient`) and a fake `PushService`; no device, network or
   credentials. CI also compiles the Android and iOS apps.
@@ -1069,7 +1106,7 @@ collect it. Credentials never reach the logs (see the Logging sections of
   running service uses:
 
   ```text
-  SignalHub 1.2.3 (commit 0123456789abcdef0123456789abcdef01234567); Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; FCM credentials file /run/secrets/fcm.json; push dispatch every 2s; event retention off (events are kept forever); JSON logs off; Java 21.0.8+9-LTS, 2 CPUs, max heap 768 MiB
+  SignalHub 1.2.3 (commit 0123456789abcdef0123456789abcdef01234567); Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; FCM credentials file /run/secrets/fcm.json; FCM client options file /run/config/firebase-options.json; push dispatch every 2s; event retention off (events are kept forever); JSON logs off; Java 21.0.8+9-LTS, 2 CPUs, max heap 768 MiB
   ```
 
   It names settings, never secret values: the admin token appears only as

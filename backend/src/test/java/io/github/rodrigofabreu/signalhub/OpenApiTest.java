@@ -255,6 +255,16 @@ class OpenApiTest {
         .body("paths.'/api/v1/client/push-target'", hasKey("delete"))
         .body("paths.'/api/v1/client/push-preferences'", hasKey("put"))
         .body(
+            "paths.'/api/v1/client/push-config'.get.security",
+            equalTo(List.of(Map.of("clientKey", List.of()))))
+        .body(
+            "paths.'/api/v1/client/push-config'.get.responses.'200'.content.'application/json'"
+                + ".schema.$ref",
+            equalTo("#/components/schemas/PushConfig"))
+        .body("paths.'/api/v1/client/push-config'.get.responses", hasKey("404"))
+        .body(SCHEMAS + ".PushConfig.required", containsInAnyOrder("provider", "options"))
+        .body(SCHEMAS + ".PushConfig.properties.options.type", equalTo("object"))
+        .body(
             SCHEMAS + ".PushPreferences.required",
             containsInAnyOrder("enabled", "minimumSeverity", "mutedCategories", "mutedProducerIds"))
         .body(SCHEMAS + ".Client.required", hasItem("pushPreferences"))

@@ -54,6 +54,9 @@ class StartupDiagnostics {
         "management API " + (adminToken.enabled() ? "enabled" : "disabled"),
         "FCM credentials file "
             + value("signalhub.push.fcm.credentials-file").orElse("not set (no fcm provider)"),
+        "FCM client options file "
+            + value("signalhub.push.fcm.client-options-file")
+                .orElse("not set (apps need built-in Firebase options)"),
         "push dispatch every " + config.getValue("signalhub.push.dispatch.interval", String.class),
         "event retention "
             + value("signalhub.events.retention").orElse("off (events are kept forever)"),
