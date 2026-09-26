@@ -704,6 +704,17 @@ flutter build ios --debug --no-codesign
 # with the event's ID, that FCM's UNREGISTERED answer removes the other client's
 # push target, and the delivery metrics, then opens the pushed event with the
 # client key, lists both events in the inbox and marks the pushed one read.
+# The "Deployment (fresh install from docs/deployment.md)" job follows
+# docs/deployment.md#setup on a clean runner: .env from the example with mode
+# 600 and generated secrets, the proxy with Caddy's own CA for a name that
+# resolves to the runner, a throwaway FCM key mounted with the permissions of
+# docs/deployment.md#secrets and the resource limits, then checks that no
+# secret is logged, that only the documented ports are published, that other
+# machines get 401 over TLS, that a producer publishes with the Python command
+# and a client reads its inbox through the proxy, that the stack started again
+# without the admin token has no management API while the client keeps reading,
+# and that every service comes back by itself after `systemctl restart docker`,
+# as after a reboot, with the event still there.
 ```
 
 Each new component adds its own build, lint, and test commands to CI and to
@@ -722,7 +733,8 @@ repository:
   `Python (lint + test)`, `GitHub Actions lint`, `Backend (build + test)`,
   `Backend container (Compose smoke test)`, `Backend container (Compose
   smoke test, ARM64)`, `Backend container (upgrade from the latest
-  release)`, `End-to-end (producer to push and client inbox)`, `Client (analyze + test +
+  release)`, `End-to-end (producer to push and client inbox)`, `Deployment (fresh
+  install from docs/deployment.md)`, `Client (analyze + test +
   Android build)`, `Client (iOS build)`, and `Conventional Commit title`.
   Require branches to be up to date before merging.
 - Actions workflow permissions must allow `contents: write` for the release

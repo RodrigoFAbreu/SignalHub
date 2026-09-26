@@ -730,3 +730,141 @@ jobs:
           cat "$RUNNER_TEMP/fake-fcm.log"
       - if: always()
         run: docker compose down --volumes
+
+  # A fresh install that follows docs/deployment.md#setup to the letter, with
+  # the FCM key and resource limits it points to, then the tightest secret
+  # setup and a restart of Docker, as after a host reboot.
+  fresh-install:
+    name: Deployment (fresh install from docs/deployment.md)
+    runs-on: ubuntu-latest
+    env:
+      DOMAIN: signalhub.home.arpa
+      SIGNALHUB_URL: https://signalhub.home.arpa
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install ./sdk/python
+      - name: Set up .env, the FCM key and the resource limits as documented
+        run: |
+          # The name clients use resolves to this host.
+          echo "127.0.0.1 $DOMAIN" | sudo tee --append /etc/hosts
+          cp .env.example .env
+          chmod 600 .env
+          db_password=$(openssl rand -hex 24)
+          admin_token=$(openssl rand -hex 32)
+          echo "::add-mask::$db_password"
+          echo "::add-mask::$admin_token"
+          {
+            echo "DB_PASSWORD=$db_password"
+            echo "ADMIN_TOKEN=$admin_token"
+          } >> "$GITHUB_ENV"
+          sed -i "s/^SIGNALHUB_DB_PASSWORD=.*/SIGNALHUB_DB_PASSWORD=$db_password/" .env
+          sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" .env
+          printf '%s\n' COMPOSE_PROFILES=proxy "SIGNALHUB_DOMAIN=$DOMAIN" SIGNALHUB_TLS=internal >> .env
+          # A throwaway service account key outside the repository; nothing is
+          # sent, so it never reaches Google.
+          key_file="$RUNNER_TEMP/fcm-service-account.json"
+          openssl genpkey -quiet -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$RUNNER_TEMP/fcm-key.pem"
+          jq --null-input --rawfile key "$RUNNER_TEMP/fcm-key.pem" '{
+              type: "service_account", project_id: "signalhub-fresh-install", private_key_id: "ci",
+              private_key: $key, client_email: "signalhub@signalhub-fresh-install.iam.gserviceaccount.com",
+              token_uri: "https://oauth2.googleapis.com/token"}' > "$key_file"
+          # The permissions of docs/deployment.md#secrets.
+          chmod 400 "$key_file" && sudo chown 10001 "$key_file"
+          # docs/development.md#firebase-cloud-messaging and architecture.md#resources.
+          cat > compose.override.yaml <<YAML
+          services:
+            backend:
+              mem_limit: 512m
+              cpus: 1
+              environment:
+                SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE: /run/secrets/fcm.json
+              volumes:
+                - $key_file:/run/secrets/fcm.json:ro
+            postgres:
+              mem_limit: 256m
+          YAML
+      - name: Start the stack
+        run: |
+          docker compose up --build --wait
+          logs=$(docker compose logs backend)
+          grep --quiet 'FCM push enabled for Firebase project signalhub-fresh-install' <<<"$logs"
+          grep --quiet 'Push providers: \[fcm\]' <<<"$logs"
+          if grep --quiet --fixed-strings --regexp "$DB_PASSWORD" --regexp "$ADMIN_TOKEN" <<<"$logs"; then
+            echo "a secret was logged"; exit 1
+          fi
+      - name: The host publishes only the ports docs/deployment.md lists
+        run: |
+          test "$(stat --format %a .env)" = 600
+          published() {
+            docker inspect --format '{{range $port, $bindings := .NetworkSettings.Ports}}{{range $bindings}}{{$port}}={{.HostIp}} {{end}}{{end}}' \
+              "$(docker compose ps --quiet "$1")" | tr ' ' '\n' | grep --invert-match '^$' | sort | tr '\n' ' '
+          }
+          test "$(published postgres)" = ""
+          test "$(published backend)" = "8080/tcp=127.0.0.1 "
+          test "$(published proxy)" = "443/tcp=0.0.0.0 443/udp=0.0.0.0 80/tcp=0.0.0.0 "
+      - name: Other machines reach the API over TLS, with Caddy's own CA
+        run: |
+          docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt > signalhub-ca.crt
+          echo "SSL_CERT_FILE=$PWD/signalhub-ca.crt" >> "$GITHUB_ENV"
+          # 401: the API answers, over TLS.
+          status=$(curl --silent --output response.json --write-out '%{http_code}' \
+            --retry 10 --retry-delay 1 --retry-all-errors \
+            --cacert signalhub-ca.crt "$SIGNALHUB_URL/api/v1/events")
+          test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+          jq --exit-status '.status == 401' response.json
+      - name: The operator manages on the host; producers and clients go through the proxy
+        run: |
+          admin() {
+            curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+              --header 'Content-Type: application/json' --data "$2" "http://localhost:8080$1"
+          }
+          SIGNALHUB_API_KEY=$(admin /api/v1/admin/producers '{"name": "fresh-install"}' | jq --raw-output .apiKey)
+          client_key=$(admin /api/v1/admin/clients '{"name": "fresh-install-phone"}' | jq --raw-output .clientKey)
+          echo "::add-mask::$SIGNALHUB_API_KEY"
+          echo "::add-mask::$client_key"
+          echo "CLIENT_KEY=$client_key" >> "$GITHUB_ENV"
+          export SIGNALHUB_API_KEY
+          # The Python command trusts the CA through SSL_CERT_FILE.
+          id=$(signalhub send --category INFO --severity LOW --title "SignalHub is installed")
+          echo "EVENT_ID=$id" >> "$GITHUB_ENV"
+          curl --fail --silent --show-error --cacert signalhub-ca.crt \
+            --header "Authorization: Bearer $client_key" "$SIGNALHUB_URL/api/v1/events" \
+            | jq --exit-status --arg id "$id" '[.items[].id] == [$id]'
+          # The management API is never reachable through the proxy.
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' --cacert signalhub-ca.crt \
+            --header "Authorization: Bearer $ADMIN_TOKEN" "$SIGNALHUB_URL/api/v1/admin/producers")" = 404
+      - name: Without the admin token, management is off and clients keep reading
+        run: |
+          # The tightest setup of docs/deployment.md#secrets.
+          sed -i 's/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=/' .env
+          docker compose up --wait
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $ADMIN_TOKEN" http://localhost:8080/api/v1/admin/producers)" = 404
+          curl --fail --silent --show-error --cacert signalhub-ca.crt \
+            --header "Authorization: Bearer $CLIENT_KEY" "$SIGNALHUB_URL/api/v1/events" \
+            | jq --exit-status '[.items[].id] == [env.EVENT_ID]'
+      - name: Every service comes back by itself when Docker restarts, as after a reboot
+        run: |
+          sudo systemctl restart docker
+          # No docker compose command: the restart policy alone brings the stack back.
+          for _ in $(seq 90); do
+            if curl --fail --silent --output /dev/null --cacert signalhub-ca.crt \
+                --header "Authorization: Bearer $CLIENT_KEY" "$SIGNALHUB_URL/api/v1/events"; then
+              break
+            fi
+            sleep 2
+          done
+          docker compose ps
+          for service in postgres backend proxy; do
+            test "$(docker inspect --format '{{.State.Running}}' "$(docker compose ps --quiet "$service")")" = true
+          done
+          curl --fail --silent --show-error --cacert signalhub-ca.crt \
+            --header "Authorization: Bearer $CLIENT_KEY" "$SIGNALHUB_URL/api/v1/events" \
+            | jq --exit-status '[.items[].id] == [env.EVENT_ID]'
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down --volumes
