@@ -58,7 +58,7 @@ class ClientApiTest {
         .statusCode(200)
         .body("id", equalTo(id))
         .body("$", not(hasKey("clientKey")));
-    asAdmin().get(ADMIN).then().statusCode(200).body("id", hasItem(id));
+    asAdmin().get(ADMIN).then().statusCode(200).body("items.id", hasItem(id));
   }
 
   @ParameterizedTest

@@ -610,6 +610,20 @@ The following capabilities are already implemented and merged unless repository 
   `docs/development.md#dependency-updates` lists every pin and who updates it
 - no backend, schema, contract or client changes
 
+### R18n - Admin listings in an items envelope
+
+- decision D1 (maintainer: wrap them): `GET /api/v1/admin/producers` and
+  `GET /api/v1/admin/clients` answer `{"items": [...]}` instead of a bare
+  JSON array, like the event listing, so paging or other fields can be added
+  later without another breaking change (breaking: releases up to v0.25
+  answered arrays; a script reading `.[]` now reads `.items[]`)
+- `ProducerList` and `ClientList` in the OpenAPI document; the
+  *Compatibility* section says every listing answers an object
+- nothing else reads these listings: the app and the SDK use neither, and
+  CI's Compose, upgrade, end-to-end and deployment jobs only register
+- tested against real PostgreSQL and in the OpenAPI document; no schema or
+  client changes
+
 ---
 
 ## 4. Planned roadmap
@@ -996,8 +1010,8 @@ compatibility policy and enum evolution), R18g (idempotent publishing),
 R18h (the upgrade from an older release), R18i (pre-1.0 cleanup: retries
 in the examples and stale statements), R18j (the v1.0 readiness review) and
 R18k (events visible in listing order, closing O1), R18l (dispatcher
-tests, closing O2) and R18m (Dependabot coverage, closing O3) are complete
-(see section 3). What remains is in the v1.0 readiness
+tests, closing O2), R18m (Dependabot coverage, closing O3) and R18n (admin
+listings in an items envelope, decision D1) are complete (see section 3). What remains is in the v1.0 readiness
 checklist below.
 
 Goal: deliberately declare the first stable SignalHub contract.
@@ -1047,11 +1061,11 @@ that closes an item updates its row.
 
 | Area | Status | Evidence and notes |
 |---|---|---|
-| Public REST API consistency | Reviewed; decision D1 open | Every endpoint is under `/api/v1`; creating answers `201` with `Location` (a producer key has no resource of its own, so issuing one has no `Location`); every other change answers `200` with the resource; every error but `413` has the JSON error body (R18c). |
+| Public REST API consistency | Done | Every endpoint is under `/api/v1`; creating answers `201` with `Location` (a producer key has no resource of its own, so issuing one has no `Location`); every other change answers `200` with the resource; every error but `413` has the JSON error body (R18c); every listing answers `{"items": [...]}` (D1, done in R18n). |
 | Authentication and key lifecycle | Reviewed; limitations documented | Producer keys rotate without downtime (issue, switch, revoke). A client key is rotated by registering a new client and revoking the old one; read state is the owner's and stays, push preferences start from the defaults. No key expiry, scopes or rate limiting: `docs/architecture.md#security-limitations`. |
 | Event schema | Done | Idempotent publishing (R18g); the contract and how it may change (R18f). |
 | Enum evolution | Done | R18f. |
-| Pagination | Done; decision D1 open | The event listing's keyset cursor matches its documentation, and events become visible in listing order (O1, closed in R18k). The admin listings are unpaginated arrays (D1). |
+| Pagination | Done | The event listing's keyset cursor matches its documentation, and events become visible in listing order (O1, closed in R18k). The admin listings are unpaginated, in an `items` envelope that leaves room for paging (D1, done in R18n). |
 | Migrations and upgrade path | Done | An older release refuses a newer schema (R18a); upgrades tested in CI from the latest release and from v0.13.0 (R18h). |
 | Client/device lifecycle | Reviewed; limitations documented | A revoked client loses its push target and gets no pending retries; invalid push targets are dropped. Revoked clients and producer keys are kept and listed. |
 | Push semantics | Reviewed; sound | The outbox, leases, retries (up to 5 sends over about 40 minutes), preference filtering and payload match `docs/architecture.md#push-delivery`; at least once, clients deduplicate by event ID. |
@@ -1062,10 +1076,10 @@ that closes an item updates its row.
 | Security boundaries | Done; limitations documented | Reading an event needs the owner's credential (R18b); the proxy serves only the product API (R16b). |
 | Observability | Reviewed; sound | The metrics table matches the code and `MetricsTest`; the startup summary example now matches the code. |
 | Test coverage | Done | Unit, PostgreSQL-backed, client, SDK and example tests; Compose smoke tests on x86-64 and ARM64; upgrade, end-to-end and fresh-install jobs. The dispatcher gaps (O2) are closed in R18l. |
-| Dependency health | Done; decisions D2 and D3 open | Versions and image digests are pinned; Dependabot tracks Actions, Maven, Docker, Compose, pub, the SDK's build backend, ruff and actionlint; CI checks that the tests' PostgreSQL image follows Compose's; Flutter is raised by hand (O3, closed in R18m; `docs/development.md#dependency-updates`). |
-| Release automation | Reviewed; sound | No PR title can produce `1.0.0` (`scripts/release/release.py` turns a major bump into a minor one below 1.0). Promotion is decision D4. |
+| Dependency health | Done; D2 and D3 decided (deferred past 1.0) | Versions and image digests are pinned; Dependabot tracks Actions, Maven, Docker, Compose, pub, the SDK's build backend, ruff and actionlint; CI checks that the tests' PostgreSQL image follows Compose's; Flutter is raised by hand (O3, closed in R18m; `docs/development.md#dependency-updates`). |
+| Release automation | Reviewed; sound | No PR title can produce `1.0.0` (`scripts/release/release.py` turns a major bump into a minor one below 1.0). Promotion is decision D4: not yet. |
 | End-to-end, fresh-install and upgrade tests | Done | R18d, R18e, R18h. |
-| Real-device push | Open, maintainer | Receiving a push on a real device needs the maintainer's Firebase project (R8 to R10). |
+| Real-device push | Open, maintainer | Receiving a push on a real device needs the maintainer's Firebase project (R8 to R10). The maintainer verifies it before `v1.0.0`; Android with FCM is enough for acceptance, iOS with APNs does not block 1.0 unless another issue requires it. |
 
 Open items, each small enough for one increment and needing no decision:
 
@@ -1079,7 +1093,7 @@ Open items, each small enough for one increment and needing no decision:
   `application.properties` (which must stay the Compose version), and the
   ruff, actionlint and Flutter versions pinned in CI.
 
-Decisions for the maintainer (human gates):
+Decisions for the maintainer (human gates), with the maintainer's answers:
 
 - **D1 - admin listing shape.** `GET /api/v1/admin/producers` and
   `GET /api/v1/admin/clients` answer bare JSON arrays, while the event
@@ -1087,19 +1101,25 @@ Decisions for the maintainer (human gates):
   but rules out adding paging or fields later without a breaking change;
   wrapping them now (`{"items": [...]}`) is breaking (`!`, a minor bump
   before 1.0) but leaves room. Both are valid for one owner's handful of
-  producers and clients.
+  producers and clients. **Decided: wrap them before 1.0; done in R18n.**
 - **D2 - Java 25 runtime.** Dependabot proposes the `eclipse-temurin` 25
   JRE (PR #7) and a Maven image on JDK 26 (PR #4). The stack is Java 21 LTS
   and CI tests only on 21; moving to 25 is a stack change, and building on
-  a non-LTS JDK 26 would differ from CI.
+  a non-LTS JDK 26 would differ from CI. **Decided: keep Java 21 for 1.0;
+  Java 25 is a dedicated maintenance milestone after 1.0.**
 - **D3 - PostgreSQL 18.** Dependabot proposes `postgres:18-alpine` (PR #5).
   A major version needs a dump and restore of existing data and a changed
   data directory mount in `compose.yaml`, so it is a breaking operator
-  change with migration notes, not a routine update.
+  change with migration notes, not a routine update. **Decided: keep
+  PostgreSQL 17 for 1.0; PostgreSQL 18 is a dedicated maintenance milestone
+  after 1.0.**
 - **D4 - promotion to `v1.0.0`.** The maintainer approves the public
   contract as stable. The release is then a PR, titled with `!`, that
   removes the pre-1.0 rule from `scripts/release/release.py` and its tests
-  and updates `docs/development.md#versioning` and `CLAUDE.md`.
+  and updates `docs/development.md#versioning` and `CLAUDE.md`. **Decided:
+  not yet.** The maintainer first verifies push on a real device (Android
+  with FCM is enough), and `v1.0.0` needs their explicit approval after that
+  test.
 
 ---
 
@@ -1157,10 +1177,11 @@ Determine this from repository state rather than trusting this section blindly.
 
 After the integration examples (R17), the expected next increment is:
 
-**R18 - v1.0 hardening and contract review**, continuing after R18j
-with the open items of the v1.0 readiness checklist, one increment each;
-O1 is done in R18k, O2 in R18l and O3 in R18m, so none is open. Decisions D1 to D4 are the maintainer's. Promotion to
-`v1.0.0` itself is always the maintainer's decision. Confirming delivery to a real device (R8 to R10)
-still needs the maintainer's Firebase project.
+**R18 - v1.0 hardening and contract review**: its open items (O1 to O3)
+and decision D1 are done (R18k to R18n). D2 and D3 are deferred past 1.0 by
+the maintainer. What remains is the maintainer's: verifying push on a real
+Android device with their Firebase project, then deciding D4. No increment
+starts until then; `v1.0.0` is never released without the maintainer's
+explicit approval after that test.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

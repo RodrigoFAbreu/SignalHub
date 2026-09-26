@@ -305,7 +305,7 @@ repository. Then manage it (`$PRODUCER` and `$KEY` are the IDs above):
 ```sh
 H="Authorization: Bearer $ADMIN_TOKEN"
 API=http://localhost:8080/api/v1/admin/producers
-curl -s "$API" -H "$H"                                     # list producers and key records
+curl -s "$API" -H "$H"                                     # list producers and key records ({"items": [...]})
 curl -s "$API/$PRODUCER" -H "$H"                           # one producer
 curl -s -X POST "$API/$PRODUCER/keys" -H "$H"              # issue another key (rotation, step 1)
 curl -s -X POST "$API/$PRODUCER/keys/$KEY/revoke" -H "$H"  # revoke the old key (rotation, step 2)
@@ -369,7 +369,7 @@ The operator lists, inspects and revokes clients (`$CLIENT` is the ID above):
 ```sh
 H="Authorization: Bearer $ADMIN_TOKEN"
 API=http://localhost:8080/api/v1/admin/clients
-curl -s "$API" -H "$H"                          # all clients
+curl -s "$API" -H "$H"                          # all clients ({"items": [...]})
 curl -s "$API/$CLIENT" -H "$H"                  # one client
 curl -s -X POST "$API/$CLIENT/revoke" -H "$H"   # revoke it and drop its push target
 ```

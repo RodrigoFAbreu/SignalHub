@@ -67,6 +67,7 @@ class ProducerAdminApiTest {
         .body("keys[0].id", equalTo(keyId))
         .body("$", not(hasKey("apiKey")))
         .body("keys[0]", not(hasKey("apiKey")));
+    asAdmin().get(ADMIN).then().statusCode(200).body("items.id", hasItem(id));
     var listed = asAdmin().get(ADMIN).then().statusCode(200).extract().asString();
     assertTrue(listed.contains(id));
     assertTrue(!listed.contains(apiKey), "listing must not reveal keys");
@@ -206,7 +207,7 @@ class ProducerAdminApiTest {
     create("admin-list-b-" + suffix).statusCode(201);
     create("admin-list-a-" + suffix).statusCode(201);
 
-    List<String> names = asAdmin().get(ADMIN).then().statusCode(200).extract().path("name");
+    List<String> names = asAdmin().get(ADMIN).then().statusCode(200).extract().path("items.name");
     assertEquals(names.stream().sorted().toList(), names);
   }
 
