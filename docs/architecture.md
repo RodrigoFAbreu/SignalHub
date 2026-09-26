@@ -923,7 +923,9 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   re-reads the inbox from the server: a push is a signal to look, so a push
   delivered twice (delivery is at least once) changes nothing. Tapping a
   notification also opens its event (by the push's `eventId`), including
-  the notification that started the app.
+  the notification that started the app. Pushes shown in the background
+  never reach the app, so it also re-reads the inbox whenever it returns to
+  the foreground.
 - **Inbox.** The home screen lists every event, newest first, from
   `GET /api/v1/events`, 30 per page. The next page is read with the previous
   page's `nextCursor` when the owner scrolls near the end; a pull to refresh

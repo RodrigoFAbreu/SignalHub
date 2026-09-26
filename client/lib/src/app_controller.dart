@@ -360,6 +360,12 @@ class AppController extends ChangeNotifier {
     if (phase == ConnectionPhase.connected) unawaited(_reload());
   }
 
+  /// Re-reads the inbox when the app returns to the foreground: pushes
+  /// received in the background reach only the system tray, not the app.
+  void resumed() {
+    if (phase == ConnectionPhase.connected) unawaited(_reload());
+  }
+
   void _setPhase(ConnectionPhase next) {
     phase = next;
     notifyListeners();

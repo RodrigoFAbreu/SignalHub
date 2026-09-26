@@ -85,8 +85,9 @@ After setup the home screen says *Push notifications are on*, and the
 client's registration (`GET /api/v1/admin/clients/{id}`) shows push target
 provider `fcm`. Publish an event and it arrives as a notification. While the
 app is in the foreground, pushes appear in its list instead of as a system
-notification. Pushes are delivered at least once; the app lists each event
-once.
+notification; pushes that arrived in the background are in the list when
+you return to the app. Pushes are delivered at least once; the app lists
+each event once.
 
 ## Signing
 
