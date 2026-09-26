@@ -16,9 +16,9 @@ commands that CI runs.
 
 | Path | Contents |
 |---|---|
-| `lib/main.dart` | Wiring: starts push, creates the controller, runs the app. |
+| `lib/main.dart` | Wiring: starts push with built-in options, or hands the controller the start from served ones; creates the controller, runs the app. |
 | `lib/src/api/` | `SignalHubApi`, the client side of the backend's HTTP API. |
-| `lib/src/models/` | Events and the client registration, read from API JSON. |
+| `lib/src/models/` | Events, the client registration and the served push options, read from API JSON. |
 | `lib/src/connection/` | Server address and client key, kept in secure storage. |
 | `lib/src/push/push_service.dart` | `PushService`, the provider-neutral push port, and `PushNotice`. |
 | `lib/src/push/push_registration.dart` | Keeps the server's push target in step with the provider's token. |
@@ -41,7 +41,9 @@ flutter pub get
 flutter run --dart-define=SIGNALHUB_REVISION="$(git rev-parse HEAD)"
 ```
 
-Without Firebase options the app runs without push and says so. To connect
+Without Firebase options, built in or served by the server (see
+[Push notifications](#push-notifications)), the app runs without push and
+says so. To connect
 it, start the backend (for example `./mvnw quarkus:dev` with an admin token,
 see [docs/development.md](../docs/development.md#dev-mode)), register a
 client for this installation and enter its key in the app:
@@ -63,6 +65,25 @@ The backend sends pushes through Firebase Cloud Messaging, which relays them
 to Android devices directly and to iOS devices through APNs. Receiving them
 needs the owner's own Firebase project; nothing about it is committed.
 
+The app gets the Firebase options in one of two ways:
+
+- **From the server** (any build without its own): the operator gives the
+  backend the app's `firebase-options.json` next to the service account key
+  (`SIGNALHUB_PUSH_FCM_CLIENT_OPTIONS_FILE`, see
+  [docs/development.md](../docs/development.md#firebase-cloud-messaging)),
+  and the app reads them with its client key after setup. So one build works
+  with any SignalHub server and its owner's Firebase project. The app checks
+  them before starting Firebase, and runs without push if the server serves
+  none (*Push is not configured on this server*) or they are not complete
+  options for this platform (*This server's push configuration does not work
+  with this app*). Firebase starts once per run: after connecting to a server
+  with other options, or when the operator replaces them, restart the app.
+- **Built in**, with `--dart-define-from-file=firebase-options.json` (step
+  5), for local and development builds; they take precedence over the
+  server's.
+
+Either way, the options are those of your own Firebase project:
+
 1. In the [Firebase console](https://console.firebase.google.com/), use the
    project whose service account key the backend has
    (`SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE`, see
@@ -77,7 +98,7 @@ needs the owner's own Firebase project; nothing about it is committed.
    Messaging*, and enable the Push Notifications capability for the bundle
    ID in your Apple developer account. The app already requests it
    (`ios/Runner/Runner.entitlements`).
-5. Build or run with the options:
+5. Give the file to the backend (above), or build or run with it:
 
    ```sh
    flutter run --dart-define-from-file=firebase-options.json \

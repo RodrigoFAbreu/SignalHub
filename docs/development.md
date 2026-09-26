@@ -694,6 +694,10 @@ curl -H "Authorization: Bearer $CLIENT_KEY" http://localhost:8080/api/v1/client/
 # {"provider":"fcm","options":{"FIREBASE_PROJECT_ID":"...", ...}}
 ```
 
+An app built without its own options (no `--dart-define-from-file`) then
+sets up push with these after setup (see
+[client/README.md](../client/README.md#push-notifications)).
+
 ## Client
 
 The client app lives in `client/`: one Flutter codebase for Android and iOS.

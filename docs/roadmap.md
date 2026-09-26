@@ -866,6 +866,36 @@ The following capabilities are already implemented and merged unless repository 
   served options with a client key
 - backend only; the app uses the options in R23b
 
+### R23b - The app sets up push from served options
+
+- a build without compiled-in Firebase options reads
+  `GET /api/v1/client/push-config` with its client key after setup, on
+  every start and refresh before registering, and starts push with them;
+  compiled-in options (`--dart-define-from-file`) keep working and take
+  precedence, and then the app never reads the served ones
+- the app checks served options before starting Firebase: provider `fcm`,
+  every value its platform needs, a numeric sender ID and an app ID of this
+  platform and sender; otherwise push stays off and the *This device*
+  screen says why: *Push is not configured on this server* (`404`) or
+  *This server's push configuration does not work with this app* (also
+  shown in the inbox); unreadable answers or an unreachable server count as
+  a failed registration, retried on the next refresh
+- Firebase starts once per process: options that differ from those it
+  started with (another server, or replaced by the operator) register
+  nothing and ask for a restart, so no token of one Firebase project is
+  registered with a server using another; the options are not stored
+- setting a push target still needs the client key; the provider-neutral
+  `PushService` port is unchanged, `PushConfig` is a provider-neutral model
+  and only `FirebasePushService` reads the options
+- unit and widget tests against the fake server (served, precedence of
+  built-in options, none served, refused and later fixed, malformed,
+  unreachable, one start across concurrent refreshes, another server's
+  options, a revoked key) and of the option checks; `client/README.md` and
+  `docs/architecture.md` document both ways to get the options
+- client only: no backend, API or schema changes; receiving a push with
+  served options on a real phone is the maintainer's check, with R24's
+  released app
+
 ---
 
 ## 4. Planned roadmap
@@ -1406,8 +1436,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 10 | R22a - The app's version and commit on the *This device* screen | Increment (`feat(client)`) | Done (see section 3) |
 | 11 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Given (2026-09-26): D5 = a, D6 = one stable release key |
 | 12 | R23a - Push client options served by the backend (first half of R23) | Increment (`feat`) | Done (see section 3) |
-| 12b | R23b - The app sets up push from served options (second half of R23) | Increment (`feat(client)`) | Next |
-| 13 | R24 - Installable Android app in each release | Increment (`feat`) | Blocked until R23b is merged; needs the D6 key in GitHub Actions secrets (maintainer) |
+| 12b | R23b - The app sets up push from served options (second half of R23) | Increment (`feat(client)`) | Done (see section 3) |
+| 13 | R24 - Installable Android app in each release | Increment (`feat`) | Next; needs the D6 key in GitHub Actions secrets (maintainer) |
 | 14 | R25 - Java 25 (decision D2) | Increment | Blocked until R24 is merged |
 | 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Blocked until R25 is merged |
 | 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Blocked until R26 is merged |
@@ -1934,11 +1964,11 @@ APKs. Requirements, binding on R24:
 
 ### R23 - Push configuration served by the backend
 
-Status: split in two, as its scope allowed. **R23a** (the backend: the
-setting, `GET /api/v1/client/push-config`, the startup checks and the
-end-to-end check) is done (see section 3). **R23b** (the app: the three
-app bullets below, its tests against the fake server, and
-`client/README.md`) is next. D5 chose **a** (G3, 2026-09-26); the
+Status: complete, split in two, as its scope allowed. **R23a** (the
+backend: the setting, `GET /api/v1/client/push-config`, the startup checks
+and the end-to-end check) and **R23b** (the app: the three app bullets
+below, its tests against the fake server, and `client/README.md`) are done
+(see section 3). D5 chose **a** (G3, 2026-09-26); the
 [G3 answers](#g3-answers) are binding on its scope.
 
 Goal: an app that has no compiled-in push options gets them from its
@@ -1967,7 +1997,7 @@ would be too large to review. Compatible (`feat`).
 
 ### R24 - Installable Android app in each release
 
-Status: planned; blocked until R23b is merged. D6 chose one stable release
+Status: next (R23b is merged). D6 chose one stable release
 key (G3, 2026-09-26); the maintainer creates it and stores it as GitHub
 Actions secrets (see [G3 answers](#g3-answers)).
 
@@ -2232,10 +2262,11 @@ Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
 (section 4) is authoritative. G3 was answered on 2026-09-26 (D5 = a,
-D6 = one stable release key), and R23a (the backend half of R23) is done, so
-the expected next item is **R23b - the app sets up push from served
-options**, under the requirements in [G3 answers](#g3-answers). R24 follows and needs the maintainer's release
-key in GitHub Actions secrets; then Java 25 (R25) and PostgreSQL 18 (R26),
-each in its own PR (see [section 5](#5-after-v100)).
+D6 = one stable release key), and R23 (R23a, the backend, and R23b, the app)
+is done, so the expected next item is **R24 - Installable Android app in
+each release**, under the requirements in [G3 answers](#g3-answers). It
+needs the maintainer's release key in GitHub Actions secrets: if they are
+not present, the run stops and asks for them. Then Java 25 (R25) and
+PostgreSQL 18 (R26), each in its own PR (see [section 5](#5-after-v100)).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

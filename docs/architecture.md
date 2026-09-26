@@ -949,6 +949,20 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   whenever the provider issues a new token. Disconnecting removes the target
   (`DELETE`), deletes the provider token and forgets the key. A key the
   server no longer accepts sends the app back to setup.
+- **Push options.** A build made with its own Firebase options
+  (`--dart-define-from-file`) uses them, and they take precedence. A build
+  without them reads the server's after setup, with the client key
+  (`GET /api/v1/client/push-config`, see
+  [Push client options](#push-client-options)), on every start and refresh
+  before registering. The app starts Firebase only with options it has
+  checked: provider `fcm`, every value it needs for its platform, a numeric
+  sender ID and an app ID of this platform and sender
+  (`1:<sender>:android:<hex>`); otherwise push stays off and the *This
+  device* screen says why (none served, or not for this app). Firebase
+  starts once per process, so options that change afterwards (another
+  server, or the operator replaced them) register nothing until the app is
+  restarted, and the app says so. The options are not stored; a start that
+  cannot reach the server tries again on the next refresh.
 - **Credentials.** The server address and client key are kept in the
   platform's secure storage (Keychain on iOS, Keystore-backed encryption on
   Android) and never logged.

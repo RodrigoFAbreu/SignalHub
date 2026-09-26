@@ -35,6 +35,51 @@ void main() {
     );
   });
 
+  test('reads the push options the server serves', () async {
+    backend.pushConfig = servedPushConfig;
+
+    final config = (await backend.api().getPushConfig())!;
+
+    expect(config.provider, 'fcm');
+    expect(config.options['FIREBASE_PROJECT_ID'], 'owner-project');
+    expect(config.options, hasLength(4));
+    expect(
+      backend.requests.single.url.toString(),
+      '$serverUrl/api/v1/client/push-config',
+    );
+  });
+
+  test('a server without push options answers none', () async {
+    expect(await backend.api().getPushConfig(), isNull);
+  });
+
+  test('push options that are not strings are an unexpected answer', () {
+    backend.pushConfig = {
+      'provider': 'fcm',
+      'options': {'FIREBASE_PROJECT_ID': null},
+    };
+
+    expect(
+      backend.api().getPushConfig(),
+      throwsA(
+        isA<ApiException>().having(
+          (e) => e.message,
+          'message',
+          'The server sent an unexpected answer',
+        ),
+      ),
+    );
+  });
+
+  test('a rejected key reading push options is unauthorized', () {
+    backend.acceptedKey = null;
+
+    expect(
+      backend.api().getPushConfig(),
+      throwsA(isA<UnauthorizedException>()),
+    );
+  });
+
   test('sets and removes the push target', () async {
     final api = backend.api();
 
