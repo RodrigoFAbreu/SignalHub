@@ -1354,14 +1354,15 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 7 | R20 - Version identity and the published backend image | Increment (`feat`) | Done (see section 3) |
 | 8 | R21 - Deploying from published images | Increment (`feat`) | Done (see section 3) |
 | 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Done (see section 3) |
-| 10 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Next; not given (may be answered at any time) |
-| 11 | R23 - Push configuration served by the backend | Increment (`feat`), only if D5 chooses it | Blocked by G3 |
-| 12 | R24 - Installable Android app in each release | Increment (`feat`) | Blocked by G3 (and R23 if D5 chooses it) |
-| 13 | R25 - Java 25 (decision D2) | Increment | Blocked until R24 is merged |
-| 14 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Blocked until R25 is merged |
-| 15 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Blocked until R26 is merged |
-| 16 | R28 - Pairing a device: the API | Increment (`feat`) | Blocked until R27 is merged |
-| 17 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Blocked until R28 is merged |
+| 10 | R22a - The app's version and commit on the *This device* screen | Increment (`feat(client)`) | Next |
+| 11 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Not given (may be answered at any time) |
+| 12 | R23 - Push configuration served by the backend | Increment (`feat`), only if D5 chooses it | Blocked by G3 |
+| 13 | R24 - Installable Android app in each release | Increment (`feat`) | Blocked by G3 (and R23 if D5 chooses it) |
+| 14 | R25 - Java 25 (decision D2) | Increment | Blocked until R24 is merged |
+| 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Blocked until R25 is merged |
+| 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Blocked until R26 is merged |
+| 17 | R28 - Pairing a device: the API | Increment (`feat`) | Blocked until R27 is merged |
+| 18 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Blocked until R28 is merged |
 
 How an autonomous run uses it:
 
@@ -1564,6 +1565,7 @@ G1 → G2 → R19 v1.0.0
   → R20 version identity + published backend image
   → R21 deploying from published images
   → R22 SDK and command version + SDK files
+  → R22a the app's version and commit on the This device screen
   → G3 decisions D5, D6 → R23 push configuration from the backend (if D5 = a)
   → R24 Android app in each release
   → R25 Java 25 → R26 PostgreSQL 18
@@ -1579,6 +1581,10 @@ G1 → G2 → R19 v1.0.0
   and independent) before the app, because the app alone needs decisions
   (G3) and possibly an API addition (R23). G3 may be answered at any time,
   including with G2, so that the queue does not stop there.
+- **R22a comes before G3** at the maintainer's request (2026-09-26, after
+  installing `v1.3.0` on the phone): which build a phone runs could only be
+  found with `adb` or by remembering how it was built. It needs no
+  decision, and R24 then only has to feed the release's version into it.
 - **Java 25 (R25) and PostgreSQL 18 (R26) stay two separate increments**,
   in the order decisions D2 and D3 gave them. Java 25 has no dependency on
   distribution either way; with published images it reaches operators as a
@@ -1604,6 +1610,7 @@ advance; they follow from the queue.
 | Item | Expected release | Why |
 |---|---|---|
 | R20, R22, R24 | minor (`feat`) | new artifacts and a new version surface; nothing existing changes |
+| R22a | minor (`feat(client)`) | a new entry on an existing screen; no API change |
 | R21 | minor (`feat`) if an install upgrading by the documented procedure keeps working; `!` with migration notes if it needs a new required setting or step | the deployment files and procedure are operator contract (Compatibility section of `docs/architecture.md`) |
 | R23 | minor (`feat`) | an addition to the client API; older apps ignore it |
 | R25 | patch (`build`) unless it changes something the Compatibility section lists | Java and the JVM are not part of the public contract |
@@ -1731,6 +1738,62 @@ Non-goals: publishing on PyPI (deferred); other SDK languages (deferred).
 Exit criteria: an SDK installed from a release's files reports that
 release's version.
 
+### R22a - The app's version and commit on the *This device* screen
+
+Status: planned; next (added at the maintainer's request on 2026-09-26).
+
+Goal: the owner sees which SignalHub build the app on a phone is from the
+app itself, without `adb` and without remembering how it was built. Release
+identity and source provenance are shown separately: the release version
+names the official artifact, the commit names the exact source.
+
+Scope, client only:
+
+- the *This device* screen gets an entry of two lines:
+  - an app built by a SignalHub release as its official artifact:
+    "SignalHub X.Y.Z" and "Commit <short commit>"
+  - any other build, including a local build from a release's tag:
+    "SignalHub development build" and "Commit <short commit>"
+  - `<short commit>` is the first 7 characters of the commit the app was
+    built from, always shown, for release and development builds alike; a
+    build that was not given its commit (such as a plain `flutter run`)
+    shows "Commit unknown" rather than guess
+- the version and the commit come in at build time as two separate values
+  (for example two `--dart-define`s; the increment decides), never from the
+  placeholder `version:` in `client/pubspec.yaml`, which stays a
+  placeholder
+- only the release's own app build sets the version, as only the release's
+  image build sets the backend's (see the Version section of
+  `docs/architecture.md`); it is not a setting for local builds, and the
+  build commands in `client/README.md` never pass it, so a local build from
+  the same tag never claims to be the release (the rules of
+  [One version, many artifacts](#one-version-many-artifacts))
+- the build commands in `client/README.md` pass the commit
+  (`git rev-parse HEAD`), so every documented local build names its exact
+  source; until R24 no release builds the app, so every installed app is a
+  development build with its commit, and R24 makes the release's APK set
+  its version through this same entry
+- `client/README.md` and the Version section of `docs/architecture.md`
+  describe the entry and both identities
+
+Tests (widget tests against the fake server, as the other screens):
+
+- a build given a version and a commit shows "SignalHub X.Y.Z" and
+  "Commit <first 7 characters>"
+- a build given only a commit shows "SignalHub development build" and
+  "Commit <first 7 characters>"
+- a build given neither shows "SignalHub development build" and
+  "Commit unknown"
+- the entry never shows the placeholder version of `client/pubspec.yaml`
+
+Non-goals: the server's version on the screen (`/q/info` is on the host
+only); a release APK (R24); any API change.
+
+Exit criteria: an app built locally from a release's tag with the
+documented command shows "SignalHub development build" and that tag's
+short commit on the *This device* screen of a real phone; the widget tests
+above pass in CI.
+
 ### G3 - Decisions D5 and D6
 
 Human gate. Both need the maintainer; D6 needs a secret only they can
@@ -1805,8 +1868,10 @@ Scope:
   version so it grows with every release (the rule documented); the
   placeholder in `client/pubspec.yaml` stays for local builds, which
   identify themselves as development builds
-- the app shows "SignalHub X.Y.Z" (or its development identity) on the
-  *This device* screen
+- the release's app build sets the version and the commit, so the
+  *This device* entry R22a added shows "SignalHub X.Y.Z" and "Commit <short
+  commit>"; a local build keeps showing "SignalHub development build" with
+  its own commit
 - a pull request's CI builds a release-mode APK (unsigned or with a
   throwaway key) so the release build cannot break unnoticed
 - `client/README.md` and `docs/deployment.md`: download, verify the
@@ -1818,7 +1883,8 @@ logs or artifacts beyond what D5 allows; no AAB (no store distribution); no
 iOS build (it needs the owner's Apple team: unchanged, built in Xcode).
 
 Exit criteria: the APK of a release installs on a phone, sets up with a
-client key, receives push as D5 decided, and reports that release.
+client key, receives push as D5 decided, and reports that release and its
+commit on the *This device* screen.
 
 ### R25 - Java 25
 
@@ -2050,12 +2116,16 @@ Determine this from repository state rather than trusting this section blindly.
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
 (section 4) is authoritative. After R22, the expected next item is:
 
-**G3 - decisions D5 and D6**, a human gate: R23 and R24 need the
-maintainer's answers (D6 also needs a signing key only they can create), and
-R25 onwards waits for R24 in the queue. Before stopping there, check that
-R22's release exists and attaches the SDK's wheel and source archive beside
+**R22a - the app's version and commit on the *This device* screen**, a
+client increment that needs no decision. Before starting it, check that R22's
+release exists and attaches the SDK's wheel and source archive beside
 `signalhub-X.Y.Z-deployment.tar.gz` and `SHA256SUMS`; if that release
-failed, correcting it comes first. Once G3 is answered, the queue continues
+failed, correcting it comes first.
+
+After R22a comes **G3 - decisions D5 and D6**, a human gate: R23 and R24
+need the maintainer's answers (D6 also needs a signing key only they can
+create), and R25 onwards waits for R24 in the queue. Once G3 is answered,
+the queue continues
 with R23 (if D5 chooses it) and R24, then Java 25 (R25) and PostgreSQL 18
 (R26), each in its own PR (see [section 5](#5-after-v100)).
 
