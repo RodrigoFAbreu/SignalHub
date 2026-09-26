@@ -1351,6 +1351,14 @@ Decisions for the maintainer (human gates), with the maintainer's answers:
   with FCM is enough), and `v1.0.0` needs their explicit approval after that
   test. Push was verified on Android at `v0.27.0` (R18o). **Approved on
   2026-09-26 (G2), after G1; released by R19.**
+- **D5 - push configuration of a distributed app** (G3; options in
+  [G3](#g3---decisions-d5-and-d6)). **Decided on 2026-09-26: option a, the
+  backend serves the app's client-safe push configuration** (R23). Never
+  the maintainer's Firebase options compiled into the released app.
+- **D6 - Android release signing key** (G3). **Decided on 2026-09-26: one
+  stable release signing key for every official APK**, created by the
+  maintainer, kept only in GitHub Actions secrets and a private offline
+  backup (R24).
 
 ### Remaining work to v1.0.0 and after
 
@@ -1375,9 +1383,9 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 8 | R21 - Deploying from published images | Increment (`feat`) | Done (see section 3) |
 | 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Done (see section 3) |
 | 10 | R22a - The app's version and commit on the *This device* screen | Increment (`feat(client)`) | Done (see section 3) |
-| 11 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Not given (may be answered at any time); next |
-| 12 | R23 - Push configuration served by the backend | Increment (`feat`), only if D5 chooses it | Blocked by G3 |
-| 13 | R24 - Installable Android app in each release | Increment (`feat`) | Blocked by G3 (and R23 if D5 chooses it) |
+| 11 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Given (2026-09-26): D5 = a, D6 = one stable release key |
+| 12 | R23 - Push configuration served by the backend | Increment (`feat`; may be split into backend and app) | Next |
+| 13 | R24 - Installable Android app in each release | Increment (`feat`) | Blocked until R23 is merged; needs the D6 key in GitHub Actions secrets (maintainer) |
 | 14 | R25 - Java 25 (decision D2) | Increment | Blocked until R24 is merged |
 | 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Blocked until R25 is merged |
 | 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Blocked until R26 is merged |
@@ -1816,6 +1824,13 @@ above pass in CI.
 
 ### G3 - Decisions D5 and D6
 
+Status: passed. The maintainer answered both on 2026-09-26 (after `v1.4.0`):
+**D5 = a** (the backend serves the app's push configuration, R23) and
+**D6 = one stable release signing key** (R24). The answers and the
+requirements that came with them are in
+[G3 answers](#g3-answers) below; the options as they were put to the
+maintainer follow.
+
 Human gate. Both need the maintainer; D6 needs a secret only they can
 create. They may be answered at any time, before or after `v1.0.0`; R23 and
 R24 do not start without the answers.
@@ -1847,9 +1862,58 @@ R24 do not start without the answers.
   released app installed over a locally built one also needs an uninstall
   and a new setup (the client key lives in the app's secure storage).
 
+#### G3 answers
+
+**D5: option a, backend-served push client configuration.** Intent: one
+official released APK works with any SignalHub server. Requirements, binding
+on R23 and R24:
+
+- the backend serves only the client-safe configuration the app needs to
+  initialise its push provider (for FCM, the Firebase project and app
+  identifiers and client API configuration: identifiers, not authorization
+  secrets)
+- it never serves a server-side credential: not the service account key or
+  any part of it, nor anything else able to send FCM messages
+- provider-specific details stay at the integration edge; the core, the
+  API shape and the schema stay provider-neutral
+- the configuration is read through an authenticated client endpoint after
+  setup (a client key), not a public unauthenticated one; real deployments
+  serve it over HTTPS, as the rest of the client API
+  ([deployment.md](deployment.md))
+- the app validates the served configuration before initialising the push
+  provider, and runs without push if it is missing or invalid
+- registering a push token still needs an authenticated SignalHub client;
+  a provider token alone is never SignalHub authentication
+- local and development builds may keep compiled-in Firebase options as a
+  development and fallback path
+- the maintainer's personal Firebase options are never compiled into the
+  released APK (that was option b, not chosen)
+- if Firebase services beyond FCM are ever used, their security rules stay
+  restrictive; the client API key is not a security boundary
+
+**D6: one stable Android release signing key** for all official SignalHub
+APKs. Requirements, binding on R24:
+
+- the maintainer creates one release signing identity, reused for every
+  official APK
+- the keystore and its passwords are never committed; they live in GitHub
+  Actions secrets (or equivalent CI secret storage), and the maintainer
+  keeps a separate private offline backup
+- the documentation states that losing the key prevents future updates
+  over existing official installs: each device then uninstalls and sets up
+  again
+- the documentation states the one-time migration from a locally built
+  (debug-signed) app to the first officially signed APK: uninstall, install
+  the release APK, set up again with a client key
+- creating the key and storing the secrets is the maintainer's step; R24
+  names the secrets it needs, and if they are not present when R24 is
+  otherwise ready, the run stops and asks for them rather than publishing an
+  unsigned or debug-signed APK as a release
+
 ### R23 - Push configuration served by the backend
 
-Status: planned only if D5 chooses **a**; blocked by G3.
+Status: next. D5 chose **a** (G3, 2026-09-26); the
+[G3 answers](#g3-answers) are binding on its scope.
 
 Goal: an app that has no compiled-in push options gets them from its
 server, so one released app works with any SignalHub server.
@@ -1862,7 +1926,11 @@ Scope:
 - a client key reads them through the client API (`GET /api/v1/client` or a
   sibling endpoint, the increment decides), in a provider-neutral shape: the
   provider name and an opaque map of options that the backend validates as
-  JSON but does not interpret; no Firebase concept enters the domain
+  JSON but does not interpret; no Firebase concept enters the domain;
+  only client-safe values are served, never a server-side credential
+- the app validates served options before initialising push, and runs
+  without push when they are missing or invalid; setting a push target
+  still needs the client key
 - the app initialises push from served options when it has no compiled-in
   ones; compiled-in options keep working and take precedence
 - tests against real PostgreSQL, the OpenAPI document, the app against its
@@ -1873,7 +1941,9 @@ would be too large to review. Compatible (`feat`).
 
 ### R24 - Installable Android app in each release
 
-Status: planned; blocked by G3, and by R23 if D5 chooses **a**.
+Status: planned; blocked until R23 is merged. D6 chose one stable release
+key (G3, 2026-09-26); the maintainer creates it and stores it as GitHub
+Actions secrets (see [G3 answers](#g3-answers)).
 
 Goal: an operator installs the app of a release from its GitHub release
 page, without building it, and the app says which release it is.
@@ -1896,7 +1966,8 @@ Scope:
   throwaway key) so the release build cannot break unnoticed
 - `client/README.md` and `docs/deployment.md`: download, verify the
   checksum, install, update by installing the next release's APK, and the
-  one-time uninstall when replacing a locally built app
+  one-time uninstall when replacing a locally built app, and that losing
+  the release key prevents updates over official installs
 
 Constraints and non-goals: no signing or Firebase secret in the repository,
 logs or artifacts beyond what D5 allows; no AAB (no store distribution); no
@@ -2134,12 +2205,11 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. After R22a, the expected next item is
-**G3 - decisions D5 and D6**, a human gate: R23 and R24
-need the maintainer's answers (D6 also needs a signing key only they can
-create), and R25 onwards waits for R24 in the queue. Once G3 is answered,
-the queue continues
-with R23 (if D5 chooses it) and R24, then Java 25 (R25) and PostgreSQL 18
-(R26), each in its own PR (see [section 5](#5-after-v100)).
+(section 4) is authoritative. G3 was answered on 2026-09-26 (D5 = a,
+D6 = one stable release key), so the expected next item is **R23 - push
+configuration served by the backend**, under the requirements in
+[G3 answers](#g3-answers). R24 follows and needs the maintainer's release
+key in GitHub Actions secrets; then Java 25 (R25) and PostgreSQL 18 (R26),
+each in its own PR (see [section 5](#5-after-v100)).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
