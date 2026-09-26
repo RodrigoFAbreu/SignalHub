@@ -590,3 +590,143 @@ jobs:
         run: docker compose logs
       - if: always()
         run: docker compose down --volumes
+
+  e2e:
+    name: End-to-end (producer to push and client inbox)
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: http://localhost:8080
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install ./sdk/python
+      - name: Start a fake FCM, PostgreSQL and the backend with FCM push enabled
+        run: |
+          echo "SENDS=$RUNNER_TEMP/fcm-sends.jsonl" >> "$GITHUB_ENV"
+          python scripts/e2e/fake_fcm.py --port 8099 --record "$RUNNER_TEMP/fcm-sends.jsonl" \
+            > "$RUNNER_TEMP/fake-fcm.log" 2>&1 &
+          # A throwaway service account key that only the fake accepts; no real
+          # Firebase credential is ever needed in CI.
+          openssl genpkey -quiet -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$RUNNER_TEMP/fcm-key.pem"
+          jq --null-input --rawfile key "$RUNNER_TEMP/fcm-key.pem" '{
+              type: "service_account", project_id: "signalhub-e2e", private_key_id: "e2e",
+              private_key: $key, client_email: "signalhub@signalhub-e2e.iam.gserviceaccount.com",
+              token_uri: "http://host.docker.internal:8099/token"}' > "$RUNNER_TEMP/fcm.json"
+          chmod a+r "$RUNNER_TEMP/fcm.json" # the backend runs as UID 10001
+          cp .env.example .env
+          admin_token=$(openssl rand -hex 32)
+          echo "::add-mask::$admin_token"
+          echo "ADMIN_TOKEN=$admin_token" >> "$GITHUB_ENV"
+          sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" .env
+          # The key mount of docs/development.md#firebase-cloud-messaging, with the
+          # FCM API pointed at the fake on the runner.
+          cat > compose.override.yaml <<YAML
+          services:
+            backend:
+              environment:
+                SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE: /run/secrets/fcm.json
+                SIGNALHUB_PUSH_FCM_API_URL: http://host.docker.internal:8099
+              volumes:
+                - $RUNNER_TEMP/fcm.json:/run/secrets/fcm.json:ro
+              extra_hosts:
+                - host.docker.internal:host-gateway
+          YAML
+          docker compose up --build --wait --wait-timeout 180
+          docker compose logs backend | grep --quiet 'Push providers: \[fcm\]'
+      - name: Register a producer and two clients with push targets
+        run: |
+          admin() {
+            curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+              --header 'Content-Type: application/json' --data "$2" "$SIGNALHUB_URL$1"
+          }
+          register_client() { # name, push token; prints the client key
+            local key
+            key=$(admin /api/v1/admin/clients "{\"name\": \"$1\"}" | jq --raw-output .clientKey)
+            curl --fail --silent --show-error --output /dev/null --request PUT \
+              --header "Authorization: Bearer $key" --header 'Content-Type: application/json' \
+              --data "{\"provider\": \"fcm\", \"token\": \"$2\"}" \
+              "$SIGNALHUB_URL/api/v1/client/push-target"
+            echo "$key"
+          }
+          api_key=$(admin /api/v1/admin/producers '{"name": "e2e-producer"}' | jq --raw-output .apiKey)
+          echo "::add-mask::$api_key"
+          phone_key=$(register_client e2e-phone e2e-phone-token)
+          # Its app was uninstalled: FCM answers UNREGISTERED for this token.
+          stale_key=$(register_client e2e-stale unregistered-e2e-token)
+          echo "::add-mask::$phone_key"
+          echo "::add-mask::$stale_key"
+          curl --fail --silent --show-error --output /dev/null --request PUT \
+            --header "Authorization: Bearer $phone_key" --header 'Content-Type: application/json' \
+            --data '{"minimumSeverity": "HIGH"}' "$SIGNALHUB_URL/api/v1/client/push-preferences"
+          {
+            echo "SIGNALHUB_API_KEY=$api_key"
+            echo "PHONE_KEY=$phone_key"
+            echo "STALE_KEY=$stale_key"
+          } >> "$GITHUB_ENV"
+      - name: The producer publishes a low and a high severity event
+        run: |
+          low=$(signalhub send --category INFO --severity LOW --title "Nightly backup finished")
+          high=$(signalhub send --category ACTION_REQUIRED --severity HIGH \
+            --title "Approve the deployment" --message "Production is waiting." --meta run=7)
+          {
+            echo "LOW_ID=$low"
+            echo "HIGH_ID=$high"
+          } >> "$GITHUB_ENV"
+      - name: Push goes out through FCM as the clients' preferences allow
+        run: |
+          stale_target() {
+            curl --fail --silent --show-error --header "Authorization: Bearer $STALE_KEY" \
+              "$SIGNALHUB_URL/api/v1/client" | jq --compact-output .pushTarget
+          }
+          # Both events are dispatched in order, so once the high one reached the
+          # phone and the stale target is gone, the low one was already handled.
+          for _ in $(seq 60); do
+            if jq --exit-status --slurp 'any(.[]; .message.data.eventId == env.HIGH_ID
+                  and .message.token == "e2e-phone-token")' "$SENDS" > /dev/null \
+                && [ "$(stale_target)" = null ]; then
+              break
+            fi
+            sleep 1
+          done
+          cat "$SENDS"
+          # The phone gets only the high severity event, as FCM's HTTP v1 API expects it.
+          jq --exit-status --slurp '[.[] | select(.message.token == "e2e-phone-token")]
+              == [{"path": "/v1/projects/signalhub-e2e/messages:send",
+                   "message": {"token": "e2e-phone-token",
+                     "notification": {"title": "Approve the deployment", "body": "Production is waiting."},
+                     "data": {"eventId": env.HIGH_ID, "category": "ACTION_REQUIRED", "severity": "HIGH"}}}]' \
+            "$SENDS"
+          # FCM's UNREGISTERED removed the stale client's target.
+          jq --exit-status --slurp 'any(.[]; .message.token == "unregistered-e2e-token"
+              and .message.data.eventId == env.LOW_ID)' "$SENDS"
+          test "$(stale_target)" = null
+          metrics=$(curl --fail --silent --show-error --header 'Accept: text/plain' \
+            "$SIGNALHUB_URL/q/metrics")
+          grep --quiet --extended-regexp '^signalhub_push_deliveries_total\{result="delivered",?\} 1\.0$' <<<"$metrics"
+          grep --quiet --extended-regexp '^signalhub_push_deliveries_total\{result="invalid_target",?\} 1\.0$' <<<"$metrics"
+      - name: The client opens the pushed event from its inbox and reads it
+        run: |
+          client() {
+            curl --fail --silent --show-error --header "Authorization: Bearer $PHONE_KEY" "$@"
+          }
+          pushed=$(jq --raw-output --slurp \
+            '.[] | select(.message.token == "e2e-phone-token") | .message.data.eventId' "$SENDS")
+          client "$SIGNALHUB_URL/api/v1/events/$pushed" \
+            | jq --exit-status '.title == "Approve the deployment" and .metadata == {"run": "7"}
+                and .producer.name == "e2e-producer" and .readAt == null'
+          # The inbox holds every event, pushed or not, newest first.
+          client "$SIGNALHUB_URL/api/v1/events" \
+            | jq --exit-status '[.items[].id] == [env.HIGH_ID, env.LOW_ID]
+                and all(.items[]; .readAt == null)'
+          client "$SIGNALHUB_URL/api/v1/events/unread-count" | jq --exit-status '.unread == 2'
+          client --request PUT "$SIGNALHUB_URL/api/v1/events/$pushed/read" \
+            | jq --exit-status '.readAt != null'
+          client "$SIGNALHUB_URL/api/v1/events/unread-count" | jq --exit-status '.unread == 1'
+      - if: failure()
+        run: |
+          docker compose logs
+          cat "$RUNNER_TEMP/fake-fcm.log"
+      - if: always()
+        run: docker compose down --volumes
