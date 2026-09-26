@@ -4,7 +4,8 @@ Status: Active
 Development model: lightweight trunk-based development  
 Release model: every merge to `main` is releasable and produces a release  
 Backend: Java 21 + Quarkus + PostgreSQL  
-Client strategy: cross-platform capable; final mobile technology is intentionally not fixed yet
+Client: Flutter, one codebase for Android and iOS (decided in R9)  
+Version: one SignalHub version for the whole repository, the `vX.Y.Z` git tag (see [One version, many artifacts](#one-version-many-artifacts))
 
 ## 1. Product goal
 
@@ -691,6 +692,13 @@ The following capabilities are already implemented and merged unless repository 
   could take its baseline with an earlier pop-up still on show, looked only
   after the notification was found (Samsung's brief pop-up shows for about
   4 s) and needed more changed pixels than that pop-up changes; all are fixed
+- with those fixes (PR #58, `v0.27.4`, which changed only the review
+  tooling) the maintainer's automated review of the `v0.27.3` app passed its
+  18 checks on their Android phone (foreground, background and killed-app
+  push, read state in both directions, push preferences, idempotent
+  publishing, backend down and recovering, backend restart, phone offline and
+  reconnecting, stale state), finding no app or backend defect; its
+  non-blocking observations are queued after 1.0 as R27
 
 ### R18r - Stale branch cleanup
 
@@ -1161,6 +1169,7 @@ that closes an item updates its row.
 | End-to-end, fresh-install and upgrade tests | Done | R18d, R18e, R18h. |
 | Real-device push | Done on Android; its defect fixed in R18p | Verified on the maintainer's Android phone with their Firebase project at `v0.27.0` (R18o): a functional review passed its 19 checks (foreground, background, killed app and cold start, pop-up over another app, read state, push preferences, idempotent publishing, backend down and restarted, phone offline). It found that the event screen only offered *Mark as unread*, fixed in R18p (the action now follows the event's read state; verifying it on the device is the maintainer's, with R18q's review). iOS with APNs does not block 1.0 unless another issue requires it. |
 | Device-review tooling | Done (R18q) | The review's `adb` script is in `scripts/device-review/`, configured only from the environment, arguments and key files, with a guard that touches the screen only while SignalHub or the shade it opened is in front; CI lints it and unit tests its parsing and guard on recorded samples. The device run stays manual. |
+| Real-device review after R18p and R18q | Passed; evidence for G1, not G1 | The maintainer's automated review of `v0.27.3` with R18q's script, as fixed in PR #58 (`v0.27.4`, tooling only): 18 of 18 checks passed, no app or backend defect. Non-blocking observations are queued after 1.0 as R27. |
 | Maintainer usability review | Open, maintainer (G1) | After R18p to R18r: the maintainer uses the app and signs off. |
 
 Open items, each small enough for one increment and needing no decision:
@@ -1185,16 +1194,17 @@ Decisions for the maintainer (human gates), with the maintainer's answers:
   before 1.0) but leaves room. Both are valid for one owner's handful of
   producers and clients. **Decided: wrap them before 1.0; done in R18n.**
 - **D2 - Java 25 runtime.** Dependabot proposes the `eclipse-temurin` 25
-  JRE (PR #7) and a Maven image on JDK 26 (PR #4). The stack is Java 21 LTS
+  JRE (PR #7) and a Maven image on JDK 26 (PR #4), both since closed; their
+  successors are PRs #48 and #49. The stack is Java 21 LTS
   and CI tests only on 21; moving to 25 is a stack change, and building on
   a non-LTS JDK 26 would differ from CI. **Decided: keep Java 21 for 1.0;
-  Java 25 is a dedicated maintenance milestone after 1.0.**
+  Java 25 is a dedicated maintenance milestone after 1.0** (R25).
 - **D3 - PostgreSQL 18.** Dependabot proposes `postgres:18-alpine` (PR #5).
   A major version needs a dump and restore of existing data and a changed
   data directory mount in `compose.yaml`, so it is a breaking operator
   change with migration notes, not a routine update. **Decided: keep
   PostgreSQL 17 for 1.0; PostgreSQL 18 is a dedicated maintenance milestone
-  after 1.0.**
+  after 1.0** (R26).
 - **D4 - promotion to `v1.0.0`.** The maintainer approves the public
   contract as stable. The release is then a PR, titled with `!`, that
   removes the pre-1.0 rule from `scripts/release/release.py` and its tests
@@ -1206,10 +1216,13 @@ Decisions for the maintainer (human gates), with the maintainer's answers:
 
 ### Remaining work to v1.0.0 and after
 
-Recorded after the real-device functional review of `v0.27.0`. This table
-is the queue of the remaining work, in order; each row is one increment
-(one PR, one release) or one human gate. Nothing below may be reordered by
-an orchestrator: Java 25 and PostgreSQL 18 never move ahead of `v1.0.0`.
+Recorded after the real-device functional review of `v0.27.0`, and extended
+with the post-1.0 queue after the review of `v0.27.3` (current release
+`v0.27.4`). This table is the queue of the remaining work, in order; each
+row is one increment (one PR, one release) or one human gate. Nothing below
+may be reordered by an orchestrator, and **nothing after R19 starts before
+G1 has passed, G2 is given and R19 has released `v1.0.0`.** The post-1.0
+rows are described in section 5, [After v1.0.0](#5-after-v100).
 
 | Order | Item | Kind | Status |
 |---|---|---|---|
@@ -1220,8 +1233,17 @@ an orchestrator: Java 25 and PostgreSQL 18 never move ahead of `v1.0.0`.
 | 4 | G1 - Maintainer usability review and sign-off | Human gate | **Next** |
 | 5 | G2 - Explicit approval of `v1.0.0` (decision D4) | Human gate | Not given |
 | 6 | R19 - `v1.0.0` | Increment (`!`, the release) | Blocked by G2 |
-| 7 | R20 - Java 25 (decision D2) | Increment | Blocked until `v1.0.0` is released |
-| 8 | R21 - PostgreSQL 18 (decision D3) | Increment | Blocked until R20 is merged |
+| 7 | R20 - Version identity and the published backend image | Increment (`feat`) | Blocked until `v1.0.0` is released |
+| 8 | R21 - Deploying from published images | Increment | Blocked until R20 is merged |
+| 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Blocked until R21 is merged |
+| 10 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Not given (may be answered at any time) |
+| 11 | R23 - Push configuration served by the backend | Increment (`feat`), only if D5 chooses it | Blocked by G3 |
+| 12 | R24 - Installable Android app in each release | Increment (`feat`) | Blocked by G3 (and R23 if D5 chooses it) |
+| 13 | R25 - Java 25 (decision D2) | Increment | Blocked until R24 is merged |
+| 14 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Blocked until R25 is merged |
+| 15 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Blocked until R26 is merged |
+| 16 | R28 - Pairing a device: the API | Increment (`feat`) | Blocked until R27 is merged |
+| 17 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Blocked until R28 is merged |
 
 How an autonomous run uses it:
 
@@ -1229,7 +1251,10 @@ How an autonomous run uses it:
    current (an item's PR may have merged without its row being updated;
    then update the row first, in the next PR).
 2. Take the first row whose status is not *Done*. If it is a human gate, or
-   *Blocked*, stop and report: nothing after it may start.
+   *Blocked*, stop and report: nothing after it may start. A gate is passed
+   only by the maintainer's answer, stated by the maintainer in a PR or
+   issue; a run that finds such an answer records it here and marks the row
+   *Done* in its PR. Automation never answers a gate.
 3. Implement exactly that one item on a branch from the latest `main`, with
    its tests and docs, and in the same PR mark its row *Done*, mark the
    following row *Next* if it is an increment, and add the item to section
@@ -1336,7 +1361,8 @@ remain on the remote: `fix/client-refresh-on-resume` (#51, closed),
 
 After R18p to R18r, the maintainer uses the app on their device and signs
 off, or reports defects; each defect becomes a new row before G1.
-Automation never marks G1 done.
+Automation never marks G1 done. The automated device review of `v0.27.3`
+(18 of 18 checks, see R18q) is evidence for G1, not G1 itself.
 
 #### G2 and R19 - `v1.0.0`
 
@@ -1345,22 +1371,504 @@ in a PR or issue by the maintainer, does the release PR (R19, titled with
 `!`) remove the pre-1.0 rule from `scripts/release/release.py` and its
 tests and update `docs/development.md#versioning` and `CLAUDE.md`.
 
-#### R20 - Java 25, after `v1.0.0`
+#### R20 and later
 
-Decision D2: its own milestone and PR. Build and runtime images, CI and the
-docs move to Java 25 LTS together; the Dependabot PRs that raise the JDK
-images are closed or replaced by it.
-
-#### R21 - PostgreSQL 18, after R20
-
-Decision D3: its own milestone and PR, separate from R20. A breaking
-operator change (`!`) with migration notes: dump and restore, and the
-changed data directory mount in `compose.yaml`; the tests' PostgreSQL image
-follows Compose's. After `v1.0.0`, `!` makes it a major release.
+The post-1.0 rows are described in section 5, [After v1.0.0](#5-after-v100).
+Java 25 (decision D2) and PostgreSQL 18 (decision D3), called R20 and R21
+before the post-1.0 queue was recorded, are now R25 and R26: the decisions
+keep their names, the milestones moved behind release distribution (see
+[Order and why](#order-and-why)).
 
 ---
 
-## 5. Explicit non-goals unless added later
+## 5. After v1.0.0
+
+Status: planned. **Nothing in this section starts before G1 has passed, the
+maintainer has given G2, and R19 has released `v1.0.0`.** The order is the
+queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after).
+
+Recorded at `v0.27.4` from a review of the repository: every milestone below
+closes a gap the code, the docs or the pre-1.0 reviews show, and nothing
+below repeats what already exists (see
+[Already in place](#already-in-place-not-scheduled-again)).
+
+### One version, many artifacts
+
+SignalHub has **one version**: the repository's `vMAJOR.MINOR.PATCH` git tag
+and its GitHub release, computed by `scripts/release/release.py` from the
+Conventional Commit titles merged since the previous tag
+([development.md](development.md#versioning)). The tag is the version of
+record.
+
+```text
+SignalHub v1.2.3            (one tag, one GitHub release)
+├── backend image           ghcr.io/rodrigofabreu/signalhub:1.2.3   (R20)
+├── Android app             SignalHub-1.2.3.apk                     (R24)
+├── Python SDK and command  wheel and source archive                (R22)
+└── deployment files        compose.yaml, .env.example, proxy/      (R21)
+```
+
+- The backend, the app, the SDK and command, and the deployment files are
+  parts of one release. Say "SignalHub 1.2.3" (its backend image, its app),
+  never "backend 1.2" or "app 1.4". There are no component versions and no
+  component release streams: a change to any part is a SignalHub release,
+  and every release contains every part.
+- The version fields in the sources are **development placeholders**, not
+  release versions, and stay so: `backend/pom.xml` (`0.0.0-SNAPSHOT`),
+  `client/pubspec.yaml` (`0.1.0+1`) and `sdk/python/pyproject.toml`
+  (`0.1.0`). Today the release builds no artifact, and anything built from a
+  release's source reports its placeholder: an app built from `v0.27.4` says
+  `0.1.0`. R20, R22 and R24 close that gap.
+- How artifacts identify their release, the rule for R20 to R24:
+  - the release workflow computes the version, then builds each artifact
+    from the tagged commit and injects that version (and the commit) at
+    build time, for example as a Maven property, Flutter's `--build-name`
+    and `--build-number`, or the Python package's build metadata; the
+    mechanism is each increment's to choose
+  - releasing never rewrites the placeholders and never commits to `main`
+  - every artifact of a release reports the same `X.Y.Z` and the commit it
+    was built from
+  - a build the release did not make (a local build, a CI build of a pull
+    request) identifies itself as a development build, never as a release
+  - a release whose artifact build fails is not presented as complete; the
+    increment that adds the build documents how to finish or repeat it for
+    that tag
+
+### Order and why
+
+```text
+G1 → G2 → R19 v1.0.0
+  → R20 version identity + published backend image
+  → R21 deploying from published images
+  → R22 SDK and command version + SDK files
+  → G3 decisions D5, D6 → R23 push configuration from the backend (if D5 = a)
+  → R24 Android app in each release
+  → R25 Java 25 → R26 PostgreSQL 18
+  → R27 inbox and event-screen polish
+  → R28 pairing API → R29 pairing in the app
+```
+
+- **Release distribution and version identity come first** (R20 to R24).
+  The maintainer asked for it, and the gap was met in practice: testing each
+  pre-1.0 release meant checking out its tag and building the backend and
+  the app from source. None of it depends on Java 25 or PostgreSQL 18.
+- R20 before R21, because deploying from images needs an image; R22 (small
+  and independent) before the app, because the app alone needs decisions
+  (G3) and possibly an API addition (R23). G3 may be answered at any time,
+  including with G2, so that the queue does not stop there.
+- **Java 25 (R25) and PostgreSQL 18 (R26) stay two separate increments**,
+  in the order decisions D2 and D3 gave them. Java 25 has no dependency on
+  distribution either way; with published images it reaches operators as a
+  pull instead of a rebuild. PostgreSQL 18 comes after R21 so that its
+  migration notes (dump, restore, the changed data directory mount) are
+  written once, against the procedure operators use from then on, instead of
+  being rewritten one release later.
+- Product work follows: R27 is a small client fix with evidence from the
+  device review; pairing (R28, R29) is the largest usability gain found, and
+  a new API.
+- Java 25 and PostgreSQL 18 were numbered R20 and R21 before this queue was
+  recorded. Renumbering milestones that never started costs no history and
+  keeps the IDs in queue order; decisions D2 and D3 keep their names and
+  remain the stable references.
+
+### Release implications
+
+Each row is one PR and one release, versioned by its title under the
+post-1.0 rules of [development.md](development.md#versioning): `feat` minor,
+every other type patch, `!` major. No version numbers are assigned in
+advance; they follow from the queue.
+
+| Item | Expected release | Why |
+|---|---|---|
+| R20, R22, R24 | minor (`feat`) | new artifacts and a new version surface; nothing existing changes |
+| R21 | minor (`feat`) if an install upgrading by the documented procedure keeps working; `!` with migration notes if it needs a new required setting or step | the deployment files and procedure are operator contract (Compatibility section of `docs/architecture.md`) |
+| R23 | minor (`feat`) | an addition to the client API; older apps ignore it |
+| R25 | patch (`build`) unless it changes something the Compatibility section lists | Java and the JVM are not part of the public contract |
+| R26 | major (`!`) with migration notes, unless its implementation finds an upgrade that needs no operator action and the upgrade jobs prove it | a dump and restore and a changed data directory mount are operator-breaking |
+| R27 | patch (`fix(client)`) | corrections to existing screens |
+| R28, R29 | minor (`feat`) | new, additive capability; manual setup stays |
+
+R26 is expected to be the first major release after 1.0. No other breaking
+change is scheduled, and no new API version (`/api/v2`) is planned.
+
+### R20 - Version identity and the published backend image
+
+Status: planned; blocked until `v1.0.0` is released.
+
+Goal: every release publishes its backend as a multi-platform container
+image that identifies itself as that SignalHub release, so a release can be
+run without building it.
+
+Motivation: `compose.yaml` builds `signalhub-backend:local` from source;
+R16a made the images multi-platform but deliberately published nothing; the
+backend cannot say which release it is.
+
+Scope:
+
+- the release workflow builds the backend image from the tagged commit for
+  `linux/amd64` and `linux/arm64`, as one multi-platform image from the same
+  commit, and pushes it to GHCR as `ghcr.io/rodrigofabreu/signalhub:X.Y.Z`
+  (the version without `v`), a tag that is never pushed again; whether
+  `latest` (or `X.Y`) is also pushed is decided in the increment and
+  documented, and the docs always name an exact version
+- the backend knows its version and commit (injected at build): the startup
+  configuration summary (R15b) begins with them, and a read-only version
+  surface sits under `/q` beside health and metrics (Quarkus's own info
+  endpoint or equivalent), so it is not forwarded by the proxy; the product
+  API does not gain a version endpoint
+- OCI labels on the image: version, revision (commit), source (repository),
+  creation time
+- the release notes name the image and its digest; SHA-256 checksums for the
+  files attached to the release; build provenance attestations where GitHub
+  provides them without another service
+- a pull request's CI builds the image for both platforms the way the
+  release will (without pushing), so a broken release build fails before
+  merge; after pushing, the release checks both platforms and the version
+  the image reports
+- `docs/development.md` (release process) and `docs/deployment.md` (the
+  image exists; the switch of the procedure is R21)
+
+Constraints and non-goals:
+
+- GHCR only (no Docker Hub, no other registry); the package is public, so
+  pulling needs no login; making it public is a one-time maintainer step in
+  the GitHub settings, documented, not a gate
+- no secret in the image or its build: the FCM key and every credential stay
+  runtime configuration
+- no signing service or key management beyond GitHub's attestations
+- no change to R16's deployment foundation: TLS, secrets, health, backup and
+  resource guidance are unchanged
+
+Validation: `./mvnw verify`, the new image build on both platforms in CI, a
+test that a build outside the release reports a development version; after
+merge, the release's image pulled on x86-64 and ARM64 reports `X.Y.Z` and the
+commit in its labels, its startup summary and its version surface.
+
+Exit criteria: `docker pull ghcr.io/rodrigofabreu/signalhub:<version>` runs
+that release's backend on x86-64 and ARM64, and it reports that version.
+
+### R21 - Deploying from published images
+
+Status: planned; blocked until R20 is merged.
+
+Goal: operators install, upgrade and roll back a release by pulling its
+images instead of building from a checkout.
+
+Scope:
+
+- `compose.yaml` runs the published backend image of a chosen release (for
+  example a version setting), keeping a documented way to build from source
+  for development and for releases before R20, which have no image
+- `docs/deployment.md` setup and upgrades: choose the version, get that
+  release's deployment files (from its tag, or attached to the release: the
+  increment decides), pull, start and check health; rolling back stays
+  restoring the pre-upgrade backup with the older release
+- the fresh-install job (R18e) follows the new procedure, with the image CI
+  built for the commit under test standing in for the published one (pull
+  requests push nothing); the upgrade jobs (R16c, R18h) start an older
+  release from its published image when it has one, and build it from its
+  tag otherwise
+- `docs/development.md`: local development still builds from source
+
+Constraints and non-goals: no new infrastructure; nothing of R16 is redone;
+an existing install that follows the documented upgrade keeps its data,
+keys and settings; if the change needs a new required setting or step, it is
+`!` with migration notes.
+
+Validation: the fresh-install, upgrade and Compose smoke jobs on x86-64 and
+ARM64.
+
+Exit criteria: a fresh install and an upgrade that follow
+`docs/deployment.md` build nothing, and CI proves both.
+
+### R22 - SDK and command version, and SDK files in each release
+
+Status: planned; blocked until R21 is merged.
+
+Goal: the Python SDK and the `signalhub` command identify the SignalHub
+release they belong to, and each release carries them ready to install.
+
+Scope:
+
+- `signalhub --version` prints the SignalHub version (worded as SignalHub's
+  version, not a separate SDK version), and the package's metadata
+  (`importlib.metadata`) carries it
+- the release attaches the SDK's wheel and source archive, built from the
+  tag with that version, and their checksums; `sdk/python/README.md` shows
+  installing the release's wheel
+- installing from a tag, as documented today, keeps working; it reports that
+  release's version if the build backend can do so without a heavy new
+  dependency, otherwise a development version, and the docs recommend the
+  release's wheel
+- tests of `--version` and of the development identity
+
+Non-goals: publishing on PyPI (deferred); other SDK languages (deferred).
+
+Exit criteria: an SDK installed from a release's files reports that
+release's version.
+
+### G3 - Decisions D5 and D6
+
+Human gate. Both need the maintainer; D6 needs a secret only they can
+create. They may be answered at any time, before or after `v1.0.0`; R23 and
+R24 do not start without the answers.
+
+- **D5 - push configuration of a distributed app.** The app's Firebase
+  options (project, app IDs, API keys: `client/firebase-options.json`) are
+  the owner's, compiled in with `--dart-define-from-file`; a build without
+  them runs without push. An app built by the release therefore needs one
+  of:
+  - **a. the backend serves them** (R23): the operator gives the backend the
+    app's Firebase options next to the service account key, and the app
+    reads them after setup. One released app works with any SignalHub server
+    and its owner's Firebase project. Costs an API addition and a client
+    change. *Recommended.*
+  - **b. the release compiles in the maintainer's options** from a GitHub
+    Actions secret. Smallest; the app receives push only from a backend
+    using the maintainer's Firebase project, so it is the maintainer's
+    personal build, and anyone else still builds their own.
+  - **c. the released app has no push**; push needs a local build. Useful
+    only to try the app.
+
+  In every option the options stay out of git, as `CLAUDE.md` requires.
+- **D6 - Android release signing key.** Release builds are signed with the
+  local debug key (`client/README.md#signing`), so each machine's builds
+  differ and cannot update one another. A released app needs one stable
+  key: the maintainer creates it and stores it and its passwords as GitHub
+  Actions secrets, never in the repository, and keeps a private backup;
+  losing it means every device uninstalls and sets up again. The first
+  released app installed over a locally built one also needs an uninstall
+  and a new setup (the client key lives in the app's secure storage).
+
+### R23 - Push configuration served by the backend
+
+Status: planned only if D5 chooses **a**; blocked by G3.
+
+Goal: an app that has no compiled-in push options gets them from its
+server, so one released app works with any SignalHub server.
+
+Scope:
+
+- an operator setting names the app's push client options (for FCM, the
+  Firebase options), validated at startup like the service account key;
+  the startup summary says whether it is set
+- a client key reads them through the client API (`GET /api/v1/client` or a
+  sibling endpoint, the increment decides), in a provider-neutral shape: the
+  provider name and an opaque map of options that the backend validates as
+  JSON but does not interpret; no Firebase concept enters the domain
+- the app initialises push from served options when it has no compiled-in
+  ones; compiled-in options keep working and take precedence
+- tests against real PostgreSQL, the OpenAPI document, the app against its
+  fake server, and the end-to-end job with served options
+
+May be split into the backend and the app (as R11a and R11b were) if one PR
+would be too large to review. Compatible (`feat`).
+
+### R24 - Installable Android app in each release
+
+Status: planned; blocked by G3, and by R23 if D5 chooses **a**.
+
+Goal: an operator installs the app of a release from its GitHub release
+page, without building it, and the app says which release it is.
+
+Scope:
+
+- the release builds a release APK from the tagged commit, signed with the
+  D6 key and set up for push as D5 decided, and attaches it as
+  `SignalHub-X.Y.Z.apk` with its SHA-256 checksum (and a provenance
+  attestation where GitHub provides it)
+- Android `versionName` is `X.Y.Z` and `versionCode` is derived from the
+  version so it grows with every release (the rule documented); the
+  placeholder in `client/pubspec.yaml` stays for local builds, which
+  identify themselves as development builds
+- the app shows "SignalHub X.Y.Z" (or its development identity) on the
+  *This device* screen
+- a pull request's CI builds a release-mode APK (unsigned or with a
+  throwaway key) so the release build cannot break unnoticed
+- `client/README.md` and `docs/deployment.md`: download, verify the
+  checksum, install, update by installing the next release's APK, and the
+  one-time uninstall when replacing a locally built app
+
+Constraints and non-goals: no signing or Firebase secret in the repository,
+logs or artifacts beyond what D5 allows; no AAB (no store distribution); no
+iOS build (it needs the owner's Apple team: unchanged, built in Xcode).
+
+Exit criteria: the APK of a release installs on a phone, sets up with a
+client key, receives push as D5 decided, and reports that release.
+
+### R25 - Java 25
+
+Status: planned; decision D2; blocked until R24 is merged.
+
+Goal: move the backend from Java 21 LTS to Java 25 LTS in one step.
+
+Scope: build and runtime images (pinned by digest, multi-platform), the
+Maven compiler release, CI's JDK, and every document naming the Java
+version (`CLAUDE.md`, `README.md`, `docs/architecture.md`,
+`docs/development.md`) together; the tests run on 25 only; the open
+Dependabot PRs raising the JDK images (#48 and #49 at the time of writing,
+proposing a non-LTS JDK) are closed or superseded; the resource guidance of
+R15d is checked again.
+
+Non-goals: adopting new language features in the same PR; a Quarkus upgrade
+unless Java 25 requires one; PostgreSQL (R26).
+
+Validation: `./mvnw verify`, the Compose smoke tests on x86-64 and ARM64,
+the upgrade, end-to-end and fresh-install jobs; the startup summary reports
+Java 25.
+
+### R26 - PostgreSQL 18
+
+Status: planned; decision D3; blocked until R25 is merged.
+
+Goal: move the database to PostgreSQL 18 with a tested, documented path for
+existing installs.
+
+Scope: `compose.yaml`'s image (`postgres:18-alpine`, pinned by digest) and
+its changed data directory mount; the tests' PostgreSQL image follows
+Compose's (checked since R18m); `docs/deployment.md` documents the move as
+the backup and restore of R15d into a new volume, and rolling back as
+restoring the backup with the previous release; a CI job moves an install
+with data from PostgreSQL 17 to 18 by that procedure and checks the data,
+keys and preferences; Dependabot PR #5 is closed or superseded.
+
+Non-goals: in-place `pg_upgrade` tooling or automatic upgrade containers,
+unless the increment shows one is simpler and CI tests it.
+
+Compatibility: `!` with migration notes in the PR and the release, a major
+release (see [Release implications](#release-implications)).
+
+### R27 - Inbox and event-screen polish
+
+Status: planned; blocked until R26 is merged.
+
+Evidence: the non-blocking observations of the device review of `v0.27.3`.
+
+Scope, client only:
+
+- the event screen's read-state action has a visible label, not only an
+  icon whose meaning is in a tooltip
+- a row's time is readable in full at the default text size for every
+  severity (on *High* rows it was cut to `18:…` by the full date)
+- when marking an event read on opening fails, the screen says so without
+  blocking; the state shown stays the server's, as R18p made it
+- while the server is unreachable, one message says so, instead of the
+  connection error and the push-registration failure together; a
+  push-registration failure is still shown when the server is reachable
+
+Widget tests for each; no API change. Non-goals: the inbox features listed
+under [Deferred candidates](#deferred-candidates).
+
+### R28 - Pairing a device: the API
+
+Status: planned; blocked until R27 is merged.
+
+Goal: setting up a device needs neither the admin token on the phone nor
+typing a long client key.
+
+Motivation: today the operator registers a client with the admin token
+(`curl`), then types the server address and a `shck1_…` key of about 80
+characters into the app by hand.
+
+Scope:
+
+- the management API (admin token) creates a pairing for a new client of a
+  given name: a one-time code with enough entropy that guessing is
+  infeasible, a short expiry (minutes; the increment picks and documents
+  it), and a pairing URI holding the server's address and the code, ready to
+  show as a QR code with a standard tool (for example `qrencode`,
+  documented); where the server's public address comes from is the
+  increment's to decide and document
+- a product API endpoint, authenticated only by the code, redeems it once
+  before expiry: it registers the client exactly as the management API does
+  (its own client, its own key, revocable) and returns the key once; an
+  expired, used or unknown code gets the usual error body; codes are stored
+  hashed and expire unused
+- the endpoint is under `/api/` outside `/api/v1/admin/`, so the proxy
+  forwards it; the management API still is not forwarded
+- registering a client with the management API and manual setup are
+  unchanged
+- tests against real PostgreSQL (single use, expiry, two concurrent
+  redemptions making one client, revoking a paired client), the OpenAPI
+  document, and a redemption through the proxy in the Compose smoke test
+
+Constraints: every device keeps its own revocable key, never a shared
+permanent one; nothing provider-specific in the pairing; no web UI.
+Compatible (`feat`).
+
+### R29 - Pairing a device: the app
+
+Status: planned; blocked until R28 is merged.
+
+Scope:
+
+- setup offers scanning a pairing QR code or pasting the pairing URI; the
+  app redeems it, keeps the key in secure storage as today, and continues
+  with push registration; the server address and client key stay available
+  as manual setup
+- scanning uses one well-established Flutter package, justified in the PR;
+  the camera permission is asked only when scanning
+- clear messages for an expired or used code and an unreachable server
+- controller and widget tests against the fake server; `client/README.md`
+  and `docs/deployment.md` describe pairing first, manual setup second
+
+Exit criteria: a new phone is set up by scanning a code the operator made,
+and becomes its own revocable client.
+
+### Already in place (not scheduled again)
+
+Considered for this queue and already covered: producer keys with rotation
+and revocation (R4); per-installation client keys (R6); the inbox, event
+details, read state and push preferences in the app (R10 to R12b);
+the outbox with bounded retries (R8b, R13); idempotent publishing (R18g);
+the Python SDK and command, raw HTTP documentation and five integration
+examples (R14, R17); metrics with delivery counters and backlogs, JSON logs,
+the startup summary, retention, backup and restore (R15a to R15d); ARM64,
+the TLS proxy, secrets, exposure, upgrades, rollback and health monitoring
+(R16a to R16c, R18a, R18h); the device-review tooling (R18q). Registering
+and revoking producers, keys and clients is already logged at `INFO`, which
+is the audit trail a single owner needs; the backend image already runs as
+an unprivileged user.
+
+### Deferred candidates
+
+Not scheduled. Each becomes a queue row only when the evidence named here
+appears and the maintainer agrees; an orchestrator never schedules one by
+itself.
+
+| Candidate | Why not now | What would justify it |
+|---|---|---|
+| Per-client delivery status (last successful push, last failure and its result, pending retries) in the management API; the app later | Metrics (pushes by result, retries given up, backlogs), the final-failure log line and each client's push target answered every question of the device reviews; R13 found delivery-attempt records unjustified | The owner cannot tell from metrics and logs why a device got no push. Then a last-status per client, not an attempt history, and no dashboard. |
+| Inbox filters in the app (producer, category, severity, time: the API has them since R5) and an unread-only view | No usage evidence yet; unread-only needs an API filter | The owner searches a long inbox. The existing API's filters come first. |
+| Full-text search | No need shown; R5 ruled it out as premature | Filters prove insufficient. PostgreSQL's own search, no search engine. |
+| Unread navigation, grouping in the inbox, further bulk actions, archive or clear | *Mark all as read* and retention cover today's use | Usage evidence from the owner. |
+| Quiet hours or schedule-based suppression | Pause and the phone's own do-not-disturb and channel settings cover it (R12a found it unjustified) | A need the phone cannot meet, such as suppression by severity at night. Never a rules engine. |
+| Notification grouping on the device | Event volume is low | Bursts of pushes in practice. |
+| Rate limiting and brute-force resistance | Keys and pairing codes make guessing infeasible; the management API is not forwarded (`docs/architecture.md#security-limitations`) | Abusive or heavy traffic seen in logs or metrics; the proxy is the first place to limit. |
+| Key expiry, key scopes, a separate management port | One owner; rotation and revocation exist; the documented mitigations hold | A producer that must be restricted, or managing from another host. |
+| Richer metadata rendering, notification actions and deep links, attachments and images | Metadata is opaque by principle; actions need generic semantics in the event schema | Several unrelated producers needing the same generic capability, with a design that keeps the core producer-agnostic. |
+| Web or desktop client | The app covers the owner's phones | The owner needs the inbox away from the phone; the API assumes no platform, so no backend change. |
+| Distributed iOS builds, APNs directly | iOS builds need the owner's Apple team; FCM already relays to APNs | An iOS user of released builds. |
+| The SDK on PyPI | The release's wheel (R22) and installing from a tag suffice | Producers that cannot install from GitHub. |
+| SDKs in more languages | `curl`, the command and Python cover the examples' producers | A producer ecosystem where plain HTTP is a real burden. |
+
+### Rejected
+
+- Component versions or release streams (backend, app or SDK released on
+  their own): contradicts [one version](#one-version-many-artifacts).
+- Rewriting the source version fields in a release commit: the release
+  injects the version at build time instead.
+- App store distribution and AABs: SignalHub is self-hosted for one owner.
+- Another general deployment-hardening milestone: R16 covers it; R21 only
+  moves the procedure to published images.
+- A general rules engine, enterprise IAM (OAuth, Keycloak, RBAC) and
+  multi-tenancy, as section 6 already says.
+- An observability platform (tracing, a log stack, dashboards) beyond the
+  metrics and logs of R15.
+
+---
+
+## 6. Explicit non-goals unless added later
 
 Do not add these merely because they are common infrastructure choices:
 
@@ -1382,7 +1890,7 @@ SignalHub should remain a small, understandable service until real requirements 
 
 ---
 
-## 6. Orchestrator rules for roadmap maintenance
+## 7. Orchestrator rules for roadmap maintenance
 
 The roadmap is durable project state, but it is not immutable.
 
@@ -1401,6 +1909,9 @@ The orchestrator must not autonomously:
 - choose the cross-platform client technology when the decision is still a human gate
 - introduce major distributed infrastructure
 - declare `v1.0.0`
+- answer a human gate (G1, G2, G3) or a decision (D1 to D6) for the maintainer
+- start a deferred candidate of section 5 that has not been added to the queue
+- give a component (backend, app, SDK) a version or release of its own
 - weaken trunk/release guarantees
 - bypass required CI or repository protection
 
@@ -1408,18 +1919,20 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 
 ---
 
-## 7. Current next milestone
+## 8. Current next milestone
 
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. After the functional review of `v0.27.0`, the
-expected next increment is:
+(section 4) is authoritative. At `v0.27.4`, after the device review of
+`v0.27.3`, the expected next item is:
 
 **G1 - Maintainer usability review and sign-off** (R18p to R18r are done).
 The maintainer's usability review (G1) and explicit approval (G2) gate
-`v1.0.0` (R19); Java 25 (R20)
-and PostgreSQL 18 (R21) follow `v1.0.0`, each in its own PR. `v1.0.0` is
-never released without the maintainer's explicit approval.
+`v1.0.0` (R19). After `v1.0.0` the queue continues with release distribution
+and version identity (R20 to R24, with the maintainer's decisions D5 and D6
+at G3), then Java 25 (R25) and PostgreSQL 18 (R26), each in its own PR (see
+[section 5](#5-after-v100)). `v1.0.0` is never released without the
+maintainer's explicit approval, and nothing after it starts before it.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
