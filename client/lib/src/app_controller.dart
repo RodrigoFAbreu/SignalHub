@@ -7,6 +7,7 @@ import 'build_identity.dart';
 import 'connection/server_credentials.dart';
 import 'models/client_registration.dart';
 import 'models/event.dart';
+import 'models/push_config.dart';
 import 'push/push_registration.dart';
 import 'push/push_service.dart';
 
@@ -23,15 +24,24 @@ enum ConnectionPhase {
 
 typedef ApiFactory = SignalHubApi Function(ServerCredentials credentials);
 
+/// Starts push with options a server served, or returns `null` when they do
+/// not work with this app.
+typedef ServedPushStarter = Future<PushService?> Function(PushConfig served);
+
 /// The app's state: the server connection, this installation's registration
 /// and push status, and the inbox. The UI only renders it.
 class AppController extends ChangeNotifier {
+  /// [push] is the push service the build set up with its own options.
+  /// Without one, [startServedPush] sets push up with the options the server
+  /// serves; the build's own options take precedence.
   AppController({
     required this._store,
     required this._apiFactory,
     PushService? push,
+    ServedPushStarter? startServedPush,
     this.build = BuildIdentity.compiled,
-  }) : _push = push {
+  }) : _push = push,
+       _startServedPush = push == null ? startServedPush : null {
     _notices = push?.notices.listen(_onNotice);
   }
 
@@ -40,8 +50,13 @@ class AppController extends ChangeNotifier {
 
   final CredentialsStore _store;
   final ApiFactory _apiFactory;
-  final PushService? _push;
+  PushService? _push;
+  final ServedPushStarter? _startServedPush;
   StreamSubscription<PushNotice>? _notices;
+
+  /// The served options push was set up with; `null` until then.
+  PushConfig? _servedPushConfig;
+  Future<PushService?>? _startingServedPush;
 
   /// Which SignalHub build this app is.
   final BuildIdentity build;
@@ -54,8 +69,9 @@ class AppController extends ChangeNotifier {
   ClientRegistration? registration;
   late PushStatus pushStatus = _initialPushStatus;
 
-  PushStatus get _initialPushStatus =>
-      _push == null ? PushStatus.unavailable : PushStatus.pending;
+  PushStatus get _initialPushStatus => _push == null && _startServedPush == null
+      ? PushStatus.unavailable
+      : PushStatus.pending;
 
   /// Why the last refresh or setup failed, for the owner; `null` if it
   /// worked.
@@ -331,10 +347,59 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _registerPush() async {
+    if (_startServedPush != null && !await _servedPushReady()) {
+      notifyListeners();
+      return;
+    }
     final registration = _pushRegistration;
     if (registration == null) return;
     pushStatus = await registration.register();
     notifyListeners();
+  }
+
+  /// For a build without its own push options: sets push up with the options
+  /// the server serves, the first time, and afterwards checks that the server
+  /// still serves those, since the provider starts only once per process.
+  /// Returns whether push can register; if not, [pushStatus] says why.
+  Future<bool> _servedPushReady() async {
+    final api = _api;
+    if (api == null) return false;
+    final PushConfig? served;
+    try {
+      served = await api.getPushConfig();
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return false;
+    } on ApiException catch (e) {
+      debugPrint('Push options not read: ${e.message}');
+      pushStatus = PushStatus.failed;
+      return false;
+    }
+    if (served == null) {
+      pushStatus = PushStatus.notConfigured;
+      return false;
+    }
+    if (_servedPushConfig case final startedWith?) {
+      if (startedWith.sameAs(served)) return true;
+      pushStatus = PushStatus.restartRequired;
+      return false;
+    }
+    // Concurrent refreshes share one start: the provider starts only once.
+    final push = await (_startingServedPush ??= _startServedPush!(served));
+    if (push == null) {
+      _startingServedPush = null;
+      pushStatus = PushStatus.unsupported;
+      return false;
+    }
+    if (_servedPushConfig == null) {
+      _servedPushConfig = served;
+      _push = push;
+      _notices = push.notices.listen(_onNotice);
+      if (_api case final current?) {
+        _pushRegistration = PushRegistration(push, current);
+      }
+    }
+    return _pushRegistration != null;
   }
 
   /// Revoked or replaced: nothing works with this key any more.

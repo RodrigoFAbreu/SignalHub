@@ -7,8 +7,21 @@ import 'push_service.dart';
 
 /// Whether this installation receives pushes.
 enum PushStatus {
-  /// The build has no push provider configured.
+  /// The build has no push provider configured, and cannot take one from
+  /// the server.
   unavailable('Push is not configured in this build'),
+
+  /// The build has no push options of its own and the server serves none.
+  notConfigured('Push is not configured on this server'),
+
+  /// The server's push options are not for this app's provider and platform,
+  /// or are malformed.
+  unsupported("This server's push configuration does not work with this app"),
+
+  /// Push was set up with other options, served by another server or before
+  /// the operator changed them; the provider takes new ones only on a new
+  /// start.
+  restartRequired('Restart SignalHub to receive pushes from this server'),
 
   /// Not registered yet, or registration is in progress.
   pending('Registering for push notifications…'),

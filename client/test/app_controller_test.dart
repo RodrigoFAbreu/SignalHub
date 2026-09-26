@@ -27,6 +27,19 @@ void main() {
     push: withPush ? push : null,
   );
 
+  /// A build without its own push options, which takes them from the server.
+  AppController servedPushController(FakeServedPushStarter starter) =>
+      AppController(
+        store: store,
+        apiFactory: (credentials) =>
+            backend.api(credentials.baseUrl, credentials.clientKey),
+        startServedPush: starter.call,
+      );
+
+  int pushConfigReads() => backend.requests
+      .where((r) => r.url.path == '/api/v1/client/push-config')
+      .length;
+
   test('starts on setup without saved credentials', () async {
     final app = controller();
 
@@ -142,6 +155,196 @@ void main() {
     expect(app.phase, ConnectionPhase.connected);
     expect(app.pushStatus, PushStatus.unavailable);
     expect(backend.pushTarget, isNull);
+  });
+
+  group('push options served by the server', () {
+    late FakeServedPushStarter starter;
+
+    setUp(() {
+      starter = FakeServedPushStarter();
+      backend.pushConfig = servedPushConfig;
+    });
+
+    test('a build without its own sets push up with them', () async {
+      final app = servedPushController(starter);
+      expect(app.pushStatus, PushStatus.pending);
+
+      await app.connect(serverUrl, clientKey);
+
+      final started = starter.started.single;
+      expect(started.provider, 'fcm');
+      expect(started.options['FIREBASE_ANDROID_APP_ID'], '1:1234:android:ab');
+      expect(app.pushStatus, PushStatus.registered);
+      expect(backend.pushTarget?['provider'], 'fake');
+      expect(backend.pushToken, 'device-token-1');
+    });
+
+    test('they are read with the client key', () async {
+      await servedPushController(starter).connect(serverUrl, clientKey);
+
+      final read = backend.requests.singleWhere(
+        (r) => r.url.path == '/api/v1/client/push-config',
+      );
+      expect(read.headers['Authorization'], 'Bearer $clientKey');
+    });
+
+    test('the build\'s own options take precedence', () async {
+      final app = AppController(
+        store: store,
+        apiFactory: (credentials) =>
+            backend.api(credentials.baseUrl, credentials.clientKey),
+        push: push,
+        startServedPush: starter.call,
+      );
+
+      await app.connect(serverUrl, clientKey);
+
+      expect(pushConfigReads(), 0);
+      expect(starter.started, isEmpty);
+      expect(app.pushStatus, PushStatus.registered);
+      expect(backend.pushToken, 'device-token-1');
+    });
+
+    test('a server serving none leaves push off and says so', () async {
+      backend.pushConfig = null;
+      final app = servedPushController(starter);
+
+      await app.connect(serverUrl, clientKey);
+
+      expect(app.phase, ConnectionPhase.connected);
+      expect(app.pushStatus, PushStatus.notConfigured);
+      expect(starter.started, isEmpty);
+      expect(backend.pushTarget, isNull);
+    });
+
+    test('options that do not work leave push off until fixed', () async {
+      starter.accepts = false;
+      final app = servedPushController(starter);
+
+      await app.connect(serverUrl, clientKey);
+
+      expect(app.pushStatus, PushStatus.unsupported);
+      expect(backend.pushTarget, isNull);
+
+      // The operator fixes them; the next refresh tries again.
+      starter.accepts = true;
+      await app.refresh();
+
+      expect(starter.started, hasLength(2));
+      expect(app.pushStatus, PushStatus.registered);
+    });
+
+    test('options the app cannot read are not started', () async {
+      backend.pushConfig = {
+        'provider': 'fcm',
+        'options': {'FIREBASE_PROJECT_ID': 7},
+      };
+      final app = servedPushController(starter);
+
+      await app.connect(serverUrl, clientKey);
+
+      expect(app.pushStatus, PushStatus.failed);
+      expect(starter.started, isEmpty);
+    });
+
+    test('an unreachable server is retried on the next refresh', () async {
+      store.saved = ServerCredentials.parse(serverUrl, clientKey);
+      backend.offline = true;
+      final app = servedPushController(starter);
+
+      await app.start();
+
+      expect(app.pushStatus, PushStatus.failed);
+      expect(starter.started, isEmpty);
+      backend.offline = false;
+      await app.refresh();
+
+      expect(app.pushStatus, PushStatus.registered);
+    });
+
+    test('push starts once, however often the app refreshes', () async {
+      final app = servedPushController(starter);
+      await app.connect(serverUrl, clientKey);
+
+      await Future.wait([app.refresh(), app.refresh()]);
+
+      expect(starter.started, hasLength(1));
+      expect(app.pushStatus, PushStatus.registered);
+      expect(pushConfigReads(), 3);
+    });
+
+    test('concurrent refreshes start push once', () async {
+      store.saved = ServerCredentials.parse(serverUrl, clientKey);
+      final app = servedPushController(starter);
+
+      await Future.wait([app.start(), app.refresh()]);
+
+      expect(starter.started, hasLength(1));
+      expect(app.pushStatus, PushStatus.registered);
+    });
+
+    test('pushes of the started service reach the inbox', () async {
+      final app = servedPushController(starter);
+      await app.connect(serverUrl, clientKey);
+      backend.publish('e-1', 'Build failed');
+
+      starter.push.received.add(
+        const PushNotice(title: 'Build failed', eventId: 'e-1', opened: true),
+      );
+      await pumpEventQueue();
+
+      expect(app.takeEventToOpen(), 'e-1');
+      expect(app.events.single.title, 'Build failed');
+    });
+
+    test('other options need a restart and register nothing', () async {
+      final app = servedPushController(starter);
+      await app.connect(serverUrl, clientKey);
+      await app.disconnect();
+      expect(starter.push.tokenDeleted, isTrue);
+      starter.push.token = 'device-token-2';
+      // Another server, with its own Firebase project.
+      backend.pushConfig = {
+        'provider': 'fcm',
+        'options': {
+          ...servedPushConfig['options']! as Map<String, Object?>,
+          'FIREBASE_PROJECT_ID': 'other-project',
+        },
+      };
+
+      await app.connect(serverUrl, clientKey);
+
+      expect(app.pushStatus, PushStatus.restartRequired);
+      expect(starter.started, hasLength(1));
+      expect(backend.pushTarget, isNull);
+    });
+
+    test('the same options after reconnecting register again', () async {
+      final app = servedPushController(starter);
+      await app.connect(serverUrl, clientKey);
+      await app.disconnect();
+      starter.push.token = 'device-token-2';
+
+      await app.connect(serverUrl, clientKey);
+
+      expect(starter.started, hasLength(1));
+      expect(app.pushStatus, PushStatus.registered);
+      expect(backend.pushToken, 'device-token-2');
+    });
+
+    test(
+      'a key revoked before the options are read returns to setup',
+      () async {
+        final app = servedPushController(starter);
+        await app.connect(serverUrl, clientKey);
+        backend.acceptedKey = null;
+
+        await app.refresh();
+
+        expect(app.phase, ConnectionPhase.disconnected);
+        expect(app.pushStatus, PushStatus.pending);
+      },
+    );
   });
 
   test('a refreshed token replaces the push target', () async {

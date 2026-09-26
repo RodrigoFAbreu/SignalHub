@@ -4,12 +4,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/push_config.dart';
 import 'push_service.dart';
 
 /// [PushService] over Firebase Cloud Messaging, the backend's `fcm` provider.
 ///
-/// This file and [firebaseOptionsFrom] are the only code that knows about
-/// Firebase. On iOS, FCM relays through APNs; the Firebase SDK handles that.
+/// This file is the only code that knows about Firebase. On iOS, FCM relays through APNs; the Firebase SDK handles that.
 class FirebasePushService implements PushService {
   FirebasePushService._(this._messaging);
 
@@ -21,6 +21,31 @@ class FirebasePushService implements PushService {
       defaultTargetPlatform,
     );
     if (options == null) return null;
+    return _startWith(options);
+  }
+
+  /// Starts Firebase with the options the server serves, for a build without
+  /// its own. Returns `null`, leaving push off, when they are not complete
+  /// and well-formed FCM options for this platform, or Firebase refuses them.
+  /// Firebase starts once per process, so this is called at most once with
+  /// options that work.
+  static Future<PushService?> startServed(PushConfig served) async {
+    if (served.provider != fcmProvider) return null;
+    final options = servedFirebaseOptionsFrom(
+      served.options,
+      defaultTargetPlatform,
+    );
+    if (options == null) return null;
+    try {
+      return await _startWith(options);
+    } on Exception catch (e) {
+      // Firebase or the platform refused them; never log the options.
+      debugPrint('Served Firebase options refused: ${e.runtimeType}');
+      return null;
+    }
+  }
+
+  static Future<PushService> _startWith(FirebaseOptions options) async {
     await Firebase.initializeApp(options: options);
     final service = FirebasePushService._(FirebaseMessaging.instance);
     await service._listen();
@@ -33,7 +58,7 @@ class FirebasePushService implements PushService {
   final _notices = StreamController<PushNotice>();
 
   @override
-  String get provider => 'fcm';
+  String get provider => fcmProvider;
 
   @override
   Future<bool> requestPermission() async {
@@ -110,6 +135,9 @@ const _buildEnvironment = {
   'FIREBASE_IOS_APP_ID': String.fromEnvironment('FIREBASE_IOS_APP_ID'),
 };
 
+/// The backend's name for Firebase Cloud Messaging.
+const fcmProvider = 'fcm';
+
 /// The bundle ID the iOS app is registered with in Firebase.
 const iosBundleId = 'io.github.rodrigofabreu.signalhub';
 
@@ -148,4 +176,26 @@ FirebaseOptions? firebaseOptionsFrom(
     projectId: projectId,
     iosBundleId: platform == TargetPlatform.iOS ? iosBundleId : null,
   );
+}
+
+/// Firebase options for [platform] from options a server served, or `null`
+/// when they are incomplete or malformed. They are checked more strictly than
+/// the build's own, since the app did not choose them: the sender ID is a
+/// number and the app ID is Firebase's `1:<sender ID>:<platform>:<hex>` for
+/// this platform, so options of another project's app or platform are
+/// refused before Firebase starts.
+@visibleForTesting
+FirebaseOptions? servedFirebaseOptionsFrom(
+  Map<String, String> served,
+  TargetPlatform platform,
+) {
+  final options = firebaseOptionsFrom(served, platform);
+  if (options == null) return null;
+  final sender = options.messagingSenderId;
+  final platformName = platform == TargetPlatform.iOS ? 'ios' : 'android';
+  final appId = RegExp('^1:${RegExp.escape(sender)}:$platformName:[0-9a-f]+\$');
+  if (!RegExp(r'^[0-9]+$').hasMatch(sender) || !appId.hasMatch(options.appId)) {
+    return null;
+  }
+  return options;
 }

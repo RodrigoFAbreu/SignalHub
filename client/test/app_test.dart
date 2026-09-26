@@ -83,6 +83,50 @@ void main() {
     expect(find.text('Push notifications are on'), findsOneWidget);
   });
 
+  AppController servedPushController(FakeServedPushStarter starter) =>
+      AppController(
+        store: InMemoryCredentialsStore(),
+        apiFactory: (credentials) =>
+            backend.api(credentials.baseUrl, credentials.clientKey),
+        startServedPush: starter.call,
+      );
+
+  testWidgets('a build without push options takes the server\'s', (
+    tester,
+  ) async {
+    backend.pushConfig = servedPushConfig;
+    controller = servedPushController(FakeServedPushStarter());
+    await connect(tester);
+
+    await openDevice(tester);
+
+    expect(find.text('Push notifications are on'), findsOneWidget);
+    expect(backend.pushToken, 'device-token-1');
+  });
+
+  testWidgets('a server without push options says so', (tester) async {
+    controller = servedPushController(FakeServedPushStarter());
+    await connect(tester);
+
+    await openDevice(tester);
+
+    expect(find.text('Push is not configured on this server'), findsOneWidget);
+  });
+
+  testWidgets('options that do not work are shown in the inbox', (
+    tester,
+  ) async {
+    backend.pushConfig = servedPushConfig;
+    controller = servedPushController(FakeServedPushStarter()..accepts = false);
+
+    await connect(tester);
+
+    expect(
+      find.text("This server's push configuration does not work with this app"),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a release build shows its version and commit', (tester) async {
     controller = controllerOf(
       const BuildIdentity(version: '1.4.0', revision: revision),

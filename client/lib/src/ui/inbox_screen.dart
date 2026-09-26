@@ -147,7 +147,10 @@ class _InboxScreenState extends State<InboxScreen> {
           detail: 'Pull down to retry.',
         ),
       if (controller.pushStatus
-          case PushStatus.permissionDenied || PushStatus.failed)
+          case PushStatus.permissionDenied ||
+              PushStatus.failed ||
+              PushStatus.unsupported ||
+              PushStatus.restartRequired)
         _Banner(
           icon: Icons.notifications_off_outlined,
           text: controller.pushStatus.description,

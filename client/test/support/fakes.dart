@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:signalhub_client/src/api/signalhub_api.dart';
 import 'package:signalhub_client/src/connection/server_credentials.dart';
+import 'package:signalhub_client/src/models/push_config.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
 
 const serverUrl = 'https://signalhub.test';
@@ -31,6 +32,10 @@ class FakeBackend {
     'mutedCategories': <String>[],
     'mutedProducerIds': <String>[],
   };
+
+  /// The push client options the server serves; `null` when the operator
+  /// configured none.
+  Map<String, Object?>? pushConfig;
 
   /// When set, every request fails to connect.
   bool offline = false;
@@ -126,6 +131,8 @@ class FakeBackend {
         return _json(200, {'marked': marked});
       case 'GET /api/v1/client':
         return _json(200, _client());
+      case 'GET /api/v1/client/push-config' when pushConfig != null:
+        return _json(200, pushConfig!);
       case 'PUT /api/v1/client/push-target':
         final body = jsonDecode(request.body) as Map<String, Object?>;
         pushToken = body['token'] as String?;
@@ -223,6 +230,31 @@ class FakePushService implements PushService {
   Future<void> deleteToken() async {
     tokenDeleted = true;
     token = null;
+  }
+}
+
+/// Push options a server serves, in the shape of the backend's FCM options.
+const servedPushConfig = <String, Object?>{
+  'provider': 'fcm',
+  'options': {
+    'FIREBASE_PROJECT_ID': 'owner-project',
+    'FIREBASE_MESSAGING_SENDER_ID': '1234',
+    'FIREBASE_ANDROID_API_KEY': 'android-key',
+    'FIREBASE_ANDROID_APP_ID': '1:1234:android:ab',
+  },
+};
+
+/// Starts a [FakePushService] from served options, standing in for the
+/// provider's own start; with [accepts] unset it refuses them, as a provider
+/// refuses options that do not fit it.
+class FakeServedPushStarter {
+  final started = <PushConfig>[];
+  final push = FakePushService();
+  bool accepts = true;
+
+  Future<PushService?> call(PushConfig served) async {
+    started.add(served);
+    return accepts ? push : null;
   }
 }
 

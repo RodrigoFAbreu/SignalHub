@@ -8,6 +8,7 @@ import '../connection/server_credentials.dart';
 import '../models/client_registration.dart';
 import '../models/event.dart';
 import '../models/json.dart';
+import '../models/push_config.dart';
 
 /// A request to the backend failed.
 class ApiException implements Exception {
@@ -49,6 +50,19 @@ class SignalHubApi {
   /// `GET /api/v1/client`: this installation's registration.
   Future<ClientRegistration> getClient() async =>
       _read(await _send('GET', 'api/v1/client'), ClientRegistration.fromJson);
+
+  /// `GET /api/v1/client/push-config`: the options to set up push with the
+  /// server's provider, or `null` when the operator configured none (`404`).
+  Future<PushConfig?> getPushConfig() async {
+    final Map<String, Object?> body;
+    try {
+      body = await _send('GET', 'api/v1/client/push-config');
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+    return _read(body, PushConfig.fromJson);
+  }
 
   /// `PUT /api/v1/client/push-target`: where pushes for this client go.
   Future<ClientRegistration> setPushTarget(

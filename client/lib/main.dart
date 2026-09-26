@@ -17,6 +17,7 @@ Future<void> main() async {
     store: SecureCredentialsStore(),
     apiFactory: (credentials) => SignalHubApi(credentials, httpClient),
     push: push,
+    startServedPush: FirebasePushService.startServed,
   );
   runApp(SignalHubApp(controller: controller));
   unawaited(controller.start());
