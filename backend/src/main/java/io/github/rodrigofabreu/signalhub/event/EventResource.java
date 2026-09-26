@@ -11,9 +11,11 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.quarkus.runtime.Startup;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -26,6 +28,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.eclipse.microprofile.openapi.annotations.enums.SecuritySchemeType;
@@ -56,6 +59,10 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 public class EventResource {
 
   static final String SECURITY_SCHEME = "producerApiKey";
+  static final String IDEMPOTENCY_KEY = "Idempotency-Key";
+
+  // Visible ASCII: a key must survive any HTTP client and proxy unchanged.
+  private static final Pattern IDEMPOTENCY_KEY_FORMAT = Pattern.compile("[!-~]{1,200}");
 
   private final EventService events;
   private final AuthenticatedProducer producer;
@@ -81,7 +88,9 @@ public class EventResource {
           "Authenticates the producer, validates the event and stores it durably before"
               + " responding. The event is bound to the authenticated producer. The response is"
               + " the canonical event, including the server-generated id, producer and"
-              + " createdAt.")
+              + " createdAt. With an Idempotency-Key the producer already sent, nothing is"
+              + " stored: the answer is 200 with the event stored then, so a request whose answer"
+              + " was lost can be sent again without storing a duplicate.")
   @RequestBody(
       required = true,
       content =
@@ -101,8 +110,21 @@ public class EventResource {
       description = "Event stored. The Location header points to it.",
       content = @Content(schema = @Schema(implementation = EventResponse.class)))
   @APIResponse(
+      responseCode = "200",
+      description =
+          "The producer already published this event with this Idempotency-Key; nothing new was"
+              + " stored. The body is the event as it is stored now, and the Location header"
+              + " points to it.",
+      content = @Content(schema = @Schema(implementation = EventResponse.class)))
+  @APIResponse(
       responseCode = "400",
-      description = "The body is malformed or fails validation.",
+      description = "The body or the Idempotency-Key header is malformed or fails validation.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "422",
+      description =
+          "The producer already used this Idempotency-Key for a different event. Nothing was"
+              + " stored.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "401",
@@ -117,12 +139,44 @@ public class EventResource {
       responseCode = "415",
       description = "The body is not JSON.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
-  public Response create(@NotNull @Valid CreateEventRequest request) {
-    var event = events.create(producer.get(), request);
+  public Response create(
+      @Parameter(
+              description =
+                  "Optional key, unique per producer, that makes publishing idempotent: sending"
+                      + " the same event with the same key again stores nothing and answers the"
+                      + " stored event. 1 to 200 visible ASCII characters, such as a UUID. Free"
+                      + " again once its event is deleted by retention.",
+              example = "ci-nightly-1842",
+              schema = @Schema(type = SchemaType.STRING, minLength = 1, maxLength = 200))
+          @HeaderParam(IDEMPOTENCY_KEY)
+          String idempotencyKey,
+      @NotNull @Valid CreateEventRequest request) {
+    validateIdempotencyKey(idempotencyKey);
+    var result = events.create(producer.get(), request, idempotencyKey);
+    var event = result.event();
+    var location = UriBuilder.fromResource(EventResource.class).path(event.id().toString()).build();
+    if (!result.created()) {
+      return Response.ok(event).location(location).build();
+    }
     // Counted once committed: create returns only after the transaction.
     published.increment();
-    var location = UriBuilder.fromResource(EventResource.class).path(event.id().toString()).build();
     return Response.created(location).entity(event).build();
+  }
+
+  private static void validateIdempotencyKey(String key) {
+    if (key != null && !IDEMPOTENCY_KEY_FORMAT.matcher(key).matches()) {
+      throw new BadRequestException(
+          Response.status(Response.Status.BAD_REQUEST)
+              .entity(
+                  new ApiError(
+                      "Invalid request",
+                      400,
+                      List.of(
+                          new ApiError.Violation(
+                              IDEMPOTENCY_KEY,
+                              "must be 1 to 200 visible ASCII characters, without spaces"))))
+              .build());
+    }
   }
 
   @GET

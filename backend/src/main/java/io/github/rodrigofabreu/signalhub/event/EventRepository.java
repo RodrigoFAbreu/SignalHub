@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -63,6 +64,35 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
             ? findAll(NEWEST_FIRST)
             : find(String.join(" and ", conditions), NEWEST_FIRST, parameters);
     return matching.range(0, count - 1).list();
+  }
+
+  /**
+   * Waits until no other transaction is publishing with this producer's key, and holds the key
+   * until this transaction ends, so concurrent requests with one key store one event. A lock on the
+   * key rather than the unique index, whose violation would abort the transaction.
+   */
+  void lockIdempotencyKey(UUID producerId, String key) {
+    getEntityManager()
+        .createNativeQuery(
+            "SELECT pg_advisory_xact_lock(hashtextextended(CAST(:producerId AS text) || ' ' || :key,"
+                + " 0))")
+        .setParameter("producerId", producerId)
+        .setParameter("key", key)
+        .getSingleResult();
+  }
+
+  Optional<EventEntity> findByIdempotencyKey(UUID producerId, String key) {
+    return find("producerId = ?1 and idempotencyKey = ?2", producerId, key).firstResultOptional();
+  }
+
+  /** Whether two metadata documents are equal as {@code jsonb}, as they are stored. */
+  boolean sameMetadata(String stored, String sent) {
+    return (Boolean)
+        getEntityManager()
+            .createNativeQuery("SELECT CAST(:stored AS jsonb) = CAST(:sent AS jsonb)")
+            .setParameter("stored", stored)
+            .setParameter("sent", sent)
+            .getSingleResult();
   }
 
   /**

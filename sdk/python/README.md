@@ -60,6 +60,7 @@ It prints the stored event's ID (`--json` prints the whole event).
 | `--metadata JSON` | `metadata`, a JSON object |
 | `--meta KEY=VALUE` | one metadata string value; repeatable, applied over `--metadata` |
 | `--occurred-at TIMESTAMP` | `occurredAt`, ISO-8601 with an offset, e.g. `2026-09-25T14:03:00Z` |
+| `--idempotency-key KEY` | not a field: the `Idempotency-Key` header, 1 to 200 visible ASCII characters (see below) |
 
 Category and severity are case-insensitive, and `-` stands for `_`
 (`--category action-required`). Values the command does not know are sent as
@@ -77,9 +78,27 @@ Other options: `--url`, `--api-key-file PATH`, `--timeout SECONDS`
 | `2` | Usage or configuration error; nothing was sent. | will not help |
 | `3` | Temporary failure: SignalHub was unreachable, timed out, or answered `429` or `5xx`. | may help later |
 
-The command does not retry by itself. Publishing is not idempotent yet
-(see [docs/architecture.md](../../docs/architecture.md#ids)), so after a
-timeout a retry may store the event twice.
+The command does not retry by itself. After a timeout the event may have
+been stored even though no answer arrived, so sending it again may store it
+twice, unless it has an idempotency key: a key that names this one event,
+such as a CI run and attempt, or a UUID the script keeps. Sending the same
+event with the same key again stores nothing new and prints the event stored
+the first time, so exit status `3` can be retried safely:
+
+```sh
+key="nightly-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+for attempt in 1 2 3; do
+  status=0
+  signalhub send --idempotency-key "$key" --category BLOCKED --severity HIGH \
+    --title "Nightly build failed" || status=$?
+  [ "$status" -eq 3 ] || break
+  sleep 30
+done
+exit "$status"
+```
+
+A key used before for a different event is rejected (exit status `1`); see
+[docs/architecture.md](../../docs/architecture.md#idempotent-publishing).
 
 Messages go to standard error, so a script can capture the ID:
 
@@ -105,6 +124,7 @@ event = hub.publish(
     context="github.com/owner/repo",
     metadata={"pullRequest": 42},
     occurred_at=datetime.now(timezone.utc),  # or an ISO-8601 string
+    idempotency_key="review-42-1",  # optional: repeating the call stores nothing new
 )
 print(event["id"], event["createdAt"])
 ```
@@ -116,13 +136,18 @@ subclasses:
 | Error | When |
 |---|---|
 | `ConfigurationError` | The URL or API key is missing or unusable. |
-| `ValidationError` | SignalHub rejected the event (`400`, `413`, `415`); `violations` lists `field` and `message`. |
+| `ValidationError` | SignalHub rejected the event (`400`, `413`, `415`, or `422` for an idempotency key used for another event); `violations` lists `field` and `message`. |
 | `AuthenticationError` | `401`: the key is invalid or revoked, or its producer is disabled. |
 | `RequestError` | Any other error status; `status` holds it, and `temporary` is true for `429` and `5xx`. The two errors above are subclasses. |
 | `UnreachableError` | No answer: connection refused, DNS failure, TLS error, or timeout. |
 
 A timestamp without an offset raises `ValueError` before anything is sent,
-as SignalHub rejects it as ambiguous.
+as SignalHub rejects it as ambiguous, and so does an idempotency key that is
+empty or not printable ASCII, which cannot be sent in a header.
+
+With `idempotency_key`, a call that raised a temporary error (`temporary` is
+true, or `UnreachableError`) can be repeated with the same arguments: if the
+first call stored the event, the repeat returns it instead of storing another.
 
 ## Without the SDK
 

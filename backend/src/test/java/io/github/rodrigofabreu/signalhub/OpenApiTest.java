@@ -54,6 +54,13 @@ class OpenApiTest {
         .body(EVENTS + ".post.responses", hasKey("401"))
         .body(EVENTS + ".post.responses", hasKey("413"))
         .body(EVENTS + ".post.responses", hasKey("415"))
+        .body(EVENTS + ".post.responses", hasKey("200"))
+        .body(EVENTS + ".post.responses", hasKey("422"))
+        .body(
+            EVENTS + ".post.parameters.find { it.name == 'Idempotency-Key' }.in", equalTo("header"))
+        .body(
+            EVENTS + ".post.parameters.find { it.name == 'Idempotency-Key' }.required",
+            not(equalTo(true)))
         .body(EVENT + ".get.responses", hasKey("200"))
         .body(EVENT + ".get.responses", hasKey("401"))
         .body(EVENT + ".get.responses", hasKey("404"))

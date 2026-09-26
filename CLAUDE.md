@@ -28,7 +28,7 @@ Planned stack (details in `docs/architecture.md`):
 **Current state:** engineering baseline (docs, CI, release automation) plus
 the backend in `backend/` (Quarkus service, PostgreSQL, Flyway, health,
 OpenAPI, Docker Compose) with generic event ingestion
-(`POST /api/v1/events`, `GET /api/v1/events/{id}` with a client key or the
+(`POST /api/v1/events`, idempotent with an optional `Idempotency-Key`, `GET /api/v1/events/{id}` with a client key or the
 admin token), a paginated event listing
 (`GET /api/v1/events`, with a client key or the admin token), read state
 (mark events read or unread, the unread count), producer

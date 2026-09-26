@@ -75,6 +75,61 @@ class PublishTest(unittest.TestCase):
             },
         )
 
+    def test_sends_no_idempotency_key_unless_given(self) -> None:
+        self.hub.publish(category="INFO", severity="LOW", title="t")
+
+        self.assertNotIn("Idempotency-Key", self.server.requests[0]["headers"])
+
+    def test_sends_the_idempotency_key_as_a_header(self) -> None:
+        self.hub.publish(
+            category="INFO", severity="LOW", title="t", idempotency_key="run-1842"
+        )
+
+        self.assertEqual(
+            self.server.requests[0]["headers"]["Idempotency-Key"], "run-1842"
+        )
+
+    def test_a_repeat_answered_with_200_returns_the_stored_event(self) -> None:
+        stored = {"id": "0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b", "title": "t"}
+        self.server.respond(200, stored)
+
+        event = self.hub.publish(
+            category="INFO", severity="LOW", title="t", idempotency_key="k"
+        )
+
+        self.assertEqual(event, stored)
+
+    def test_a_key_used_for_another_event_is_a_rejection(self) -> None:
+        self.server.respond(
+            422,
+            {
+                "title": "Idempotency key already used",
+                "status": 422,
+                "violations": [
+                    {
+                        "field": "Idempotency-Key",
+                        "message": "was already used for a different event",
+                    }
+                ],
+            },
+        )
+
+        with self.assertRaises(ValidationError) as raised:
+            self.hub.publish(
+                category="INFO", severity="LOW", title="t", idempotency_key="k"
+            )
+
+        self.assertFalse(raised.exception.temporary)
+        self.assertIn("Idempotency-Key: was already used", str(raised.exception))
+
+    def test_refuses_keys_that_cannot_be_sent_in_a_header(self) -> None:
+        for key in ["", "line\nbreak", "caf\u00e9"]:
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                self.hub.publish(
+                    category="INFO", severity="LOW", title="t", idempotency_key=key
+                )
+        self.assertEqual(self.server.requests, [])
+
     def test_normalizes_category_and_severity_names(self) -> None:
         self.hub.publish(category=" action-required ", severity="critical", title="t")
 

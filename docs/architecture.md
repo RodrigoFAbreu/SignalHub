@@ -151,9 +151,49 @@ keeps primary-key inserts cheap. Producers cannot supply `id` (or
 `createdAt`): unknown fields are rejected, so a producer that tries gets a 400
 rather than a silently different ID. The same holds for the producer.
 
-Idempotent publishing is not implemented yet. When it is needed, it will be an
-additive, optional producer-supplied key (with a unique constraint scoped to
-the producer), not a producer-controlled canonical ID.
+Retries are made safe by an optional producer-supplied key, scoped to the
+producer (see [Idempotent publishing](#idempotent-publishing)), not by a
+producer-controlled canonical ID.
+
+### Idempotent publishing
+
+A producer that gets no answer (a timeout, a dropped connection) cannot tell
+whether its event was stored. Sending it again is safe only with an
+**idempotency key**, sent in the `Idempotency-Key` header:
+
+```http
+POST /api/v1/events
+Authorization: Bearer shpk1_...
+Idempotency-Key: nightly-1842-1
+```
+
+- **One key, one event.** The key names one event of this producer: a CI run
+  and attempt, a job ID with a date, or a UUID the producer generated and
+  kept for its retries. Keys are 1 to 200 visible ASCII characters (no
+  spaces), compared exactly; anything else is `400` with a violation for
+  `Idempotency-Key`. Without the header, or with it empty, every request
+  stores an event, as before.
+- **The same event again** with a key the producer already used stores
+  nothing: the answer is `200` (not `201`) with the stored event, as it is
+  now (its `readAt` may have changed), and its `Location`. No second push is
+  sent. "The same" compares the stored fields (`context`, `category`,
+  `severity`, `title`, `message`, `metadata` and `occurredAt`) as they are
+  stored, so key order and whitespace in `metadata` and the offset of
+  `occurredAt` do not matter.
+- **A different event** with a used key is `422`, and nothing is stored: the
+  key is being reused by mistake, and either storing the new event or
+  answering the old one would hide it.
+- **Scoped to the producer.** Two producers may use the same key; a producer
+  never learns anything about another's keys.
+- **As long as the event exists.** There is no separate expiry: the key is
+  kept with its event and freed when [retention](#retention) deletes it, so a
+  producer that retries for longer than the retention period may store the
+  event again.
+- **Concurrent requests** with the same key wait for each other: one stores
+  the event, the others answer it.
+
+Authentication and validation come first: a request with an invalid key or
+body gets the same `401` or `400` as without the header.
 
 ### Timestamps
 
@@ -191,7 +231,7 @@ contents. An absent or `null` value is stored and returned as `{}`.
 
 | Method and path | Result |
 |---|---|
-| `POST /api/v1/events` | Requires a producer API key. Validates and stores an event bound to that producer. `201 Created` with the canonical event and a `Location` header. |
+| `POST /api/v1/events` | Requires a producer API key. Validates and stores an event bound to that producer. `201 Created` with the canonical event and a `Location` header. With an optional `Idempotency-Key` header the producer already sent, `200` with the event stored then. See [Idempotent publishing](#idempotent-publishing). |
 | `GET /api/v1/events` | Requires a client key or the admin token. One page of events, newest first, optionally filtered. See [Listing events](#listing-events). |
 | `GET /api/v1/events/{id}` | Requires a client key or the admin token. `200` with the event, or `404`. |
 | `PUT /api/v1/events/{id}/read` | Requires a client key or the admin token. Marks the event read; `200` with the event, or `404`. See [Read state](#read-state). |
@@ -213,6 +253,9 @@ The event is committed to PostgreSQL before `201` is returned. Errors:
   JSON path, or empty for the whole body.
 - `404` with the same body shape (no violations) for an unknown event ID. A
   malformed ID is also `404`.
+- `422` with the same body shape when the producer already used the
+  `Idempotency-Key` it sent for a different event (see
+  [Idempotent publishing](#idempotent-publishing)).
 - `413` for request bodies over 64 KiB, and `415` for non-JSON bodies.
 
 Every error from the product API (paths under `/api/`) has this JSON body,
@@ -334,6 +377,9 @@ ordered index rather than indexed on their own.
 `V6__add_event_read_state.sql` adds the nullable `read_at` column (existing
 events start unread) and a partial `(created_at, id)` index over unread
 events, which serves the unread count and marking read up to an event.
+`V9__add_event_idempotency_key.sql` adds the nullable `idempotency_key` column
+(existing events have none), checked against the key format, and a partial
+unique index on `(producer_id, idempotency_key)` over events that have one.
 
 ## Producers and authentication
 
@@ -935,9 +981,10 @@ internals, and everything it does is documented as plain HTTP too.
 - **Errors say whether to retry.** The command exits `1` when the event or key
   was rejected, `2` on a usage or configuration error, and `3` on a
   temporary failure (unreachable, timeout, `429`, `5xx`); the library raises
-  matching exceptions with a `temporary` flag. It does not retry by itself:
-  publishing is not idempotent yet (see [IDs](#ids)), so the caller decides
-  whether a possible duplicate is acceptable.
+  matching exceptions with a `temporary` flag. It does not retry by itself,
+  so the caller decides how long to keep trying; with an idempotency key
+  (`--idempotency-key`, `idempotency_key=`) a retry never stores the event
+  twice (see [Idempotent publishing](#idempotent-publishing)).
 
 ## Integration examples
 
@@ -1010,7 +1057,7 @@ Prometheus and Grafana), not part of SignalHub.
 
   | Meter | Type | Meaning |
   |---|---|---|
-  | `signalhub_events_published_total` | counter | Events stored and acknowledged. |
+  | `signalhub_events_published_total` | counter | Events stored and acknowledged; a repeat with an idempotency key stores nothing and is not counted. |
   | `signalhub_events_deleted_total` | counter | Events deleted because they were older than the [retention](#retention) period. |
   | `signalhub_push_deliveries_total{result}` | counter | Pushes to one client, by `result`: `delivered`, `no_target`, `unsupported_provider`, `invalid_target`, `transient_failure`, `permanent_failure` (see [Push delivery](#push-delivery)). Retries count again. |
   | `signalhub_push_retries_abandoned_total` | counter | Pushes given up after the last attempt failed temporarily (see [Push dispatch](#push-dispatch)). |
@@ -1295,8 +1342,9 @@ change bumps the minor version; from `1.0.0` it bumps the major version.
 
 **The public contract** is what producers, clients and operators depend on:
 
-- the product HTTP API under `/api/v1/` (paths, methods, credentials, status
-  codes, request and response fields, the error body) and the event schema,
+- the product HTTP API under `/api/v1/` (paths, methods, credentials, headers
+  such as `Idempotency-Key`, status codes, request and response fields, the
+  error body) and the event schema,
   as documented here and in the OpenAPI document;
 - the category and severity values, key formats (`shpk1_`, `shck1_`) and
   cursor opacity;
@@ -1355,8 +1403,9 @@ the rules above instead. Nothing is planned that needs `/api/v2/`.
 ## Cross-cutting principles
 
 - **Durability first:** persist, then acknowledge, then deliver.
-- **Idempotency:** producers may retry, so ingestion should support
-  deduplication. Not implemented yet; see [IDs](#ids).
+- **Idempotency:** producers may retry, so publishing with an idempotency key
+  stores an event once however often it is sent; see
+  [Idempotent publishing](#idempotent-publishing).
 - **Secrets from the environment:** credentials (the admin token, push-provider
   credentials, database password) come from runtime configuration, never from
   the repository. Producer API keys are generated by the server and stored

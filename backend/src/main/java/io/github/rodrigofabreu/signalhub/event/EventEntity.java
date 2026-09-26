@@ -54,6 +54,10 @@ class EventEntity {
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
+  // The producer's Idempotency-Key, unique per producer; null when it sent none.
+  @Column(name = "idempotency_key", updatable = false)
+  private String idempotencyKey;
+
   // Changed only by the bulk updates in EventRepository, so concurrent marks never overwrite.
   @Column(name = "read_at", updatable = false)
   private Instant readAt;
@@ -69,7 +73,8 @@ class EventEntity {
       String message,
       String metadata,
       Instant occurredAt,
-      Instant createdAt) {
+      Instant createdAt,
+      String idempotencyKey) {
     this.producerId = producerId;
     this.context = context;
     this.category = category;
@@ -79,6 +84,7 @@ class EventEntity {
     this.metadata = metadata;
     this.occurredAt = occurredAt;
     this.createdAt = createdAt;
+    this.idempotencyKey = idempotencyKey;
   }
 
   UUID id() {

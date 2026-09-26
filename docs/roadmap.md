@@ -513,6 +513,23 @@ The following capabilities are already implemented and merged unless repository 
 - no code changes: the rules describe what the app, SDK and backend already
   do and test; the maintainer confirms the policy with the v1.0 decision
 
+### R18g - Idempotent publishing
+
+- `POST /api/v1/events` takes an optional `Idempotency-Key` header (1 to 200
+  visible ASCII characters), scoped to the producer: the same event with a
+  used key stores nothing and answers `200` with the stored event, without a
+  second push; a different event with it is `422`; concurrent requests with
+  one key store one event (a transaction-scoped advisory lock on the key)
+- `V9__add_event_idempotency_key.sql`: nullable `events.idempotency_key` and
+  a partial unique index per producer; retention frees a key with its event
+- the `signalhub` command's `--idempotency-key` and the SDK's
+  `idempotency_key`, so a temporary failure can be retried without a
+  duplicate; neither retries by itself
+- compatible: without the header nothing changes; tested against real
+  PostgreSQL (repeats, every compared field, equivalent JSON and offsets,
+  scoping, malformed keys, concurrency, retention, the unique index), in the
+  OpenAPI document and in the SDK's tests
+
 ---
 
 ## 4. Planned roadmap
@@ -894,8 +911,9 @@ Exit criteria:
 
 Status: in progress; R18a (refusing a newer schema), R18b (reading an
 event needs the owner's credential), R18c (one error format), R18d (the
-end-to-end test), R18e (the fresh-install deployment test) and R18f (the
-compatibility policy and enum evolution) are complete (see section 3).
+end-to-end test), R18e (the fresh-install deployment test), R18f (the
+compatibility policy and enum evolution) and R18g (idempotent publishing)
+are complete (see section 3).
 
 Goal: deliberately declare the first stable SignalHub contract.
 
@@ -903,7 +921,7 @@ Before `v1.0.0`, review:
 
 - public REST API consistency
 - authentication/key lifecycle
-- event schema
+- event schema (safe retries: idempotent publishing, done in R18g)
 - enum evolution strategy (done in R18f)
 - pagination
 - migrations and upgrade path (refusing to start an older release on a newer schema: done in R18a)
@@ -992,7 +1010,7 @@ Determine this from repository state rather than trusting this section blindly.
 
 After the integration examples (R17), the expected next increment is:
 
-**R18 - v1.0 hardening and contract review**, continuing after R18f
+**R18 - v1.0 hardening and contract review**, continuing after R18g
 
 Likely split into bounded increments: the reviews and tests R18 lists. Promotion to `v1.0.0` itself is always the
 maintainer's decision. Confirming delivery to a real device (R8 to R10)

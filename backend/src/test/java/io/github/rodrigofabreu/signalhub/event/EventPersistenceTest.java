@@ -83,6 +83,8 @@ class EventPersistenceTest {
     expected.put("producer_id", "uuid NO");
     // Added by V6: null while the event is unread.
     expected.put("read_at", "timestamp with time zone YES");
+    // Added by V9: null when the producer sent no Idempotency-Key.
+    expected.put("idempotency_key", "text YES");
     assertEquals(expected, columnsOf("events"));
   }
 
