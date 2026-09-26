@@ -28,7 +28,9 @@ public record ApiError(
   public record Violation(
       @Schema(
               required = true,
-              description = "JSON path of the offending field, or empty for the whole body.",
+              description =
+                  "JSON path of the offending field, the name of the query parameter or"
+                      + " header, or empty for the whole body.",
               examples = "severity")
           String field,
       @Schema(required = true, examples = "must not be null") String message) {}

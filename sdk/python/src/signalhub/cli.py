@@ -100,6 +100,13 @@ def _parser() -> argparse.ArgumentParser:
         metavar="TIMESTAMP",
         help="when it happened, ISO-8601 with an offset, e.g. 2026-09-25T14:03:00Z",
     )
+    send.add_argument(
+        "--idempotency-key",
+        metavar="KEY",
+        help="unique key of this event, e.g. a run ID: sending it again with the "
+        "same key prints the stored event instead of storing another, so a "
+        "temporary failure (exit status 3) can be retried safely",
+    )
     send.add_argument("--url", help=f"SignalHub base address (default: ${URL_ENV})")
     send.add_argument("--api-key-file", metavar="PATH", help="file holding the API key")
     send.add_argument(
@@ -141,8 +148,9 @@ def main(
             context=args.context,
             metadata=_metadata(args.metadata, args.meta),
             occurred_at=args.occurred_at,
+            idempotency_key=args.idempotency_key,
         )
-    except (ConfigurationError, UsageError) as error:
+    except (ConfigurationError, UsageError, ValueError) as error:
         print(f"signalhub: {error}", file=stderr)
         return EXIT_USAGE
     except RequestError as error:

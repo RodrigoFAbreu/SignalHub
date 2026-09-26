@@ -23,6 +23,7 @@ DEFAULT_TIMEOUT = 10.0
 USER_AGENT = "signalhub-python"
 
 EVENTS_PATH = "/api/v1/events"
+IDEMPOTENCY_KEY_HEADER = "Idempotency-Key"
 
 
 class _NoRedirects(urllib.request.HTTPRedirectHandler):
@@ -158,6 +159,7 @@ class SignalHub:
         context: str | None = None,
         metadata: dict[str, Any] | None = None,
         occurred_at: datetime | str | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Publishes one event and returns it as SignalHub stored it.
 
@@ -165,6 +167,12 @@ class SignalHub:
         `createdAt`. Category and severity are case-insensitive, and `-`
         stands for `_` (`action-required`). Values unknown to this package
         are sent as they are, so the server stays the judge of what it accepts.
+
+        With an `idempotency_key` (1 to 200 visible ASCII characters, unique
+        per event, such as a UUID or a run ID), publishing the same event
+        again returns the event already stored instead of storing another, so
+        the call can be repeated after a temporary failure. The key is sent as
+        the `Idempotency-Key` header.
         """
         body: dict[str, Any] = {
             "category": _enum_value(category),
@@ -179,9 +187,12 @@ class SignalHub:
             body["metadata"] = metadata
         if occurred_at is not None:
             body["occurredAt"] = _timestamp(occurred_at)
-        return self._post(body)
+        headers = {}
+        if idempotency_key is not None:
+            headers[IDEMPOTENCY_KEY_HEADER] = _idempotency_key(idempotency_key)
+        return self._post(body, headers)
 
-    def _post(self, body: dict[str, Any]) -> dict[str, Any]:
+    def _post(self, body: dict[str, Any], headers: dict[str, str]) -> dict[str, Any]:
         request = urllib.request.Request(
             self._events_url,
             data=json.dumps(body).encode("utf-8"),
@@ -191,6 +202,7 @@ class SignalHub:
                 "Content-Type": "application/json",
                 "Accept": "application/json",
                 "User-Agent": USER_AGENT,
+                **headers,
             },
         )
         try:
@@ -235,6 +247,14 @@ def _timestamp(value: datetime | str) -> str:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("occurred_at must be timezone-aware")
     return value.isoformat()
+
+
+def _idempotency_key(key: str) -> str:
+    # Only what cannot travel in a header is refused here; the server checks
+    # the rest (spaces, length).
+    if not key or not key.isascii() or not key.isprintable():
+        raise ValueError("idempotency_key must be 1 to 200 visible ASCII characters")
+    return key
 
 
 def _request_error(error: urllib.error.HTTPError) -> RequestError:

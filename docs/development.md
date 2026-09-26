@@ -422,6 +422,20 @@ Content-Type: application/json;charset=UTF-8
 }
 ```
 
+To retry safely after a timeout, send an `Idempotency-Key` that names the
+event (see [architecture.md](architecture.md#idempotent-publishing)). The
+first request answers `201`; the same event with the same key again answers
+`200` with the stored event and stores nothing, and a different event with
+that key `422`:
+
+```sh
+curl -si http://localhost:8080/api/v1/events \
+  -H "Authorization: Bearer $API_KEY" \
+  -H 'Idempotency-Key: nightly-1842-1' \
+  -H 'Content-Type: application/json' \
+  -d '{"category": "BLOCKED", "severity": "HIGH", "title": "Nightly build failed"}' | head -1
+```
+
 Read it back, including after restarting the service, with a client key or
 the admin token (a producer key gets `401`):
 

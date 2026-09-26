@@ -58,9 +58,13 @@ class SendTest(unittest.TestCase):
             "--meta=branch=feature",
             "--meta=link=https://example.com/?a=b",
             "--occurred-at=2026-09-25T14:03:00Z",
+            "--idempotency-key=run-42",
         )
 
         self.assertEqual(status, 0, self.stderr.getvalue())
+        self.assertEqual(
+            self.server.requests[0]["headers"]["Idempotency-Key"], "run-42"
+        )
         self.assertEqual(
             self.server.requests[0]["body"],
             {
@@ -158,6 +162,7 @@ class SendTest(unittest.TestCase):
             "not an object": (["--title=t", "--metadata=[1]"], self.env, "JSON object"),
             "bad pair": (["--title=t", "--meta=novalue"], self.env, "KEY=VALUE"),
             "no title": ([], self.env, "--title"),
+            "empty key": (["--title=t", "--idempotency-key="], self.env, "ASCII"),
         }
         for name, (args, env, expected) in cases.items():
             with self.subTest(name):

@@ -8,6 +8,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,13 +26,19 @@ class EventService {
     this.dispatches = dispatches;
   }
 
+  /** The outcome of publishing: the event, and whether this request stored it. */
+  record Published(EventResponse event, boolean created) {}
+
   /**
    * Persists the event, bound to the authenticated producer, and commits before returning, so a
    * returned event is durable. Its push is recorded in the same transaction and sent later by
-   * {@link EventPushDispatcher}.
+   * {@link EventPushDispatcher}. With an idempotency key the producer already used, nothing is
+   * stored and the event stored then is returned, if the request is the same.
+   *
+   * @throws IdempotencyKeyReusedException if the key was used for a different event
    */
   @Transactional
-  EventResponse create(ProducerIdentity producer, CreateEventRequest request) {
+  Published create(ProducerIdentity producer, CreateEventRequest request, String idempotencyKey) {
     var metadata = request.metadata();
     var event =
         new EventEntity(
@@ -43,10 +50,32 @@ class EventService {
             request.message(),
             metadata == null ? "{}" : metadata.toString(),
             request.occurredAt() == null ? null : toStoredInstant(request.occurredAt().toInstant()),
-            toStoredInstant(Instant.now()));
+            toStoredInstant(Instant.now()),
+            idempotencyKey);
+    if (idempotencyKey != null) {
+      repository.lockIdempotencyKey(producer.id(), idempotencyKey);
+      var stored = repository.findByIdempotencyKey(producer.id(), idempotencyKey);
+      if (stored.isPresent()) {
+        if (!sameRequest(stored.get(), event)) {
+          throw new IdempotencyKeyReusedException();
+        }
+        return new Published(toResponse(stored.get(), producer), false);
+      }
+    }
     repository.persist(event);
     dispatches.add(event);
-    return toResponse(event, producer);
+    return new Published(toResponse(event, producer), true);
+  }
+
+  /** Whether the stored event holds what {@code sent} would have stored, its own fields aside. */
+  private boolean sameRequest(EventEntity stored, EventEntity sent) {
+    return Objects.equals(stored.context(), sent.context())
+        && stored.category() == sent.category()
+        && stored.severity() == sent.severity()
+        && stored.title().equals(sent.title())
+        && Objects.equals(stored.message(), sent.message())
+        && Objects.equals(stored.occurredAt(), sent.occurredAt())
+        && repository.sameMetadata(stored.metadata(), sent.metadata());
   }
 
   /** The push for the event; empty if the event no longer exists. */
