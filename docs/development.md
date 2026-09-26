@@ -605,7 +605,8 @@ the API client (paths, bearer key, cursors, reading one event, push-target
 bodies, push-preference bodies, error mapping), the models (every documented field, unknown enum
 values, contract violations), server address and key validation, the app
 controller (setup, restart, revoked key, unreachable server, push
-permission, token refresh, pushes re-reading the inbox, paging and its
+permission, token refresh, pushes and returning to the foreground
+re-reading the inbox, paging and its
 failures, opening a tapped notification's event, disconnect), the Firebase
 options from build-time values, and the screens in widget tests (inbox,
 paging while scrolling, event details, opening from a notification) and

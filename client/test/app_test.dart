@@ -232,6 +232,28 @@ void main() {
     expect(find.text('Deploy done'), findsOneWidget);
   });
 
+  testWidgets('returning to the app shows events pushed meanwhile', (
+    tester,
+  ) async {
+    await connect(tester);
+    backend.publish('e-2', 'Deploy done');
+
+    // Home, then back: the states Android goes through.
+    for (final state in [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(state);
+    }
+    await settle(tester);
+
+    expect(find.text('Deploy done'), findsOneWidget);
+  });
+
   testWidgets('a tapped notification opens its event', (tester) async {
     await connect(tester);
     backend.publish('e-2', 'Deploy done', message: 'v1.2.3 is live.');
