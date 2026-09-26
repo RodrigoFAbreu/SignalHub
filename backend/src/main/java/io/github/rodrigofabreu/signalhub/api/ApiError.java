@@ -1,9 +1,11 @@
 package io.github.rodrigofabreu.signalhub.api;
 
+import jakarta.ws.rs.core.Response;
 import java.util.List;
+import java.util.Objects;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
-/** Error body of 400 and 404 responses from the product API. */
+/** Error body of every error response from the product API. */
 @Schema(name = "Error", description = "Why a request was rejected.")
 public record ApiError(
     @Schema(required = true, examples = "Invalid request") String title,
@@ -13,6 +15,13 @@ public record ApiError(
 
   public ApiError {
     violations = List.copyOf(violations);
+  }
+
+  /** An error with no per-field problems, titled by the status's reason phrase. */
+  public static ApiError of(Response.StatusType status) {
+    // A status JAX-RS does not name has no reason phrase, but the title is required.
+    var title = Objects.requireNonNullElse(status.getReasonPhrase(), "Error");
+    return new ApiError(title, status.getStatusCode(), List.of());
   }
 
   @Schema(name = "Violation")

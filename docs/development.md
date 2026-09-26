@@ -155,7 +155,8 @@ and Testcontainers), so Docker must be running. They cover liveness, readiness
 with the database up and after it stops, Flyway startup migration and the
 refusal of a newer schema (`SchemaVersionGuardTest`), the
 production configuration, the OpenAPI document, and the events API: the HTTP
-contract and validation (`EventApiTest`), the listing's order, filters,
+contract and validation (`EventApiTest`), the error body of every product
+API error (`ApiErrorsTest`), the listing's order, filters,
 pagination and parameter validation (`EventListApiTest`, with the cursor
 format in `EventCursorTest`), and what reaches PostgreSQL, including the
 schema's own constraints (`EventPersistenceTest`). Producer
@@ -484,6 +485,11 @@ Invalid input gets a `400` that names each offending field:
   ]
 }
 ```
+
+Other errors under `/api/` have the same body with no violations, for
+example `{"title": "Method Not Allowed", "status": 405, "violations": []}`;
+only a `413` for an oversized body has none (see
+[architecture.md](architecture.md#http-api)).
 
 ### Configuration
 

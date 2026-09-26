@@ -448,6 +448,20 @@ The following capabilities are already implemented and merged unless repository 
   wrong or missing credential, unknown and malformed IDs), the OpenAPI
   document, the app's fake server and the Compose smoke test
 
+### R18c - One error format
+
+- every error under `/api/` carries the documented
+  `{"title", "status", "violations"}` body, including those Quarkus raises
+  before a resource runs: an unknown path or malformed ID (`404`), an
+  unsupported method (`405`), an unacceptable `Accept` header (`406`) and a
+  non-JSON body (`415`), titled by their reason phrase; releases up to v0.23
+  answered them without a body
+- `413` stays without a body: the HTTP server refuses an oversized body
+  before routing; documented as the one exception
+- Quarkus's own endpoints under `/q` are unchanged
+- tested against real PostgreSQL (`ApiErrorsTest`) and in the OpenAPI
+  document
+
 ---
 
 ## 4. Planned roadmap
@@ -827,8 +841,9 @@ Exit criteria:
 
 ### R18 - v1.0 hardening and contract review
 
-Status: in progress; R18a (refusing a newer schema) and R18b (reading an
-event needs the owner's credential) are complete (see section 3).
+Status: in progress; R18a (refusing a newer schema), R18b (reading an
+event needs the owner's credential) and R18c (one error format) are complete
+(see section 3).
 
 Goal: deliberately declare the first stable SignalHub contract.
 
@@ -842,7 +857,7 @@ Before `v1.0.0`, review:
 - migrations and upgrade path (refusing to start an older release on a newer schema: done in R18a)
 - client/device lifecycle
 - push semantics
-- error formats
+- error formats (one JSON body for every product API error but `413`: done in R18c)
 - configuration compatibility
 - backup/restore
 - deployment documentation
@@ -925,7 +940,7 @@ Determine this from repository state rather than trusting this section blindly.
 
 After the integration examples (R17), the expected next increment is:
 
-**R18 - v1.0 hardening and contract review**, continuing after R18b
+**R18 - v1.0 hardening and contract review**, continuing after R18c
 
 Likely split into bounded increments: the reviews and tests R18 lists. Promotion to `v1.0.0` itself is always the
 maintainer's decision. Confirming delivery to a real device (R8 to R10)

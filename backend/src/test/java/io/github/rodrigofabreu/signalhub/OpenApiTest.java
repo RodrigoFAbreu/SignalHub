@@ -53,6 +53,7 @@ class OpenApiTest {
         .body(EVENTS + ".post.responses", hasKey("400"))
         .body(EVENTS + ".post.responses", hasKey("401"))
         .body(EVENTS + ".post.responses", hasKey("413"))
+        .body(EVENTS + ".post.responses", hasKey("415"))
         .body(EVENT + ".get.responses", hasKey("200"))
         .body(EVENT + ".get.responses", hasKey("401"))
         .body(EVENT + ".get.responses", hasKey("404"))
