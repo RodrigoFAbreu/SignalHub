@@ -530,6 +530,20 @@ The following capabilities are already implemented and merged unless repository 
   scoping, malformed keys, concurrency, retention, the unique index), in the
   OpenAPI document and in the SDK's tests
 
+### R18h - Upgrade from an older release
+
+- the upgrade job becomes a matrix: besides `Backend container (upgrade from
+  the latest release)`, `Backend container (upgrade from v0.13.0)` stores
+  the same producer, client, read event and push preferences with v0.13.0,
+  upgrades in place to the commit under test, skipping every release and
+  migration since (V8 and V9 for now), checks the data, keys, preferences,
+  every migration and health, and rolls back to v0.13.0 by restoring the
+  backup
+- v0.13.0 is the oldest release that stores every kind of data SignalHub
+  keeps today; `docs/deployment.md` says upgrades are tested from it on, and
+  that older releases apply the same migrations untested
+- no backend, schema or client changes
+
 ---
 
 ## 4. Planned roadmap
@@ -912,8 +926,8 @@ Exit criteria:
 Status: in progress; R18a (refusing a newer schema), R18b (reading an
 event needs the owner's credential), R18c (one error format), R18d (the
 end-to-end test), R18e (the fresh-install deployment test), R18f (the
-compatibility policy and enum evolution) and R18g (idempotent publishing)
-are complete (see section 3).
+compatibility policy and enum evolution), R18g (idempotent publishing) and
+R18h (the upgrade from an older release) are complete (see section 3).
 
 Goal: deliberately declare the first stable SignalHub contract.
 
@@ -944,7 +958,7 @@ Perform:
 - removal of obsolete compatibility paths where appropriate
 - full end-to-end test from producer -> API -> persistence -> push -> client inbox (done in R18d)
 - fresh-install deployment test (done in R18e)
-- upgrade-from-supported-previous-release test
+- upgrade-from-supported-previous-release test (from the latest release and from v0.13.0: done in R18h)
 
 Human gate:
 
@@ -1010,7 +1024,7 @@ Determine this from repository state rather than trusting this section blindly.
 
 After the integration examples (R17), the expected next increment is:
 
-**R18 - v1.0 hardening and contract review**, continuing after R18g
+**R18 - v1.0 hardening and contract review**, continuing after R18h
 
 Likely split into bounded increments: the reviews and tests R18 lists. Promotion to `v1.0.0` itself is always the
 maintainer's decision. Confirming delivery to a real device (R8 to R10)

@@ -709,7 +709,9 @@ flutter build ios --debug --no-codesign
 # the latest release tag with a producer, a client and a read event, backs up,
 # upgrades in place to the commit under test as in docs/deployment.md#upgrades,
 # checks the data, keys, migrations and health, and rolls back by restoring the
-# backup with the release. The "End-to-end (producer to push and client inbox)"
+# backup with the release. The "Backend container (upgrade from v0.13.0)" job
+# does the same from v0.13.0, the oldest release upgrades are tested from,
+# skipping every release since. The "End-to-end (producer to push and client inbox)"
 # job starts the stack with FCM push enabled through a throwaway service account
 # key and scripts/e2e/fake_fcm.py (a stand-in for Google's token endpoint and
 # the FCM HTTP v1 API, on the runner), registers a producer and two clients,
@@ -747,7 +749,7 @@ repository:
   `Python (lint + test)`, `GitHub Actions lint`, `Backend (build + test)`,
   `Backend container (Compose smoke test)`, `Backend container (Compose
   smoke test, ARM64)`, `Backend container (upgrade from the latest
-  release)`, `End-to-end (producer to push and client inbox)`, `Deployment (fresh
+  release)`, `Backend container (upgrade from v0.13.0)`, `End-to-end (producer to push and client inbox)`, `Deployment (fresh
   install from docs/deployment.md)`, `Client (analyze + test +
   Android build)`, `Client (iOS build)`, and `Conventional Commit title`.
   Require branches to be up to date before merging.
