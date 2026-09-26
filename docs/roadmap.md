@@ -496,6 +496,23 @@ The following capabilities are already implemented and merged unless repository 
   `sudo chown 10001`, since only the owner may change the mode
 - no backend, schema or client changes
 
+### R18f - Compatibility policy and enum evolution
+
+- `docs/architecture.md` gains a *Compatibility* section: what the public
+  contract is (product and management API, event schema and enum values,
+  push data, operator configuration, health and `signalhub_*` meters,
+  forward migrations, the `signalhub` command and SDK), what is not (the
+  database schema itself, Java code, built-in metrics, log text), which
+  changes are compatible and which need `!`
+- enum evolution: adding a category or severity value is a compatible
+  `feat`, since clients must accept unknown values (the app shows them as
+  "Other"/"Unknown" and keeps them in push preferences; the SDK passes them
+  through); the server keeps rejecting unknown request fields and values,
+  so producers upgrade after the server
+- `/api/v1/` changes only for a redesign that cannot be made compatible
+- no code changes: the rules describe what the app, SDK and backend already
+  do and test; the maintainer confirms the policy with the v1.0 decision
+
 ---
 
 ## 4. Planned roadmap
@@ -877,8 +894,8 @@ Exit criteria:
 
 Status: in progress; R18a (refusing a newer schema), R18b (reading an
 event needs the owner's credential), R18c (one error format), R18d (the
-end-to-end test) and R18e (the fresh-install deployment test) are complete
-(see section 3).
+end-to-end test), R18e (the fresh-install deployment test) and R18f (the
+compatibility policy and enum evolution) are complete (see section 3).
 
 Goal: deliberately declare the first stable SignalHub contract.
 
@@ -887,13 +904,13 @@ Before `v1.0.0`, review:
 - public REST API consistency
 - authentication/key lifecycle
 - event schema
-- enum evolution strategy
+- enum evolution strategy (done in R18f)
 - pagination
 - migrations and upgrade path (refusing to start an older release on a newer schema: done in R18a)
 - client/device lifecycle
 - push semantics
 - error formats (one JSON body for every product API error but `413`: done in R18c)
-- configuration compatibility
+- configuration compatibility (what operators may rely on: R18f)
 - backup/restore
 - deployment documentation
 - security boundaries (reading an event by ID without a credential: closed in R18b)
@@ -975,7 +992,7 @@ Determine this from repository state rather than trusting this section blindly.
 
 After the integration examples (R17), the expected next increment is:
 
-**R18 - v1.0 hardening and contract review**, continuing after R18e
+**R18 - v1.0 hardening and contract review**, continuing after R18f
 
 Likely split into bounded increments: the reviews and tests R18 lists. Promotion to `v1.0.0` itself is always the
 maintainer's decision. Confirming delivery to a real device (R8 to R10)

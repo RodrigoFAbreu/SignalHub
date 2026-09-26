@@ -138,9 +138,10 @@ its own states onto them, and details go in metadata.
 
 Values are uppercase and exact. Both fields are required, so no producer
 relies on an implicit default; making one optional later is a compatible
-change, but the reverse is not. Adding a value is a contract change, since
-existing clients may not recognise it, and needs a migration for the database
-check constraint.
+change, but the reverse is not. Adding a value needs a migration for the
+database check constraint and is a `feat`, not a breaking change, because
+clients must accept values they do not know (see
+[Compatibility](#compatibility)); removing or renaming one is breaking.
 
 ### IDs
 
@@ -1284,6 +1285,72 @@ Implementation expectations:
   as the TLS reverse proxy, chosen because it obtains and renews
   certificates itself with a few lines of configuration (`proxy/Caddyfile`);
   see [deployment.md](deployment.md).
+
+## Compatibility
+
+What SignalHub promises to keep working from one release to the next, and
+what a release must mark as breaking (`!` in its title, see
+[development.md](development.md#versioning)). Until `1.0.0`, a breaking
+change bumps the minor version; from `1.0.0` it bumps the major version.
+
+**The public contract** is what producers, clients and operators depend on:
+
+- the product HTTP API under `/api/v1/` (paths, methods, credentials, status
+  codes, request and response fields, the error body) and the event schema,
+  as documented here and in the OpenAPI document;
+- the category and severity values, key formats (`shpk1_`, `shck1_`) and
+  cursor opacity;
+- the management API under `/api/v1/admin/`;
+- the data of a push message (`eventId`, `category`, `severity`, see
+  [Push dispatch](#push-dispatch)), which the app reads;
+- operator configuration: the variables in `.env.example`, the Compose
+  services, volumes and profiles, and the documented backup, restore and
+  upgrade procedures, the health endpoints and SignalHub's own meters
+  (`signalhub_*`, see [Metrics](#metrics));
+- the database: an upgrade migrates it forward with Flyway, keeping every
+  stored event, key, client and preference;
+- the `signalhub` command's options and exit statuses and the Python SDK's
+  public names.
+
+Not part of it: the database schema itself (only migrations touch it), the
+backend's Java code, the built-in metrics of Quarkus and its libraries, log
+text, and the rest of `/q/`.
+
+**Compatible changes**, released as `feat` or `fix`:
+
+- a new endpoint, a new optional request field or query parameter, a new
+  response field;
+- a new category or severity value;
+- a new optional configuration variable whose default keeps the previous
+  behaviour;
+- a new migration that keeps existing data.
+
+**Breaking changes** need `!` and migration notes in the release: removing or
+renaming anything above, making an optional field required, changing a
+field's type or meaning, requiring a credential where none was needed, and
+refusing a request that used to be accepted.
+
+**Rules for readers.** So that compatible changes stay compatible, a client or
+SDK built against one release must:
+
+- ignore response fields it does not know;
+- accept category and severity values it does not know: show the event
+  anyway (the app shows "Other" and "Unknown") and keep such values when it
+  writes them back (the app does, in push preferences);
+- decide by the HTTP status and treat the error body as a description;
+- not parse cursors or key secrets.
+
+The app and the Python SDK follow these rules; the SDK passes category and
+severity through without checking them, so it can publish values a newer
+server adds. The server stays strict in the other direction: it rejects
+unknown request fields and enum values with `400`, so a mistake is reported
+instead of silently dropped. A producer that uses a newer field or value
+against an older server therefore gets `400`, and must be upgraded after the
+server, not before. Unknown query parameters are ignored.
+
+**Versioning of the API path.** `/api/v1/` changes only for a redesign that
+cannot be made compatible; a breaking change within `v1` is released under
+the rules above instead. Nothing is planned that needs `/api/v2/`.
 
 ## Cross-cutting principles
 
