@@ -918,7 +918,9 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   platform's secure storage (Keychain on iOS, Keystore-backed encryption on
   Android) and never logged.
 - **Reception.** In the background, the operating system shows the
-  notification from the push's title and body. In the foreground, and when
+  notification from the push's title and body. On Android it is in the
+  app's *Events* notification channel, at high importance so that it pops
+  up; the owner can change that channel in the system settings. In the foreground, and when
   a notification opens the app, the push becomes a `PushNotice` and the app
   re-reads the inbox from the server: a push is a signal to look, so a push
   delivered twice (delivery is at least once) changes nothing. Tapping a

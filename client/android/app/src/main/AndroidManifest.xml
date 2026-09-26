@@ -7,6 +7,11 @@
         android:label="SignalHub"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Firebase shows background pushes in this channel (MainActivity
+             creates it) instead of its fallback channel. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="@string/events_channel_id" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
