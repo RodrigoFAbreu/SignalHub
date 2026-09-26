@@ -3,6 +3,7 @@ package io.github.rodrigofabreu.signalhub;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.quarkus.test.junit.QuarkusTest;
@@ -23,7 +24,7 @@ class StartupDiagnosticsTest {
   void summaryNamesTheEffectiveConfiguration() {
     var summary = diagnostics.summary();
 
-    assertThat(summary, containsString("Configuration: profile test"));
+    assertThat(summary, startsWith("SignalHub development build; Configuration: profile test;"));
     assertThat(summary, containsString("database jdbc:postgresql://"));
     assertThat(summary, containsString("management API enabled"));
     assertThat(summary, containsString("FCM credentials file not set (no fcm provider)"));

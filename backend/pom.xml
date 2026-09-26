@@ -75,6 +75,11 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-logging-json</artifactId>
     </dependency>
+    <!-- The release and commit of a running backend at /q/info (docs/architecture.md#version). -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-info</artifactId>
+    </dependency>
     <!-- Runs the push dispatcher periodically (docs/architecture.md#push-dispatch). -->
     <dependency>
       <groupId>io.quarkus</groupId>

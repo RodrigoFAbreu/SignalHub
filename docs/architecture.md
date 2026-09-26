@@ -1058,11 +1058,12 @@ collect it. Credentials never reach the logs (see the Logging sections of
   `QUARKUS_LOG_CATEGORY__IO_GITHUB_RODRIGOFABREU_SIGNALHUB__LEVEL=DEBUG` for
   SignalHub only (rejected credentials are logged at `DEBUG`).
 - **Startup summary.** Once started, the backend logs one `INFO` line with
-  the effective configuration, so the log alone tells which database,
-  features and resources a running service uses:
+  its release (see [Version](#version)) and the effective configuration, so
+  the log alone tells which release, database, features and resources a
+  running service uses:
 
   ```text
-  Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; FCM credentials file /run/secrets/fcm.json; push dispatch every 2s; event retention off (events are kept forever); JSON logs off; Java 21.0.8+9-LTS, 2 CPUs, max heap 768 MiB
+  SignalHub 1.2.3 (commit 0123456789abcdef0123456789abcdef01234567); Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; FCM credentials file /run/secrets/fcm.json; push dispatch every 2s; event retention off (events are kept forever); JSON logs off; Java 21.0.8+9-LTS, 2 CPUs, max heap 768 MiB
   ```
 
   It names settings, never secret values: the admin token appears only as
@@ -1073,6 +1074,34 @@ collect it. Credentials never reach the logs (see the Logging sections of
 - **Configuration errors stop startup** with a message naming the setting to
   fix: a missing database, a short admin token, an unreadable FCM key file,
   or a value of the wrong type (for example `SIGNALHUB_LOG_JSON=yes`).
+
+### Version
+
+SignalHub has one version, the repository's release tag. Every release
+publishes the backend as a multi-platform image (`linux/amd64` and
+`linux/arm64`), `ghcr.io/rodrigofabreu/signalhub:X.Y.Z`, built from the
+tagged commit (see [development.md](development.md#release-process)). The
+release bakes its version and commit into the image, and the backend
+reports them:
+
+- at `/q/info`, beside health and metrics, and so not forwarded by the
+  proxy; the product API has no version endpoint:
+
+  ```json
+  {"signalhub": {"version": "1.2.3", "revision": "0123456789abcdef0123456789abcdef01234567"}, "java": {...}, "os": {...}}
+  ```
+
+- at the start of the [startup summary](#logs);
+- in the image's OCI labels `org.opencontainers.image.version`, `revision`,
+  `created` (the commit's time) and `source`.
+
+Any build the release did not make, such as `docker compose up --build` or
+`./mvnw quarkus:dev`, reports version `development` and no commit, and
+calls itself a development build in the startup summary, so it never passes
+for a release. The version fields in the sources (`backend/pom.xml` and the
+others) are development placeholders that no release rewrites. The values
+come from `SIGNALHUB_VERSION` and `SIGNALHUB_REVISION`, which only the
+release's image build sets; they are not settings for operators.
 
 ### Metrics
 
@@ -1277,7 +1306,7 @@ cannot meet.
 | API description | SmallRye OpenAPI |
 | Health checks | SmallRye Health |
 | Tests | JUnit 5, RestAssured, real PostgreSQL |
-| Packaging | Docker image, run with Docker Compose |
+| Packaging | Docker image, run with Docker Compose; each release publishes it to GHCR (see [Version](#version)) |
 
 Implementation expectations:
 
@@ -1391,7 +1420,10 @@ change bumps the major version; before it, it bumped the minor version.
 - the database: an upgrade migrates it forward with Flyway, keeping every
   stored event, key, client and preference;
 - the `signalhub` command's options and exit statuses and the Python SDK's
-  public names.
+  public names;
+- the published backend image, `ghcr.io/rodrigofabreu/signalhub:X.Y.Z` for
+  `linux/amd64` and `linux/arm64`, and the `signalhub` section of `/q/info`
+  (see [Version](#version)).
 
 Not part of it: the database schema itself (only migrations touch it), the
 backend's Java code, the built-in metrics of Quarkus and its libraries, log

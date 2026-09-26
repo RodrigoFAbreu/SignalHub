@@ -11,9 +11,10 @@ import org.eclipse.microprofile.config.Config;
 import org.jboss.logging.Logger;
 
 /**
- * Logs the effective configuration once at startup, so an operator can tell from the log which
- * database, features and resources a running service uses. It names settings, never their secret
- * values: no admin token, database password, or credentials passed in the database URL.
+ * Logs the release and the effective configuration once at startup, so an operator can tell from
+ * the log which release, database, features and resources a running service uses. It names
+ * settings, never their secret values: no admin token, database password, or credentials passed in
+ * the database URL.
  */
 @ApplicationScoped
 class StartupDiagnostics {
@@ -24,11 +25,13 @@ class StartupDiagnostics {
 
   private final Config config;
   private final AdminToken adminToken;
+  private final BuildInfo buildInfo;
 
   @Inject
-  StartupDiagnostics(Config config, AdminToken adminToken) {
+  StartupDiagnostics(Config config, AdminToken adminToken, BuildInfo buildInfo) {
     this.config = config;
     this.adminToken = adminToken;
+    this.buildInfo = buildInfo;
   }
 
   void logSummary(@Observes StartupEvent event) {
@@ -41,6 +44,7 @@ class StartupDiagnostics {
         config.getOptionalValue("quarkus.log.console.json.enabled", Boolean.class).orElse(false);
     return String.join(
         "; ",
+        buildInfo.describe(),
         "Configuration: profile " + String.join(",", ConfigUtils.getProfiles()),
         "database "
             + value("quarkus.datasource.jdbc.url")

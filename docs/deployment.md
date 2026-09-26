@@ -153,6 +153,26 @@ runtime; none is in the repository or the images.
   limits and the FCM key mount go into a git-ignored `compose.override.yaml`
   (see [Resources](architecture.md#resources)).
 
+## Published images
+
+Every release since R20 of `docs/roadmap.md` publishes its backend as
+`ghcr.io/rodrigofabreu/signalhub:X.Y.Z`, one image for x86-64 and ARM64;
+its release notes name it and its digest. Only exact versions are tagged
+(no `latest`). A pulled image identifies its release and commit at
+`/q/info` and at the start of its startup summary (see
+[Version](architecture.md#version)):
+
+```sh
+docker pull ghcr.io/rodrigofabreu/signalhub:1.2.3
+curl --silent http://localhost:8080/q/info   # of a running backend
+```
+
+The setup and upgrade procedures on this page still build the backend from
+the release's source with `docker compose up --build`, and such a build
+reports itself as a development build: the tag you checked out is the
+release it runs. Deploying from the published images instead is planned
+(`docs/roadmap.md`, R21).
+
 ## Upgrades
 
 Every release is a `vX.Y.Z` tag with notes on GitHub. An upgrade checks

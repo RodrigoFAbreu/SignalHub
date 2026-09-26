@@ -84,8 +84,44 @@ On every push to `main`:
 2. If CI passes, `release.py next-version` finds the highest `vX.Y.Z` tag
    reachable from the commit and the unreleased commits since it. The next
    version is that tag bumped by the largest bump among those commits.
-3. `gh release create` tags the commit and publishes a GitHub release with
-   generated notes.
+3. The backend image is built from the commit on an x86-64 and an ARM64
+   runner, each natively, with `scripts/release/build-image.sh`, which bakes
+   in the version (without `v`), the commit and the commit's time: as
+   `SIGNALHUB_VERSION` and `SIGNALHUB_REVISION` for the backend (see
+   [Version](architecture.md#version)) and as the OCI labels `version`,
+   `revision`, `created` and `source`. Each platform is pushed to GHCR by
+   digest, with BuildKit's provenance (`mode=max`) and SBOM attestations,
+   stored beside the image in the registry.
+4. The two are tagged as one multi-platform image,
+   `ghcr.io/rodrigofabreu/signalhub:X.Y.Z`. Only the exact version is
+   tagged: no `latest` and no `X.Y`, so an image reference always names one
+   release, and the docs always name an exact version.
+5. On both platforms the tagged image is pulled and checked by
+   `scripts/release/check-image.sh`: the labels, the architecture, and,
+   started with PostgreSQL, the version and commit at `/q/info` and in the
+   startup summary.
+6. `gh release create` tags the commit and publishes a GitHub release whose
+   notes name the image and its digest, followed by the generated notes.
+
+The release is complete only when its GitHub release exists. If a run fails
+after pushing the image but before the GitHub release, the version is not
+released: the git tag does not exist, and re-running the workflow, or the
+next merge's run, builds and pushes that version's image again from its own
+commit. An image tag of a published release is never pushed again, because
+the next run computes a higher version. Releases attach no files yet, so there
+are no checksums to publish; the image is identified by its digest.
+
+The first release that publishes an image creates the GHCR package
+`signalhub`, private at first. Making it public, so that pulling needs no
+login, is a one-time step for the repository owner: on GitHub, *Packages* →
+`signalhub` → *Package settings* → *Change visibility* → *Public*. The
+release itself logs in to pull, so it works either way.
+
+Pull requests build the image the same way on both platforms (the
+`Backend image (release build)` jobs), with the test version `0.0.0-ci`, and
+run the same checks, without pushing. Any other build of the image, such as
+`docker compose up --build`, has no version and reports itself as a
+development build.
 
 Normally exactly one commit is unreleased, so each merge gets its own release.
 Release runs are serialized. If a run fails, or a queued run is superseded by a
@@ -300,6 +336,7 @@ doubt.
 | `/q/health` | Both of the above combined. |
 | `/q/openapi` | OpenAPI document (YAML; `?format=json` for JSON). |
 | `/q/metrics` | Prometheus metrics: HTTP, JVM, database pool, events and push delivery. See [Metrics](architecture.md#metrics). |
+| `/q/info` | The release and commit the backend was built from (`signalhub`), Java and the OS. See [Version](architecture.md#version). |
 | `/q/swagger-ui` | Swagger UI, dev mode only. |
 
 ### Producers and API keys
@@ -736,8 +773,8 @@ python -m unittest discover --start-directory scripts/device-review --verbose
 # Python SDK, also run with python3.10 in CI
 pip install ./sdk/python && signalhub send --help
 python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python --verbose
-# Integration examples (need the SDK, curl and jq)
-shellcheck examples/*/*.sh
+# Integration examples (need the SDK, curl and jq) and the release's image scripts
+shellcheck examples/*/*.sh scripts/release/*.sh
 python -m unittest discover --start-directory examples/tests --verbose
 # Lints GitHub Actions workflows and the example workflow (needs Docker):
 docker build --quiet --tag actionlint .github/tools/actionlint
@@ -754,10 +791,14 @@ flutter build ios --debug --no-codesign
 
 # Backend (needs Docker)
 (cd backend && ./mvnw verify)
+# The release's image build and its checks (the "Backend image (release build)"
+# jobs, on x86-64 and natively on ARM64; needs Docker, jq and curl):
+scripts/release/build-image.sh 0.0.0-ci "$(git rev-parse HEAD)" load
+scripts/release/check-image.sh signalhub-backend:check 0.0.0-ci "$(git rev-parse HEAD)"
 # Container smoke test: the "Backend container" jobs in .github/workflows/ci.yml,
 # on x86-64 and natively on ARM64, check that the images match the runner's
 # architecture and start the stack with `docker compose up --build --wait` and a random admin
-# token, the resource limits of architecture.md#resources and the TLS proxy (with Caddy's own CA), checks liveness, readiness, OpenAPI and metrics, registers a producer, checks
+# token, the resource limits of architecture.md#resources and the TLS proxy (with Caddy's own CA), checks liveness, readiness, OpenAPI and metrics, that the image built from source reports a development version, registers a producer, checks
 # that publishing without a valid key gets 401, publishes an event with the key
 # and reads it back after restarting the backend, lists it with the admin
 # token (and expects 401 without it), lists it over HTTPS through the proxy

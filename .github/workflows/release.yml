@@ -1,7 +1,8 @@
 name: Release
 
-# Every commit on main is a release: re-run CI on the merged commit, then tag it
-# with the next semantic version and publish a GitHub release.
+# Every commit on main is a release: re-run CI on the merged commit, publish the
+# backend image for it, check that image on both platforms, then tag the commit
+# with the next semantic version and publish a GitHub release naming the image.
 on:
   push:
     branches: [main]
@@ -16,15 +17,18 @@ concurrency:
   group: release
   cancel-in-progress: false
 
+env:
+  IMAGE: ghcr.io/rodrigofabreu/signalhub
+
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
-  release:
+  version:
     needs: ci
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      next: ${{ steps.version.outputs.next }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -36,10 +40,123 @@ jobs:
         run: |
           next=$(python scripts/release/release.py next-version)
           echo "next=$next" >> "$GITHUB_OUTPUT"
-      - if: steps.version.outputs.next != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.next }}
-        run: gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
       - if: steps.version.outputs.next == ''
         run: echo "HEAD is already released; nothing to do."
+
+  # Each platform is built natively on its own runner and pushed by digest,
+  # untagged; the image job joins them under the version's tag.
+  image-amd64:
+    needs: version
+    if: needs.version.outputs.next != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+      - env:
+          TOKEN: ${{ github.token }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - id: build
+        env:
+          NEXT: ${{ needs.version.outputs.next }}
+        run: echo "digest=$(scripts/release/build-image.sh "${NEXT#v}" "$GITHUB_SHA" push)" >> "$GITHUB_OUTPUT"
+
+  image-arm64:
+    needs: version
+    if: needs.version.outputs.next != ''
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+      - env:
+          TOKEN: ${{ github.token }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - id: build
+        env:
+          NEXT: ${{ needs.version.outputs.next }}
+        run: echo "digest=$(scripts/release/build-image.sh "${NEXT#v}" "$GITHUB_SHA" push)" >> "$GITHUB_OUTPUT"
+
+  # Tags the two platforms as one multi-platform image, ghcr.io/...:X.Y.Z. Only
+  # that exact version is tagged: no `latest`, no `X.Y`.
+  image:
+    needs: [version, image-amd64, image-arm64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.tag.outputs.digest }}
+    steps:
+      - env:
+          TOKEN: ${{ github.token }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - id: tag
+        env:
+          NEXT: ${{ needs.version.outputs.next }}
+          AMD64: ${{ needs.image-amd64.outputs.digest }}
+          ARM64: ${{ needs.image-arm64.outputs.digest }}
+        run: |
+          version=${NEXT#v}
+          docker buildx imagetools create --tag "$IMAGE:$version" \
+            --annotation "index:org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --annotation "index:org.opencontainers.image.version=$version" \
+            --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
+            --annotation "index:org.opencontainers.image.description=SignalHub $version backend" \
+            "$IMAGE@$AMD64" "$IMAGE@$ARM64"
+          digest=$(docker buildx imagetools inspect "$IMAGE:$version" --format '{{json .Manifest}}' | jq --raw-output .digest)
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+  # Pulls the tagged image on each platform, as an operator would, and checks
+  # that it runs and reports this release and commit.
+  check:
+    needs: [version, image]
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+      # The package may still be private (docs/development.md#release-process).
+      - env:
+          TOKEN: ${{ github.token }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - env:
+          NEXT: ${{ needs.version.outputs.next }}
+        run: |
+          docker pull "$IMAGE:${NEXT#v}"
+          scripts/release/check-image.sh "$IMAGE:${NEXT#v}" "${NEXT#v}" "$GITHUB_SHA"
+
+  release:
+    needs: [version, image, check]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          NEXT: ${{ needs.version.outputs.next }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          notes=$(printf '%s\n' \
+            '## Backend image' \
+            '' \
+            '```text' \
+            "$IMAGE:${NEXT#v}" \
+            "$IMAGE@$DIGEST" \
+            '```' \
+            '' \
+            "For \`linux/amd64\` and \`linux/arm64\`. See [docs/deployment.md](https://github.com/$GITHUB_REPOSITORY/blob/$NEXT/docs/deployment.md).")
+          # The generated notes follow these.
+          gh release create "$NEXT" --target "$GITHUB_SHA" --title "$NEXT" --notes "$notes" --generate-notes
