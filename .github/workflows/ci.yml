@@ -44,6 +44,10 @@ jobs:
       - run: pip install ./sdk/python && signalhub send --help
       - name: Test the Python SDK
         run: python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python --verbose
+      # The release attaches these files; the build checks that the wheel,
+      # installed, reports the version it was built with.
+      - name: Build the SDK files as the release does
+        run: python scripts/release/sdk_files.py 0.0.0+ci "$RUNNER_TEMP/sdk"
       - name: Test the Python SDK on its oldest supported Python
         run: |
           python3.10 -m pip install ./sdk/python

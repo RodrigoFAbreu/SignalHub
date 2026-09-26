@@ -104,11 +104,17 @@ On every push to `main`:
    files, `signalhub-X.Y.Z-deployment.tar.gz`: the commit's `compose.yaml`,
    `.env.example` and `proxy/Caddyfile`, with `compose.yaml` running the
    image just published, by tag and digest, instead of building the backend
-   (see [deployment.md](deployment.md#setup)). A `SHA256SUMS` file lists
-   its checksum.
-7. `gh release create` tags the commit and publishes a GitHub release whose
+   (see [deployment.md](deployment.md#setup)).
+7. `scripts/release/sdk_files.py` builds the Python SDK's wheel and source
+   archive (`signalhub-X.Y.Z-py3-none-any.whl`, `signalhub-X.Y.Z.tar.gz`)
+   from a copy of `sdk/python/` with the version in place of the development
+   placeholder `0.0.0.dev0` of its `pyproject.toml`, then installs the wheel
+   into a new virtual environment and checks that `signalhub --version`
+   prints `SignalHub X.Y.Z`. A `SHA256SUMS` file lists the checksums of the
+   deployment files and the SDK's files.
+8. `gh release create` tags the commit and publishes a GitHub release whose
    notes name the image and its digest, followed by the generated notes,
-   with the deployment files and `SHA256SUMS` attached.
+   with the deployment files, the SDK's files and `SHA256SUMS` attached.
 
 The release is complete only when its GitHub release exists. If a run fails
 after pushing the image but before the GitHub release, the version is not
@@ -117,7 +123,8 @@ next merge's run, builds and pushes that version's image again from its own
 commit. An image tag of a published release is never pushed again, because
 the next run computes a higher version. The deployment files name the image
 by its digest, so they run exactly the image the release checked. Releases
-up to v1.1.0 attach no deployment files.
+up to v1.1.0 attach no deployment files, and releases up to v1.2.0 no SDK
+files.
 
 The first release that publishes an image creates the GHCR package
 `signalhub`, private at first. Making it public, so that pulling needs no
@@ -127,7 +134,9 @@ release itself logs in to pull, so it works either way.
 
 Pull requests build the image the same way on both platforms (the
 `Backend image (release build)` jobs), with the test version `0.0.0-ci`, and
-run the same checks, without pushing. The upgrade and fresh-install jobs pack
+run the same checks, without pushing. The `Python (lint + test)` job builds
+the SDK's files with `sdk_files.py` and the test version `0.0.0+ci` (a
+version Python packaging accepts). The upgrade and fresh-install jobs pack
 deployment files naming that image and install from them, as operators do
 with a release's. Any other build of the image, such as
 `docker compose up --build`, has no version and reports itself as a
@@ -734,7 +743,16 @@ The producer package and `signalhub` command live in `sdk/python/`. See
 [`sdk/python/README.md`](../sdk/python/README.md) for installing and using it.
 It needs Python 3.10 or later and has no dependencies beyond the standard
 library, so there is no lock file; the build backend is pinned in
-`sdk/python/pyproject.toml`.
+`sdk/python/pyproject.toml`. Its version there, `0.0.0.dev0`, is a
+development placeholder: an install from the repository reports
+`SignalHub development build`, and only the release's build carries a
+release version (see [Release process](#release-process)). To build the
+files a release attaches, with a version of your choice (needs `build`, from
+`.github/tools/requirements.txt`, and network access):
+
+```sh
+python scripts/release/sdk_files.py 0.0.0+ci /tmp/sdk
+```
 
 From the repository root:
 
@@ -780,7 +798,7 @@ CI runs:
 
 ```sh
 # Repository tooling
-pip install --requirement .github/tools/requirements.txt   # ruff
+pip install --requirement .github/tools/requirements.txt   # ruff and build
 ruff check .
 ruff format --check .
 python -m unittest discover --start-directory scripts/release --verbose
@@ -788,6 +806,7 @@ python -m unittest discover --start-directory scripts/device-review --verbose
 # Python SDK, also run with python3.10 in CI
 pip install ./sdk/python && signalhub send --help
 python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python --verbose
+python scripts/release/sdk_files.py 0.0.0+ci "$(mktemp -d)"   # the SDK's release files (needs network)
 # Integration examples (need the SDK, curl and jq) and the release's image scripts
 shellcheck examples/*/*.sh scripts/release/*.sh
 python -m unittest discover --start-directory examples/tests --verbose
@@ -880,7 +899,7 @@ Commit titles, which go through CI like any other:
 | PostgreSQL and Caddy images | `compose.yaml` | `docker-compose` |
 | Client packages | `client/pubspec.yaml`, `client/pubspec.lock` | `pub` |
 | The SDK's build backend (setuptools) | `sdk/python/pyproject.toml` | `pip` |
-| ruff | `.github/tools/requirements.txt` | `pip` |
+| ruff and build (the SDK's release files) | `.github/tools/requirements.txt` | `pip` |
 | actionlint (and its shellcheck) | `.github/tools/actionlint/Dockerfile` | `docker` |
 
 Two versions have to follow others by hand:

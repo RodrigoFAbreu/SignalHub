@@ -43,8 +43,8 @@ Every example reads the same settings from the environment:
 
 Keep the key in a file readable only by the producer's user, or in the CI
 system's secret store; never in the script or a repository. The Python
-examples and the disk monitor need the package: `pip install
-"signalhub @ git+https://github.com/RodrigoFAbreu/SignalHub@vX.Y.Z#subdirectory=sdk/python"`.
+examples and the disk monitor need the package, attached to every release
+as a wheel (see [sdk/python/README.md](../sdk/python/README.md#install)).
 
 Only the GitHub Actions example retries (`curl --retry`), and it sends an
 `Idempotency-Key` naming the run and its attempt, so a retry after a timeout

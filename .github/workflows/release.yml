@@ -3,7 +3,7 @@ name: Release
 # Every commit on main is a release: re-run CI on the merged commit, publish the
 # backend image for it, check that image on both platforms, then tag the commit
 # with the next semantic version and publish a GitHub release naming the image,
-# with the deployment files that run it attached.
+# with the deployment files that run it and the Python SDK's files attached.
 on:
   push:
     branches: [main]
@@ -145,6 +145,10 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install --requirement .github/tools/requirements.txt
       - env:
           GH_TOKEN: ${{ github.token }}
           NEXT: ${{ needs.version.outputs.next }}
@@ -153,7 +157,9 @@ jobs:
           version=${NEXT#v}
           # The files docs/deployment.md installs and upgrades from, running this image.
           mkdir "$RUNNER_TEMP/assets"
-          archive=$(python3 scripts/release/deployment_files.py "$IMAGE:$version@$DIGEST" "$version" "$RUNNER_TEMP/assets")
+          archive=$(python scripts/release/deployment_files.py "$IMAGE:$version@$DIGEST" "$version" "$RUNNER_TEMP/assets")
+          # The Python SDK's wheel and source archive, reporting this version.
+          python scripts/release/sdk_files.py "$version" "$RUNNER_TEMP/assets"
           (cd "$RUNNER_TEMP/assets" && sha256sum -- * > SHA256SUMS)
           notes=$(printf '%s\n' \
             '## Backend image' \
@@ -163,8 +169,12 @@ jobs:
             "$IMAGE@$DIGEST" \
             '```' \
             '' \
-            "For \`linux/amd64\` and \`linux/arm64\`. Install or upgrade with the attached \`$(basename "$archive")\`, which runs this image; see [docs/deployment.md](https://github.com/$GITHUB_REPOSITORY/blob/$NEXT/docs/deployment.md).")
-          # The generated notes follow these; the deployment files and their
-          # checksums are the release's assets.
+            "For \`linux/amd64\` and \`linux/arm64\`. Install or upgrade with the attached \`$(basename "$archive")\`, which runs this image; see [docs/deployment.md](https://github.com/$GITHUB_REPOSITORY/blob/$NEXT/docs/deployment.md)." \
+            '' \
+            '## Python SDK and command' \
+            '' \
+            "Install the attached \`signalhub-$version-py3-none-any.whl\`; see [sdk/python/README.md](https://github.com/$GITHUB_REPOSITORY/blob/$NEXT/sdk/python/README.md#install).")
+          # The generated notes follow these; the deployment files, the SDK's
+          # files and their checksums are the release's assets.
           gh release create "$NEXT" --target "$GITHUB_SHA" --title "$NEXT" --notes "$notes" --generate-notes \
-            "$archive" "$RUNNER_TEMP/assets/SHA256SUMS"
+            "$RUNNER_TEMP"/assets/*
