@@ -593,6 +593,7 @@ All commands below run in `client/`.
 flutter pub get --enforce-lockfile            # exactly the locked dependencies
 dart format --output=none --set-exit-if-changed .   # formatting check (`dart format .` fixes)
 flutter analyze                               # static analysis (lints in analysis_options.yaml)
+shellcheck icon/render.sh                     # the app icon's render script (see client/README.md)
 flutter test                                  # unit and widget tests
 flutter build apk --debug                     # Android build
 flutter build ios --debug --no-codesign       # iOS build (macOS only)
@@ -605,7 +606,8 @@ the API client (paths, bearer key, cursors, reading one event, push-target
 bodies, push-preference bodies, error mapping), the models (every documented field, unknown enum
 values, contract violations), server address and key validation, the app
 controller (setup, restart, revoked key, unreachable server, push
-permission, token refresh, pushes re-reading the inbox, paging and its
+permission, token refresh, pushes and returning to the foreground
+re-reading the inbox, paging and its
 failures, opening a tapped notification's event, disconnect), the Firebase
 options from build-time values, and the screens in widget tests (inbox,
 paging while scrolling, event details, opening from a notification) and
@@ -686,6 +688,7 @@ docker run --rm --volume "$PWD:/repo" --workdir /repo actionlint -color .github/
 flutter pub get --enforce-lockfile
 dart format --output=none --set-exit-if-changed .
 flutter analyze
+shellcheck icon/render.sh
 flutter test
 flutter build apk --debug
 flutter build ios --debug --no-codesign

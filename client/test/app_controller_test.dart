@@ -171,6 +171,29 @@ void main() {
     expect(app.takeEventToOpen(), isNull);
   });
 
+  test('returning to the foreground re-reads the inbox', () async {
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+    // Pushed while in the background: only the system tray saw it.
+    backend.publish('e-1', 'First');
+
+    app.resumed();
+    await pumpEventQueue();
+
+    expect(app.events.map((e) => e.id), ['e-1']);
+    expect(app.unreadCount, 1);
+  });
+
+  test('returning to the foreground without a server reads nothing', () async {
+    final app = controller();
+    await app.start();
+
+    app.resumed();
+    await pumpEventQueue();
+
+    expect(backend.requests, isEmpty);
+  });
+
   test('a tapped notification asks the inbox to open its event', () async {
     final app = controller();
     await app.connect(serverUrl, clientKey);
