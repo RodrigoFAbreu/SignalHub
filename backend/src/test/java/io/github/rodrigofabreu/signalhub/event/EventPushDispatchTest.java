@@ -303,6 +303,51 @@ class EventPushDispatchTest {
   }
 
   @Test
+  void aRetryToAClientRevokedMeanwhileIsDropped() throws SQLException {
+    var client = TestClients.register("push-dispatch");
+    var token = "dispatch-" + UUID.randomUUID();
+    setTarget(client.clientKey(), token);
+    fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down"));
+    var eventId = publish("Revoked before the retry", null);
+    dispatcher.dispatchPending();
+    asAdmin().post(ADMIN + "/" + client.id() + "/revoke").then().statusCode(200);
+    fake.answer((to, message) -> PushOutcome.delivered());
+    assertTrue(retryScheduled(eventId, client.id()));
+
+    makeRetriesDue(eventId);
+    dispatcher.dispatchPending();
+
+    assertTrue(sentFor(eventId, token).isEmpty());
+    assertFalse(retryScheduled(eventId, client.id()));
+  }
+
+  @Test
+  void dispatchingAnEventAgainLeavesAPendingRetryAsItIs() throws SQLException {
+    var token = clientWithTarget();
+    fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down"));
+    var eventId = publish("Dispatched twice", null);
+    dispatcher.dispatchPending();
+    // The retry has moved on, as if a second dispatcher took over the event after the first one's
+    // claim expired but before it completed.
+    updateRetries(eventId, "attempts = 3, next_attempt_at = now() + interval '1 hour'");
+    try (var connection = dataSource.getConnection();
+        var statement =
+            connection.prepareStatement(
+                "INSERT INTO push_dispatches (event_id, created_at)"
+                    + " SELECT id, created_at FROM events WHERE id = ?")) {
+      statement.setObject(1, eventId);
+      assertEquals(1, statement.executeUpdate());
+    }
+
+    assertEquals(1, dispatcher.dispatchPending());
+
+    assertEquals(2, sentFor(eventId, token).size());
+    assertFalse(pending(eventId));
+    assertEquals(Optional.of(3), attempts(eventId, token));
+    assertEquals(3600, untilNextAttempt(eventId, token), 5);
+  }
+
+  @Test
   void aRetryClaimLeftByAStoppedDispatcherExpiresAndThePushIsSentAgain() throws SQLException {
     var token = clientWithTarget();
     fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down"));
@@ -449,6 +494,20 @@ class EventPushDispatchTest {
       statement.setString(2, token);
       try (var rows = statement.executeQuery()) {
         return rows.next() ? Optional.of(rows.getInt(1)) : Optional.empty();
+      }
+    }
+  }
+
+  /** Whether a retry to this client is scheduled, whatever its push target is now. */
+  private boolean retryScheduled(UUID eventId, UUID clientId) throws SQLException {
+    try (var connection = dataSource.getConnection();
+        var statement =
+            connection.prepareStatement(
+                "SELECT 1 FROM push_retries WHERE event_id = ? AND client_id = ?")) {
+      statement.setObject(1, eventId);
+      statement.setObject(2, clientId);
+      try (var rows = statement.executeQuery()) {
+        return rows.next();
       }
     }
   }
