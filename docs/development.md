@@ -668,7 +668,7 @@ CI runs:
 
 ```sh
 # Repository tooling
-pip install ruff==0.16.9
+pip install --requirement .github/tools/requirements.txt   # ruff
 ruff check .
 ruff format --check .
 python -m unittest discover --start-directory scripts/release --verbose
@@ -679,7 +679,8 @@ python -m unittest discover --start-directory sdk/python/tests --top-level-direc
 shellcheck examples/*/*.sh
 python -m unittest discover --start-directory examples/tests --verbose
 # Lints GitHub Actions workflows and the example workflow (needs Docker):
-docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml examples/github-actions/*.yml
+docker build --quiet --tag actionlint .github/tools/actionlint
+docker run --rm --volume "$PWD:/repo" --workdir /repo actionlint -color .github/workflows/*.yml examples/github-actions/*.yml
 
 # Client (in client/, needs Flutter; the iOS build needs macOS)
 flutter pub get --enforce-lockfile
@@ -741,6 +742,39 @@ flutter build ios --debug --no-codesign
 
 Each new component adds its own build, lint, and test commands to CI and to
 this section in the PR that introduces it.
+
+## Dependency updates
+
+Every dependency and tool version is pinned, and Dependabot
+(`.github/dependabot.yml`) proposes updates weekly as PRs with Conventional
+Commit titles, which go through CI like any other:
+
+| What | Where it is pinned | Dependabot ecosystem |
+|---|---|---|
+| GitHub Actions | `.github/workflows/*.yml` | `github-actions` |
+| Backend libraries and Maven plugins | `backend/pom.xml` | `maven` |
+| Backend build and runtime images | `backend/Dockerfile` | `docker` |
+| PostgreSQL and Caddy images | `compose.yaml` | `docker-compose` |
+| Client packages | `client/pubspec.yaml`, `client/pubspec.lock` | `pub` |
+| The SDK's build backend (setuptools) | `sdk/python/pyproject.toml` | `pip` |
+| ruff | `.github/tools/requirements.txt` | `pip` |
+| actionlint (and its shellcheck) | `.github/tools/actionlint/Dockerfile` | `docker` |
+
+Two versions have to follow others by hand:
+
+- **The tests' PostgreSQL image.** Dev Services
+  (`application.properties`) and the Testcontainers tests use the tag of the
+  Compose image, so tests run on the PostgreSQL that is deployed. Dependabot
+  updates only `compose.yaml`; a first step of the `Backend (build + test)`
+  job fails while any of them differs, so a PR changing the Compose tag has
+  to change the others too. A new major version is also an operator change
+  (a dump and restore, see
+  [deployment.md](deployment.md#a-new-postgresql-major-version)), never a routine
+  update.
+- **Flutter.** No Dependabot ecosystem updates the Flutter SDK.
+  `FLUTTER_VERSION` in `.github/workflows/ci.yml` and the version under
+  [Client](#client) are raised together by hand, from the stable releases;
+  the packages in `client/pubspec.lock` are tracked by `pub`.
 
 ## Repository settings (GitHub)
 

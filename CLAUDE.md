@@ -106,7 +106,8 @@ owner. Removing it in a later commit is not enough.
 ## Engineering standards
 
 - Match the style of the surrounding code. Python tooling (release scripts,
-  the Python SDK) is linted and formatted with `ruff` (version pinned in CI). The
+  the Python SDK) is linted and formatted with `ruff` (version pinned in
+  `.github/tools/requirements.txt`). The
   backend is formatted with google-java-format via Spotless
   (`./mvnw spotless:apply`) and analysed with SpotBugs and `javac -Xlint:all`;
   `./mvnw verify` enforces both, locally and in CI. The client app is formatted with

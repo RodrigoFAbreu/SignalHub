@@ -32,7 +32,7 @@ jobs:
           python-version: |
             3.10
             3.12
-      - run: pip install ruff==0.16.9
+      - run: pip install --requirement .github/tools/requirements.txt
       - run: ruff check .
       - run: ruff format --check .
       - name: Test release versioning
@@ -57,8 +57,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       # The actionlint image bundles shellcheck, so `run:` scripts are checked too.
+      # It is pinned in .github/tools/actionlint/Dockerfile for Dependabot.
       # The example workflow of examples/github-actions is checked with the repository's own.
-      - run: docker run --rm --volume "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml examples/github-actions/*.yml
+      - run: docker build --quiet --tag actionlint .github/tools/actionlint
+      - run: docker run --rm --volume "$PWD:/repo" --workdir /repo actionlint -color .github/workflows/*.yml examples/github-actions/*.yml
 
   backend:
     name: Backend (build + test)
@@ -68,6 +70,17 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v7
+      # Dependabot updates the Compose image only, so a new PostgreSQL version
+      # fails here until the tests' images (Dev Services, Testcontainers) follow.
+      - name: Check that the tests use the PostgreSQL image of Compose
+        run: |
+          expected=$(sed -n 's/^ *image: \(postgres:[^@]*\)@.*/\1/p' ../compose.yaml)
+          test -n "$expected"
+          if grep -rnoE '(image-name=|")postgres:[^"[:space:]]*' src | grep -v -e ":image-name=$expected\$" -e ":\"$expected\$"; then
+            echo "::error::These PostgreSQL images differ from compose.yaml's $expected"
+            exit 1
+          fi
+          grep -q "image-name=$expected\$" src/main/resources/application.properties
       - uses: actions/setup-java@v5
         with:
           distribution: temurin

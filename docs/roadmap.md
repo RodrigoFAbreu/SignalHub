@@ -597,6 +597,19 @@ The following capabilities are already implemented and merged unless repository 
 - no backend, schema, contract or client changes; tested against real
   PostgreSQL with the fake provider
 
+### R18m - Dependabot coverage
+
+- closes open item O3: Dependabot (`pip`) tracks the SDK's build backend in
+  `sdk/python/pyproject.toml` and ruff, now pinned in
+  `.github/tools/requirements.txt`; Dependabot (`docker`) tracks actionlint,
+  now pinned in `.github/tools/actionlint/Dockerfile`, which CI builds
+- the tests' PostgreSQL image (Dev Services and Testcontainers) must be the
+  Compose image's tag: the `Backend (build + test)` job checks it first, so
+  a Dependabot PR that changes only `compose.yaml` fails until they follow
+- Flutter has no Dependabot ecosystem: `FLUTTER_VERSION` is raised by hand;
+  `docs/development.md#dependency-updates` lists every pin and who updates it
+- no backend, schema, contract or client changes
+
 ---
 
 ## 4. Planned roadmap
@@ -982,8 +995,9 @@ end-to-end test), R18e (the fresh-install deployment test), R18f (the
 compatibility policy and enum evolution), R18g (idempotent publishing),
 R18h (the upgrade from an older release), R18i (pre-1.0 cleanup: retries
 in the examples and stale statements), R18j (the v1.0 readiness review) and
-R18k (events visible in listing order, closing O1) and R18l (dispatcher
-tests, closing O2) are complete (see section 3). What remains is in the v1.0 readiness
+R18k (events visible in listing order, closing O1), R18l (dispatcher
+tests, closing O2) and R18m (Dependabot coverage, closing O3) are complete
+(see section 3). What remains is in the v1.0 readiness
 checklist below.
 
 Goal: deliberately declare the first stable SignalHub contract.
@@ -1048,7 +1062,7 @@ that closes an item updates its row.
 | Security boundaries | Done; limitations documented | Reading an event needs the owner's credential (R18b); the proxy serves only the product API (R16b). |
 | Observability | Reviewed; sound | The metrics table matches the code and `MetricsTest`; the startup summary example now matches the code. |
 | Test coverage | Done | Unit, PostgreSQL-backed, client, SDK and example tests; Compose smoke tests on x86-64 and ARM64; upgrade, end-to-end and fresh-install jobs. The dispatcher gaps (O2) are closed in R18l. |
-| Dependency health | Reviewed; open item O3, decisions D2 and D3 | Versions and image digests are pinned; Dependabot tracks Actions, Maven, Docker, Compose and pub. |
+| Dependency health | Done; decisions D2 and D3 open | Versions and image digests are pinned; Dependabot tracks Actions, Maven, Docker, Compose, pub, the SDK's build backend, ruff and actionlint; CI checks that the tests' PostgreSQL image follows Compose's; Flutter is raised by hand (O3, closed in R18m; `docs/development.md#dependency-updates`). |
 | Release automation | Reviewed; sound | No PR title can produce `1.0.0` (`scripts/release/release.py` turns a major bump into a minor one below 1.0). Promotion is decision D4. |
 | End-to-end, fresh-install and upgrade tests | Done | R18d, R18e, R18h. |
 | Real-device push | Open, maintainer | Receiving a push on a real device needs the maintainer's Firebase project (R8 to R10). |
@@ -1060,7 +1074,7 @@ Open items, each small enough for one increment and needing no decision:
 - **O2 - dispatcher tests.** Done in R18l: no test covered a retry whose
   client was revoked meanwhile, or that dispatching an event again leaves a
   pending retry as it is.
-- **O3 - Dependabot coverage.** Not tracked: the Python SDK's build
+- **O3 - Dependabot coverage.** Done in R18m. Not tracked were: the Python SDK's build
   dependency (`sdk/python`), the Dev Services PostgreSQL image in
   `application.properties` (which must stay the Compose version), and the
   ruff, actionlint and Flutter versions pinned in CI.
@@ -1144,8 +1158,8 @@ Determine this from repository state rather than trusting this section blindly.
 After the integration examples (R17), the expected next increment is:
 
 **R18 - v1.0 hardening and contract review**, continuing after R18j
-with the open items of the v1.0 readiness checklist (O3; O1 is done in
-R18k and O2 in R18l), one increment each. Decisions D1 to D4 are the maintainer's. Promotion to
+with the open items of the v1.0 readiness checklist, one increment each;
+O1 is done in R18k, O2 in R18l and O3 in R18m, so none is open. Decisions D1 to D4 are the maintainer's. Promotion to
 `v1.0.0` itself is always the maintainer's decision. Confirming delivery to a real device (R8 to R10)
 still needs the maintainer's Firebase project.
 

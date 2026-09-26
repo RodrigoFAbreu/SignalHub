@@ -30,3 +30,19 @@ updates:
       interval: weekly
     commit-message:
       prefix: build
+  # The SDK's build backend (sdk/python/pyproject.toml) and ruff, which CI
+  # installs from .github/tools/requirements.txt.
+  - package-ecosystem: pip
+    directories:
+      - /sdk/python
+      - /.github/tools
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+  - package-ecosystem: docker
+    directory: /.github/tools/actionlint
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
