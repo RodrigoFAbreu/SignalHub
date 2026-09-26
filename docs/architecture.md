@@ -950,8 +950,12 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   after a push), so it counts events on pages not read yet. Opening an
   event, from the inbox or a notification, marks it read
   (`PUT /api/v1/events/{id}/read`); if that fails the event simply stays
-  unread and is marked the next time. The event screen can mark it unread
-  again (`DELETE`) and returns to the inbox. *Mark all as read* sends the
+  unread and is marked the next time. The event screen shows the state
+  the server last returned (the answer to marking it read on opening, then
+  to each change), and its one action follows it: *Mark as read* (`PUT`)
+  while the event is unread, which stays on the event, and *Mark as unread*
+  (`DELETE`) once it is read, which returns to the inbox. A failed change
+  says why and leaves the state and the action as they were. *Mark all as read* sends the
   newest event shown as `through` (`POST /api/v1/events/read`), so events
   that arrived since stay unread; older events not paged in yet are read
   too, as the owner asked for everything up to that point.

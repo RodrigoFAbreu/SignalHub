@@ -4,7 +4,8 @@ The SignalHub app for Android and iOS, built with Flutter from one codebase.
 It connects to the owner's SignalHub server with a client key, registers for
 push notifications, and shows the inbox: every event, newest first, and each
 event's details, also opened by tapping its notification. Unread events are
-marked and counted; opening one marks it read on every client of the owner.
+marked and counted; opening one marks it read on every client of the owner,
+and its screen marks it read or unread again, whichever it is not.
 The *Notifications* screen chooses which events are pushed to this device.
 See
 [docs/architecture.md](../docs/architecture.md#client-application) for its

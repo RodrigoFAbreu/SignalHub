@@ -640,6 +640,23 @@ The following capabilities are already implemented and merged unless repository 
   found the read-state defect of R18p
 - no backend, schema or contract changes
 
+### R18p - Read-state toggle on the event screen
+
+- the event screen's one read-state action follows the event's state as
+  the server last returned it: *Mark as read* (`PUT`) while it is unread,
+  for example when marking it read on opening failed, and *Mark as unread*
+  (`DELETE`) once it is read, fixing the defect found by the `v0.27.0`
+  device review
+- the screen shows the event the server returned when marking it read on
+  opening and after each change, including when it was read; a failed
+  change says why and leaves the state and the action as they were; the
+  action is disabled while a change is in flight
+- *Mark as unread* returns to the inbox as before; *Mark as read* stays on
+  the event; the inbox's bold title, dot and unread count follow both
+- widget and controller tests for both directions, a failure in each, and
+  an event whose marking on opening failed
+- client only: no backend, API or schema changes
+
 ---
 
 ## 4. Planned roadmap
@@ -1027,8 +1044,9 @@ R18h (the upgrade from an older release), R18i (pre-1.0 cleanup: retries
 in the examples and stale statements), R18j (the v1.0 readiness review) and
 R18k (events visible in listing order, closing O1), R18l (dispatcher
 tests, closing O2), R18m (Dependabot coverage, closing O3), R18n (admin
-listings in an items envelope, decision D1) and R18o (pop-up notifications,
-app icon and refresh on return) are complete (see section 3). What remains
+listings in an items envelope, decision D1), R18o (pop-up notifications,
+app icon and refresh on return) and R18p (the read-state toggle on the
+event screen) are complete (see section 3). What remains
 is the queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
 below.
 
@@ -1097,7 +1115,7 @@ that closes an item updates its row.
 | Dependency health | Done; D2 and D3 decided (deferred past 1.0) | Versions and image digests are pinned; Dependabot tracks Actions, Maven, Docker, Compose, pub, the SDK's build backend, ruff and actionlint; CI checks that the tests' PostgreSQL image follows Compose's; Flutter is raised by hand (O3, closed in R18m; `docs/development.md#dependency-updates`). |
 | Release automation | Reviewed; sound | No PR title can produce `1.0.0` (`scripts/release/release.py` turns a major bump into a minor one below 1.0). Promotion is decision D4: not yet. |
 | End-to-end, fresh-install and upgrade tests | Done | R18d, R18e, R18h. |
-| Real-device push | Done on Android; one defect open (R18p) | Verified on the maintainer's Android phone with their Firebase project at `v0.27.0` (R18o): a functional review passed its 19 checks (foreground, background, killed app and cold start, pop-up over another app, read state, push preferences, idempotent publishing, backend down and restarted, phone offline). It found that the event screen only offers *Mark as unread* (R18p). iOS with APNs does not block 1.0 unless another issue requires it. |
+| Real-device push | Done on Android; its defect fixed in R18p | Verified on the maintainer's Android phone with their Firebase project at `v0.27.0` (R18o): a functional review passed its 19 checks (foreground, background, killed app and cold start, pop-up over another app, read state, push preferences, idempotent publishing, backend down and restarted, phone offline). It found that the event screen only offered *Mark as unread*, fixed in R18p (the action now follows the event's read state; verifying it on the device is the maintainer's, with R18q's review). iOS with APNs does not block 1.0 unless another issue requires it. |
 | Device-review tooling | Open (R18q) | The review's script exists only on the maintainer's machine; R18q keeps it in the repository. |
 | Maintainer usability review | Open, maintainer (G1) | After R18p to R18r: the maintainer uses the app and signs off. |
 
@@ -1151,8 +1169,8 @@ an orchestrator: Java 25 and PostgreSQL 18 never move ahead of `v1.0.0`.
 
 | Order | Item | Kind | Status |
 |---|---|---|---|
-| 1 | R18p - Read-state toggle on the event screen | Increment (`fix(client)`) | **Next** |
-| 2 | R18q - Device-review tooling in the repository | Increment (`test`) | Queued |
+| 1 | R18p - Read-state toggle on the event screen | Increment (`fix(client)`) | Done (see section 3) |
+| 2 | R18q - Device-review tooling in the repository | Increment (`test`) | **Next** |
 | 3 | R18r - Stale branch cleanup | Repository hygiene (no PR, no release) | Queued |
 | - | Clearing local device-test data | Documentation | Done with this queue ([development.md](development.md#clearing-local-test-data)) |
 | 4 | G1 - Maintainer usability review and sign-off | Human gate | Waiting for 1 to 3 |
@@ -1354,8 +1372,8 @@ The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-af
 (section 4) is authoritative. After the functional review of `v0.27.0`, the
 expected next increment is:
 
-**R18p - Read-state toggle on the event screen**, then R18q (device-review
-tooling) and R18r (stale branch cleanup). Then the maintainer's usability
+**R18q - Device-review tooling in the repository** (R18p is done), then
+R18r (stale branch cleanup). Then the maintainer's usability
 review (G1) and explicit approval (G2) gate `v1.0.0` (R19); Java 25 (R20)
 and PostgreSQL 18 (R21) follow `v1.0.0`, each in its own PR. `v1.0.0` is
 never released without the maintainer's explicit approval.
