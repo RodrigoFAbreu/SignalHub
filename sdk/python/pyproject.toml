@@ -4,9 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "signalhub"
-# Not published to PyPI: install it from the repository at a release tag,
-# which is the version of record (see README.md).
-version = "0.1.0"
+# A development placeholder, never rewritten in the repository: each release
+# builds the package with its own version (scripts/release/sdk_files.py) and
+# attaches it. Not published to PyPI (see README.md).
+version = "0.0.0.dev0"
 description = "Publish events to SignalHub from Python code, shells, scripts and CI jobs."
 readme = "README.md"
 requires-python = ">=3.10"

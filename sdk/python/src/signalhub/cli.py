@@ -9,6 +9,7 @@ help).
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import json
 import os
 import sys
@@ -37,6 +38,21 @@ EXIT_USAGE = 2
 EXIT_TEMPORARY = 3
 
 
+def version() -> str:
+    """The SignalHub release this package belongs to, from its metadata.
+
+    Only a release's build carries a release version; any other build has the
+    placeholder of pyproject.toml, a development version.
+    """
+    try:
+        number = importlib.metadata.version("signalhub")
+    except importlib.metadata.PackageNotFoundError:
+        return "SignalHub development build"
+    if ".dev" in number:
+        return "SignalHub development build"
+    return f"SignalHub {number}"
+
+
 class UsageError(SignalHubError):
     """An option value the command cannot use."""
 
@@ -53,6 +69,12 @@ def _parser() -> argparse.ArgumentParser:
         description="Publish events to SignalHub.",
         epilog="Exit status: 0 published, 1 rejected, 2 usage or configuration error, "
         "3 temporary failure (sending again later may help).",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=version(),
+        help="print the SignalHub release of this command and exit",
     )
     commands = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
     send = commands.add_parser(

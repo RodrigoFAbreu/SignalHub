@@ -1000,8 +1000,9 @@ internals, and everything it does is documented as plain HTTP too.
   Python, and one package gives both a library and a command.
 - **Standard library only** (`urllib`, `json`, `argparse`), Python 3.10 or
   later: installing it adds no dependencies to a producer's environment. It is
-  not published to PyPI; producers install it from the repository at a
-  release tag, which is its version of record.
+  not published to PyPI; each release attaches its wheel and source archive,
+  built with the release's version, which `signalhub --version` and the
+  package's metadata report (see [Version](#version)).
 - **Configuration** from `SIGNALHUB_URL` and `SIGNALHUB_API_KEY` (or
   `SIGNALHUB_API_KEY_FILE`). The command also takes `--url` and
   `--api-key-file`, but no option for the key itself, which would show in
@@ -1104,6 +1105,14 @@ for a release. The version fields in the sources (`backend/pom.xml` and the
 others) are development placeholders that no release rewrites. The values
 come from `SIGNALHUB_VERSION` and `SIGNALHUB_REVISION`, which only the
 release's image build sets; they are not settings for operators.
+
+The release also attaches the Python SDK and command (see
+[Producer SDK and CLI](#producer-sdk-and-cli)) as a wheel and a source
+archive, built from the tagged commit with the release's version in place of
+the placeholder `0.0.0.dev0` of `sdk/python/pyproject.toml`:
+`signalhub --version` prints `SignalHub 1.2.3`, and the package's metadata
+carries `1.2.3`. A package built any other way keeps the placeholder and
+prints `SignalHub development build`.
 
 ### Metrics
 
