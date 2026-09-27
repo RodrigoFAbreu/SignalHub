@@ -41,10 +41,12 @@ through `/api/v1/admin/clients` and `/api/v1/client`, or by a device
 redeeming a one-time pairing code from `/api/v1/admin/pairings` at
 `/api/v1/pairing`, made in a browser on the operator's admin page
 `/admin/` on the backend's own port, which also lists every device to
-rename it, make it an admin device or not, or revoke it, with a push to the
+rename it, make it an admin device or not, revoke it, or delete it once
+revoked, with a push to the
 owner's devices when a device pairs, and an admin device can list every
-device, make one an admin or revoke one that is not an admin through
-`/api/v1/client/devices`, with a push naming it, and create pairing codes
+device, make one an admin, revoke one that is not an admin or delete a
+revoked one through
+`/api/v1/client/devices`, with a push naming it (none for a deletion), and create pairing codes
 for devices that are not admins at `/api/v1/client/pairings`) with
 per-client push preferences (pause, minimum severity, muted categories and producers) and
 each client's last push results in the management API, and a provider-neutral

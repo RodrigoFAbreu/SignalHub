@@ -322,6 +322,30 @@ class EventPushDispatchTest {
   }
 
   @Test
+  void aClientDeletedDuringItsSendGetsNoRetryAndTheEventIsStillDispatched() throws SQLException {
+    var client = TestClients.register("deleted-during-send");
+    var token = "deleted-" + UUID.randomUUID();
+    setTarget(client.clientKey(), token);
+    var eventId = publish("Deleted meanwhile", null);
+    // The operator revokes and deletes the client while its send is failing temporarily.
+    fake.answer(
+        (to, message) -> {
+          if (!to.equals(token)) {
+            return PushOutcome.delivered();
+          }
+          asAdmin().post(ADMIN + "/" + client.id() + "/revoke").then().statusCode(200);
+          asAdmin().delete(ADMIN + "/" + client.id()).then().statusCode(204);
+          return new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down");
+        });
+
+    assertEquals(1, dispatcher.dispatchPending());
+
+    assertEquals(1, sentFor(eventId, token).size());
+    assertFalse(pending(eventId));
+    assertFalse(retryScheduled(eventId, client.id()));
+  }
+
+  @Test
   void dispatchingAnEventAgainLeavesAPendingRetryAsItIs() throws SQLException {
     var token = clientWithTarget();
     fake.answer((to, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "down"));

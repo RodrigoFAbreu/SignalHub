@@ -615,25 +615,33 @@ Every product API endpoint requires a credential. This version does not yet:
   their own keys.
 - **Expire keys** automatically. Keys are valid until revoked.
 - **Scope keys**: every valid key may publish any event as its producer.
-- **Delete** revoked producer keys or revoked clients. They are kept, and
-  listed by the management API, as a record of what was issued.
+- **Delete** revoked producer keys. They are kept, and listed by the
+  management API, as a record of what was issued. Revoked clients can be
+  [deleted](#deleting-a-revoked-client), so devices paired again do not
+  pile up in the list; once deleted, the `INFO` log lines of registering,
+  revoking and deleting are the only record that the client existed.
 
 **A stolen admin device** (its client key copied, or the device lost
 unlocked) can do what an [admin device](#device-management-from-an-admin-device)
 can, through the proxy, until the operator acts: read every event, list every
 device (names, push providers and push results, never keys or push tokens),
-make other devices admins, revoke devices that are not admins, and create
-pairing codes for new devices that are not admins. It cannot revoke an admin
-or take admin rights away, rename a device, pair an admin device, publish,
-or reach the management API, so the owner's admin devices keep working and
-the operator keeps control. Every change it makes, and every device paired
-with its codes, is logged and pushes a notice to the owner's devices naming
-it. To recover, on the [admin page](#the-admin-page) (or the management API)
+make other devices admins, revoke devices that are not admins, delete
+revoked devices, and create pairing codes for new devices that are not
+admins. It cannot revoke an admin or take admin rights away, rename a
+device, pair an admin device, publish, or reach the management API, so the
+owner's admin devices keep working and the operator keeps control. Deleting
+takes nothing from a working device, since only revoked ones can be
+deleted, but it removes them from the list, so the device list alone no
+longer shows everything that happened: the log does. Every change it makes,
+and every device paired with its codes, is logged and pushes a notice to
+the owner's devices naming it; a deletion is logged but pushes nothing. To recover, on the [admin page](#the-admin-page) (or the management API)
 with the admin token: revoke the stolen device (its unused pairing codes
 stop working with it), revoke any device paired with its codes, take admin
 rights away from, or revoke, any device it made an admin, and pair again any
-device it revoked (a revoked client cannot be restored). Keep few admin
-devices: each is a key that can do this.
+device it revoked (a revoked client cannot be restored, and a deleted one
+is gone: its ID remains in the log lines `Client <caller> revoked client
+<id>` and `Client <caller> deleted client <id>`). Keep few admin devices:
+each is a key that can do this.
 
 ## Clients
 
@@ -679,13 +687,14 @@ constant-time comparison, and every failure is the same `401` (see
 A client has exactly one key for its lifetime. A key belongs to one
 installation, so rotating it means registering the installation again as a
 new client and revoking the old one. Revocation is permanent and immediate.
+A revoked client can then be [deleted](#deleting-a-revoked-client).
 
 **What a client key may do:** read the event listing, and read and change its
 own registration (push target and push preferences) under `/api/v1/client`.
 It cannot rename itself or take its own admin rights away. It cannot publish,
 manage producers, or see push tokens of other clients. Only an
 [admin device](#admin-devices)'s key may list the other clients, make one an
-admin, revoke one that is not an admin (see
+admin, revoke one that is not an admin, delete a revoked one (see
 [Device management from an admin device](#device-management-from-an-admin-device))
 and create pairing codes (see
 [Pairing from an admin device](#pairing-from-an-admin-device)).
@@ -729,12 +738,13 @@ admin token nor the host:
 | `GET /api/v1/client/devices` | Every client, revoked or not, oldest first, as `{"items": [...]}`: exactly what `GET /api/v1/admin/clients` returns (schema `ManagedClient`, with `pushStatus`), never a key or a push token. |
 | `POST /api/v1/client/devices/{id}/admin` | Makes the client an admin device. `200` with the client; `200` and no change if it already is one (the caller included); `409 Client is revoked` for a revoked client; `404` for an unknown ID. |
 | `POST /api/v1/client/devices/{id}/revoke` | Revokes a client that is not an admin and removes its push target, as the operator's revoke does. `200` with the client; `200` and no change if it is already revoked; `409 Client is an admin device` for an admin, the caller included; `404` for an unknown ID. |
+| `DELETE /api/v1/client/devices/{id}` | [Deletes a revoked client](#deleting-a-revoked-client), an admin or not, as the operator's delete does. `204`; `409 Client is not revoked` for an active client, the caller included; `404` for an unknown ID or one deleted already. |
 
 An admin device also creates pairing codes, with `POST
 /api/v1/client/pairings` under the same rules: see
 [Pairing from an admin device](#pairing-from-an-admin-device).
 
-Neither `POST` has a body. The limits keep a stolen admin device from taking
+No request has a body. The limits keep a stolen admin device from taking
 over:
 
 - **Only an admin device's key is accepted.** Every other client key gets
@@ -749,11 +759,14 @@ over:
 - **An admin device can do nothing to an admin**, itself included: it cannot
   take admin rights away (there is no endpoint for it) or revoke an admin.
   Only the operator can, with the admin token, usually on the
-  [admin page](#the-admin-page). Renaming is the operator's too.
+  [admin page](#the-admin-page). Renaming is the operator's too. A revoked
+  admin can be deleted: it can no longer act.
 - **Every change is logged** at `INFO` with client IDs only: `Client <caller>
-  made client <id> an admin device` and `Client <caller> revoked client
-  <id>`. A request that changes nothing or is refused logs nothing.
-- **The owner's devices are told.** Every change pushes a
+  made client <id> an admin device`, `Client <caller> revoked client <id>`
+  and `Client <caller> deleted client <id>`. A request that changes nothing
+  or is refused logs nothing.
+- **The owner's devices are told** of every change but a deletion, which
+  changes nothing a device can use. A change pushes a
   [notice](#pairing-notice), naming the device that made it, to every client
   that has a push target and has not paused pushes, the calling device
   included (its key may be in someone else's hands):
@@ -794,6 +807,35 @@ Every change is logged at `INFO` with the client ID only, like registering and
 revoking: `Renamed client <id>`, `Client <id> is now an admin device`,
 `Client <id> is no longer an admin`, and `Registered client <id> as an admin
 device`.
+
+### Deleting a revoked client
+
+A revoked client stays in the list, so a phone paired again would show up
+twice. `DELETE /api/v1/admin/clients/{id}` (admin token), or `DELETE
+/api/v1/client/devices/{id}` from an
+[admin device](#device-management-from-an-admin-device), removes it for
+good. Usually it is done on the [admin page](#the-admin-page).
+
+- **Only a revoked client.** An active client, an admin device included,
+  answers `409 Client is not revoked` and does not change: revoke it first.
+  A revoked admin can be deleted too, since it can no longer act.
+- **`204` with no body**; `404` for an unknown ID, so deleting twice
+  answers `404` the second time. There is no undo.
+- **What goes with it:** everything that exists only for the client, its
+  push results (columns of its row), its pushes waiting for a retry
+  (`push_retries`) and the unused pairing codes it created as an admin
+  device (`pairings.created_by`). Both tables reference `clients` with `ON
+  DELETE CASCADE` since they were created, so no migration was needed and
+  upgrading needs no operator action; a test checks that every foreign key
+  to `clients` cascades. A push to it already under way when it is deleted
+  records nothing and is not retried.
+- **What stays: every event,** with its read state. Read state is the
+  owner's, not a client's (see [Read state](#read-state)), and events are
+  never deleted with a client.
+- **Logged** at `INFO` with client IDs only, as revoking is: `Deleted client
+  <id>`, or `Client <caller> deleted client <id>` from an admin device. No
+  push is sent. Once deleted, those log lines are the only record of the
+  client (see [Security limitations](#security-limitations)).
 
 ### Pairing
 
@@ -909,6 +951,11 @@ it can:
 - **Make it an admin** or **take admin rights away** (see
   [Admin devices](#admin-devices));
 - **Revoke** it, admin devices included, after a confirmation.
+
+A revoked device offers only **Delete**, after a confirmation, which
+removes it from the list for good (see
+[Deleting a revoked client](#deleting-a-revoked-client)). Active devices
+have no delete: they must be revoked first.
 
 **Connect a device** creates a pairing for a device name, optionally as an
 admin device, and shows the pairing URI as a QR code, counts down to its
@@ -1057,6 +1104,7 @@ suppressed push is simply not sent to that client.
 | `GET /api/v1/admin/clients/{id}` | admin token | One client, with its `pushStatus`. |
 | `PATCH /api/v1/admin/clients/{id}` | admin token | Renames the client or makes it an admin device or not (`{"name", "admin"}`, each optional, at least one). `200` with the client and its `pushStatus`; `409` if it is revoked. See [Renaming a client](#renaming-a-client). |
 | `POST /api/v1/admin/clients/{id}/revoke` | admin token | Revokes the client and removes its push target. Idempotent. |
+| `DELETE /api/v1/admin/clients/{id}` | admin token | Deletes a revoked client with its push results, retries and unused pairing codes; events stay. `204`; `409` if it is not revoked; `404` for an unknown ID. See [Deleting a revoked client](#deleting-a-revoked-client). |
 | `POST /api/v1/admin/pairings` | admin token | Creates a pairing for a new client (`{"name": ..., "admin": ...}`, `admin` optional). `201` with `{"name", "admin", "code", "expiresAt", "uri"}`; see [Pairing](#pairing). |
 | `POST /api/v1/pairing` | pairing code | Redeems the code: registers the client. `201` with the client and `clientKey`, `Location` `/api/v1/client`. |
 | `POST /api/v1/client/pairings` | admin device's client key | Creates a pairing for a new client that is not an admin (`{"name": ...}`). `201` as `POST /api/v1/admin/pairings`; `403` for any other client. See [Pairing from an admin device](#pairing-from-an-admin-device). |
@@ -1068,6 +1116,7 @@ suppressed push is simply not sent to that client.
 | `GET /api/v1/client/devices` | admin device's client key | Every client, as `GET /api/v1/admin/clients` lists them; `403` for any other client key. See [Device management from an admin device](#device-management-from-an-admin-device). |
 | `POST /api/v1/client/devices/{id}/admin` | admin device's client key | Makes the client an admin device. `200` with the client (`ManagedClient`); `409` if it is revoked; `403` for any other client key. |
 | `POST /api/v1/client/devices/{id}/revoke` | admin device's client key | Revokes a client that is not an admin. `200` with the client (`ManagedClient`), idempotent; `409` for an admin, the caller included; `403` for any other client key. |
+| `DELETE /api/v1/client/devices/{id}` | admin device's client key | Deletes a revoked client, an admin or not. `204`; `409` if it is not revoked; `404` for an unknown ID; `403` for any other client key. |
 
 The management paths behave like producer management: `404` for every path
 while no admin token is configured, `404` for unknown IDs, and `400` for
@@ -1093,7 +1142,8 @@ last one that failed, each `null` until there is one; `result` is
 `PERMANENT_FAILURE` (see [Push delivery](#push-delivery)), never the token.
 `pendingRetries` counts the client's pushes waiting to be sent again. Only
 the latest results are kept, not a history (see
-[Push dispatch](#push-dispatch)); revoking a client keeps them. The event
+[Push dispatch](#push-dispatch)); revoking a client keeps them, and
+deleting it removes them. The event
 may have been deleted since by [retention](#retention). A client never
 reads its own results: `/api/v1/client` and the other paths return `Client`,
 without `pushStatus`.

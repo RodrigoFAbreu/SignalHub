@@ -1,8 +1,9 @@
 "use strict";
 
-// The admin page (docs/architecture.md#the-admin-page): lists every client with the management API
-// and changes them, and creates pairings shown as a QR code until they expire. The admin token
-// lives only in this closure; it is never stored, and every request goes to this same origin.
+// The admin page (docs/architecture.md#the-admin-page): lists every client with the management API,
+// changes them, deletes revoked ones, and creates pairings shown as a QR code until they expire.
+// The admin token lives only in this closure; it is never stored, and every request goes to this
+// same origin.
 // Names come from the server and are always set as text, never as HTML.
 (() => {
   const CLIENTS = "/api/v1/admin/clients";
@@ -73,7 +74,7 @@
       throw new Error("The management API is off: set SIGNALHUB_ADMIN_TOKEN on the server.");
     }
     if (!response.ok) throw new Error(await errorTitle(response));
-    return response.json();
+    return response.status === 204 ? null : response.json();
   }
 
   async function errorTitle(response) {
@@ -149,9 +150,11 @@
     fact("ID", client.id);
     item.append(facts);
 
-    // A revoked client never changes.
-    if (!client.revokedAt) {
-      const actions = element("div", "actions");
+    // A revoked client never changes; it can only be deleted. An active one must be revoked first.
+    const actions = element("div", "actions");
+    if (client.revokedAt) {
+      actions.append(button("Delete", () => remove(client), "danger"));
+    } else {
       actions.append(
         button("Rename", () => rename(client)),
         button(client.admin ? "Take admin rights away" : "Make admin", () =>
@@ -159,8 +162,8 @@
         ),
         button("Revoke", () => revoke(client), "danger"),
       );
-      item.append(actions);
     }
+    item.append(actions);
     return item;
   }
 
@@ -174,6 +177,11 @@
     const what = client.admin ? "admin device" : "device";
     if (!confirm(`Revoke the ${what} "${client.name}"? It stops working at once, for good.`)) return;
     change(() => call("POST", `${CLIENTS}/${client.id}/revoke`));
+  }
+
+  function remove(client) {
+    if (!confirm(`Delete the revoked device "${client.name}"? It leaves this list for good.`)) return;
+    change(() => call("DELETE", `${CLIENTS}/${client.id}`));
   }
 
   function update(client, changes) {

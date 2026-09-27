@@ -93,7 +93,7 @@ operator on the host ──http://localhost:8080──▶ backend (management AP
    expires, and copies it as an image or a link to send to whoever should
    connect a device; tick **Pair it as an admin device** for your own
    phone. The page also lists every device, to rename it, make it an admin
-   or take admin rights away, and revoke it. On the host
+   or take admin rights away, revoke it, and delete it once revoked. On the host
    itself, a terminal does the same (see
    [Pairing a device](development.md#pairing-a-device)):
 
@@ -106,7 +106,7 @@ operator on the host ──http://localhost:8080──▶ backend (management AP
    qrencode -t ansiutf8 "$uri"
    ```
 
-   The phone becomes a client of its own, listed and revoked through the
+   The phone becomes a client of its own, listed, revoked and deleted through the
    management API, and your other devices get a push saying it was paired. The URI names `https://` and `SIGNALHUB_DOMAIN`, or
    `SIGNALHUB_PUBLIC_URL` if set; the app says so if it cannot reach it.
    Setting a phone up by hand still works: register a client

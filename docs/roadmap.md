@@ -1391,6 +1391,41 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   in large text scrolled to their end; each fails without the fix;
   compatible (`fix(client)`), no API change
 
+### R41 - Deleting revoked devices: the API and the admin page
+
+- `DELETE /api/v1/admin/clients/{id}` (admin token) and `DELETE
+  /api/v1/client/devices/{id}` (an admin device's key, admin only exactly
+  as R36: every other client key `403 Not an admin device` before the
+  target is looked up, a missing, unknown or revoked key `401`) delete a
+  revoked client, an admin or not: `204` with no body; `409 Client is not
+  revoked` for an active client, which does not change (the caller
+  included); `404` for an unknown ID, so deleting twice is `404`
+- the client's push results (columns of its row), its push retries and the
+  unused pairing codes it created go with it; events, and their read
+  state, stay. `push_retries` and `pairings.created_by` already reference
+  `clients` with `ON DELETE CASCADE`, so no migration; a test checks that
+  every foreign key to `clients` cascades. A retry is no longer recorded
+  for a client deleted while its push was being sent (the insert selects
+  the client), so such a dispatch completes instead of failing on the
+  foreign key and being sent again
+- logged at `INFO` with client IDs only (`Deleted client <id>`, `Client
+  <caller> deleted client <id>`); no push notice
+- the admin page offers **Delete**, after a confirmation, on revoked
+  devices only; active devices keep Rename, admin rights and Revoke
+- tests against real PostgreSQL: an active client refused and unchanged,
+  a revoked client and a revoked admin deleted by the operator and by an
+  admin device with their dependent data while the event stays read, an
+  unknown ID, deleting twice, every other client key refused before the
+  target is looked up, a revoked admin `401`, the dispatcher with a client
+  deleted during its send (fails without the fix); the OpenAPI document,
+  the page's script; the Compose smoke test deletes a revoked client with
+  the admin token on the host and with an admin device through the proxy
+- `docs/architecture.md` (Clients, Deleting a revoked client, Device
+  management, the admin page, Client API, Security limitations: revoked
+  clients can be deleted and the log is the record, and what deleting adds
+  for a stolen admin device), `docs/deployment.md`, `docs/development.md`;
+  compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1949,8 +1984,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 27    | R38 - Pairing codes from an admin device                                                         | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 28    | R39 - Remove the /connect redirect                                                               | Increment (`chore`)                    | Done (see section 3)                                                             |
 | 29    | R40 - The device list scrolls to its last device                                                 | Increment (`fix(client)`)              | Done (see section 3)                                                             |
-| 30    | R41 - Deleting revoked devices: the API and the admin page                                       | Increment (`feat`)                     | Next                                                                             |
-| 31    | R42 - Deleting revoked devices in the app                                                        | Increment (`feat(client)`)             | Blocked until R41 is merged                                                      |
+| 30    | R41 - Deleting revoked devices: the API and the admin page                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 31    | R42 - Deleting revoked devices in the app                                                        | Increment (`feat(client)`)             | Next                                                                             |
 | 32    | R43 - A used pairing code: the API and the admin page                                            | Increment (`feat`)                     | Blocked until R42 is merged                                                      |
 | 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Blocked until R43 is merged                                                      |
 
@@ -3079,7 +3114,7 @@ Non-goals: any other change to the device list.
 
 ### R41 - Deleting revoked devices: the API and the admin page
 
-Status: planned; next. Added by the maintainer
+Status: complete (see section 3). Added by the maintainer
 (2026-09-27).
 
 Goal: devices that were revoked, for example a phone paired again, can be
@@ -3117,7 +3152,7 @@ delete.
 
 ### R42 - Deleting revoked devices in the app
 
-Status: planned; blocked until R41 is merged. Added by the maintainer
+Status: planned; next. Added by the maintainer
 (2026-09-27).
 
 Scope:
@@ -3293,9 +3328,10 @@ The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-af
 (section 4) is authoritative. R34 (the Connect page and the pairing
 notice), R35 (the admin page), R36 (managing devices from an admin
 device: the API), R37 (managing devices in the app), R38 (pairing codes
-from an admin device), R39 (removing the /connect redirect) and R40 (the
-device list scrolls to its last device) are done. **R41 (deleting revoked
-devices: the API and the admin page) is next**, then R42, R43 and R44 in
-that order, each after the previous one is merged.
+from an admin device), R39 (removing the /connect redirect), R40 (the
+device list scrolls to its last device) and R41 (deleting revoked devices:
+the API and the admin page) are done. **R42 (deleting revoked devices in
+the app) is next**, then R43 and R44 in that order, each after the
+previous one is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

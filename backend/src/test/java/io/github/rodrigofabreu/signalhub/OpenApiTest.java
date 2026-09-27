@@ -352,6 +352,7 @@ class OpenApiTest {
     var devices = "paths.'/api/v1/client/devices'.get";
     var makeAdmin = "paths.'/api/v1/client/devices/{id}/admin'.post";
     var revoke = "paths.'/api/v1/client/devices/{id}/revoke'.post";
+    var delete = "paths.'/api/v1/client/devices/{id}'.delete";
     var clientKey = List.of(Map.of("clientKey", List.of()));
     given()
         .queryParam("format", "json")
@@ -377,8 +378,29 @@ class OpenApiTest {
             equalTo("#/components/schemas/ManagedClient"))
         .body(revoke + ".responses.keySet()", hasItems("200", "401", "403", "404", "409"))
         .body(revoke, not(hasKey("requestBody")))
+        .body(delete + ".security", equalTo(clientKey))
+        .body(delete + ".responses.keySet()", containsInAnyOrder("204", "401", "403", "404", "409"))
+        .body(delete + ".responses.'204'", not(hasKey("content")))
         // Renaming and taking admin rights away stay with the admin token.
-        .body("paths.'/api/v1/client/devices/{id}'", equalTo(null));
+        .body("paths.'/api/v1/client/devices/{id}'.keySet()", containsInAnyOrder("delete"));
+  }
+
+  @Test
+  void describesDeletingARevokedClient() {
+    var delete = "paths.'/api/v1/admin/clients/{id}'.delete";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(delete + ".security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(delete + ".responses.keySet()", containsInAnyOrder("204", "401", "404", "409"))
+        .body(delete + ".responses.'204'", not(hasKey("content")))
+        .body(
+            delete + ".responses.'409'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/Error"))
+        .body(delete, not(hasKey("requestBody")));
   }
 
   @Test
