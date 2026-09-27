@@ -24,3 +24,4 @@ creates or alters tables.
 | `V9__add_event_idempotency_key.sql` | `events.idempotency_key`, unique per producer: publishing again with the same key returns the stored event |
 | `V10__create_pairings.sql` | `pairings` table: hashes of one-time pairing codes that register a new client |
 | `V11__add_event_link.sql` | `events.link`: an optional URL the owner can open from the event |
+| `V12__add_client_push_results.sql` | Each client's last successful and last failed push on `clients`, for the management API |

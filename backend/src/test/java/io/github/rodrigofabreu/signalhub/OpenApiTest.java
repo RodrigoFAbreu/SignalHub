@@ -257,8 +257,14 @@ class OpenApiTest {
         .body(SCHEMAS + ".ClientList.required", containsInAnyOrder("items"))
         .body(
             SCHEMAS + ".ClientList.properties.items.items.$ref",
+            equalTo("#/components/schemas/ManagedClient"))
+        .body(
+            "paths.'/api/v1/admin/clients/{id}'.get.responses.'200'.content.'application/json'"
+                + ".schema.$ref",
+            equalTo("#/components/schemas/ManagedClient"))
+        .body(
+            "paths.'/api/v1/client'.get.responses.'200'.content.'application/json'.schema.$ref",
             equalTo("#/components/schemas/Client"))
-        .body("paths", hasKey("/api/v1/admin/clients/{id}"))
         .body("paths", hasKey("/api/v1/admin/clients/{id}/revoke"))
         .body(
             "paths.'/api/v1/client'.get.security", equalTo(List.of(Map.of("clientKey", List.of()))))
@@ -283,6 +289,31 @@ class OpenApiTest {
         .body(SCHEMAS + ".PushTargetRequest.required", containsInAnyOrder("provider", "token"))
         .body(SCHEMAS + ".Client.properties", not(hasKey("clientKey")))
         .body(SCHEMAS + ".PushTarget.properties", not(hasKey("token")));
+  }
+
+  @Test
+  void describesPushResultsOnlyInTheManagementApi() {
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(
+            SCHEMAS + ".ManagedClient.required",
+            containsInAnyOrder("id", "name", "createdAt", "pushPreferences", "pushStatus"))
+        .body(
+            SCHEMAS + ".ManagedClient.properties.pushStatus.$ref",
+            equalTo("#/components/schemas/PushStatus"))
+        .body(SCHEMAS + ".Client.properties", not(hasKey("pushStatus")))
+        .body(SCHEMAS + ".PushStatus.required", containsInAnyOrder("pendingRetries"))
+        .body(SCHEMAS + ".PushSuccess.required", containsInAnyOrder("at", "eventId"))
+        .body(SCHEMAS + ".PushFailure.required", containsInAnyOrder("at", "eventId", "result"))
+        .body(
+            SCHEMAS + ".PushFailure.properties.result.enum",
+            containsInAnyOrder(
+                "UNSUPPORTED_PROVIDER", "INVALID_TARGET", "TRANSIENT_FAILURE", "PERMANENT_FAILURE"))
+        .body(SCHEMAS + ".PushFailure.properties", not(hasKey("token")));
   }
 
   @Test

@@ -509,6 +509,22 @@ curl -s "$API/$CLIENT" -H "$H"                  # one client
 curl -s -X POST "$API/$CLIENT/revoke" -H "$H"   # revoke it and drop its push target
 ```
 
+Both reads show each client's latest push results in `pushStatus` (see
+[Client API](architecture.md#client-api)), which answers why a device got no
+push:
+
+```sh
+curl -s "$API/$CLIENT" -H "$H" | jq .pushStatus
+```
+
+```json
+{
+  "lastSuccess": {"at": "2026-09-27T10:00:02.123456Z", "eventId": "01997d5e-8a3c-7b1e-9f2a-4c6d8e0f1a2b"},
+  "lastFailure": null,
+  "pendingRetries": 0
+}
+```
+
 Every published event that the client's
 [push preferences](architecture.md#push-preferences) allow is then pushed to
 the target (see [Push dispatch](architecture.md#push-dispatch)); every event

@@ -780,8 +780,8 @@ suppressed push is simply not sent to that client.
 | Method and path | Credential | Result |
 |---|---|---|
 | `POST /api/v1/admin/clients` | admin token | Registers a client (`{"name": ...}`). `201` with the client and `clientKey`. |
-| `GET /api/v1/admin/clients` | admin token | All clients, oldest first, as `{"items": [...]}`. |
-| `GET /api/v1/admin/clients/{id}` | admin token | One client. |
+| `GET /api/v1/admin/clients` | admin token | All clients, oldest first, as `{"items": [...]}`, each with its `pushStatus`. |
+| `GET /api/v1/admin/clients/{id}` | admin token | One client, with its `pushStatus`. |
 | `POST /api/v1/admin/clients/{id}/revoke` | admin token | Revokes the client and removes its push target. Idempotent. |
 | `POST /api/v1/admin/pairings` | admin token | Creates a pairing for a new client (`{"name": ...}`). `201` with `{"name", "code", "expiresAt", "uri"}`; see [Pairing](#pairing). |
 | `POST /api/v1/pairing` | pairing code | Redeems the code: registers the client. `201` with the client and `clientKey`, `Location` `/api/v1/client`. |
@@ -796,6 +796,30 @@ while no admin token is configured, `404` for unknown IDs, and `400` for
 invalid bodies with the usual violations. See
 [development.md](development.md#clients) for curl examples.
 
+The two `GET` management paths add `pushStatus` to each client (schema
+`ManagedClient`), so the operator can see why a device got no push without
+reading metrics or logs:
+
+```json
+"pushStatus": {
+  "lastSuccess": {"at": "2026-09-27T10:00:02.123456Z", "eventId": "01997d5e-..."},
+  "lastFailure": {"at": "2026-09-27T09:12:40.654321Z", "eventId": "01997d4a-...",
+                  "result": "TRANSIENT_FAILURE"},
+  "pendingRetries": 0
+}
+```
+
+`lastSuccess` is the last push the provider accepted and `lastFailure` the
+last one that failed, each `null` until there is one; `result` is
+`UNSUPPORTED_PROVIDER`, `INVALID_TARGET`, `TRANSIENT_FAILURE` or
+`PERMANENT_FAILURE` (see [Push delivery](#push-delivery)), never the token.
+`pendingRetries` counts the client's pushes waiting to be sent again. Only
+the latest results are kept, not a history (see
+[Push dispatch](#push-dispatch)); revoking a client keeps them. The event
+may have been deleted since by [retention](#retention). A client never
+reads its own results: `/api/v1/client` and the other paths return `Client`,
+without `pushStatus`.
+
 ### Schema
 
 `V4__create_clients.sql` creates `clients`: `id`, `name`, `key_hash` (exactly
@@ -808,7 +832,13 @@ every event, so existing clients keep receiving everything; check constraints
 allow only known severities and categories and at most 100 producers.
 `V10__create_pairings.sql` creates `pairings`: `id`, `code_hash` (exactly 32
 bytes, unique), `client_name`, `created_at` and `expires_at`, which must be
-later than `created_at`. Changes
+later than `created_at`. `V12__add_client_push_results.sql` adds each
+client's last push results: `last_push_succeeded_at` and
+`last_push_succeeded_event_id`, set together, and `last_push_failed_at`,
+`last_push_failed_event_id` and `last_push_failed_result` (a failed
+delivery result), set together; all are `null` for existing clients, so the
+migration needs no operator action. The event IDs are not foreign keys, as
+retention may delete the event. Changes
 to one client lock its
 row, so a revocation and a concurrent push-target update apply in order
 rather than one overwriting the other.
@@ -961,6 +991,8 @@ pushes; the event itself is stored and listed either way.
                                               ▼
                         claim due retries ──▶ PushDelivery.deliver(client, message)
                                               └─ delete the row, or schedule the next attempt
+
+ after each send: record the result on the client (last success or last failure)
 ```
 
 - **Durable.** Publishing writes the event and a `push_dispatches` row in the
@@ -986,9 +1018,21 @@ pushes; the event itself is stored and listed either way.
   other results are final (see [Push delivery](#push-delivery)).
 - **Final failure.** After the last attempt the retry is dropped and a
   warning names the event and client (`Gave up the push of event ...`). No
-  delivery record is kept: the event stays in the inbox, where the client
+  per-attempt record is kept (only each client's last results, above): the event stays in the inbox, where the client
   shows it on its next refresh, and a push that late would interrupt for
   little. A redispatched event does not reset a client's pending retry.
+- **Each client's last results.** After each send, the dispatch and the
+  retries record its result on the client (V12), in a transaction of its
+  own: a delivered push overwrites the client's last success, any failure
+  its last failure, both with the time and the event; a send that found no
+  push target sent nothing and is not recorded. The count of pushes waiting
+  for a retry is not stored but counted from `push_retries` when the
+  management API is read. This is what
+  [the management API](#client-api) shows; it is not a history. Recording
+  never changes delivery: it happens after the send, and a failure to
+  record is logged as a warning (`Could not record the push result ...`)
+  and ignored, so the push is neither failed nor sent again, and retries
+  are scheduled as before.
 - **The push.** The event's title, its message shortened to 500 characters
   (providers limit payloads; FCM to 4 KiB), and data `eventId`, `category`
   and `severity`. It is a signal to look: the client fetches the event by ID.

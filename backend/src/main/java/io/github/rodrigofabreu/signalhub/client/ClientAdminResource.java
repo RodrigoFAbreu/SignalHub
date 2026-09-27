@@ -71,7 +71,9 @@ public class ClientAdminResource {
   }
 
   @GET
-  @Operation(summary = "List clients", description = "All clients, revoked or not, oldest first.")
+  @Operation(
+      summary = "List clients",
+      description = "All clients, revoked or not, oldest first, with their latest push results.")
   @APIResponse(
       responseCode = "200",
       description = "The clients, in items.",
@@ -82,13 +84,13 @@ public class ClientAdminResource {
 
   @GET
   @Path("/{id}")
-  @Operation(summary = "Get a client")
+  @Operation(summary = "Get a client", description = "The client and its latest push results.")
   @APIResponse(
       responseCode = "200",
       description = "The client.",
-      content = @Content(schema = @Schema(implementation = ClientResponse.class)))
+      content = @Content(schema = @Schema(implementation = ManagedClientResponse.class)))
   @APIResponse(responseCode = "404", description = "No client has this ID.")
-  public ClientResponse get(@PathParam("id") UUID id) {
+  public ManagedClientResponse get(@PathParam("id") UUID id) {
     return clients.get(id).orElseThrow(ClientAdminResource::notFound);
   }
 

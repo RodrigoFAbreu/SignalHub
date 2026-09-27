@@ -2,6 +2,7 @@ package io.github.rodrigofabreu.signalhub.client;
 
 import io.github.rodrigofabreu.signalhub.event.Category;
 import io.github.rodrigofabreu.signalhub.event.Severity;
+import io.github.rodrigofabreu.signalhub.push.DeliveryResult;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -54,6 +55,23 @@ class ClientEntity {
   @Column(name = "push_muted_producers", nullable = false)
   private UUID[] pushMutedProducers = {};
 
+  // Written only by ClientRepository's own statements after each push, so Hibernate's updates of a
+  // client (a new push target, a revocation) never overwrite a result recorded meanwhile.
+  @Column(name = "last_push_succeeded_at", insertable = false, updatable = false)
+  private Instant lastPushSucceededAt;
+
+  @Column(name = "last_push_succeeded_event_id", insertable = false, updatable = false)
+  private UUID lastPushSucceededEventId;
+
+  @Column(name = "last_push_failed_at", insertable = false, updatable = false)
+  private Instant lastPushFailedAt;
+
+  @Column(name = "last_push_failed_event_id", insertable = false, updatable = false)
+  private UUID lastPushFailedEventId;
+
+  @Column(name = "last_push_failed_result", insertable = false, updatable = false)
+  private String lastPushFailedResult;
+
   protected ClientEntity() {}
 
   ClientEntity(UUID id, String name, byte[] keyHash, Instant createdAt) {
@@ -97,6 +115,21 @@ class ClientEntity {
 
   Instant pushUpdatedAt() {
     return pushUpdatedAt;
+  }
+
+  /** The last push the provider accepted; null if there has been none. */
+  PushStatus.Success lastPushSuccess() {
+    return lastPushSucceededAt == null
+        ? null
+        : new PushStatus.Success(lastPushSucceededAt, lastPushSucceededEventId);
+  }
+
+  /** The last push that failed; null if none has. */
+  PushStatus.Failure lastPushFailure() {
+    return lastPushFailedAt == null
+        ? null
+        : new PushStatus.Failure(
+            lastPushFailedAt, lastPushFailedEventId, DeliveryResult.valueOf(lastPushFailedResult));
   }
 
   /**
