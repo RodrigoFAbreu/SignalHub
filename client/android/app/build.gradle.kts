@@ -4,6 +4,17 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Official release APKs are signed with SignalHub's release key, which only the
+// release gives, through these variables (scripts/release/app_files.py). Any
+// other build is signed with the local debug key (client/README.md#signing).
+val releaseKeystore = System.getenv("ANDROID_RELEASE_KEYSTORE").orEmpty()
+
+fun releaseSetting(name: String): String =
+    System.getenv(name).orEmpty().ifEmpty {
+        // Never fall back to the debug key once a release key is given.
+        throw GradleException("$name is not set; it is needed with ANDROID_RELEASE_KEYSTORE")
+    }
+
 android {
     namespace = "io.github.rodrigofabreu.signalhub"
     compileSdk = flutter.compileSdkVersion
@@ -29,11 +40,21 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (releaseKeystore.isNotEmpty()) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = releaseSetting("ANDROID_RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = releaseSetting("ANDROID_RELEASE_KEY_ALIAS")
+                keyPassword = releaseSetting("ANDROID_RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // SignalHub is self-hosted and not published to a store, so release
-            // builds are signed with the local debug key; see client/README.md.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig =
+                signingConfigs.getByName(if (releaseKeystore.isEmpty()) "debug" else "release")
         }
     }
 }

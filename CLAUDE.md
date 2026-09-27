@@ -53,7 +53,8 @@ and the Flutter client app
 in `client/` (setup with a client key, push registration and reception, with
 the server's push options when the build has none, the
 event inbox and event details, read state, push preferences, and its build
-and commit on the *This device* screen), and the
+and commit on the *This device* screen; every release attaches it as an
+Android APK signed with SignalHub's release key), and the
 Python producer package and `signalhub` command in `sdk/python/` (its wheel
 attached to every release, reporting that release), and
 integration examples for unrelated producers in `examples/`, which use only

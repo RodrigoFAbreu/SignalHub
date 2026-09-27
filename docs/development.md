@@ -112,9 +112,24 @@ On every push to `main`:
    into a new virtual environment and checks that `signalhub --version`
    prints `SignalHub X.Y.Z`. A `SHA256SUMS` file lists the checksums of the
    deployment files and the SDK's files.
-8. `gh release create` tags the commit and publishes a GitHub release whose
-   notes name the image and its digest, followed by the generated notes,
-   with the deployment files, the SDK's files and `SHA256SUMS` attached.
+8. In parallel with the image, `scripts/release/app_files.py` builds the
+   Android app, `SignalHub-X.Y.Z.apk`, from the commit: a release-mode APK
+   with `versionName` `X.Y.Z`, a `versionCode` derived from the version
+   (below), the version and commit compiled in for the *This device*
+   screen, and no Firebase options (the app reads its server's). It is
+   signed with SignalHub's release key, which the job rebuilds from the
+   repository's secrets (below) in a directory it removes at its end. The
+   script then checks the APK: package, `versionName`, `versionCode`, not
+   debuggable, the commit in the compiled code, a valid v2 or v3 signature
+   by exactly one signer, and that signer being the release key's
+   certificate, never a debug key. GitHub records a build provenance
+   attestation for it (`gh attestation verify SignalHub-X.Y.Z.apk --repo
+   RodrigoFAbreu/SignalHub`). Without the key the release fails before
+   tagging; it never attaches an unsigned or debug-signed app.
+9. `gh release create` tags the commit and publishes a GitHub release whose
+   notes name the image and its digest and the app's signing certificate,
+   followed by the generated notes, with the deployment files, the SDK's
+   files, the app and `SHA256SUMS` (all of them) attached.
 
 The release is complete only when its GitHub release exists. If a run fails
 after pushing the image but before the GitHub release, the version is not
@@ -123,8 +138,15 @@ next merge's run, builds and pushes that version's image again from its own
 commit. An image tag of a published release is never pushed again, because
 the next run computes a higher version. The deployment files name the image
 by its digest, so they run exactly the image the release checked. Releases
-up to v1.1.0 attach no deployment files, and releases up to v1.2.0 no SDK
-files.
+up to v1.1.0 attach no deployment files, releases up to v1.2.0 no SDK
+files, and releases up to v1.6.0 no app.
+
+The app's `versionCode` is `MAJOR × 1000000 + MINOR × 1000 + PATCH`
+(`1.7.0` is `1007000`), so every release's is higher than the one before
+and Android installs it as an update. The script refuses a version with a
+`MINOR` or `PATCH` above 999, which the rule could not order; a release
+reaching one needs a new rule first. Local builds keep `pubspec.yaml`'s
+build number, 1.
 
 The first release that publishes an image creates the GHCR package
 `signalhub`, private at first. Making it public, so that pulling needs no
@@ -136,7 +158,10 @@ Pull requests build the image the same way on both platforms (the
 `Backend image (release build)` jobs), with the test version `0.0.0-ci`, and
 run the same checks, without pushing. The `Python (lint + test)` job builds
 the SDK's files with `sdk_files.py` and the test version `0.0.0+ci` (a
-version Python packaging accepts). The upgrade and fresh-install jobs pack
+version Python packaging accepts). The `Client (analyze + test + Android
+build)` job builds and checks the app with `app_files.py` and the test
+version `0.0.0-ci` (`versionCode` 1), signed with a throwaway key it makes
+for the run. The upgrade and fresh-install jobs pack
 deployment files naming that image and install from them, as operators do
 with a release's. Any other build of the image, such as
 `docker compose up --build`, has no version and reports itself as a
@@ -726,7 +751,7 @@ dart format --output=none --set-exit-if-changed .   # formatting check (`dart fo
 flutter analyze                               # static analysis (lints in analysis_options.yaml)
 shellcheck icon/render.sh                     # the app icon's render script (see client/README.md)
 flutter test                                  # unit and widget tests
-flutter build apk --debug                     # Android build
+flutter build apk --debug                     # Android build (CI builds the release APK instead, below)
 flutter build ios --debug --no-codesign       # iOS build (macOS only)
 ```
 
@@ -849,7 +874,10 @@ dart format --output=none --set-exit-if-changed .
 flutter analyze
 shellcheck icon/render.sh
 flutter test
-flutter build apk --debug
+# The release's APK and its checks, as CI does (needs the Android SDK and a
+# key in ANDROID_RELEASE_KEYSTORE and the other variables of app_files.py;
+# run from the repository's root):
+#   python3 scripts/release/app_files.py 0.0.0-ci "$(git rev-parse HEAD)" "$(mktemp -d)"
 flutter build ios --debug --no-codesign
 
 # Backend (needs Docker)
@@ -943,8 +971,10 @@ Two versions have to follow others by hand:
   [deployment.md](deployment.md#a-new-postgresql-major-version)), never a routine
   update.
 - **Flutter.** No Dependabot ecosystem updates the Flutter SDK.
-  `FLUTTER_VERSION` in `.github/workflows/ci.yml` and the version under
-  [Client](#client) are raised together by hand, from the stable releases;
+  `FLUTTER_VERSION` in `.github/workflows/ci.yml` and
+  `.github/workflows/release.yml` (a test in `scripts/release` fails while
+  they differ) and the version under [Client](#client) are raised together
+  by hand, from the stable releases;
   the packages in `client/pubspec.lock` are tracked by `pub`.
 
 ## Repository settings (GitHub)
@@ -966,3 +996,12 @@ repository:
   Require branches to be up to date before merging.
 - Actions workflow permissions must allow `contents: write` for the release
   job (it requests this explicitly).
+- The Android release key (decision D6) in four repository secrets
+  (*Settings → Secrets and variables → Actions*), which only the release
+  workflow's `app` job reads: `ANDROID_RELEASE_KEYSTORE_BASE64` (the
+  keystore file, base64), `ANDROID_RELEASE_KEYSTORE_PASSWORD`,
+  `ANDROID_RELEASE_KEY_ALIAS` and `ANDROID_RELEASE_KEY_PASSWORD`. They are
+  the maintainer's; the keystore is never committed, and its offline backup
+  is the only way to replace them. Losing the key means official installs
+  can no longer be updated (see
+  [client/README.md](../client/README.md#signing)).

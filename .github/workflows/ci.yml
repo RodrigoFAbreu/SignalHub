@@ -121,9 +121,27 @@ jobs:
       - run: flutter analyze
       - run: shellcheck icon/render.sh
       - run: flutter test
-      # Without Firebase options the app builds and runs without push, so no
-      # credentials are needed here.
-      - run: flutter build apk --debug
+      # The release's app build and its checks (scripts/release/app_files.py),
+      # signed with a throwaway key made here, so the release build cannot
+      # break unnoticed. No Firebase options: the app reads its server's.
+      - name: Build the release APK as the release does
+        working-directory: .
+        run: |
+          signing="$RUNNER_TEMP/signing"
+          mkdir --mode=700 "$signing"
+          ANDROID_RELEASE_KEYSTORE="$signing/throwaway.jks"
+          ANDROID_RELEASE_KEYSTORE_PASSWORD=$(openssl rand -hex 24)
+          echo "::add-mask::$ANDROID_RELEASE_KEYSTORE_PASSWORD"
+          ANDROID_RELEASE_KEY_PASSWORD=$ANDROID_RELEASE_KEYSTORE_PASSWORD
+          ANDROID_RELEASE_KEY_ALIAS=throwaway
+          export ANDROID_RELEASE_KEYSTORE ANDROID_RELEASE_KEYSTORE_PASSWORD ANDROID_RELEASE_KEY_ALIAS ANDROID_RELEASE_KEY_PASSWORD
+          keytool -genkeypair -keystore "$ANDROID_RELEASE_KEYSTORE" -storetype PKCS12 \
+            -alias "$ANDROID_RELEASE_KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 1 \
+            -dname "CN=SignalHub CI throwaway key" \
+            -storepass:env ANDROID_RELEASE_KEYSTORE_PASSWORD -keypass:env ANDROID_RELEASE_KEY_PASSWORD
+          mkdir "$RUNNER_TEMP/app"
+          python3 scripts/release/app_files.py 0.0.0-ci "$(git rev-parse HEAD)" "$RUNNER_TEMP/app"
+          rm -rf "$signing"
 
   client-ios:
     name: Client (iOS build)
