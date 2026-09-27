@@ -46,6 +46,8 @@ PUSH_SWITCH = "Push notifications"
 MARK_READ = "Mark as read"
 MARK_UNREAD = "Mark as unread"
 EVENT_SCREEN_TITLE = "Event"
+# Buttons only the setup screen shows.
+SETUP_LABELS = ("Scan pairing code", "Connect")
 
 PUSH_WAIT = 90.0
 QUIET_WAIT = 20.0
@@ -638,7 +640,8 @@ def check_connected_start(review: Review) -> str:
     device.start_app()
     device.wait_for("SignalHub", exact=True)
     nodes = device.nodes()
-    if find_node(nodes, "Connect", exact=True):
+    # Manual setup's Connect may be below the fold; pairing comes first.
+    if any(find_node(nodes, label, exact=True) for label in SETUP_LABELS):
         raise CheckFailed("the app shows its setup screen, not the inbox")
     shown, unread = unread_badge(nodes), review.server.unread()
     if shown != unread:

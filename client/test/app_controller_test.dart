@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:signalhub_client/src/api/signalhub_api.dart';
 import 'package:signalhub_client/src/app_controller.dart';
+import 'package:signalhub_client/src/connection/pairing_uri.dart';
 import 'package:signalhub_client/src/connection/server_credentials.dart';
 import 'package:signalhub_client/src/models/client_registration.dart';
 import 'package:signalhub_client/src/push/push_registration.dart';
@@ -24,6 +26,7 @@ void main() {
     store: store,
     apiFactory: (credentials) =>
         backend.api(credentials.baseUrl, credentials.clientKey),
+    redeemPairing: backend.redeemPairing,
     push: withPush ? push : null,
   );
 
@@ -33,6 +36,7 @@ void main() {
         store: store,
         apiFactory: (credentials) =>
             backend.api(credentials.baseUrl, credentials.clientKey),
+        redeemPairing: backend.redeemPairing,
         startServedPush: starter.call,
       );
 
@@ -85,6 +89,80 @@ void main() {
 
     expect(error, contains('server address'));
     expect(backend.requests, isEmpty);
+  });
+
+  group('pairing', () {
+    setUp(() {
+      backend
+        ..acceptedKey = null
+        ..pairingCodes.add(pairingCode)
+        ..publish('e-1', 'Build failed');
+    });
+
+    test('registers this device and connects with its own key', () async {
+      final app = controller();
+
+      final error = await app.pair(pairingUri);
+
+      expect(error, isNull);
+      expect(app.phase, ConnectionPhase.connected);
+      expect(store.saved?.baseUrl, serverUrl);
+      expect(store.saved?.clientKey, pairedClientKey);
+      expect(app.registration?.name, 'Pixel 8');
+      expect(app.events.single.title, 'Build failed');
+      expect(app.pushStatus, PushStatus.registered);
+      expect(backend.pushToken, 'device-token-1');
+      // The redemption answers the registration: it is not read again.
+      expect(
+        backend.requests.where((r) => r.url.path == '/api/v1/client'),
+        isEmpty,
+      );
+    });
+
+    test('a used code says so and saves nothing', () async {
+      // Another device redeemed it first.
+      await backend.redeemPairing(serverUrl, pairingCode);
+      final app = controller();
+
+      final error = await app.pair(pairingUri);
+
+      expect(error, const PairingRejectedException().message);
+      expect(app.phase, isNot(ConnectionPhase.connected));
+      expect(store.saved, isNull);
+    });
+
+    test('an unreachable server is named', () async {
+      backend.offline = true;
+      final app = controller();
+
+      final error = await app.pair(pairingUri);
+
+      expect(error, 'Could not reach the server ($serverUrl)');
+      expect(store.saved, isNull);
+      // The code was not used: pairing works once the server is reachable.
+      backend.offline = false;
+      expect(await app.pair(pairingUri), isNull);
+    });
+
+    test('anything but a pairing link is reported without a request', () async {
+      final app = controller();
+
+      final error = await app.pair(clientKey);
+
+      expect(error, PairingUri.invalid);
+      expect(backend.requests, isEmpty);
+    });
+
+    test('a device paired and then revoked returns to setup', () async {
+      final app = controller();
+      await app.pair(pairingUri);
+      backend.acceptedKey = null;
+
+      await app.refresh();
+
+      expect(app.phase, ConnectionPhase.disconnected);
+      expect(store.saved, isNull);
+    });
   });
 
   test('restarts connected with saved credentials', () async {
@@ -198,6 +276,7 @@ void main() {
         store: store,
         apiFactory: (credentials) =>
             backend.api(credentials.baseUrl, credentials.clientKey),
+        redeemPairing: backend.redeemPairing,
         push: push,
         startServedPush: starter.call,
       );

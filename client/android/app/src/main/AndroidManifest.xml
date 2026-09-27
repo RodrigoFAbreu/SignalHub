@@ -3,6 +3,9 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Shows push notifications on Android 13 and later. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Scans a pairing code; asked for only when the owner opens the scanner. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
         android:label="SignalHub"
         android:name="${applicationName}"

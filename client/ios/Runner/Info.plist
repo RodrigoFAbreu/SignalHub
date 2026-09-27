@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>SignalHub uses the camera only to scan the pairing code that sets up this device.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<!-- Plain HTTP only to local addresses, for development against a

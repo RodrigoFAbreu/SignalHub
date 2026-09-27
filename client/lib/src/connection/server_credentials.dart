@@ -7,13 +7,8 @@ class ServerCredentials {
   /// Validates what the owner typed. Throws [FormatException] with a message
   /// fit for the setup screen.
   factory ServerCredentials.parse(String serverUrl, String clientKey) {
-    final url = serverUrl.trim();
-    final uri = Uri.tryParse(url);
-    if (uri == null ||
-        !(uri.isScheme('https') || uri.isScheme('http')) ||
-        uri.host.isEmpty ||
-        uri.hasQuery ||
-        uri.hasFragment) {
+    final url = parseServerUrl(serverUrl);
+    if (url == null) {
       throw const FormatException(
         'Enter the server address, for example https://signalhub.example.org',
       );
@@ -26,7 +21,22 @@ class ServerCredentials {
         'Enter a client key (it starts with $clientKeyPrefix)',
       );
     }
-    return ServerCredentials._(_withoutTrailingSlash(url), key);
+    return ServerCredentials._(url, key);
+  }
+
+  /// The server address without a trailing slash, or `null` if [serverUrl]
+  /// is not an `http` or `https` address without query or fragment.
+  static String? parseServerUrl(String serverUrl) {
+    final url = serverUrl.trim();
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        !(uri.isScheme('https') || uri.isScheme('http')) ||
+        uri.host.isEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      return null;
+    }
+    return _withoutTrailingSlash(url);
   }
 
   static const clientKeyPrefix = 'shck1_';

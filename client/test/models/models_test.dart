@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:signalhub_client/src/connection/pairing_uri.dart';
 import 'package:signalhub_client/src/connection/server_credentials.dart';
 import 'package:signalhub_client/src/models/client_registration.dart';
 import 'package:signalhub_client/src/models/event.dart';
@@ -214,6 +215,53 @@ void main() {
       expect(
         ServerCredentials.parse('https://example.org', key).toString(),
         isNot(contains('secret')),
+      );
+    });
+  });
+
+  group('PairingUri', () {
+    const code = 'shpc1_Zt1vQ3x9rB2mKc8wYp4aLd';
+
+    test('reads the server and the code the backend put in it', () {
+      final pairing = PairingUri.parse(
+        ' signalhub://pair?server=https%3A%2F%2Fexample.org%2Fhub%2F'
+        '&code=$code ',
+      );
+
+      expect(pairing.serverUrl, 'https://example.org/hub');
+      expect(pairing.code, code);
+    });
+
+    for (final text in [
+      '',
+      code,
+      'https://example.org/api/v1/pairing?code=$code',
+      'signalhub://other?server=https%3A%2F%2Fexample.org&code=$code',
+      'signalhub://pair?code=$code',
+      'signalhub://pair?server=example.org&code=$code',
+      'signalhub://pair?server=https%3A%2F%2Fexample.org',
+      'signalhub://pair?server=https%3A%2F%2Fexample.org&code=shck1_abc_x',
+    ]) {
+      test('rejects "$text"', () {
+        expect(
+          () => PairingUri.parse(text),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              PairingUri.invalid,
+            ),
+          ),
+        );
+      });
+    }
+
+    test('never shows the code in toString', () {
+      expect(
+        PairingUri.parse(
+          'signalhub://pair?server=https%3A%2F%2Fexample.org&code=$code',
+        ).toString(),
+        isNot(contains(code)),
       );
     });
   });

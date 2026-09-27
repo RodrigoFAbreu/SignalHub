@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:signalhub_client/src/api/signalhub_api.dart';
 import 'package:signalhub_client/src/app.dart';
 import 'package:signalhub_client/src/app_controller.dart';
 import 'package:signalhub_client/src/build_identity.dart';
+import 'package:signalhub_client/src/connection/pairing_uri.dart';
 import 'package:signalhub_client/src/push/push_registration.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
 
@@ -22,6 +24,7 @@ void main() {
       store: InMemoryCredentialsStore(),
       apiFactory: (credentials) =>
           backend.api(credentials.baseUrl, credentials.clientKey),
+      redeemPairing: backend.redeemPairing,
       push: push,
     );
   });
@@ -30,6 +33,8 @@ void main() {
     await tester.pumpWidget(SignalHubApp(controller: controller));
     await tester.runAsync(controller.start);
     await tester.pump();
+    // Manual setup comes after pairing, below the fold.
+    await tester.ensureVisible(find.byKey(const Key('connect')));
     await tester.enterText(find.byKey(const Key('serverUrl')), serverUrl);
     await tester.enterText(find.byKey(const Key('clientKey')), key);
     await tester.tap(find.byKey(const Key('connect')));
@@ -47,6 +52,102 @@ void main() {
 
     expect(find.text('Nightly build failed'), findsOneWidget);
     expect(find.text('Blocked · High · nightly-build'), findsOneWidget);
+  });
+
+  group('pairing', () {
+    setUp(() {
+      backend
+        ..acceptedKey = null
+        ..pairingCodes.add(pairingCode);
+    });
+
+    Future<void> showSetup(
+      WidgetTester tester, {
+      String? scanned,
+      void Function()? onScan,
+    }) async {
+      await tester.pumpWidget(
+        SignalHubApp(
+          controller: controller,
+          scanner: (context) async {
+            onScan?.call();
+            return scanned;
+          },
+        ),
+      );
+      await tester.runAsync(controller.start);
+      await tester.pump();
+    }
+
+    testWidgets('a scanned code sets up the device', (tester) async {
+      await showSetup(tester, scanned: pairingUri);
+
+      await tester.tap(find.byKey(const Key('scanPairing')));
+      await settle(tester);
+
+      expect(find.text('Nightly build failed'), findsOneWidget);
+      expect(backend.acceptedKey, pairedClientKey);
+    });
+
+    testWidgets('going back from the scanner stays on setup', (tester) async {
+      var scans = 0;
+      await showSetup(tester, onScan: () => scans++);
+
+      await tester.tap(find.byKey(const Key('scanPairing')));
+      await settle(tester);
+
+      expect(scans, 1);
+      expect(find.byKey(const Key('pairingUri')), findsOneWidget);
+      expect(backend.requests, isEmpty);
+    });
+
+    testWidgets('a pasted link sets up the device', (tester) async {
+      await showSetup(tester);
+
+      await tester.enterText(find.byKey(const Key('pairingUri')), pairingUri);
+      await tester.tap(find.byKey(const Key('pair')));
+      await settle(tester);
+
+      expect(find.text('Nightly build failed'), findsOneWidget);
+    });
+
+    testWidgets('an expired or used code says so', (tester) async {
+      backend.pairingCodes.clear();
+      await showSetup(tester, scanned: pairingUri);
+
+      await tester.tap(find.byKey(const Key('scanPairing')));
+      await settle(tester);
+
+      expect(
+        find.text(const PairingRejectedException().message),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('an unreachable server says so', (tester) async {
+      backend.offline = true;
+      await showSetup(tester, scanned: pairingUri);
+
+      await tester.tap(find.byKey(const Key('scanPairing')));
+      await settle(tester);
+
+      expect(
+        find.text('Could not reach the server ($serverUrl)'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('another QR code is not taken for a pairing code', (
+      tester,
+    ) async {
+      await showSetup(tester, scanned: 'https://example.org');
+
+      await tester.tap(find.byKey(const Key('scanPairing')));
+      await settle(tester);
+
+      expect(find.text(PairingUri.invalid), findsOneWidget);
+      expect(backend.requests, isEmpty);
+    });
   });
 
   testWidgets('an unreachable server is the one message shown', (tester) async {
@@ -82,6 +183,7 @@ void main() {
     store: InMemoryCredentialsStore(),
     apiFactory: (credentials) =>
         backend.api(credentials.baseUrl, credentials.clientKey),
+    redeemPairing: backend.redeemPairing,
     push: push = FakePushService(),
     build: build,
   );
@@ -108,6 +210,7 @@ void main() {
         store: InMemoryCredentialsStore(),
         apiFactory: (credentials) =>
             backend.api(credentials.baseUrl, credentials.clientKey),
+        redeemPairing: backend.redeemPairing,
         startServedPush: starter.call,
       );
 
