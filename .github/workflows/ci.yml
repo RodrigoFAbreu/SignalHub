@@ -626,6 +626,7 @@ jobs:
             echo "ADMIN_TOKEN=$admin_token"
           } >> "$GITHUB_ENV"
           cd "$previous_dir"
+          echo "PREVIOUS_POSTGRES=$(sed -n 's/^ *image: postgres:\([0-9]*\).*/\1/p' compose.yaml)" >> "$GITHUB_ENV"
           docker compose up --wait --wait-timeout 180
       - name: Store a producer, a client and a read event
         run: |
@@ -673,6 +674,27 @@ jobs:
           # beside the .env of an install from a checkout; .env stays.
           tar --extract --file "$RUNNER_TEMP/signalhub-0.0.0-ci-deployment.tar.gz" --directory "$INSTALL"
           cd "$INSTALL"
+          postgres=$(sed -n 's/^ *image: postgres:\([0-9]*\).*/\1/p' compose.yaml)
+          if [ "$postgres" != "$PREVIOUS_POSTGRES" ]; then
+            echo "PostgreSQL $PREVIOUS_POSTGRES to $postgres, as docs/deployment.md#a-new-postgresql-major-version"
+            # The new major version refuses the old volume and leaves its data alone.
+            if docker compose up --wait --wait-timeout 60; then
+              echo "PostgreSQL $postgres started on a volume of $PREVIOUS_POSTGRES"; exit 1
+            fi
+            docker compose logs postgres | grep 'there appears to be PostgreSQL data in' > /dev/null
+            docker compose down
+            image=$(sed -n 's/^ *image: \(postgres:.*\)/\1/p' compose.yaml)
+            docker run --rm --volume signalhub_postgres-data:/data "$image" \
+              grep -qx "$PREVIOUS_POSTGRES" /data/PG_VERSION  # BusyBox grep
+            # The move: the backup of the previous step, restored into a new volume.
+            docker volume rm signalhub_postgres-data
+            docker compose up --wait --wait-timeout 120 postgres
+            docker compose exec -T postgres sh -c \
+              'pg_restore --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-owner --no-privileges --exit-on-error --single-transaction' \
+              < "$RUNNER_TEMP/signalhub.dump"
+            docker compose exec -T postgres sh -c 'psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --tuples-only --no-align --command "SHOW server_version_num"' \
+              | grep --quiet "^$postgres"
+          fi
           docker compose up --wait --wait-timeout 180
           docker compose ps --format '{{.Service}}: {{.Health}}' | sort | tee "$RUNNER_TEMP/health"
           test "$(cat "$RUNNER_TEMP/health")" = "$(printf 'backend: healthy\npostgres: healthy')"

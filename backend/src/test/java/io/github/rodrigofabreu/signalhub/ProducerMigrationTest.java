@@ -26,7 +26,7 @@ class ProducerMigrationTest {
 
   @BeforeAll
   static void startPostgres() {
-    postgres = new PostgreSQLContainer("postgres:17-alpine");
+    postgres = new PostgreSQLContainer("postgres:18-alpine");
     postgres.start();
   }
 

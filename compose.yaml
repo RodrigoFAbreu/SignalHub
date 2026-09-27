@@ -12,14 +12,17 @@ name: signalhub
 
 services:
   postgres:
-    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${SIGNALHUB_DB_NAME:-signalhub}
       POSTGRES_USER: ${SIGNALHUB_DB_USERNAME:-signalhub}
       POSTGRES_PASSWORD: ${SIGNALHUB_DB_PASSWORD:?set SIGNALHUB_DB_PASSWORD, see .env.example}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # From PostgreSQL 18 on, the data lives in a directory named for its
+      # major version below this mount. PostgreSQL 18 refuses to start on a
+      # volume of 17, which keeps its data; see docs/deployment.md.
+      - postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready --username \"$$POSTGRES_USER\" --dbname \"$$POSTGRES_DB\""]
       interval: 5s

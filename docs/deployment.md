@@ -337,15 +337,53 @@ restore.
 
 ### A new PostgreSQL major version
 
-`compose.yaml` pins PostgreSQL's major version (17), and a database
+`compose.yaml` pins PostgreSQL's major version (18), and a database
 volume works only with the major version that created it. A release that
-moves to a new major version says so in its notes; PostgreSQL refuses to
-start on the old volume, so nothing is lost, but the stack does not start
-until the data is moved. Back up while the old release is still running
-(step 2), get the new release's deployment files (step 3), and then
-restore into the new, empty database: the restore commands of
-[Backup and restore](architecture.md#backup-and-restore), from
-`docker compose down` on.
+moves to a new major version is marked breaking (`!`) and says so in its
+notes: PostgreSQL refuses to start on the old volume, so nothing is lost,
+but the stack does not start until the data is moved. The move is a backup
+and a restore into a new, empty volume, as in
+[Backup and restore](architecture.md#backup-and-restore); CI moves a stack
+with data this way on every change that changes the major version (the
+`Backend container (upgrade from ...)` jobs).
+
+From PostgreSQL 17 (releases up to v1.7.1) to 18 (v2.0.0 and later):
+18 keeps its data in a directory named for its major version, so
+`compose.yaml` mounts the volume at `/var/lib/postgresql` instead of
+`/var/lib/postgresql/data`. On the volume of 17, PostgreSQL 18 exits at
+once with `Error: in 18+, these Docker images are configured to store
+database data in a format which is compatible with "pg_ctlcluster"`, and
+the backend waits for it. In the install's directory, with the old release
+still running:
+
+```sh
+backup=signalhub-$(date +%F).dump
+docker compose exec -T postgres sh -c \
+  'pg_dump --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --format=custom' \
+  > "$backup"                                                        # step 2
+docker compose exec -T postgres pg_restore --list < "$backup" > /dev/null   # fails if unreadable
+docker compose down
+tar --extract --file signalhub-2.0.0-deployment.tar.gz               # step 3, the new release
+docker compose pull
+docker volume rm signalhub_postgres-data                             # the database of 17
+docker compose up --wait postgres                                    # an empty database of 18
+docker compose exec -T postgres sh -c \
+  'pg_restore --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-owner --no-privileges --exit-on-error --single-transaction' \
+  < "$backup"
+docker compose up --wait                                             # the backend migrates as usual
+```
+
+Keep the backup until the new release has run to your satisfaction:
+after `docker volume rm`, it is the only copy of the data. If `docker
+compose up` was run with the new files first, PostgreSQL 18 refused to
+start and the volume still holds 17's data; run `docker compose down`,
+unpack the old release's files again, start it, and begin again with the
+backup.
+Rolling back to a release with PostgreSQL 17 is
+[rolling back](#rolling-back): its files and the backup, restored into a
+new volume the same way. Events published after the backup are gone
+either way, so stop producers, or accept losing what they publish during
+the move.
 
 ## Health monitoring
 

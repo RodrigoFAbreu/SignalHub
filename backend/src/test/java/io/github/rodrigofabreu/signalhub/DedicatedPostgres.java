@@ -15,7 +15,7 @@ public class DedicatedPostgres implements QuarkusTestResourceLifecycleManager {
 
   @Override
   public Map<String, String> start() {
-    container = new PostgreSQLContainer("postgres:17-alpine");
+    container = new PostgreSQLContainer("postgres:18-alpine");
     container.start();
     // An explicit URL also keeps Dev Services from starting a second database.
     return Map.of(

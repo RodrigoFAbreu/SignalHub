@@ -1469,7 +1469,7 @@ Implementation expectations:
   framework: a few bearer-token checks do not justify one.
   Cross-cutting HTTP concerns (strict JSON reading, error bodies, identifier
   rules) live in `api`.
-- **Deployment:** `compose.yaml` runs the backend and PostgreSQL 17 with a
+- **Deployment:** `compose.yaml` runs the backend and PostgreSQL 18 with a
   named volume. The backend starts after the database is healthy and is
   itself health-checked through readiness. Its `proxy` profile adds Caddy
   as the TLS reverse proxy, chosen because it obtains and renews
