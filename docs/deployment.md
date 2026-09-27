@@ -81,16 +81,19 @@ operator on the host ──http://localhost:8080──▶ backend (management AP
    [client/README.md](../client/README.md#install-a-release)), then pair
    it with a pairing code, scanned in the app's **Scan pairing code** within
    10 minutes. The simplest way to make one is the
-   [Connect page](architecture.md#the-connect-page), on the host only: from
+   [admin page](architecture.md#the-admin-page), on the host only: from
    your computer, forward its port over SSH and open it in a browser:
 
    ```sh
    ssh -L 8080:localhost:8080 you@signalhub-host   # keep it open
-   # then open http://localhost:8080/connect/ and enter the admin token
+   # then open http://localhost:8080/admin/ and enter the admin token
    ```
 
-   It shows the code as a QR code until it expires, and copies it as an
-   image or a link to send to whoever should connect a device. On the host
+   Under **Connect a device** it shows the code as a QR code until it
+   expires, and copies it as an image or a link to send to whoever should
+   connect a device; tick **Pair it as an admin device** for your own
+   phone. The page also lists every device, to rename it, make it an admin
+   or take admin rights away, and revoke it. On the host
    itself, a terminal does the same (see
    [Pairing a device](development.md#pairing-a-device)):
 
@@ -170,8 +173,9 @@ Not reachable from other machines:
   [Pairing a device](development.md#pairing-a-device)). A pairing's URI names
   `https://` and `SIGNALHUB_DOMAIN`, or `SIGNALHUB_PUBLIC_URL` if set in
   `.env`. Listing events with the admin token still works through the proxy.
-- **The Connect page** (`/connect/`): creates pairing codes with the admin
-  token, like the management API, so it is on `127.0.0.1:8080` only too;
+- **The admin page** (`/admin/`, and `/connect/`, which leads to it): lists
+  and changes devices and creates pairing codes with the admin token, like
+  the management API, so it is on `127.0.0.1:8080` only too;
   reach it from another computer through SSH (see step 6 of
   [Setup](#setup)).
 - **Health, metrics and OpenAPI** (`/q/`): on `127.0.0.1:8080` only, for

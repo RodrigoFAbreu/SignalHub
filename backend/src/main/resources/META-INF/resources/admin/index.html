@@ -1,0 +1,82 @@
+<!doctype html>
+<!--
+  The admin page: the operator's devices and pairing codes (docs/architecture.md#the-admin-page).
+  Served only on the backend's own port, never through the proxy. It is static; everything it does
+  goes through the management API with the admin token typed here, which stays in this page's
+  memory.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Admin - SignalHub</title>
+    <link rel="stylesheet" href="admin.css" />
+    <script src="/webjars/qrcode-generator/1.4.4/qrcode.js" defer></script>
+    <script src="admin.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <h1>SignalHub admin</h1>
+      <p class="lead">
+        Your devices: rename them, make them admins or take admin rights away, revoke them, and
+        connect new ones with a pairing code.
+      </p>
+
+      <form id="unlock" autocomplete="off">
+        <label for="token">Admin token</label>
+        <input id="token" type="password" required minlength="32" spellcheck="false" />
+        <button type="submit">Show devices</button>
+        <p id="error" class="error" role="alert" hidden></p>
+      </form>
+
+      <div id="admin" hidden>
+        <section aria-labelledby="devices-title">
+          <div class="heading">
+            <h2 id="devices-title">Devices</h2>
+            <button type="button" id="refresh" class="secondary">Refresh</button>
+          </div>
+          <p id="devices-error" class="error" role="alert" hidden></p>
+          <ul id="devices"></ul>
+        </section>
+
+        <section aria-labelledby="connect-title">
+          <h2 id="connect-title">Connect a device</h2>
+          <form id="create" autocomplete="off">
+            <label for="name">Device name</label>
+            <input id="name" type="text" required maxlength="100" value="New device" />
+            <label class="check">
+              <input id="pair-admin" type="checkbox" />
+              Pair it as an admin device
+            </label>
+            <button type="submit">Create pairing code</button>
+            <p id="pair-error" class="error" role="alert" hidden></p>
+          </form>
+
+          <div id="pairing" hidden aria-live="polite">
+            <h3>Pairing code for <span id="pairing-name"></span></h3>
+            <p id="pairing-admin" hidden>It will be an admin device.</p>
+            <div id="qr-box">
+              <canvas id="qr" width="320" height="320" aria-label="Pairing QR code"></canvas>
+              <p id="expired-cover" hidden>Expired. Create a new code.</p>
+            </div>
+            <p id="countdown"></p>
+            <label for="link">Pairing link</label>
+            <input id="link" type="text" readonly spellcheck="false" />
+            <div class="actions">
+              <button type="button" id="copy-image" class="secondary">Copy QR image</button>
+              <button type="button" id="copy-link" class="secondary">Copy link</button>
+              <button type="button" id="download" class="secondary">Download QR</button>
+            </div>
+            <p id="status" role="status"></p>
+            <p class="warning">
+              Anyone with this code, its link or a picture of it can connect one device until it is
+              used or expires. Send it only to someone you trust. The device gets its own key, which
+              you can revoke, and your devices get a push when it connects.
+            </p>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

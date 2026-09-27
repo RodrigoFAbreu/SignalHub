@@ -33,9 +33,12 @@ class PairingService {
     this.uris = uris;
   }
 
-  /** Creates a pairing for a new client of this name; its code is returned only here. */
+  /**
+   * Creates a pairing for a new client of this name, an admin device or not; its code is returned
+   * only here.
+   */
   @Transactional
-  IssuedPairing create(String clientName) {
+  IssuedPairing create(String clientName, boolean admin) {
     var now = now();
     // Expired pairings are cleared here rather than on a timer: they no longer redeem either way.
     pairings.deleteExpired(now);
@@ -45,11 +48,15 @@ class PairingService {
             UuidVersion7Strategy.INSTANCE.generateUuid(null),
             ApiKeys.hash(code),
             clientName,
+            admin,
             now,
             now.plus(LIFETIME));
     pairings.persist(pairing);
-    LOG.infof("Created pairing %s, expires at %s", pairing.id(), pairing.expiresAt());
-    return new IssuedPairing(clientName, code, pairing.expiresAt(), uris.of(code).orElse(null));
+    LOG.infof(
+        "Created pairing %s%s, expires at %s",
+        pairing.id(), admin ? " for an admin device" : "", pairing.expiresAt());
+    return new IssuedPairing(
+        clientName, admin, code, pairing.expiresAt(), uris.of(code).orElse(null));
   }
 
   /**
@@ -73,7 +80,7 @@ class PairingService {
       return Optional.empty();
     }
     pairings.delete(pairing.get());
-    var issued = clients.create(pairing.get().clientName());
+    var issued = clients.create(pairing.get().clientName(), pairing.get().admin());
     LOG.infof("Redeemed pairing %s as client %s", pairing.get().id(), issued.client().id());
     return Optional.of(issued);
   }

@@ -635,7 +635,8 @@ the same for every platform.
 | Field | Meaning |
 |---|---|
 | `id` | Server-generated canonical ID (UUIDv7). |
-| `name` | Human-readable label chosen by the owner, e.g. `Pixel 8`. 1–100 characters, not blank. Need not be unique. |
+| `name` | Human-readable label chosen by the owner, e.g. `Pixel 8`. 1–100 characters, not blank. Need not be unique. The operator can rename a client. |
+| `admin` | Whether the client is one of the owner's [admin devices](#admin-devices). `false` unless the operator makes it one. |
 | `createdAt` | When it was registered. |
 | `revokedAt` | Set once the client is revoked; `null` while it is active. |
 | `pushTarget` | `{provider, updatedAt}`, or `null` if the client has no push target. |
@@ -663,8 +664,47 @@ installation, so rotating it means registering the installation again as a
 new client and revoking the old one. Revocation is permanent and immediate.
 
 **What a client key may do:** read the event listing, and read and change its
-own registration (push target and push preferences) under `/api/v1/client`. It cannot publish, manage producers
+own registration (push target and push preferences) under `/api/v1/client`.
+It cannot rename itself or change whether it is an admin. It cannot publish, manage producers
 or other clients, or see push targets of other clients.
+
+### Admin devices
+
+The operator can make any client an **admin device**, to mark the devices of
+the owner (or of whoever the owner trusts to manage SignalHub) apart from
+devices lent or given to others. Each client response has `admin`, including
+a client's own registration (`GET /api/v1/client`), so an app can tell that
+it is one.
+
+- **Only the operator sets it,** with the admin token: when registering a
+  client or creating a pairing (`"admin": true`, optional, `false` when
+  omitted), or afterwards with `PATCH /api/v1/admin/clients/{id}`
+  (`{"admin": true}` or `{"admin": false}`), usually from the
+  [admin page](#the-admin-page). A client key can never change it.
+- **It grants nothing yet.** Today an admin device reads events and keeps its
+  own registration exactly like any other client; the flag is the record the
+  device management of a later release builds on.
+- **Existing clients are not admins.** `V13__add_client_admin.sql` adds the
+  column with `false` for every client and unredeemed pairing, so upgrading
+  needs no operator action.
+- **Revoking works the same** for an admin device as for any other client.
+
+### Renaming a client
+
+`PATCH /api/v1/admin/clients/{id}` also renames a client (`{"name": "Anna's
+phone"}`), with the same rules as registering (1–100 characters, not blank,
+no NUL); the key keeps working. A body may rename and change `admin`
+together; a field that is omitted or `null` stays as it is, and a body that
+changes nothing is `400`. It answers `200` with the client as `GET` returns
+it (schema `ManagedClient`), `404` for an unknown ID, and **`409 Conflict`
+for a revoked client**, which never changes: it is no longer one of the
+owner's devices, and its name and flag stay the record of what it was.
+Setting a field to the value it has is `200` and changes nothing.
+
+Every change is logged at `INFO` with the client ID only, like registering and
+revoking: `Renamed client <id>`, `Client <id> is now an admin device`,
+`Client <id> is no longer an admin`, and `Registered client <id> as an admin
+device`.
 
 ### Pairing
 
@@ -672,13 +712,15 @@ Pairing lets a new device register itself, so setting it up needs neither
 the admin token on the device nor typing a client key:
 
 1. The operator creates a **pairing** for a client name with the admin token
-   (`POST /api/v1/admin/pairings`, `{"name": "Pixel 8"}`). The response has a
+   (`POST /api/v1/admin/pairings`, `{"name": "Pixel 8"}`, and `"admin": true`
+   to pair an [admin device](#admin-devices)). The response has a
    one-time **pairing code**, when it expires, and a **pairing URI** to show
    as a QR code (for example with `qrencode`, see
    [development.md](development.md#pairing-a-device)).
 2. The device redeems the code once, before it expires:
    `POST /api/v1/pairing` with `Authorization: Bearer <code>` and no body.
-   SignalHub registers a new client of that name, exactly as the management
+   SignalHub registers a new client of that name (an admin device if the
+   pairing said so), exactly as the management
    API does, and returns it with its client key (`201`, the same body as
    registering a client), shown only in that response.
 
@@ -714,30 +756,44 @@ signalhub://pair?server=https%3A%2F%2Fsignalhub.example.com&code=shpc1_Zt1vQ3x9r
   dropped.
 - **Reachable.** `/api/v1/pairing` is outside `/api/v1/admin/`, so the Compose
   proxy forwards it; creating pairings is management and stays on the host.
-- **Nothing provider-specific.** A pairing holds only a client name; push is
+- **Nothing provider-specific.** A pairing holds only a client name and
+  whether it is an admin device; push is
   set up afterwards with the client key, as for any client.
 - **The owner is told.** Once a code is redeemed, the owner's devices get a
   push (see [Pairing notice](#pairing-notice)), so a code that leaked is
   noticed when it is used.
 
-### The Connect page
+### The admin page
 
-`/connect/` is the operator's page for pairings, the same
-`POST /api/v1/admin/pairings` without a terminal: the operator types the
-admin token and a device name, and the page shows the pairing URI as a QR
-code, counts down to its expiry and blurs the code once it has expired. It
-copies the QR code as an image or the URI as text, or downloads the image,
-so the code can be sent to someone whose device should connect.
+`/admin/` is the operator's page for the owner's devices, the management API
+for clients and pairings without a terminal. After the operator types the
+admin token, it shows every client, revoked or not: its name, whether it is
+an admin, when it was created or revoked, whether it has a push target, and
+its last push results (`pushStatus`). For each device that is not revoked,
+it can:
+
+- **Rename** it, so the owner can tell whose or what each device is;
+- **Make it an admin** or **take admin rights away** (see
+  [Admin devices](#admin-devices));
+- **Revoke** it, admin devices included, after a confirmation.
+
+**Connect a device** creates a pairing for a device name, optionally as an
+admin device, and shows the pairing URI as a QR code, counts down to its
+expiry and blurs the code once it has expired. It copies the QR code as an
+image or the URI as text, or downloads the image, so the code can be sent to
+someone whose device should connect. The device list is read again after
+every change and with **Refresh**, for example once a device has paired.
 
 - **On the host only.** The page is on the backend's own port, like `/q/`
   and the management API; the Compose proxy forwards only `/api/`, so it
   never reaches other machines. From another computer, reach it through SSH
-  (`ssh -L 8080:localhost:8080 <host>`, then `http://localhost:8080/connect/`).
+  (`ssh -L 8080:localhost:8080 <host>`, then `http://localhost:8080/admin/`).
 - **Static, and nothing without the token.** The page and its script are
-  static files; everything it does is the management API call, with the
-  token typed into the page. Without the admin token, or with the management
-  API off, it shows the error and nothing else. The token stays in the page's
-  memory: it is not stored, and is gone when the tab closes.
+  static files; everything it does is a management API call, with the token
+  typed into the page. Without the admin token, or with the management API
+  off, it shows the error and nothing else. The token stays in the page's
+  memory: it is not stored, and is gone when the tab closes. Device names
+  are shown as text, never as HTML.
 - **Locked down.** The page runs only its own scripts (a
   `Content-Security-Policy` of `default-src 'none'`, with `'self'` for
   scripts, styles and requests), cannot be framed, is never cached and sends
@@ -750,8 +806,11 @@ so the code can be sent to someone whose device should connect.
   until the code is used or expires. The page says so next to the buttons.
   The device is revoked like any other client, and the owner's devices are
   told when it connects.
-- **It needs `SIGNALHUB_PUBLIC_URL`**, as the URI does; without it, the page
-  says to set it.
+- **It needs `SIGNALHUB_PUBLIC_URL`** for pairing, as the URI does; without
+  it, the page says to set it.
+- **`/connect/`**, the Connect page of earlier releases, is part of this page
+  now: `/connect` and `/connect/` answer `301` to `/admin/`, so bookmarks
+  keep working, and its old files are gone.
 
 ### Pairing notice
 
@@ -761,6 +820,13 @@ other client that has a push target and has not paused pushes:
 ```
 New device paired
 "Pixel 8" can now read your SignalHub events. If you did not pair it, revoke it.
+```
+
+or, when the pairing made an [admin device](#admin-devices):
+
+```
+New admin device paired
+"Pixel 8" is an admin device and can now read your SignalHub events. If you did not pair it, revoke it.
 ```
 
 with the data `{"notice": "client-paired", "clientId": "<the new client>"}`.
@@ -840,13 +906,14 @@ suppressed push is simply not sent to that client.
 
 | Method and path | Credential | Result |
 |---|---|---|
-| `POST /api/v1/admin/clients` | admin token | Registers a client (`{"name": ...}`). `201` with the client and `clientKey`. |
+| `POST /api/v1/admin/clients` | admin token | Registers a client (`{"name": ..., "admin": ...}`, `admin` optional). `201` with the client and `clientKey`. |
 | `GET /api/v1/admin/clients` | admin token | All clients, oldest first, as `{"items": [...]}`, each with its `pushStatus`. |
 | `GET /api/v1/admin/clients/{id}` | admin token | One client, with its `pushStatus`. |
+| `PATCH /api/v1/admin/clients/{id}` | admin token | Renames the client or makes it an admin device or not (`{"name", "admin"}`, each optional, at least one). `200` with the client and its `pushStatus`; `409` if it is revoked. See [Renaming a client](#renaming-a-client). |
 | `POST /api/v1/admin/clients/{id}/revoke` | admin token | Revokes the client and removes its push target. Idempotent. |
-| `POST /api/v1/admin/pairings` | admin token | Creates a pairing for a new client (`{"name": ...}`). `201` with `{"name", "code", "expiresAt", "uri"}`; see [Pairing](#pairing). |
+| `POST /api/v1/admin/pairings` | admin token | Creates a pairing for a new client (`{"name": ..., "admin": ...}`, `admin` optional). `201` with `{"name", "admin", "code", "expiresAt", "uri"}`; see [Pairing](#pairing). |
 | `POST /api/v1/pairing` | pairing code | Redeems the code: registers the client. `201` with the client and `clientKey`, `Location` `/api/v1/client`. |
-| `GET /api/v1/client` | client key | The calling client's registration. |
+| `GET /api/v1/client` | client key | The calling client's registration, including whether it is an admin device. |
 | `PUT /api/v1/client/push-target` | client key | Sets the push target (`{"provider", "token"}`). `200` with the client. |
 | `DELETE /api/v1/client/push-target` | client key | Removes the push target. Idempotent. `200` with the client. |
 | `PUT /api/v1/client/push-preferences` | client key | Replaces the push preferences (`{"enabled", "minimumSeverity", "mutedCategories", "mutedProducerIds"}`, each optional). `200` with the client. |

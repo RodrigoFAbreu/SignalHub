@@ -48,6 +48,24 @@ class PairingNotifierTest {
   }
 
   @Test
+  void theNoticeSaysWhenTheNewDeviceIsAnAdmin() throws Exception {
+    var phone = clientWithTarget("{}");
+
+    var paired = pair("Second admin", true);
+    notifier.awaitSent(Duration.ofSeconds(10));
+
+    var sent = sentTo(phone);
+    assertEquals(1, sent.size());
+    var message = sent.get(0);
+    assertEquals("New admin device paired", message.title());
+    assertEquals(
+        "\"Second admin\" is an admin device and can now read your SignalHub events. If you did"
+            + " not pair it, revoke it.",
+        message.body());
+    assertEquals(Map.of("notice", "client-paired", "clientId", paired.toString()), message.data());
+  }
+
+  @Test
   void aClientWithPushesPausedIsNotTold() throws Exception {
     var paused = clientWithTarget("{\"enabled\": false}");
     // Preferences about events do not hold back a notice that is not one.
@@ -90,10 +108,14 @@ class PairingNotifierTest {
 
   /** Pairs a device through the API, as the app does, and returns its client ID. */
   private static UUID pair(String name) {
+    return pair(name, false);
+  }
+
+  private static UUID pair(String name, boolean admin) {
     String code =
         asAdmin()
             .contentType(ContentType.JSON)
-            .body(Map.of("name", name))
+            .body(Map.of("name", name, "admin", admin))
             .post("/api/v1/admin/pairings")
             .then()
             .statusCode(201)

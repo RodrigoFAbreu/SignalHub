@@ -13,7 +13,8 @@ import java.util.UUID;
 
 /**
  * Persistence mapping of the {@code clients} table: a client's key hash, never the key, and its
- * push target and push preferences. Never exposed through the HTTP API.
+ * name, whether it is an admin, and its push target and push preferences. Never exposed through the
+ * HTTP API.
  */
 @Entity
 @Table(name = "clients")
@@ -22,8 +23,11 @@ class ClientEntity {
   // Assigned by the application, because the ID is part of the key that is hashed.
   @Id private UUID id;
 
-  @Column(nullable = false, updatable = false)
+  @Column(nullable = false)
   private String name;
+
+  @Column(nullable = false)
+  private boolean admin;
 
   @Column(name = "key_hash", nullable = false, updatable = false)
   private byte[] keyHash;
@@ -74,9 +78,10 @@ class ClientEntity {
 
   protected ClientEntity() {}
 
-  ClientEntity(UUID id, String name, byte[] keyHash, Instant createdAt) {
+  ClientEntity(UUID id, String name, boolean admin, byte[] keyHash, Instant createdAt) {
     this.id = id;
     this.name = name;
+    this.admin = admin;
     this.keyHash = keyHash.clone();
     this.createdAt = createdAt;
   }
@@ -87,6 +92,18 @@ class ClientEntity {
 
   String name() {
     return name;
+  }
+
+  void rename(String name) {
+    this.name = name;
+  }
+
+  boolean admin() {
+    return admin;
+  }
+
+  void setAdmin(boolean admin) {
+    this.admin = admin;
   }
 
   byte[] keyHash() {

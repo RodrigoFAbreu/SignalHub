@@ -43,6 +43,8 @@ class ClientPersistenceTest {
     columns.put("last_push_failed_at", "timestamp with time zone YES");
     columns.put("last_push_failed_event_id", "uuid YES");
     columns.put("last_push_failed_result", "text YES");
+    // Added by V13: false for every client that existed before.
+    columns.put("admin", "boolean NO");
     assertEquals(columns, columnsOf("clients"));
   }
 
@@ -54,6 +56,8 @@ class ClientPersistenceTest {
     columns.put("client_name", "text NO");
     columns.put("created_at", "timestamp with time zone NO");
     columns.put("expires_at", "timestamp with time zone NO");
+    // Added by V13.
+    columns.put("admin", "boolean NO");
     assertEquals(columns, columnsOf("pairings"));
   }
 

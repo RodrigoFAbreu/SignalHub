@@ -386,7 +386,7 @@ doubt.
 | `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
 | `/api/v1/admin/pairings` | `POST`: create a pairing code for a new device, with the admin token. See [Pairing a device](#pairing-a-device). |
 | `/api/v1/pairing` | `POST`: a device redeems a pairing code and gets its client key; the owner's other devices get a push. See [Pairing a device](#pairing-a-device). |
-| `/connect/` | The Connect page: creates a pairing code with the admin token and shows it as a QR code to scan, copy or download. Not forwarded by the proxy. See [Pairing a device](#pairing-a-device). |
+| `/admin/` | The admin page: with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and creates a pairing code shown as a QR code to scan, copy or download. Not forwarded by the proxy. `/connect/`, its earlier name, redirects to it. See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
 | `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
@@ -458,7 +458,7 @@ token; the response contains its client key, **shown only this once**:
 curl -s http://localhost:8080/api/v1/admin/clients \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"name": "Pixel 8"}'
+  -d '{"name": "Pixel 8"}'   # or {"name": "Pixel 8", "admin": true} for an admin device
 ```
 
 ```json
@@ -466,6 +466,7 @@ curl -s http://localhost:8080/api/v1/admin/clients \
   "client": {
     "id": "01a0da2c-1f3e-7a51-8d0c-6b1f2e3d4c5b",
     "name": "Pixel 8",
+    "admin": false,
     "createdAt": "2026-09-25T18:02:11.108811Z",
     "revokedAt": null,
     "pushTarget": null,
@@ -499,16 +500,25 @@ curl -s -X PUT http://localhost:8080/api/v1/client/push-preferences -H "$C" \
   -H 'Content-Type: application/json' -d '{}'   # back to pushing every event
 ```
 
-The operator lists, inspects and revokes clients, paired ones included
-(`$CLIENT` is the ID above):
+The operator lists, inspects, renames, makes admin (or not) and revokes
+clients, paired ones included (`$CLIENT` is the ID above). The
+[admin page](architecture.md#the-admin-page) at `http://localhost:8080/admin/`
+does all of it in a browser; from a terminal:
 
 ```sh
 H="Authorization: Bearer $ADMIN_TOKEN"
+J='Content-Type: application/json'
 API=http://localhost:8080/api/v1/admin/clients
 curl -s "$API" -H "$H"                          # all clients ({"items": [...]})
 curl -s "$API/$CLIENT" -H "$H"                  # one client
+curl -s -X PATCH "$API/$CLIENT" -H "$H" -H "$J" -d '{"name": "Anna'"'"'s phone"}'   # rename it
+curl -s -X PATCH "$API/$CLIENT" -H "$H" -H "$J" -d '{"admin": true}'   # make it an admin device
+curl -s -X PATCH "$API/$CLIENT" -H "$H" -H "$J" -d '{"admin": false}'  # take admin rights away
 curl -s -X POST "$API/$CLIENT/revoke" -H "$H"   # revoke it and drop its push target
 ```
+
+A revoked client cannot be renamed or changed (`409`). See
+[Admin devices](architecture.md#admin-devices).
 
 Both reads show each client's latest push results in `pushStatus` (see
 [Client API](architecture.md#client-api)), which answers why a device got no
@@ -537,21 +547,23 @@ this itself; see [Client](#client).
 Instead of handing a device its client key, the operator can create a
 one-time pairing code, valid for 10 minutes, and the device registers itself
 with it (see [Pairing](architecture.md#pairing)). The
-[Connect page](architecture.md#the-connect-page) at
-`http://localhost:8080/connect/` does it in a browser: enter the admin token
-and a device name, and it shows the QR code with a countdown, and copies it
-as an image or a link, or downloads it. From a terminal:
+[admin page](architecture.md#the-admin-page) at
+`http://localhost:8080/admin/` does it in a browser: enter the admin token,
+then under **Connect a device** a device name (and whether it is an admin
+device), and it shows the QR code with a countdown, and copies it as an
+image or a link, or downloads it. From a terminal:
 
 ```sh
 curl -s http://localhost:8080/api/v1/admin/pairings \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"name": "Pixel 8"}'
+  -d '{"name": "Pixel 8"}'   # add "admin": true to pair an admin device
 ```
 
 ```json
 {
   "name": "Pixel 8",
+  "admin": false,
   "code": "shpc1_<secret>",
   "expiresAt": "2026-09-27T10:12:00.123456Z",
   "uri": "signalhub://pair?server=https%3A%2F%2Fsignalhub.example.com&code=shpc1_<secret>"

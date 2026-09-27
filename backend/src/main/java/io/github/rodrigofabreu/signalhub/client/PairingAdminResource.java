@@ -46,8 +46,8 @@ public class PairingAdminResource {
       summary = "Create a pairing for a new client",
       description =
           "Creates a one-time pairing code, valid for 10 minutes, and its pairing URI. The device"
-              + " that redeems it becomes a new client of this name, with its own key. The code is"
-              + " shown only once.")
+              + " that redeems it becomes a new client of this name, with its own key, and an admin"
+              + " device if admin is true. The code is shown only once.")
   @APIResponse(
       responseCode = "201",
       description = "Pairing created. It has no resource of its own, so no Location.",
@@ -57,6 +57,7 @@ public class PairingAdminResource {
       description = "The body is malformed or fails validation.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public Response create(@NotNull @Valid CreateClientRequest request) {
-    return Response.status(Response.Status.CREATED).entity(pairings.create(request.name())).build();
+    var pairing = pairings.create(request.name(), request.adminRequested());
+    return Response.status(Response.Status.CREATED).entity(pairing).build();
   }
 }

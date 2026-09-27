@@ -2,6 +2,7 @@ package io.github.rodrigofabreu.signalhub;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -9,44 +10,50 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import io.quarkus.test.junit.QuarkusTest;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
-/** The operator's Connect page: a static page for pairing codes on the backend's own port. */
+/** The operator's admin page: a static page for devices and pairing codes on the backend's port. */
 @QuarkusTest
-class ConnectPageTest {
+class AdminPageTest {
 
   private static final Pattern ASSET = Pattern.compile("(?:src|href)=\"([^\"]+)\"");
 
   @Test
   void thePageIsServed() {
     given()
-        .get("/connect/")
+        .get("/admin/")
         .then()
         .statusCode(200)
         .contentType(startsWith("text/html"))
-        .body(containsString("<title>Connect a device - SignalHub</title>"));
+        .body(containsString("<title>Admin - SignalHub</title>"));
   }
 
-  @Test
-  void thePageRunsOnlyItsOwnScriptsAndIsNeverFramedOrCached() {
+  @ParameterizedTest
+  @ValueSource(strings = {"/admin/", "/admin/admin.js", "/admin/admin.css"})
+  void thePageRunsOnlyItsOwnScriptsAndIsNeverFramedOrCached(String path) {
     given()
-        .get("/connect/")
+        .get(path)
         .then()
+        .statusCode(200)
         .header("Content-Security-Policy", containsString("default-src 'none'"))
         .header("Content-Security-Policy", containsString("script-src 'self'"))
+        .header("Content-Security-Policy", containsString("connect-src 'self'"))
         .header("Content-Security-Policy", containsString("frame-ancestors 'none'"))
         .header("X-Frame-Options", equalTo("DENY"))
         .header("Referrer-Policy", equalTo("no-referrer"))
-        .header("Cache-Control", equalTo("no-store"));
+        .header("Cache-Control", equalTo("no-store"))
+        .header("X-Content-Type-Options", equalTo("nosniff"));
   }
 
   @Test
   void everyScriptAndStylesheetOfThePageIsServed() {
     // Catches a QR library version in the page that no longer matches the pom's.
-    var page = given().get("/connect/").then().extract().asString();
+    var page = given().get("/admin/").then().extract().asString();
     var assets = ASSET.matcher(page).results().map(match -> match.group(1)).toList();
     assertFalse(assets.isEmpty());
     for (var asset : assets) {
-      var path = asset.startsWith("/") ? asset : "/connect/" + asset;
+      var path = asset.startsWith("/") ? asset : "/admin/" + asset;
       given().get(path).then().statusCode(200);
     }
   }
@@ -54,7 +61,24 @@ class ConnectPageTest {
   @Test
   void thePageHasNoInlineScript() {
     // The Content-Security-Policy would block it: every script is a file.
-    var page = given().get("/connect/").then().extract().asString();
+    var page = given().get("/admin/").then().extract().asString();
     assertFalse(Pattern.compile("<script(?![^>]*\\bsrc=)").matcher(page).find());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"/connect", "/connect/"})
+  void theConnectPageOfEarlierReleasesLeadsToTheAdminPage(String path) {
+    given()
+        .redirects()
+        .follow(false)
+        .get(path)
+        .then()
+        .statusCode(301)
+        .header("Location", endsWith("/admin/"));
+  }
+
+  @Test
+  void theConnectPageIsGone() {
+    given().get("/connect/connect.js").then().statusCode(404);
   }
 }

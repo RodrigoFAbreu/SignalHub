@@ -18,6 +18,10 @@ public record IssuedPairing(
         String name,
     @Schema(
             required = true,
+            description = "Whether the client is an admin device when the code is redeemed.")
+        boolean admin,
+    @Schema(
+            required = true,
             description =
                 "The pairing code. The device redeems it with `POST /api/v1/pairing` and"
                     + " `Authorization: Bearer <code>`.",
@@ -38,6 +42,6 @@ public record IssuedPairing(
   // The default record toString would print the code if this were ever logged.
   @Override
   public String toString() {
-    return "IssuedPairing[name=" + name + ", expiresAt=" + expiresAt + "]";
+    return "IssuedPairing[name=" + name + ", admin=" + admin + ", expiresAt=" + expiresAt + "]";
   }
 }

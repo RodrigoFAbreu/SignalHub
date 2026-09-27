@@ -20,6 +20,12 @@ public record ManagedClientResponse(
             examples = "01997d5e-8a3c-7b1e-9f2a-4c6d8e0f1a2b")
         UUID id,
     @Schema(required = true, examples = "Pixel 8") String name,
+    @Schema(
+            required = true,
+            description =
+                "Whether the client is one of the owner's admin devices. Only the operator sets"
+                    + " it, with the admin token.")
+        boolean admin,
     @Schema(required = true, examples = "2026-09-25T12:00:00.123456Z") Instant createdAt,
     @Schema(
             description =
@@ -37,6 +43,7 @@ public record ManagedClientResponse(
     return new ManagedClientResponse(
         client.id(),
         client.name(),
+        client.admin(),
         client.createdAt(),
         client.revokedAt(),
         client.pushTarget(),
