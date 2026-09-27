@@ -54,7 +54,8 @@ class PushDispatches {
   /**
    * Removes the event's row once its push has been dispatched and, in the same transaction, records
    * the clients whose send failed temporarily, to be sent again after {@code retryDelay}. A client
-   * already recorded for the event (the event was dispatched again) keeps its row.
+   * already recorded for the event (the event was dispatched again) keeps its row, and a client
+   * deleted since its send gets none.
    */
   @Transactional
   void complete(UUID eventId, Collection<UUID> retryClientIds, Duration retryDelay) {
@@ -63,7 +64,8 @@ class PushDispatches {
           .createNativeQuery(
               """
               INSERT INTO push_retries (event_id, client_id, attempts, next_attempt_at)
-              VALUES (:eventId, :clientId, 1, now() + make_interval(secs => :delay))
+              SELECT :eventId, id, 1, now() + make_interval(secs => :delay)
+              FROM clients WHERE id = :clientId
               ON CONFLICT (event_id, client_id) DO NOTHING
               """)
           .setParameter("eventId", eventId)

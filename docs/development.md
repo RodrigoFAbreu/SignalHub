@@ -386,7 +386,7 @@ doubt.
 | `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
 | `/api/v1/admin/pairings` | `POST`: create a pairing code for a new device, with the admin token. See [Pairing a device](#pairing-a-device). |
 | `/api/v1/pairing` | `POST`: a device redeems a pairing code and gets its client key; the owner's other devices get a push. See [Pairing a device](#pairing-a-device). |
-| `/admin/` | The admin page: with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and creates a pairing code shown as a QR code to scan, copy or download. Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
+| `/admin/` | The admin page: with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and to delete it once revoked, and creates a pairing code shown as a QR code to scan, copy or download. Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
 | `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
@@ -500,8 +500,8 @@ curl -s -X PUT http://localhost:8080/api/v1/client/push-preferences -H "$C" \
   -H 'Content-Type: application/json' -d '{}'   # back to pushing every event
 ```
 
-The operator lists, inspects, renames, makes admin (or not) and revokes
-clients, paired ones included (`$CLIENT` is the ID above). The
+The operator lists, inspects, renames, makes admin (or not), revokes and
+deletes clients, paired ones included (`$CLIENT` is the ID above). The
 [admin page](architecture.md#the-admin-page) at `http://localhost:8080/admin/`
 does all of it in a browser; from a terminal:
 
@@ -515,14 +515,17 @@ curl -s -X PATCH "$API/$CLIENT" -H "$H" -H "$J" -d '{"name": "Anna'"'"'s phone"}
 curl -s -X PATCH "$API/$CLIENT" -H "$H" -H "$J" -d '{"admin": true}'   # make it an admin device
 curl -s -X PATCH "$API/$CLIENT" -H "$H" -H "$J" -d '{"admin": false}'  # take admin rights away
 curl -s -X POST "$API/$CLIENT/revoke" -H "$H"   # revoke it and drop its push target
+curl -s -X DELETE "$API/$CLIENT" -H "$H" -w '%{http_code}\n'   # delete it once revoked: 204
 ```
 
-A revoked client cannot be renamed or changed (`409`). See
-[Admin devices](architecture.md#admin-devices).
+A revoked client cannot be renamed or changed (`409`); it can only be
+deleted, and an active one cannot be deleted (`409`). Events stay. See
+[Admin devices](architecture.md#admin-devices) and
+[Deleting a revoked client](architecture.md#deleting-a-revoked-client).
 
 An admin device does part of this with its own client key, through the
 proxy too ($ADMIN_KEY is an admin device's key); any other client key gets
-`403`, and nothing can be done to an admin (`409` on revoke; see
+`403`, and nothing can be done to an active admin (`409` on revoke; see
 [Device management from an admin device](architecture.md#device-management-from-an-admin-device)):
 
 ```sh
@@ -530,6 +533,7 @@ D=http://localhost:8080/api/v1/client/devices
 curl -s "$D" -H "Authorization: Bearer $ADMIN_KEY"                           # every device
 curl -s -X POST "$D/$CLIENT/admin" -H "Authorization: Bearer $ADMIN_KEY"     # make it an admin
 curl -s -X POST "$D/$CLIENT/revoke" -H "Authorization: Bearer $ADMIN_KEY"    # revoke a non-admin
+curl -s -X DELETE "$D/$CLIENT" -H "Authorization: Bearer $ADMIN_KEY"         # delete a revoked one
 ```
 
 It also creates pairing codes, never for an admin device (see
@@ -1006,10 +1010,12 @@ scripts/release/check-image.sh signalhub-backend:check 0.0.0-ci "$(git rev-parse
 # and expects 404 there for management, health, metrics and OpenAPI, however
 # the path is spelled, and a redirect from plain HTTP, registers a client that lists the event
 # with its key, marks it read and counts no unread events, sets a push
-# target, revokes the client and expects 401, creates a pairing on the host
+# target, expects 409 when deleting it while active, revokes the client and expects 401,
+# deletes it (204, then 404) with the event it read kept read, creates a pairing on the host
 # (and expects 404 for that through the proxy), checks that its URI names the
 # proxy's address, redeems it through the proxy, reads the new client with its
-# key, and expects 401 when redeeming it again, publishes with the Python command
+# key, and expects 401 when redeeming it again, has an admin device revoke it and
+# delete it (204, then 404) through the proxy, publishes with the Python command
 # and reads the event back (and expects exit status 1 with an invalid key),
 # restarts the backend with JSON logs and checks that every line is JSON, that
 # the startup summary is logged, and that no secret is, backs up the database,

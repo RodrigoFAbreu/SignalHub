@@ -362,18 +362,33 @@ jobs:
             | jq --exit-status '.name == "ci-smoke-admin" and .admin == true'
           curl --fail --silent --show-error --header "Authorization: Bearer $client_key" \
             http://localhost:8080/api/v1/client | jq --exit-status '.admin == true'
+          manage() {
+            curl --silent --output /dev/null --write-out '%{http_code}' \
+              --header "Authorization: Bearer $ADMIN_TOKEN" "$@"
+          }
+          # An active client is not deleted: it must be revoked first.
+          status=$(manage --request DELETE "http://localhost:8080/api/v1/admin/clients/$client_id")
+          test "$status" = 409 || { echo "expected 409, got $status"; exit 1; }
           curl --fail --silent --show-error --output /dev/null --request POST \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
             "http://localhost:8080/api/v1/admin/clients/$client_id/revoke"
           # A revoked client does not change.
-          status=$(curl --silent --output /dev/null --write-out '%{http_code}' --request PATCH \
-            --header "Authorization: Bearer $ADMIN_TOKEN" --header 'Content-Type: application/json' \
+          status=$(manage --request PATCH --header 'Content-Type: application/json' \
             --data '{"admin": false}' "http://localhost:8080/api/v1/admin/clients/$client_id")
           test "$status" = 409 || { echo "expected 409, got $status"; exit 1; }
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Authorization: Bearer $client_key" http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
-      - name: A device pairs through the proxy with a code the operator made on the host, and an admin device pairs another and revokes it
+          # A revoked client is deleted, once; the events it read stay.
+          status=$(manage --request DELETE "http://localhost:8080/api/v1/admin/clients/$client_id")
+          test "$status" = 204 || { echo "expected 204, got $status"; exit 1; }
+          status=$(manage "http://localhost:8080/api/v1/admin/clients/$client_id")
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
+          status=$(manage --request DELETE "http://localhost:8080/api/v1/admin/clients/$client_id")
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
+          curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+            "http://localhost:8080/api/v1/events/$newest" | jq --exit-status '.readAt != null'
+      - name: A device pairs through the proxy with a code the operator made on the host, and an admin device pairs another, revokes it and deletes it
         run: |
           pairing=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
@@ -444,6 +459,13 @@ jobs:
           status=$(devices --output /dev/null --write-out '%{http_code}' \
             --header "Authorization: Bearer $client_key" https://localhost/api/v1/client)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+          # The admin device deletes the revoked device through the proxy, once.
+          for expected in 204 404; do
+            status=$(devices --output /dev/null --write-out '%{http_code}' --request DELETE \
+              --header "Authorization: Bearer $admin_key" \
+              "https://localhost/api/v1/client/devices/$paired_id")
+            test "$status" = "$expected" || { echo "expected $expected, got $status"; exit 1; }
+          done
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"

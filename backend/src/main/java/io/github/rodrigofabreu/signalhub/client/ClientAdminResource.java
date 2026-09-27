@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
@@ -29,15 +30,15 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 /**
  * Client management for the operator: register clients, issuing their keys, rename them, grant or
- * take away admin rights, and revoke them. Requires the admin token, and does not exist unless one
- * is configured.
+ * take away admin rights, revoke them, and delete revoked ones. Requires the admin token, and does
+ * not exist unless one is configured.
  */
 @Path("/api/v1/admin/clients")
 @Tag(
     name = "Client management",
     description =
-        "Register the owner's client installations, rename them, make them admin devices and"
-            + " revoke them. Requires the admin token"
+        "Register the owner's client installations, rename them, make them admin devices,"
+            + " revoke them and delete revoked ones. Requires the admin token"
             + " (SIGNALHUB_ADMIN_TOKEN); every path answers 404 when none is configured.")
 @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
 @APIResponse(
@@ -159,6 +160,34 @@ public class ClientAdminResource {
   @APIResponse(responseCode = "404", description = "No client has this ID.")
   public ClientResponse revoke(@PathParam("id") UUID id) {
     return clients.revoke(id).orElseThrow(ClientAdminResource::notFound);
+  }
+
+  @DELETE
+  @Path("/{id}")
+  @Operation(
+      summary = "Delete a revoked client",
+      description =
+          "Removes the client for good, with its push results, its pushes waiting for a retry"
+              + " and the unused pairing codes it created. Events are never deleted, and their"
+              + " read state stays. An active client must be revoked first. There is no undo.")
+  @APIResponse(responseCode = "204", description = "The client is deleted.")
+  @APIResponse(
+      responseCode = "404",
+      description = "No client has this ID, or it was deleted already.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "409",
+      description = "The client is not revoked; nothing changed.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public void delete(@PathParam("id") UUID id) {
+    switch (clients.delete(id).orElseThrow(ClientAdminResource::notFound)) {
+      case DELETED -> {}
+      case NOT_REVOKED ->
+          throw new ClientErrorException(
+              Response.status(Response.Status.CONFLICT)
+                  .entity(new ApiError("Client is not revoked", 409, List.of()))
+                  .build());
+    }
   }
 
   private static NotFoundException notFound() {

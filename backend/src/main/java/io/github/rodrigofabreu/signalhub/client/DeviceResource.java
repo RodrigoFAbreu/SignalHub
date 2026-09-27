@@ -4,6 +4,7 @@ import io.github.rodrigofabreu.signalhub.api.ApiError;
 import io.github.rodrigofabreu.signalhub.producer.BearerToken;
 import jakarta.enterprise.event.Event;
 import jakarta.ws.rs.ClientErrorException;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.POST;
@@ -23,9 +24,9 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 /**
- * Device management from an admin device: list every client, make one an admin, and revoke one that
- * is not an admin. Under {@code /api/v1/client}, so the proxy forwards it; everything else, and
- * anything done to an admin, stays with the operator's admin token.
+ * Device management from an admin device: list every client, make one an admin, revoke one that is
+ * not an admin, and delete a revoked one. Under {@code /api/v1/client}, so the proxy forwards it;
+ * everything else, and anything done to an admin, stays with the operator's admin token.
  */
 @Path("/api/v1/client/devices")
 @Tag(
@@ -127,6 +128,34 @@ public class DeviceResource {
     return apply(clients.revokeBy(caller.get().id(), id), ClientChangedByDevice.Change.REVOKED);
   }
 
+  @DELETE
+  @Path("/{id}")
+  @Operation(
+      summary = "Delete a revoked device",
+      description =
+          "Removes the client for good, with its push results, its pushes waiting for a retry"
+              + " and the unused pairing codes it created. Events are never deleted, and their"
+              + " read state stays. A revoked admin device can be deleted too; an active device,"
+              + " this one included, must be revoked first. No push is sent: deleting changes"
+              + " nothing a device can use. There is no undo.")
+  @APIResponse(responseCode = "204", description = "The client is deleted.")
+  @APIResponse(
+      responseCode = "404",
+      description = "No client has this ID, or it was deleted already.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "409",
+      description = "The client is not revoked; nothing changed.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public void delete(@PathParam("id") UUID id) {
+    clients
+        .deleteBy(caller.get().id(), id)
+        .ifPresent(
+            refusal -> {
+              throw refusal(refusal);
+            });
+  }
+
   private ManagedClientResponse apply(
       ClientService.DeviceChange result, ClientChangedByDevice.Change change) {
     return switch (result) {
@@ -153,6 +182,7 @@ public class DeviceResource {
       case UNKNOWN_CLIENT -> error(Response.Status.NOT_FOUND, "Not found");
       case CLIENT_REVOKED -> error(Response.Status.CONFLICT, "Client is revoked");
       case CLIENT_IS_ADMIN -> error(Response.Status.CONFLICT, "Client is an admin device");
+      case CLIENT_NOT_REVOKED -> error(Response.Status.CONFLICT, "Client is not revoked");
     };
   }
 

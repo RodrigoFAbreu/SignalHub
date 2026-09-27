@@ -15,8 +15,8 @@ import org.hibernate.id.uuid.UuidVersion7Strategy;
 import org.jboss.logging.Logger;
 
 /**
- * Registers and revokes clients, authenticates client keys, and records push targets and push
- * preferences. Logs only client IDs and provider names, never keys, hashes or push tokens.
+ * Registers, revokes and deletes clients, authenticates client keys, and records push targets and
+ * push preferences. Logs only client IDs and provider names, never keys, hashes or push tokens.
  */
 @ApplicationScoped
 public class ClientService {
@@ -104,6 +104,32 @@ public class ClientService {
   }
 
   /**
+   * Deletes a revoked client, and with it everything that exists only for it: its push retries and
+   * the unused pairing codes it created. Events are not the client's and stay. Empty if no client
+   * has this ID; an active client is not deleted, as it must be revoked first.
+   */
+  @Transactional
+  Optional<Deletion> delete(UUID id) {
+    return clients
+        .findForUpdate(id)
+        .map(
+            client -> {
+              if (!client.revoked()) {
+                return Deletion.NOT_REVOKED;
+              }
+              clients.delete(client);
+              LOG.infof("Deleted client %s", id);
+              return Deletion.DELETED;
+            });
+  }
+
+  /** What {@link #delete} did to a client that exists. */
+  enum Deletion {
+    DELETED,
+    NOT_REVOKED
+  }
+
+  /**
    * Renames the client and grants or takes away its admin rights; a null leaves that field as it
    * is. Empty if no client has this ID. A revoked client never changes: it is not a device of the
    * owner's any more.
@@ -172,7 +198,8 @@ public class ClientService {
           client.setAdmin(true);
           LOG.infof("Client %s made client %s an admin device", callerId, id);
           return done(client, true);
-        });
+        },
+        DeviceChange.Refused::new);
   }
 
   /**
@@ -194,7 +221,28 @@ public class ClientService {
           client.revoke(now());
           LOG.infof("Client %s revoked client %s", callerId, id);
           return done(client, true);
-        });
+        },
+        DeviceChange.Refused::new);
+  }
+
+  /**
+   * An admin device deletes a revoked device, an admin or not: a revoked admin can no longer act.
+   * Empty once deleted; an active device, the caller included, must be revoked first.
+   */
+  @Transactional
+  Optional<Refusal> deleteBy(UUID callerId, UUID id) {
+    return changeBy(
+        callerId,
+        id,
+        client -> {
+          if (!client.revoked()) {
+            return Optional.of(Refusal.CLIENT_NOT_REVOKED);
+          }
+          clients.delete(client);
+          LOG.infof("Client %s deleted client %s", callerId, id);
+          return Optional.<Refusal>empty();
+        },
+        Optional::of);
   }
 
   /**
@@ -203,8 +251,8 @@ public class ClientService {
    * devices acting on each other cannot deadlock, and holds the caller's lock so an operator
    * revoking it or taking its rights away meanwhile is applied before this change or after it.
    */
-  private DeviceChange changeBy(
-      UUID callerId, UUID id, Function<ClientEntity, DeviceChange> change) {
+  private <T> T changeBy(
+      UUID callerId, UUID id, Function<ClientEntity, T> change, Function<Refusal, T> refused) {
     ClientEntity caller;
     Optional<ClientEntity> target;
     if (callerId.equals(id)) {
@@ -218,12 +266,12 @@ public class ClientService {
       caller = clients.findForUpdate(callerId).orElseThrow();
     }
     if (caller.revoked()) {
-      return new DeviceChange.Refused(Refusal.CALLER_REVOKED);
+      return refused.apply(Refusal.CALLER_REVOKED);
     }
     if (!caller.admin()) {
-      return new DeviceChange.Refused(Refusal.NOT_AN_ADMIN);
+      return refused.apply(Refusal.NOT_AN_ADMIN);
     }
-    return target.map(change).orElse(new DeviceChange.Refused(Refusal.UNKNOWN_CLIENT));
+    return target.map(change).orElseGet(() -> refused.apply(Refusal.UNKNOWN_CLIENT));
   }
 
   private DeviceChange done(ClientEntity client, boolean changed) {
@@ -238,7 +286,8 @@ public class ClientService {
     NOT_AN_ADMIN,
     UNKNOWN_CLIENT,
     CLIENT_REVOKED,
-    CLIENT_IS_ADMIN
+    CLIENT_IS_ADMIN,
+    CLIENT_NOT_REVOKED
   }
 
   /** What {@link #listFor} found. */

@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.quarkus.test.junit.QuarkusTest;
 import java.util.regex.Pattern;
@@ -62,6 +63,25 @@ class AdminPageTest {
     // The Content-Security-Policy would block it: every script is a file.
     var page = given().get("/admin/").then().extract().asString();
     assertFalse(Pattern.compile("<script(?![^>]*\\bsrc=)").matcher(page).find());
+  }
+
+  @Test
+  void thePageDeletesOnlyRevokedDevicesAfterAConfirmation() {
+    // No browser runs in the tests; this pins what the page does with the management API.
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    var remove =
+        Pattern.compile(
+            "function remove\\(client\\) \\{\\s*if \\(!confirm\\([^;]*\\)\\) return;\\s*"
+                + "change\\(\\(\\) => call\\(\"DELETE\", `\\$\\{CLIENTS\\}/\\$\\{client\\.id\\}`\\)\\);");
+    assertTrue(remove.matcher(script).find());
+    assertTrue(
+        Pattern.compile(
+                "if \\(client\\.revokedAt\\) \\{\\s*actions\\.append\\(button\\(\"Delete\","
+                    + " \\(\\) => remove\\(client\\), \"danger\"\\)\\);\\s*\\} else \\{")
+            .matcher(script)
+            .find());
+    // A deletion answers 204 with no body.
+    assertTrue(script.contains("response.status === 204 ? null : response.json()"));
   }
 
   @ParameterizedTest
