@@ -117,7 +117,8 @@ class FakeBackend {
         return _json(401, {'title': 'Unauthorized', 'status': 401});
       }
       acceptedKey = pairedClientKey;
-      return _json(201, {..._client(), 'clientKey': pairedClientKey});
+      // The backend's IssuedClientKey: the client nested beside its key.
+      return _json(201, {'client': _client(), 'clientKey': pairedClientKey});
     }
     if (request.headers['Authorization'] != 'Bearer $acceptedKey') {
       return _json(401, {'title': 'Unauthorized', 'status': 401});
