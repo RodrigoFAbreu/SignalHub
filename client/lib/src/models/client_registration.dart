@@ -138,3 +138,37 @@ class ManagedDevice {
 
   bool get isRevoked => revokedAt != null;
 }
+
+/// A one-time pairing code this admin device created for a new device (the
+/// backend's `Pairing`). The new device is never an admin.
+class DevicePairing {
+  const DevicePairing({
+    required this.name,
+    required this.code,
+    required this.expiresAt,
+    this.uri,
+  });
+
+  factory DevicePairing.fromJson(Map<String, Object?> json) => DevicePairing(
+    name: json.string('name'),
+    code: json.string('code'),
+    expiresAt: json.timestamp('expiresAt'),
+    uri: json.optionalString('uri'),
+  );
+
+  /// The name the new device gets.
+  final String name;
+
+  /// A one-time bearer credential. Never logged.
+  final String code;
+
+  /// When the code stops working, if unredeemed.
+  final DateTime expiresAt;
+
+  /// The pairing URI the server made from its public address; `null` when
+  /// the operator configured none.
+  final String? uri;
+
+  @override
+  String toString() => 'DevicePairing($name, expires $expiresAt)';
+}

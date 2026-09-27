@@ -1,8 +1,8 @@
 # SignalHub client
 
 The SignalHub app for Android and iOS, built with Flutter from one codebase.
-It sets itself up by scanning a pairing code the operator made (or with a
-server address and client key typed in), registers for
+It sets itself up by scanning a pairing code the operator or an admin
+device made (or with a server address and client key typed in), registers for
 push notifications, and shows the inbox: every event, newest first, and each
 event's details, also opened by tapping its notification. Unread events are
 marked and counted; opening one marks it read on every client of the owner,
@@ -37,7 +37,7 @@ commands that CI runs.
 | `lib/src/push/firebase_push_service.dart` | The Firebase Cloud Messaging adapter: the only Dart code that knows Firebase. |
 | `lib/src/build_identity.dart` | Which SignalHub build the app is: release version and commit, from build-time defines. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
-| `lib/src/ui/` | The setup, pairing scanner, inbox (with its filter sheet), event, device (with the device list of an admin device) and notifications screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
+| `lib/src/ui/` | The setup, pairing scanner, inbox (with its filter sheet), event, device (with the device list of an admin device), *Connect a device* (a pairing code as a QR code, drawn with the pure-Dart `qr` package) and notifications screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
 | `android/`, `ios/` | Platform projects: identifiers, permissions, push capability, the browsers an event's link may open in (Android `<queries>`). |
 | `icon/` | The app icon (`icon.svg`) and `render.sh`, which renders its PNGs for both platforms. |
 | `test/` | Unit and widget tests against a fake backend and a fake push service. |
@@ -115,6 +115,9 @@ says so: create a new one. The URI names the server by its
 and names it. Without `SIGNALHUB_PUBLIC_URL` a pairing has no URI: set it,
 or set the app up by hand.
 
+An [admin device](#manage-devices) makes the same code in the app, with
+**Connect a device**, so no one needs the host.
+
 **By hand**, under **Or set up by hand**: enter the server address and a
 client key the operator registered for this device
 (`POST /api/v1/admin/clients`, see [Run it](#run-it)).
@@ -165,8 +168,20 @@ device, active ones first, marked *This device*, *Admin device* or
   target; to use it again, set it up again.
 - **Admins**, this device included, offer neither: a device cannot take
   admin rights away or revoke an admin. Only the operator can, on the admin
-  page, which is also where devices are renamed and paired.
-- **If this device loses its admin rights** meanwhile, the section says
+  page, which is also where devices are renamed.
+- **Connect a device**, above the list, pairs a new device: enter its name
+  and tap **Create pairing code**. The screen shows the code as a QR code
+  to scan with the new device, counts down to its expiry (10 minutes; it
+  works once) and hides it once expired, and shows the pairing link with
+  **Copy link**, to paste into a message to whoever sets up the new device;
+  **Create another code** starts over. The new device is never an admin:
+  make it one from the list once it has paired. The owner's devices are
+  told when it pairs, naming this device, and the code stops working if
+  this device is revoked or loses its admin rights first. The code is kept
+  only while the screen shows it. With a server released before pairing
+  from a device, the screen says so and the app stops offering it.
+- **If this device loses its admin rights** meanwhile, the section (or
+  *Connect a device*) says
   *This device is no longer an admin device* instead of the list, and the
   app stops offering it until it is made an admin again.
 - Devices that are not admins show nothing new, and neither does any

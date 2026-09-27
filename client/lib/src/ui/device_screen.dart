@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
 import '../models/client_registration.dart';
+import 'connect_device_screen.dart';
 
 /// This installation: its registration, server, push status and build. On
-/// an admin device, also the owner's devices, to make one an admin or
-/// revoke one that is not an admin.
+/// an admin device, also the owner's devices, to connect a new one, make one
+/// an admin or revoke one that is not an admin.
 class DeviceScreen extends StatefulWidget {
   const DeviceScreen({super.key, required this.controller});
 
@@ -110,7 +111,17 @@ class _DevicesSection extends StatelessWidget {
               ),
             ),
           )
-        else if (devices != null)
+        else if (devices != null) ...[
+          if (controller.canCreatePairings)
+            Card(
+              child: ListTile(
+                key: const Key('connectDevice'),
+                leading: const Icon(Icons.qr_code_2),
+                title: const Text('Connect a device'),
+                subtitle: const Text('Pair a new device with a one-time code'),
+                onTap: () => _connectDevice(context),
+              ),
+            ),
           for (final device in devices)
             _DeviceTile(
               device: device,
@@ -118,8 +129,8 @@ class _DevicesSection extends StatelessWidget {
               busy: controller.changingDeviceId != null,
               makeAdmin: () => _makeAdmin(context, device),
               revoke: () => _revoke(context, device),
-            )
-        else if (controller.devicesError case final error?)
+            ),
+        ] else if (controller.devicesError case final error?)
           Card(
             child: ListTile(
               leading: const Icon(Icons.error_outline),
@@ -134,6 +145,18 @@ class _DevicesSection extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  Future<void> _connectDevice(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => ConnectDeviceScreen(controller: controller),
+      ),
+    );
+    // The code is not kept once off screen, and the device it paired, if
+    // any, is listed. Rights lost meanwhile stay explained instead.
+    controller.clearPairing();
+    if (controller.canManageDevices) await controller.loadDevices();
   }
 
   Future<void> _makeAdmin(BuildContext context, ManagedDevice device) async {

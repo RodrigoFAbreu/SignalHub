@@ -58,7 +58,29 @@ class ClientPersistenceTest {
     columns.put("expires_at", "timestamp with time zone NO");
     // Added by V13.
     columns.put("admin", "boolean NO");
+    // Added by V14: empty for pairings created with the admin token.
+    columns.put("created_by", "uuid YES");
     assertEquals(columns, columnsOf("pairings"));
+  }
+
+  @Test
+  void aPairingIsCreatedOnlyByAKnownClient() {
+    var e =
+        assertThrows(
+            SQLException.class,
+            () -> {
+              try (var connection = dataSource.getConnection();
+                  var statement =
+                      connection.prepareStatement(
+                          "INSERT INTO pairings (id, code_hash, client_name, created_at,"
+                              + " expires_at, created_by) VALUES (gen_random_uuid(),"
+                              + " sha256('by'::bytea), 'x', now(), now() + interval '1 minute',"
+                              + " gen_random_uuid())")) {
+                statement.executeUpdate();
+              }
+            });
+    // foreign_key_violation
+    assertEquals("23503", e.getSQLState(), e.getMessage());
   }
 
   @Test

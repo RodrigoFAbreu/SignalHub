@@ -9,8 +9,8 @@ import java.util.UUID;
 
 /**
  * Persistence mapping of the {@code pairings} table: the hash of an unredeemed pairing code, never
- * the code, and the name of the client it will register and whether it will be an admin. Never
- * exposed through the HTTP API.
+ * the code, the name of the client it will register and whether it will be an admin, and the admin
+ * device that created it, if one did. Never exposed through the HTTP API.
  */
 @Entity
 @Table(name = "pairings")
@@ -33,6 +33,10 @@ class PairingEntity {
   @Column(name = "expires_at", nullable = false, updatable = false)
   private Instant expiresAt;
 
+  // Null when the operator created it with the admin token.
+  @Column(name = "created_by", updatable = false)
+  private UUID createdBy;
+
   protected PairingEntity() {}
 
   PairingEntity(
@@ -41,13 +45,15 @@ class PairingEntity {
       String clientName,
       boolean admin,
       Instant createdAt,
-      Instant expiresAt) {
+      Instant expiresAt,
+      UUID createdBy) {
     this.id = id;
     this.codeHash = codeHash.clone();
     this.clientName = clientName;
     this.admin = admin;
     this.createdAt = createdAt;
     this.expiresAt = expiresAt;
+    this.createdBy = createdBy;
   }
 
   UUID id() {
@@ -64,5 +70,10 @@ class PairingEntity {
 
   Instant expiresAt() {
     return expiresAt;
+  }
+
+  /** The admin device that created this pairing; null if the operator did. */
+  UUID createdBy() {
+    return createdBy;
   }
 }

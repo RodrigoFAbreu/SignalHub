@@ -19,12 +19,12 @@ import java.util.function.Supplier;
 import org.jboss.logging.Logger;
 
 /**
- * Tells the owner's devices when a new device pairs, or when an admin device makes another device
- * an admin or revokes one, so a pairing code that leaked or an admin key that was stolen is noticed
- * at once. Every client with a push target and pushes not paused gets it, except a device that just
- * paired. It is a notice, not an event: nothing is stored, nothing appears in the inbox, and it is
- * sent once, without retries; the log keeps the record ("Redeemed pairing ... as client ...",
- * "Client ... revoked client ...").
+ * Tells the owner's devices when a new device pairs (naming the admin device that created its code,
+ * if one did), or when an admin device makes another device an admin or revokes one, so a pairing
+ * code that leaked or an admin key that was stolen is noticed at once. Every client with a push
+ * target and pushes not paused gets it, except a device that just paired. It is a notice, not an
+ * event: nothing is stored, nothing appears in the inbox, and it is sent once, without retries; the
+ * log keeps the record ("Redeemed pairing ... as client ...", "Client ... revoked client ...").
  */
 @ApplicationScoped
 public class DeviceNotifier {
@@ -62,15 +62,33 @@ public class DeviceNotifier {
 
   static PushMessage messageFor(ClientPaired paired) {
     // An admin device is said to be one: it matters most if the code leaked.
-    return new PushMessage(
-        paired.admin() ? "New admin device paired" : "New device paired",
+    var readable =
         "\""
             + paired.name()
             + (paired.admin()
                 ? "\" is an admin device and can now read your SignalHub events."
-                : "\" can now read your SignalHub events.")
-            + " If you did not pair it, revoke it.",
-        Map.of("notice", "client-paired", "clientId", paired.clientId().toString()));
+                : "\" can now read your SignalHub events.");
+    var title = paired.admin() ? "New admin device paired" : "New device paired";
+    if (paired.byClientId() == null) {
+      return new PushMessage(
+          title,
+          readable + " If you did not pair it, revoke it.",
+          Map.of("notice", "client-paired", "clientId", paired.clientId().toString()));
+    }
+    // A code from a device may come from a stolen one, which only the admin token can revoke.
+    return new PushMessage(
+        title,
+        readable
+            + " \""
+            + paired.byName()
+            + "\" created its pairing code. If this was not you, revoke both on the admin page.",
+        Map.of(
+            "notice",
+            "client-paired",
+            "clientId",
+            paired.clientId().toString(),
+            "byClientId",
+            paired.byClientId().toString()));
   }
 
   static PushMessage messageFor(ClientChangedByDevice changed) {

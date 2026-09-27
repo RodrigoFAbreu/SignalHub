@@ -184,6 +184,36 @@ void main() {
     );
   });
 
+  test('DevicePairing reads a pairing, with or without its URI', () {
+    final pairing = DevicePairing.fromJson({
+      'name': 'Tablet',
+      'admin': false,
+      'code': 'shpc1_Zt1vQ3x9rB2mKc8wYp4aLd',
+      'expiresAt': '2026-09-27T12:10:00Z',
+      'uri': 'signalhub://pair?server=x&code=shpc1_Zt1vQ3x9rB2mKc8wYp4aLd',
+    });
+
+    expect(pairing.name, 'Tablet');
+    expect(pairing.expiresAt, DateTime.utc(2026, 9, 27, 12, 10));
+    expect(pairing.uri, startsWith('signalhub://pair'));
+    // The code is a credential.
+    expect(pairing.toString(), isNot(contains('shpc1_')));
+    expect(
+      DevicePairing.fromJson({
+        'name': 'Tablet',
+        'admin': false,
+        'code': 'shpc1_Zt1vQ3x9rB2mKc8wYp4aLd',
+        'expiresAt': '2026-09-27T12:10:00Z',
+        'uri': null,
+      }).uri,
+      isNull,
+    );
+    expect(
+      () => DevicePairing.fromJson({'name': 'Tablet', 'admin': false}),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
   group('PushPreferences', () {
     Map<String, Object?> client(Object? preferences) => {
       'id': 'c-1',

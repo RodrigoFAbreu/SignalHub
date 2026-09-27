@@ -1284,4 +1284,105 @@ void main() {
       expect(store.saved, isNull);
     });
   });
+
+  group('pairing from an admin device', () {
+    setUp(() => backend.admin = true);
+
+    test('creates a code whose link is the server\'s pairing URI', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      expect(app.canCreatePairings, isTrue);
+
+      final error = await app.createPairing('Tablet');
+
+      expect(error, isNull);
+      expect(backend.devicePairingNames, ['Tablet']);
+      expect(app.pairing?.name, 'Tablet');
+      expect(app.pairingLink, app.pairing?.uri);
+      expect(app.creatingPairing, isFalse);
+      final link = PairingUri.parse(app.pairingLink!);
+      expect(link.serverUrl, serverUrl);
+      expect(link.code, app.pairing?.code);
+
+      app.clearPairing();
+      expect(app.pairing, isNull);
+      expect(app.pairingLink, isNull);
+    });
+
+    test('without a public address, the link names this server', () async {
+      backend.publicUrl = null;
+      final app = controller();
+      await app.connect('$serverUrl/', clientKey);
+
+      await app.createPairing('Tablet');
+
+      expect(app.pairing?.uri, isNull);
+      final link = PairingUri.parse(app.pairingLink!);
+      expect(link.serverUrl, serverUrl);
+      expect(link.code, app.pairing?.code);
+    });
+
+    test('a device that is not an admin cannot create codes', () async {
+      backend.admin = false;
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+
+      expect(app.canCreatePairings, isFalse);
+    });
+
+    test('rights taken away meanwhile are reported', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      backend.admin = false;
+
+      final error = await app.createPairing('Tablet');
+
+      expect(error, AppController.notAdminMessage);
+      expect(app.pairing, isNull);
+      expect(app.lostAdminRights, isTrue);
+      expect(app.canCreatePairings, isFalse);
+      expect(backend.devicePairingNames, isEmpty);
+    });
+
+    test('a server released before them stops offering them', () async {
+      backend.devicePairings = false;
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+
+      final error = await app.createPairing('Tablet');
+
+      expect(error, AppController.pairingUnsupportedMessage);
+      expect(app.pairing, isNull);
+      expect(app.canCreatePairings, isFalse);
+      // Device management itself still works there.
+      expect(app.canManageDevices, isTrue);
+    });
+
+    test('a failed request is reported and can be retried', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      backend.offline = true;
+
+      expect(await app.createPairing('Tablet'), 'Could not reach the server');
+      expect(app.pairing, isNull);
+      expect(app.canCreatePairings, isTrue);
+
+      backend.offline = false;
+      expect(await app.createPairing('Tablet'), isNull);
+      expect(app.pairing, isNotNull);
+    });
+
+    test('a revoked key returns to setup and forgets the code', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.createPairing('Tablet');
+      backend.acceptedKey = null;
+
+      final error = await app.createPairing('Laptop');
+
+      expect(error, isNull);
+      expect(app.phase, ConnectionPhase.disconnected);
+      expect(app.pairing, isNull);
+    });
+  });
 }

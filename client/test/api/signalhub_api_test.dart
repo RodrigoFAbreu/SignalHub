@@ -164,6 +164,26 @@ void main() {
     );
   });
 
+  test('an admin device creates a pairing code', () async {
+    backend.admin = true;
+
+    final pairing = await backend.api().createPairing('Tablet');
+
+    expect(pairing.name, 'Tablet');
+    expect(pairing.code, startsWith('shpc1_'));
+    expect(pairing.uri, startsWith('signalhub://pair?server='));
+    expect(backend.requests.last.method, 'POST');
+    expect(backend.requests.last.url.path, '/api/v1/client/pairings');
+    expect(jsonDecode(backend.requests.last.body), {'name': 'Tablet'});
+  });
+
+  test('creating a pairing code refuses a device that is not an admin', () {
+    expect(
+      backend.api().createPairing('Tablet'),
+      throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 403)),
+    );
+  });
+
   test('replaces the push preferences', () async {
     final api = backend.api();
 

@@ -532,6 +532,15 @@ curl -s -X POST "$D/$CLIENT/admin" -H "Authorization: Bearer $ADMIN_KEY"     # m
 curl -s -X POST "$D/$CLIENT/revoke" -H "Authorization: Bearer $ADMIN_KEY"    # revoke a non-admin
 ```
 
+It also creates pairing codes, never for an admin device (see
+[Pairing from an admin device](architecture.md#pairing-from-an-admin-device)):
+
+```sh
+curl -s http://localhost:8080/api/v1/client/pairings \
+  -H "Authorization: Bearer $ADMIN_KEY" -H 'Content-Type: application/json' \
+  -d '{"name": "Tablet"}' | jq -r .uri
+```
+
 Both reads show each client's latest push results in `pushStatus` (see
 [Client API](architecture.md#client-api)), which answers why a device got no
 push:
