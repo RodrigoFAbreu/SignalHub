@@ -52,7 +52,8 @@ an optional event retention period, an optional Caddy TLS reverse proxy in
 Compose that exposes only the product API, and the upgrade procedure
 (tested from the latest release and from v0.13.0) and health monitoring (`docs/deployment.md`),
 and the Flutter client app
-in `client/` (setup with a client key, push registration and reception, with
+in `client/` (setup by scanning or pasting a pairing code, or with a client
+key, push registration and reception, with
 the server's push options when the build has none, the
 event inbox and event details, read state, push preferences, and its build
 and commit on the *This device* screen; every release attaches it as an

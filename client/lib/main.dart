@@ -16,6 +16,8 @@ Future<void> main() async {
   final controller = AppController(
     store: SecureCredentialsStore(),
     apiFactory: (credentials) => SignalHubApi(credentials, httpClient),
+    redeemPairing: (serverUrl, code) =>
+        SignalHubApi.redeemPairing(httpClient, serverUrl, code),
     push: push,
     startServedPush: FirebasePushService.startServed,
   );

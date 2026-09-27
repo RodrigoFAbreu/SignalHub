@@ -37,6 +37,27 @@ class EventNotFoundException extends ApiException {
     : super('This event does not exist on the server', statusCode: 404);
 }
 
+/// The server did not accept a pairing code: it is expired, already used or
+/// unknown. The backend deliberately does not say which.
+class PairingRejectedException extends ApiException {
+  const PairingRejectedException()
+    : super(
+        'This pairing code has expired or was already used. '
+        'Ask for a new one.',
+        statusCode: 401,
+      );
+}
+
+/// A client a pairing code registered, and its client key.
+class PairedClient {
+  const PairedClient(this.registration, this.clientKey);
+
+  final ClientRegistration registration;
+
+  /// Returned only once, by the redemption.
+  final String clientKey;
+}
+
 /// The client side of the backend's HTTP API, authenticated with a client
 /// key. It uses only the public, documented contract.
 class SignalHubApi {
@@ -46,6 +67,34 @@ class SignalHubApi {
 
   final ServerCredentials _credentials;
   final http.Client _http;
+
+  /// `POST /api/v1/pairing`: redeems a one-time pairing code at [serverUrl],
+  /// which registers a new client, and returns it with its client key. Throws
+  /// [PairingRejectedException] for an expired, used or unknown code.
+  static Future<PairedClient> redeemPairing(
+    http.Client client,
+    String serverUrl,
+    String code,
+  ) async {
+    final Map<String, Object?> body;
+    try {
+      body = await _request(
+        client,
+        'POST',
+        Uri.parse('$serverUrl/api/v1/pairing'),
+        bearer: code,
+      );
+    } on UnauthorizedException {
+      throw const PairingRejectedException();
+    }
+    return _read(
+      body,
+      (json) => PairedClient(
+        ClientRegistration.fromJson(json),
+        json.string('clientKey'),
+      ),
+    );
+  }
 
   /// `GET /api/v1/client`: this installation's registration.
   Future<ClientRegistration> getClient() async =>
@@ -164,9 +213,23 @@ class SignalHubApi {
     String method,
     String path, {
     Map<String, Object?>? body,
+  }) => _request(
+    _http,
+    method,
+    _credentials.endpoint(path),
+    bearer: _credentials.clientKey,
+    body: body,
+  );
+
+  static Future<Map<String, Object?>> _request(
+    http.Client client,
+    String method,
+    Uri url, {
+    required String bearer,
+    Map<String, Object?>? body,
   }) async {
-    final request = http.Request(method, _credentials.endpoint(path))
-      ..headers['Authorization'] = 'Bearer ${_credentials.clientKey}'
+    final request = http.Request(method, url)
+      ..headers['Authorization'] = 'Bearer $bearer'
       ..headers['Accept'] = 'application/json';
     if (body != null) {
       request
@@ -176,7 +239,7 @@ class SignalHubApi {
     final http.Response response;
     try {
       response = await http.Response.fromStream(
-        await _http.send(request).timeout(timeout),
+        await client.send(request).timeout(timeout),
       ).timeout(timeout);
     } on TimeoutException {
       throw const ApiException('The server did not answer in time');
@@ -186,7 +249,7 @@ class SignalHubApi {
     return _decode(response);
   }
 
-  Map<String, Object?> _decode(http.Response response) {
+  static Map<String, Object?> _decode(http.Response response) {
     final status = response.statusCode;
     if (status == 401) throw const UnauthorizedException();
     if (status < 200 || status >= 300) {

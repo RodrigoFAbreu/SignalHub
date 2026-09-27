@@ -973,7 +973,8 @@ provider is logged by type only.
 
 ## Client application
 
-> Status: implemented in `client/`: setup with a client key, push
+> Status: implemented in `client/`: setup by [pairing](#pairing) or with a
+> client key, push
 > registration and reception, the inbox and event details,
 > [read state](#read-state), and [push preferences](#push-preferences).
 
@@ -1001,10 +1002,22 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   controller, the push registration and the UI depend only on it.
   `FirebasePushService` is the only Dart code that imports Firebase; its
   provider name `fcm` matches the backend's provider.
-- **Registration.** The operator registers the installation as a client
-  (`POST /api/v1/admin/clients`) and the owner enters the server address and
-  client key in the app. The app checks the key with `GET /api/v1/client`
-  before saving it, then asks for notification permission and sets its push
+- **Registration.** The setup screen offers [pairing](#pairing) first: the
+  owner scans the pairing URI's QR code with the camera or pastes the URI,
+  and the app redeems the code at the URI's server
+  (`POST /api/v1/pairing`), which registers the installation as a new client
+  and answers its key. The camera permission is asked for only when the
+  scanner opens; a QR code that is not a pairing URI, an expired or used
+  code (`401`) and an unreachable server (named, since the address comes
+  from the operator's `SIGNALHUB_PUBLIC_URL`) each get their own message.
+  Scanning uses `mobile_scanner` (the camera and the platform's barcode
+  reader, ML Kit on Android and Vision on iOS, all on the device); the
+  scanner is injected, so tests replace the camera. Manual setup stays: the
+  operator registers the installation (`POST /api/v1/admin/clients`) and the
+  owner enters the server address and client key. The app checks a typed
+  key with `GET /api/v1/client` before saving it; a redeemed key needs no
+  check, the redemption having answered the registration. Either way, it
+  then asks for notification permission and sets its push
   target with `PUT /api/v1/client/push-target`, again on every start and
   whenever the provider issues a new token. Disconnecting removes the target
   (`DELETE`), deletes the provider token and forgets the key. A key the

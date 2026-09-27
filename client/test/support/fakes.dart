@@ -10,6 +10,15 @@ import 'package:signalhub_client/src/push/push_service.dart';
 
 const serverUrl = 'https://signalhub.test';
 const clientKey = 'shck1_01a0da2c1f3e7a518d0c6b1f2e3d4c5b_secret';
+const pairingCode = 'shpc1_Zt1vQ3x9rB2mKc8wYp4aLd';
+const pairedClientKey = 'shck1_01a0da2c1f3e7a518d0c6b1f2e3d4c5c_paired';
+
+/// The pairing URI of [pairingCode] for [serverUrl], as the backend makes it.
+final pairingUri = Uri(
+  scheme: 'signalhub',
+  host: 'pair',
+  queryParameters: {'server': serverUrl, 'code': pairingCode},
+).toString();
 
 /// An in-memory stand-in for the backend's client API, answering the way
 /// docs/architecture.md describes it.
@@ -37,6 +46,10 @@ class FakeBackend {
   /// configured none.
   Map<String, Object?>? pushConfig;
 
+  /// Pairing codes not redeemed yet. Redeeming one registers a client with
+  /// [pairedClientKey], which the backend then accepts.
+  final pairingCodes = <String>{};
+
   /// When set, every request fails to connect.
   bool offline = false;
 
@@ -48,6 +61,9 @@ class FakeBackend {
 
   SignalHubApi api([String url = serverUrl, String key = clientKey]) =>
       SignalHubApi(ServerCredentials.parse(url, key), client);
+
+  Future<PairedClient> redeemPairing(String url, String code) =>
+      SignalHubApi.redeemPairing(client, url, code);
 
   void publish(
     String id,
@@ -84,6 +100,17 @@ class FakeBackend {
     if (offline) throw http.ClientException('offline', request.url);
     // Servers may sit below a base path behind a reverse proxy.
     final path = request.url.path.substring(request.url.path.indexOf('/api/'));
+    if ('${request.method} $path' == 'POST /api/v1/pairing') {
+      final code = request.headers['Authorization']?.replaceFirst(
+        'Bearer ',
+        '',
+      );
+      if (!pairingCodes.remove(code)) {
+        return _json(401, {'title': 'Unauthorized', 'status': 401});
+      }
+      acceptedKey = pairedClientKey;
+      return _json(201, {..._client(), 'clientKey': pairedClientKey});
+    }
     if (request.headers['Authorization'] != 'Bearer $acceptedKey') {
       return _json(401, {'title': 'Unauthorized', 'status': 401});
     }
