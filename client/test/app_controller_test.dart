@@ -120,10 +120,15 @@ void main() {
     expect(app.phase, ConnectionPhase.connected);
     expect(store.saved, isNotNull);
     expect(app.error, 'Could not reach the server');
+    expect(app.serverUnreachable, isTrue);
+    // Push registration waits for the server rather than failing too.
+    expect(app.pushStatus, PushStatus.pending);
 
     backend.offline = false;
     await app.refresh();
     expect(app.error, isNull);
+    expect(app.serverUnreachable, isFalse);
+    expect(app.pushStatus, PushStatus.registered);
     expect(app.registration?.name, 'Pixel 8');
   });
 
@@ -254,7 +259,8 @@ void main() {
 
       await app.start();
 
-      expect(app.pushStatus, PushStatus.failed);
+      // Nothing to try until the server answers.
+      expect(app.pushStatus, PushStatus.pending);
       expect(starter.started, isEmpty);
       backend.offline = false;
       await app.refresh();
@@ -599,13 +605,15 @@ void main() {
     final app = controller();
     await app.connect(serverUrl, clientKey);
 
-    expect((await app.markRead('e-1'))?.readAt, isNotNull);
+    expect((await app.markRead('e-1')).event?.readAt, isNotNull);
     // Already read: the inbox's event, without a request.
     backend.offline = true;
-    expect((await app.markRead('e-1'))?.isRead, isTrue);
+    expect((await app.markRead('e-1')).event?.isRead, isTrue);
 
     backend.publish('e-2', 'Not in the inbox');
-    expect(await app.markRead('e-2'), isNull);
+    final failed = await app.markRead('e-2');
+    expect(failed.event, isNull);
+    expect(failed.error, 'Could not reach the server');
   });
 
   test('marks all read up to the newest event shown, not newer ones', () async {

@@ -982,10 +982,15 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   page's `nextCursor` when the owner scrolls near the end; a pull to refresh
   starts again from the first page, and an older page still in flight is
   then dropped rather than appended out of order. Failures show a message
-  with a retry; the rows already read stay. Each row shows the title,
+  with a retry; the rows already read stay. While the server does not answer
+  at all (unreachable or timed out), that is the one message shown: push
+  registration waits for the next refresh that reaches the server, and a
+  push status such as a failed registration is shown only while the server
+  answers. Each row shows the title,
   category, severity, producer name and `createdAt`, with an icon for the
   category and a color for the severity; they depend on nothing but these
-  generic fields.
+  generic fields. The time is always shown in full; a long producer name
+  gives way instead.
 - **Event details.** Every field the API returns: title, message, category,
   severity, producer, context, `occurredAt`, `createdAt`, ID, and the
   metadata as indented JSON, shown as the producer sent it and never
@@ -998,10 +1003,12 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   `GET /api/v1/events/unread-count`, read with every inbox reload (also
   after a push), so it counts events on pages not read yet. Opening an
   event, from the inbox or a notification, marks it read
-  (`PUT /api/v1/events/{id}/read`); if that fails the event simply stays
-  unread and is marked the next time. The event screen shows the state
+  (`PUT /api/v1/events/{id}/read`); if that fails the event stays
+  unread, a message on the event screen says so without blocking it, and
+  it is marked the next time. The event screen shows the state
   the server last returned (the answer to marking it read on opening, then
-  to each change), and its one action follows it: *Mark as read* (`PUT`)
+  to each change), and its one action, labelled with text beside its icon,
+  follows it: *Mark as read* (`PUT`)
   while the event is unread, which stays on the event, and *Mark as unread*
   (`DELETE`) once it is read, which returns to the inbox. A failed change
   says why and leaves the state and the action as they were. *Mark all as read* sends the

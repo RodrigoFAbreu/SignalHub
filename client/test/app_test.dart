@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:signalhub_client/src/app.dart';
 import 'package:signalhub_client/src/app_controller.dart';
 import 'package:signalhub_client/src/build_identity.dart';
+import 'package:signalhub_client/src/push/push_registration.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
 
 import 'support/fakes.dart';
@@ -45,10 +46,29 @@ void main() {
     await connect(tester);
 
     expect(find.text('Nightly build failed'), findsOneWidget);
-    expect(
-      find.textContaining('Blocked · High · nightly-build · '),
-      findsOneWidget,
-    );
+    expect(find.text('Blocked · High · nightly-build'), findsOneWidget);
+  });
+
+  testWidgets('an unreachable server is the one message shown', (tester) async {
+    await connect(tester);
+    backend.offline = true;
+
+    // Pull to refresh.
+    await tester.runAsync(controller.refresh);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not reach the server'), findsOneWidget);
+    expect(find.text(PushStatus.failed.description), findsNothing);
+  });
+
+  testWidgets('a failed push registration is shown when the server answers', (
+    tester,
+  ) async {
+    push.token = null;
+
+    await connect(tester);
+
+    expect(find.text(PushStatus.failed.description), findsOneWidget);
   });
 
   Future<void> openDevice(WidgetTester tester) async {
@@ -312,7 +332,7 @@ void main() {
     // The server's answer to marking it read on opening.
     expect(find.byKey(const Key('markUnread')), findsOneWidget);
     expect(find.byKey(const Key('markRead')), findsNothing);
-    expect(find.byTooltip('Mark as unread'), findsOneWidget);
+    expect(find.text('Mark as unread'), findsOneWidget);
     expect(find.text('Unread'), findsNothing);
   });
 
@@ -325,10 +345,15 @@ void main() {
     await tester.tap(find.text('Nightly build failed'));
     await settle(tester);
 
-    // Marking on opening failed: still unread, and the action says so.
+    // Marking on opening failed: still unread, a message says so, and the
+    // action offers to mark it read.
     expect(backend.isRead('e-1'), isFalse);
     expect(find.text('Unread'), findsOneWidget);
-    expect(find.byTooltip('Mark as read'), findsOneWidget);
+    expect(
+      find.text('Not marked as read: Could not reach the server'),
+      findsOneWidget,
+    );
+    expect(find.text('Mark as read'), findsOneWidget);
     expect(find.byKey(const Key('markUnread')), findsNothing);
 
     backend.offline = false;

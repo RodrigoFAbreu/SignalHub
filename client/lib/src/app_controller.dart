@@ -77,6 +77,11 @@ class AppController extends ChangeNotifier {
   /// worked.
   String? error;
 
+  /// Whether the last refresh got no answer from the server at all. Nothing
+  /// else can reach it then either, so push registration is not tried and
+  /// [error] is the one thing to tell the owner.
+  bool serverUnreachable = false;
+
   /// The inbox: the events read so far, newest first.
   List<Event> events = const [];
 
@@ -155,7 +160,9 @@ class AppController extends ChangeNotifier {
   /// Re-reads the registration and the newest page of the inbox, and
   /// registers the push token again (pull to refresh).
   Future<void> refresh({bool includeClient = true}) async {
-    if (await _reload(includeClient: includeClient)) await _registerPush();
+    if (await _reload(includeClient: includeClient) && !serverUnreachable) {
+      await _registerPush();
+    }
   }
 
   /// Returns whether the server still accepts the key.
@@ -172,11 +179,13 @@ class AppController extends ChangeNotifier {
         unreadCount = unread;
       }
       error = null;
+      serverUnreachable = false;
     } on UnauthorizedException {
       await _forgetRevokedKey();
       return false;
     } on ApiException catch (e) {
       error = e.message;
+      serverUnreachable = e.statusCode == null;
     }
     notifyListeners();
     return true;
@@ -224,12 +233,14 @@ class AppController extends ChangeNotifier {
   }
 
   /// Marks the event with [id] read, for every client of the owner, when the
-  /// owner opens it. Returns the event as the server returned it, or `null`
-  /// if marking failed. Failing is harmless: the event stays unread and is
-  /// marked again the next time it is opened.
-  Future<Event?> markRead(String id) async {
-    if (_eventWithId(id) case final event? when event.isRead) return event;
-    return (await setRead(id, read: true)).event;
+  /// owner opens it. Returns the event as the server returned it, or an
+  /// error message if marking failed. Failing is harmless: the event stays
+  /// unread and is marked again the next time it is opened.
+  Future<({Event? event, String? error})> markRead(String id) async {
+    if (_eventWithId(id) case final event? when event.isRead) {
+      return (event: event, error: null);
+    }
+    return setRead(id, read: true);
   }
 
   /// Marks the event with [id] read when [read], unread otherwise. Returns
@@ -426,6 +437,7 @@ class AppController extends ChangeNotifier {
     _eventToOpen = null;
     pushStatus = _initialPushStatus;
     error = reason;
+    serverUnreachable = false;
     _setPhase(ConnectionPhase.disconnected);
   }
 

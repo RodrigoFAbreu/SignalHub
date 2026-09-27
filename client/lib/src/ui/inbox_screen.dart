@@ -146,15 +146,17 @@ class _InboxScreenState extends State<InboxScreen> {
           text: error,
           detail: 'Pull down to retry.',
         ),
-      if (controller.pushStatus
-          case PushStatus.permissionDenied ||
-              PushStatus.failed ||
-              PushStatus.unsupported ||
-              PushStatus.restartRequired)
-        _Banner(
-          icon: Icons.notifications_off_outlined,
-          text: controller.pushStatus.description,
-        ),
+      // An unreachable server is the one thing to fix; push waits for it.
+      if (!controller.serverUnreachable)
+        if (controller.pushStatus
+            case PushStatus.permissionDenied ||
+                PushStatus.failed ||
+                PushStatus.unsupported ||
+                PushStatus.restartRequired)
+          _Banner(
+            icon: Icons.notifications_off_outlined,
+            text: controller.pushStatus.description,
+          ),
     ];
     final events = controller.events;
     final Widget? placeholder = switch ((controller.inboxLoaded, events)) {
@@ -230,11 +232,25 @@ class EventTile extends StatelessWidget {
             ? null
             : const TextStyle(fontWeight: FontWeight.bold),
       ),
-      subtitle: Text(
-        '${event.category.label} · ${event.severity.label} · '
-        '${event.producer.name} · ${formatTimestamp(event.createdAt)}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      // The time is never cut: a long producer name or severity gives way.
+      subtitle: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${event.category.label} · ${event.severity.label} · '
+              '${event.producer.name}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            formatTimestamp(event.createdAt),
+            key: const Key('eventTime'),
+            maxLines: 1,
+            softWrap: false,
+          ),
+        ],
       ),
       trailing: event.isRead
           ? null

@@ -975,6 +975,26 @@ The following capabilities are already implemented and merged unless repository 
 - no API, schema or backend code change; an operator change, so `!`: a
   major release with migration notes
 
+### R27 - Inbox and event-screen polish
+
+- the event screen's read-state action is a text button with its icon and
+  the label *Mark as read* or *Mark as unread*, instead of an icon whose
+  meaning was only in a tooltip; the keys and wording the device-review
+  script uses are unchanged
+- an inbox row keeps its time out of the part that is cut: category,
+  severity and producer give way to a narrow screen, and the time is shown
+  in full for every severity (widget tests at a 360-pixel width)
+- when marking an event read on opening fails, a message says *Not marked
+  as read* and why, without blocking the screen; the event stays shown as
+  the server's unread state; a later change replaces that message
+- a refresh that gets no answer from the server (unreachable or timed out)
+  no longer tries push registration, so the inbox shows the one connection
+  message instead of that and a failed registration; the push status is
+  shown again once the server answers, and a registration failure against
+  a reachable server is still shown
+- client only: no API, schema or backend change; `fix(client)`, a patch
+  release
+
 ---
 
 ## 4. Planned roadmap
@@ -1519,8 +1539,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 13 | R24 - Installable Android app in each release | Increment (`feat`) | Done (see section 3) |
 | 14 | R25 - Java 25 (decision D2) | Increment (`build`) | Done (see section 3) |
 | 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Done (see section 3) |
-| 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Next |
-| 17 | R28 - Pairing a device: the API | Increment (`feat`) | Blocked until R27 is merged |
+| 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Done (see section 3) |
+| 17 | R28 - Pairing a device: the API | Increment (`feat`) | Next |
 | 18 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Blocked until R28 is merged |
 
 How an autonomous run uses it:
@@ -2156,7 +2176,7 @@ release (see [Release implications](#release-implications)).
 
 ### R27 - Inbox and event-screen polish
 
-Status: next.
+Status: complete (see section 3).
 
 Evidence: the non-blocking observations of the device review of `v0.27.3`.
 
@@ -2177,7 +2197,7 @@ under [Deferred candidates](#deferred-candidates).
 
 ### R28 - Pairing a device: the API
 
-Status: planned; blocked until R27 is merged.
+Status: next.
 
 Goal: setting up a device needs neither the admin token on the phone nor
 typing a long client key.
@@ -2340,8 +2360,8 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. R26 (PostgreSQL 18) is done, so the expected
-next item is **R27 - Inbox and event-screen polish**, a client fix (see
-[section 5](#5-after-v100)).
+(section 4) is authoritative. R27 (inbox and event-screen polish) is done,
+so the expected next item is **R28 - Pairing a device: the API**, a new
+additive API (see [section 5](#5-after-v100)).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

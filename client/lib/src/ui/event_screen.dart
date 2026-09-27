@@ -9,9 +9,10 @@ import 'event_style.dart';
 /// One event with every field the API returns. Opened from the inbox with
 /// the event at hand, or from a notification with only its ID.
 ///
-/// Opening it marks the event read. Its one read-state action follows the
-/// event's state as the server last returned it: *Mark as read* while it is
-/// unread (marking on opening can fail), *Mark as unread* once it is read.
+/// Opening it marks the event read; if that fails, a message says so and the
+/// event stays shown as unread. Its one read-state action, labelled, follows
+/// the event's state as the server last returned it: *Mark as read* while it
+/// is unread, *Mark as unread* once it is read.
 class EventScreen extends StatefulWidget {
   const EventScreen({
     super.key,
@@ -28,8 +29,8 @@ class EventScreen extends StatefulWidget {
   final Event? initial;
 
   /// Marks the event read when the screen opens; returns the event as the
-  /// server returned it, or `null` if marking failed.
-  final Future<Event?> Function()? markOpened;
+  /// server returned it, or an error message.
+  final Future<({Event? event, String? error})> Function()? markOpened;
 
   /// Marks the event read or unread; returns the event as the server
   /// returned it, or an error message.
@@ -67,9 +68,16 @@ class _EventScreenState extends State<EventScreen> {
     }
   }
 
-  Future<void> _markOpened(Future<Event?> Function() markOpened) async {
-    final event = await markOpened();
-    if (event != null && mounted && !_changed) setState(() => _event = event);
+  Future<void> _markOpened(
+    Future<({Event? event, String? error})> Function() markOpened,
+  ) async {
+    final (:event, :error) = await markOpened();
+    if (!mounted || _changed) return;
+    if (event != null) setState(() => _event = event);
+    if (error != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Not marked as read: $error')));
+    }
   }
 
   Future<void> _setRead(
@@ -84,8 +92,11 @@ class _EventScreenState extends State<EventScreen> {
       if (event != null) _event = event;
     });
     if (error != null) {
+      // The newest outcome replaces an older message, such as the one about
+      // marking on opening.
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error)));
+        ..removeCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error)));
     } else if (event != null && !read) {
       // Marked unread to come back to later: back to the inbox.
       Navigator.of(context).pop();
@@ -99,16 +110,16 @@ class _EventScreenState extends State<EventScreen> {
       actions: [
         if ((_event, widget.setRead) case (final event?, final setRead?))
           event.isRead
-              ? IconButton(
+              ? TextButton.icon(
                   key: const Key('markUnread'),
-                  tooltip: 'Mark as unread',
                   icon: const Icon(Icons.mark_email_unread_outlined),
+                  label: const Text('Mark as unread'),
                   onPressed: _changing ? null : () => _setRead(setRead, false),
                 )
-              : IconButton(
+              : TextButton.icon(
                   key: const Key('markRead'),
-                  tooltip: 'Mark as read',
                   icon: const Icon(Icons.mark_email_read_outlined),
+                  label: const Text('Mark as read'),
                   onPressed: _changing ? null : () => _setRead(setRead, true),
                 ),
       ],
