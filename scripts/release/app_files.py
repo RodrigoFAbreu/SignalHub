@@ -161,16 +161,14 @@ def parse_signers(output: str) -> dict[str, str]:
     signers = re.search(r"^Number of signers: ([0-9]+)$", output, re.MULTILINE)
     if not signers or signers.group(1) != "1":
         raise AppFilesError("the APK is not signed by exactly one signer")
-    # "Signer #1 certificate ..." or, for v3 signers, "Signer (minSdkVersion=...,
-    # maxSdkVersion=...) certificate ..."; every line must name the one key.
+    # "V2 Signer: certificate ...", as apksigner prints an APK signed with v2
+    # only; "Signer #1 certificate ..." in older forms. Every line must name
+    # the one key.
+    signer = r"^[^\n]*Signer[^\n]*certificate"
     digests = set(
-        re.findall(
-            r"^Signer [^:]*certificate SHA-256 digest: ([0-9a-f]{64})$",
-            output,
-            re.MULTILINE,
-        )
+        re.findall(signer + r" SHA-256 digest: ([0-9a-f]{64})$", output, re.MULTILINE)
     )
-    dns = set(re.findall(r"^Signer [^:]*certificate DN: (.*)$", output, re.MULTILINE))
+    dns = set(re.findall(signer + r" DN: (.*)$", output, re.MULTILINE))
     if not digests or not dns:
         raise AppFilesError("apksigner printed no certificate")
     if len(digests) != 1 or len(dns) != 1:

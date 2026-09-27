@@ -40,21 +40,27 @@ application-label:'SignalHub'
 application: label='SignalHub' icon='res/mipmap-mdpi-v4/ic_launcher.png'
 """
 
+# Recorded from the client job's build, with SignalHub's certificate.
 APKSIGNER = f"""\
 Verifies
 Verified using v1 scheme (JAR signing): false
 Verified using v2 scheme (APK Signature Scheme v2): true
-Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3 scheme (APK Signature Scheme v3): false
 Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v3.2 scheme (APK Signature Scheme v3.2): false
 Verified using v4 scheme (APK Signature Scheme v4): false
 Verified for SourceStamp: false
 Number of signers: 1
-Signer #1 certificate DN: CN=SignalHub
-Signer #1 certificate SHA-256 digest: {DIGEST}
-Signer #1 certificate SHA-1 digest: b4d5be34374f75992ec54ff7450d7edd5983d512
-Signer #1 certificate MD5 digest: 0f6a6a8e8e1e3b8c1d0b2b8e7c5b6d4a
-Signer #1 key algorithm: RSA
-Signer #1 key size (bits): 4096
+V2 Signer: certificate DN: CN=SignalHub
+V2 Signer: certificate SHA-256 digest: {DIGEST}
+V2 Signer: certificate SHA-1 digest: adb8ab7c67e0c5235136b8b15b0b31041d1d7519
+V2 Signer: certificate MD5 digest: ffd66f3a85a5fb1ea58598cfc64ace7e
+V2 Signer: key algorithm: RSA
+V2 Signer: key size (bits): 2048
+V2 Signer: public key SHA-256 digest: \
+ed24d1b38377b54156849cc1dd896adee1820839c8da48e758f7469288d49da9
+V2 Signer: public key SHA-1 digest: d4d09830373cb7a679ff8fab8045970a28f8e256
+V2 Signer: public key MD5 digest: 6c92676b4ed768651fb49bd0285580dc
 """
 
 KEYTOOL = """\
@@ -243,16 +249,12 @@ class SignerTest(unittest.TestCase):
             check_signer(parse_signers(output), DIGEST)
 
     def test_refuses_an_apk_without_a_v2_or_v3_signature(self):
-        output = APKSIGNER.replace("v2): true", "v2): false").replace(
-            "v3): true", "v3): false"
-        )
+        output = APKSIGNER.replace("v2): true", "v2): false")
         with self.assertRaises(AppFilesError):
             parse_signers(output)
 
-    def test_reads_v3_signer_lines(self):
-        output = APKSIGNER.replace(
-            "Signer #1", "Signer (minSdkVersion=24, maxSdkVersion=2147483647)"
-        )
+    def test_reads_the_older_signer_lines(self):
+        output = APKSIGNER.replace("V2 Signer:", "Signer #1")
         self.assertEqual(
             parse_signers(output), {"digest": DIGEST, "dn": "CN=SignalHub"}
         )
@@ -267,7 +269,7 @@ class SignerTest(unittest.TestCase):
 
     def test_refuses_output_without_a_certificate(self):
         with self.assertRaises(AppFilesError):
-            parse_signers(APKSIGNER.split("Signer #1")[0])
+            parse_signers(APKSIGNER.split("V2 Signer")[0])
 
     def test_refuses_more_than_one_signer(self):
         with self.assertRaises(AppFilesError):
