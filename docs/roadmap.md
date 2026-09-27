@@ -1071,6 +1071,30 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
 - compatible (`feat`); no client change (the app ignores the new field
   until R31)
 
+### R31 - Opening an event's link in the app
+
+- the event screen shows an event's link among its fields and offers
+  **Open link** (labelled, with its icon), which hands it to the platform
+  to open outside the app: the system browser, or the app the platform
+  assigns to the URL; there is no browser inside the app
+- opening uses `url_launcher` (the Flutter team's own plugin for handing a
+  URL to the platform, no network service), behind an injected opener so
+  tests need no platform channel; Android lists `http` and `https` `VIEW`
+  intents under `<queries>` for package visibility; iOS needs nothing, as
+  the app never asks whether a URL can be opened
+- a tapped notification still opens the event's screen, never the link;
+  an inbox row shows a small link icon, and tapping it opens the event
+- a link no app opens leaves the owner on the event with a message
+- the app accepts only what the server accepts (an absolute `http` or
+  `https` URL with a host) and shows any other value, and an older server's
+  event without the field, as an event without a link
+- tests of the parser (accepted links, other schemes, relative, no host,
+  not a string), the controller (the link through the inbox, a read by ID
+  and marking read) and the screens (opened with one tap, not opened, the
+  inbox icon, a tapped notification, an unusable link, an older server);
+  `client/README.md` and `docs/architecture.md` (Client application); no
+  API change; compatible (`feat(client)`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1618,9 +1642,9 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 16    | R27 - Inbox and event-screen polish from the device review                                       | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 | 17    | R28 - Pairing a device: the API                                                                  | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 18    | R29 - Pairing a device: the app                                                                  | Increment (`feat(client)`)             | Done (see section 3)                                                             |
-| 19    | R30 - An event's link: the API and the SDK                                                       | Increment (`feat`)                     | Next once R29 is merged                                                          |
-| 20    | R31 - Opening an event's link in the app                                                         | Increment (`feat(client)`)             | Blocked until R30 is merged                                                      |
-| 21    | R32 - Inbox filters and an unread-only view                                                      | Increment (`feat`)                     | Blocked until R31 is merged                                                      |
+| 19    | R30 - An event's link: the API and the SDK                                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 20    | R31 - Opening an event's link in the app                                                         | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 21    | R32 - Inbox filters and an unread-only view                                                      | Increment (`feat`)                     | Next                                                                             |
 | 22    | R33 - Each client's last push result in the management API                                       | Increment (`feat`)                     | Blocked until R32 is merged                                                      |
 
 How an autonomous run uses it:
@@ -2396,7 +2420,7 @@ notification action buttons, rendering metadata richer than today.
 
 ### R31 - Opening an event's link in the app
 
-Status: planned; next now that R30 is merged.
+Status: complete (see section 3).
 
 Scope, client only:
 
@@ -2423,7 +2447,7 @@ screen, and one tap opens it.
 
 ### R32 - Inbox filters and an unread-only view
 
-Status: planned; blocked until R31 is merged. Added by the maintainer
+Status: planned; next now that R31 is merged. Added by the maintainer
 (2026-09-27) from the deferred candidates.
 
 Goal: the owner narrows a long inbox by producer, category, severity and
@@ -2601,8 +2625,8 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. R30 (an event's link: the API and the SDK) is
-done, so the expected next item is **R31 - Opening an event's link in the
-app** (see [section 5](#5-after-v100)), then R32 and R33, one per run.
+(section 4) is authoritative. R31 (opening an event's link in the app) is
+done, so the expected next item is **R32 - Inbox filters and an unread-only
+view** (see [section 5](#5-after-v100)), then R33, one per run.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

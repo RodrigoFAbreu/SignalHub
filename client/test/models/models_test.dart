@@ -51,6 +51,53 @@ void main() {
       expect(marked.metadata, unread.metadata);
     });
 
+    test('reads its link', () {
+      final event = Event.fromJson({
+        ...json(),
+        'link': 'https://ci.example.com/runs/1842?attempt=2#log',
+      });
+
+      expect(
+        event.link,
+        Uri.parse('https://ci.example.com/runs/1842?attempt=2#log'),
+      );
+      expect(Event.fromJson(json()).link, isNull);
+      expect(Event.fromJson({...json(), 'link': null}).link, isNull);
+      expect(event.withReadAt(null).link, event.link);
+    });
+
+    test('accepts the links the server accepts', () {
+      for (final link in [
+        'http://intranet.example/status',
+        'HTTPS://Example.ORG/Path',
+        'https://ci.example.com:8443/runs/1',
+      ]) {
+        expect(parseLink(link), isNotNull, reason: link);
+      }
+    });
+
+    test('ignores a link it cannot open, and keeps the event', () {
+      for (final link in [
+        'javascript:alert(1)',
+        'file:///etc/passwd',
+        'intent://scan/#Intent;scheme=zxing;end',
+        'mailto:owner@example.org',
+        'ftp://files.example.org/a',
+        '/runs/1842',
+        'ci.example.com/runs/1842',
+        'https://',
+        'https:///runs/1842',
+        'http://[::1',
+        '',
+        42,
+        {'url': 'https://example.org'},
+      ]) {
+        final event = Event.fromJson({...json(), 'link': link});
+        expect(event.link, isNull, reason: '$link');
+        expect(event.title, 'Disk full');
+      }
+    });
+
     test('keeps events with a category added in a later release', () {
       final event = Event.fromJson(json(category: 'SOMETHING_NEW'));
 

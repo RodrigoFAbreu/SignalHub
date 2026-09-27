@@ -581,6 +581,30 @@ void main() {
     expect(backend.requests.single.url.path, '/api/v1/events/e-2');
   });
 
+  test('an event\'s link reaches the inbox and its screen', () async {
+    backend
+      ..publish('e-1', 'Without a link')
+      ..publish('e-2', 'Build failed', link: 'https://ci.example.com/runs/1');
+    final app = controller();
+    await app.connect(serverUrl, clientKey);
+
+    expect(app.events.map((e) => e.link), [
+      Uri.parse('https://ci.example.com/runs/1'),
+      null,
+    ]);
+
+    backend.publish('e-3', 'Deployed', link: 'https://deploy.example.com/42');
+    expect(
+      (await app.event('e-3')).link,
+      Uri.parse('https://deploy.example.com/42'),
+    );
+    // Marking read answers with the server's event, link included.
+    expect(
+      (await app.markRead('e-2')).event?.link,
+      Uri.parse('https://ci.example.com/runs/1'),
+    );
+  });
+
   test('reads the unread count with the inbox', () async {
     backend
       ..publish('e-1', 'Read before', readAt: '2026-09-25T12:04:00Z')
