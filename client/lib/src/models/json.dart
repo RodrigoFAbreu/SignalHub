@@ -19,6 +19,8 @@ extension JsonObject on Map<String, Object?> {
 
   bool boolean(String key) => _required<bool>(key);
 
+  bool? optionalBoolean(String key) => _optional<bool>(key);
+
   List<String> strings(String key) => list(key)
       .map((item) {
         if (item is String) return item;

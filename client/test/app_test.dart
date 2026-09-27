@@ -993,4 +993,146 @@ void main() {
       expect(find.text('Disk almost full'), findsOneWidget);
     });
   });
+
+  group('device management', () {
+    const tablet = 'c-tablet';
+    const laptop = 'c-laptop';
+
+    setUp(() {
+      backend
+        ..admin = true
+        ..addClient(tablet, 'Tablet')
+        ..addClient(laptop, 'Laptop', admin: true)
+        ..addClient('c-phone', 'Old phone');
+      backend.otherClients.last['revokedAt'] = '2026-09-26T09:00:00Z';
+    });
+
+    Future<void> openDevices(WidgetTester tester) async {
+      await connect(tester);
+      await openDevice(tester);
+      await settle(tester);
+    }
+
+    Finder inDevice(String id, Finder matching) =>
+        find.descendant(of: find.byKey(Key('device-$id')), matching: matching);
+
+    Future<void> choose(WidgetTester tester, String id, String action) async {
+      await tester.ensureVisible(find.byKey(Key('deviceActions-$id')));
+      await tester.tap(find.byKey(Key('deviceActions-$id')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key(action)));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a device that is not an admin shows no devices', (
+      tester,
+    ) async {
+      backend.admin = false;
+
+      await openDevices(tester);
+
+      expect(find.text('Devices'), findsNothing);
+      expect(find.text('Tablet'), findsNothing);
+      expect(
+        backend.requests.where((r) => r.url.path.contains('/devices')),
+        isEmpty,
+      );
+    });
+
+    testWidgets('a server older than device management shows nothing', (
+      tester,
+    ) async {
+      backend.deviceEndpoints = false;
+
+      await openDevices(tester);
+
+      expect(find.text('Devices'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text(AppController.notAdminMessage), findsNothing);
+    });
+
+    testWidgets('an admin device lists every device', (tester) async {
+      await openDevices(tester);
+
+      expect(find.text('Devices'), findsOneWidget);
+      const self = '01a0da2c-1f3e-7a51-8d0c-6b1f2e3d4c5b';
+      expect(
+        inDevice(self, find.text('This device · Admin device')),
+        findsOneWidget,
+      );
+      expect(inDevice(laptop, find.text('Admin device')), findsOneWidget);
+      expect(inDevice(tablet, find.text('Tablet')), findsOneWidget);
+      expect(inDevice('c-phone', find.text('Revoked')), findsOneWidget);
+      // Admins, this device included, and revoked devices offer nothing.
+      expect(find.byKey(const Key('deviceActions-$self')), findsNothing);
+      expect(find.byKey(const Key('deviceActions-$laptop')), findsNothing);
+      expect(find.byKey(const Key('deviceActions-c-phone')), findsNothing);
+      expect(find.byKey(const Key('deviceActions-$tablet')), findsOneWidget);
+    });
+
+    testWidgets('revokes a device after a confirmation', (tester) async {
+      await openDevices(tester);
+
+      await choose(tester, tablet, 'revoke');
+      expect(find.text('Revoke "Tablet"?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(backend.otherClients.first['revokedAt'], isNull);
+
+      await choose(tester, tablet, 'revoke');
+      await tester.tap(find.byKey(const Key('confirm')));
+      await settle(tester);
+
+      expect(backend.otherClients.first['revokedAt'], isNotNull);
+      expect(inDevice(tablet, find.text('Revoked')), findsOneWidget);
+      expect(find.byKey(const Key('deviceActions-$tablet')), findsNothing);
+    });
+
+    testWidgets('makes a device an admin after a confirmation', (tester) async {
+      await openDevices(tester);
+
+      await choose(tester, tablet, 'makeAdmin');
+      expect(find.text('Make "Tablet" an admin device?'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('confirm')));
+      await settle(tester);
+
+      expect(backend.otherClients.first['admin'], isTrue);
+      expect(inDevice(tablet, find.text('Admin device')), findsOneWidget);
+      expect(find.byKey(const Key('deviceActions-$tablet')), findsNothing);
+    });
+
+    testWidgets('a refused change says why', (tester) async {
+      await openDevices(tester);
+      backend.otherClients.first['admin'] = true;
+
+      await choose(tester, tablet, 'revoke');
+      await tester.tap(find.byKey(const Key('confirm')));
+      await settle(tester);
+
+      expect(
+        find.text('The server answered 409: Client is an admin device'),
+        findsOneWidget,
+      );
+      expect(inDevice(tablet, find.text('Admin device')), findsOneWidget);
+    });
+
+    testWidgets('rights taken away meanwhile are explained', (tester) async {
+      await openDevices(tester);
+      backend.admin = false;
+
+      await choose(tester, tablet, 'makeAdmin');
+      await tester.tap(find.byKey(const Key('confirm')));
+      await settle(tester);
+
+      expect(backend.otherClients.first['admin'], isFalse);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('notAdmin')),
+          matching: find.text(AppController.notAdminMessage),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Tablet'), findsNothing);
+    });
+  });
 }

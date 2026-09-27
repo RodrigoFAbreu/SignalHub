@@ -142,6 +142,48 @@ void main() {
     expect(client.revokedAt, isNull);
   });
 
+  test('ClientRegistration says whether it is an admin device', () {
+    Map<String, Object?> client([Map<String, Object?> extra = const {}]) => {
+      'id': 'c-1',
+      'name': 'Phone',
+      'createdAt': '2026-09-25T12:00:00Z',
+      'revokedAt': null,
+      'pushTarget': null,
+      ...extra,
+    };
+
+    expect(ClientRegistration.fromJson(client({'admin': true})).admin, isTrue);
+    expect(ClientRegistration.fromJson(client({'admin': false})).admin, false);
+    // A server released before admin devices leaves the field out.
+    expect(ClientRegistration.fromJson(client()).admin, isFalse);
+  });
+
+  test('ManagedDevice reads a listed client', () {
+    final device = ManagedDevice.fromJson({
+      'id': 'c-2',
+      'name': 'Tablet',
+      'admin': false,
+      'createdAt': '2026-09-25T12:00:00Z',
+      'revokedAt': '2026-09-26T12:00:00Z',
+      'pushTarget': null,
+      'pushStatus': null,
+    });
+
+    expect(device.name, 'Tablet');
+    expect(device.admin, isFalse);
+    expect(device.isRevoked, isTrue);
+    expect(
+      () => ManagedDevice.fromJson({'id': 'c-2', 'name': 'Tablet'}),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('admin'),
+        ),
+      ),
+    );
+  });
+
   group('PushPreferences', () {
     Map<String, Object?> client(Object? preferences) => {
       'id': 'c-1',

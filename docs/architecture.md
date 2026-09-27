@@ -1433,6 +1433,24 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   X.Y.Z" for an app a release built, "SignalHub development build" for any
   other, and "Commit" with the first 7 characters of the commit it was built
   from, or "Commit unknown" (see [Version](#version)).
+- **Managing devices.** On an [admin device](#admin-devices) (its
+  registration says `admin`), the *This device* screen also lists every
+  device with `GET /api/v1/client/devices`, read when the screen opens and
+  when it is pulled down: active devices first, each with its name and
+  whether it is this device, an admin or revoked. A device that is neither
+  an admin nor revoked offers *Make an admin* and *Revoke*, each after a
+  confirmation ([Device management from an admin device](#device-management-from-an-admin-device));
+  admins, this device included, offer neither, as the server would refuse
+  them. The list shows each change as the server returned it; a refused
+  change says why and re-reads the list. It lives on *This device*, not in
+  a tab of its own: the app has no tabs, managing devices is occasional,
+  and ordinary devices would never use one. A `403` from the device
+  endpoints, or a registration read since without admin rights, says "This
+  device is no longer an admin device" in place of the list and the app
+  stops offering it. Devices that are not admins, and servers without
+  admin devices (no `admin` field) or without the device endpoints (`404`
+  for the listing), show nothing new. Renaming, taking admin rights away
+  and pairing stay on the [admin page](#the-admin-page).
 - **Events.** The app maps the API's events to a typed model. A category or
   severity added in a later backend release maps to *unknown* rather than
   failing, so older apps keep working (see

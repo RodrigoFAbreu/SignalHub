@@ -1282,6 +1282,39 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   operator recovers), `docs/deployment.md`, `docs/development.md`;
   compatible (`feat`)
 
+### R37 - Managing devices in the app
+
+- the app reads `admin` from its registration (`false` when a server older
+  than admin devices leaves it out); an admin device's _This device_ screen
+  gains a **Devices** section below the build, read with
+  `GET /api/v1/client/devices` each time the screen opens or is pulled
+  down; other devices, and servers that answer `404` for the listing (older
+  than R36), show nothing new and are never asked for it
+- on _This device_ rather than a tab of its own: the app has no tabs (the
+  inbox is its one home, with the rest in its menu), managing devices is
+  occasional, and the screen is already about the device's registration,
+  so a tab bar for every device would be new navigation that ordinary
+  devices never use
+- every device, active ones first in the server's order, then revoked
+  ones: its name, _This device_, _Admin device_, _Revoked_; on devices that
+  are neither admins nor revoked, a menu with **Make an admin** and
+  **Revoke**, each after a confirmation that says what it does and that it
+  cannot be undone from a device; nothing on admins (this device included)
+  or revoked devices
+- a change shows the device as the server returned it; a refused change
+  (`409`, the device changed meanwhile) says why and re-reads the list; a
+  `403` from any device endpoint, or a registration re-read without
+  `admin`, replaces the list with "This device is no longer an admin
+  device", re-reads the registration and stops offering management; a
+  revoked key returns to setup as everywhere else
+- controller tests against the fake backend (listing, both changes, a
+  refusal, an unreachable server, rights lost on reading, on a change and
+  in a refresh, older servers without `admin` or the endpoints, a revoked
+  key), widget tests (an ordinary device, an older server, the list and
+  its actions, confirmations and cancelling, a refusal, lost rights), API
+  and model tests; `client/README.md`, `docs/architecture.md` (Client
+  application); no API change; compatible (`feat(client)`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1836,8 +1869,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 23    | R34 - The Connect page and the pairing notice                                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 24    | R35 - The admin page: every device, admin rights, renaming                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 25    | R36 - Managing devices from an admin device: the API                                             | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 26    | R37 - Managing devices in the app                                                                | Increment (`feat(client)`)             | Next                                                                             |
-| 27    | R38 - Pairing codes from an admin device                                                         | Increment (`feat`)                     | Blocked until R37 is merged                                                      |
+| 26    | R37 - Managing devices in the app                                                                | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 27    | R38 - Pairing codes from an admin device                                                         | Increment (`feat`)                     | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -2852,7 +2885,7 @@ rights away or revoking an admin from a device, the app (R37).
 
 ### R37 - Managing devices in the app
 
-Status: planned; next. Added by the maintainer (2026-09-27).
+Status: complete (see section 3). Added by the maintainer (2026-09-27).
 
 Scope:
 
@@ -2871,9 +2904,8 @@ Compatible (`feat(client)`): no API change.
 
 ### R38 - Pairing codes from an admin device
 
-Status: planned; blocked until R37 is merged. Added by the maintainer
-(2026-09-27) as a later improvement, deliberately not released with R35 to
-R37.
+Status: planned; next. Added by the maintainer (2026-09-27) as a later
+improvement, deliberately not released with R35 to R37.
 
 Scope:
 
@@ -2998,8 +3030,8 @@ Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
 (section 4) is authoritative. R34 (the Connect page and the pairing
-notice), R35 (the admin page) and R36 (managing devices from an admin
-device: the API) are done. **R37 (managing devices in the app) is next**,
-then R38, after R37 is merged.
+notice), R35 (the admin page), R36 (managing devices from an admin
+device: the API) and R37 (managing devices in the app) are done. **R38
+(pairing codes from an admin device) is next.**
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

@@ -15,6 +15,10 @@ An event with a link offers *Open link* on its screen, which opens it in the
 system browser (or the app the phone assigns to the address); the link is
 never opened from the inbox or the notification, only from the event.
 The *Notifications* screen chooses which events are pushed to this device.
+On an [admin device](../docs/architecture.md#admin-devices), the *This
+device* screen also lists every device of the owner, with *Make an admin*
+and *Revoke* on those that are not admins (see
+[Manage devices](#manage-devices)).
 See
 [docs/architecture.md](../docs/architecture.md#client-application) for its
 design and [docs/development.md](../docs/development.md#client) for the
@@ -26,14 +30,14 @@ commands that CI runs.
 |---|---|
 | `lib/main.dart` | Wiring: starts push with built-in options, or hands the controller the start from served ones; creates the controller, runs the app. |
 | `lib/src/api/` | `SignalHubApi`, the client side of the backend's HTTP API. |
-| `lib/src/models/` | Events, the inbox filter, the client registration and the served push options, read from API JSON. |
+| `lib/src/models/` | Events, the inbox filter, the client registration, the devices an admin device lists and the served push options, read from API JSON. |
 | `lib/src/connection/` | Server address and client key, kept in secure storage; the pairing URI. |
 | `lib/src/push/push_service.dart` | `PushService`, the provider-neutral push port, and `PushNotice`. |
 | `lib/src/push/push_registration.dart` | Keeps the server's push target in step with the provider's token. |
 | `lib/src/push/firebase_push_service.dart` | The Firebase Cloud Messaging adapter: the only Dart code that knows Firebase. |
 | `lib/src/build_identity.dart` | Which SignalHub build the app is: release version and commit, from build-time defines. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
-| `lib/src/ui/` | The setup, pairing scanner, inbox (with its filter sheet), event, device and notifications screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
+| `lib/src/ui/` | The setup, pairing scanner, inbox (with its filter sheet), event, device (with the device list of an admin device) and notifications screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
 | `android/`, `ios/` | Platform projects: identifiers, permissions, push capability, the browsers an event's link may open in (Android `<queries>`). |
 | `icon/` | The app icon (`icon.svg`) and `render.sh`, which renders its PNGs for both platforms. |
 | `test/` | Unit and widget tests against a fake backend and a fake push service. |
@@ -145,6 +149,28 @@ The server address is `http://10.0.2.2:8080` from the Android emulator and
 `http://localhost:8080` from the iOS simulator. Plain HTTP works only in
 Android debug builds and, on iOS, to local addresses; anything reachable from
 elsewhere needs HTTPS through a reverse proxy.
+
+## Manage devices
+
+A device the operator made an admin device, on the
+[admin page](../docs/architecture.md#the-admin-page) or when pairing it,
+manages the owner's other devices from the app. Its *This device* screen
+(from the inbox menu) has a **Devices** section below the build: every
+device, active ones first, marked *This device*, *Admin device* or
+*Revoked*. Pull down to read it again.
+
+- **Make an admin** and **Revoke** are in the menu of each device that is
+  neither an admin nor revoked, and each asks for a confirmation first.
+  Revoking stops the device's client key at once and removes its push
+  target; to use it again, set it up again.
+- **Admins**, this device included, offer neither: a device cannot take
+  admin rights away or revoke an admin. Only the operator can, on the admin
+  page, which is also where devices are renamed and paired.
+- **If this device loses its admin rights** meanwhile, the section says
+  *This device is no longer an admin device* instead of the list, and the
+  app stops offering it until it is made an admin again.
+- Devices that are not admins show nothing new, and neither does any
+  device with a server older than v2.9.0, which has no device management.
 
 ## Push notifications
 
