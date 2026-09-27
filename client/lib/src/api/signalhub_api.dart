@@ -145,6 +145,34 @@ class SignalHubApi {
     ClientRegistration.fromJson,
   );
 
+  /// `GET /api/v1/client/devices`: every client of the owner, revoked or
+  /// not, oldest first. Only an admin device's key is accepted: any other
+  /// gets `403`, and a server released before device management `404`.
+  Future<List<ManagedDevice>> listDevices() async => _read(
+    await _send('GET', 'api/v1/client/devices'),
+    (json) => json
+        .list('items')
+        .map((item) => ManagedDevice.fromJson(asObject(item, 'items[]')))
+        .toList(growable: false),
+  );
+
+  /// `POST /api/v1/client/devices/{id}/admin`: makes the client an admin
+  /// device. `409` for a revoked client.
+  Future<ManagedDevice> makeDeviceAdmin(String id) =>
+      _changeDevice(id, 'admin');
+
+  /// `POST /api/v1/client/devices/{id}/revoke`: revokes a client that is not
+  /// an admin. Idempotent; `409` for an admin.
+  Future<ManagedDevice> revokeDevice(String id) => _changeDevice(id, 'revoke');
+
+  Future<ManagedDevice> _changeDevice(String id, String action) async => _read(
+    await _send(
+      'POST',
+      'api/v1/client/devices/${Uri.encodeComponent(id)}/$action',
+    ),
+    ManagedDevice.fromJson,
+  );
+
   /// `GET /api/v1/events`: one page of events matching [filter], newest
   /// first. Pass the previous page's [EventPage.nextCursor] as [cursor], with
   /// the same filter, for the next one.

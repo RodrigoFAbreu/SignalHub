@@ -125,6 +125,33 @@ class AppController extends ChangeNotifier {
   /// Whether a change to the push preferences is being saved.
   bool savingPushPreferences = false;
 
+  /// Every client of the owner, active ones first, as this admin device last
+  /// read them; `null` until read, or when it cannot manage devices.
+  List<ManagedDevice>? devices;
+
+  /// Why reading [devices] failed; `null` if it worked.
+  String? devicesError;
+
+  /// Whether this installation turned out not to be an admin device any
+  /// more while managing devices: the server refused it (`403`), or its
+  /// registration, read again, says so. Said once, in place of [devices].
+  bool lostAdminRights = false;
+
+  /// Whether the server has no device endpoints (released before them), so
+  /// the app offers no device management at all.
+  bool _devicesUnsupported = false;
+
+  /// The device a change is being made to; `null` when none is.
+  String? changingDeviceId;
+
+  /// Whether this installation may manage the owner's devices, as its
+  /// registration says and the server supports.
+  bool get canManageDevices =>
+      (registration?.admin ?? false) && !_devicesUnsupported;
+
+  /// For the owner, when the server refuses device management.
+  static const notAdminMessage = 'This device is no longer an admin device';
+
   /// Whether the server has events older than [events].
   bool get hasMore => _nextCursor != null;
 
@@ -431,6 +458,106 @@ class AppController extends ChangeNotifier {
     return null;
   }
 
+  /// Reads every device, if this installation is an admin device; otherwise
+  /// forgets any it read before.
+  Future<void> loadDevices() async {
+    final api = _api;
+    if (api == null) return;
+    if (!canManageDevices) {
+      // Devices shown until now: the registration re-read since says this
+      // installation is no longer an admin device.
+      lostAdminRights = devices != null;
+      devices = null;
+      devicesError = null;
+      notifyListeners();
+      return;
+    }
+    try {
+      devices = _activeFirst(await api.listDevices());
+      devicesError = null;
+      lostAdminRights = false;
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return;
+    } on ApiException catch (e) {
+      switch (e.statusCode) {
+        case 403:
+          await _lostAdminRights(api);
+        case 404:
+          _devicesUnsupported = true;
+          devices = null;
+          devicesError = null;
+        default:
+          devicesError = e.message;
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Makes the device with [id] an admin device. Returns an error message,
+  /// or `null` on success.
+  Future<String?> makeDeviceAdmin(String id) =>
+      _changeDevice(id, (api) => api.makeDeviceAdmin(id));
+
+  /// Revokes the device with [id], which must not be an admin. Returns an
+  /// error message, or `null` on success.
+  Future<String?> revokeDevice(String id) =>
+      _changeDevice(id, (api) => api.revokeDevice(id));
+
+  Future<String?> _changeDevice(
+    String id,
+    Future<ManagedDevice> Function(SignalHubApi api) change,
+  ) async {
+    final api = _api;
+    if (api == null) return 'Not connected to a server';
+    changingDeviceId = id;
+    notifyListeners();
+    try {
+      final changed = await change(api);
+      devices = _activeFirst([
+        for (final d in devices ?? const <ManagedDevice>[])
+          d.id == changed.id ? changed : d,
+      ]);
+      return null;
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return null;
+    } on ApiException catch (e) {
+      if (e.statusCode == 403) {
+        await _lostAdminRights(api);
+        // Unless the key turned out to be revoked too: setup says that.
+        return phase == ConnectionPhase.connected ? notAdminMessage : null;
+      }
+      // Usually a conflict: the operator or another admin device changed
+      // the device meanwhile, so show it as it is now.
+      if (e.statusCode != null) await loadDevices();
+      return e.message;
+    } finally {
+      changingDeviceId = null;
+      notifyListeners();
+    }
+  }
+
+  /// The server refused device management: shows why, and re-reads the
+  /// registration so the app stops offering it.
+  Future<void> _lostAdminRights(SignalHubApi api) async {
+    lostAdminRights = true;
+    devices = null;
+    devicesError = null;
+    try {
+      registration = await api.getClient();
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+    } on ApiException catch (e) {
+      debugPrint('Registration not re-read: ${e.message}');
+    }
+  }
+
+  static List<ManagedDevice> _activeFirst(List<ManagedDevice> devices) => [
+    ...devices.where((d) => !d.isRevoked),
+    ...devices.where((d) => d.isRevoked),
+  ];
+
   /// The event of a notification the owner tapped, once: the inbox opens it.
   String? takeEventToOpen() {
     final id = _eventToOpen;
@@ -530,6 +657,11 @@ class AppController extends ChangeNotifier {
     loadingMore = false;
     loadMoreError = null;
     savingPushPreferences = false;
+    devices = null;
+    devicesError = null;
+    lostAdminRights = false;
+    _devicesUnsupported = false;
+    changingDeviceId = null;
     _eventToOpen = null;
     pushStatus = _initialPushStatus;
     error = reason;

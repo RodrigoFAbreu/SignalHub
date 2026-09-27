@@ -42,6 +42,30 @@ class FakeBackend {
     'mutedProducerIds': <String>[],
   };
 
+  /// Whether this client is an admin device; `null` for a server released
+  /// before admin devices, which leaves the field out.
+  bool? admin = false;
+
+  /// Whether the server has the device endpoints of admin devices; a server
+  /// released before them answers `404`.
+  bool deviceEndpoints = true;
+
+  /// The owner's other clients, as `GET /api/v1/client/devices` lists them
+  /// after this one.
+  final otherClients = <Map<String, Object?>>[];
+
+  void addClient(String id, String name, {bool admin = false}) =>
+      otherClients.add({
+        'id': id,
+        'name': name,
+        'admin': admin,
+        'createdAt': '2026-09-26T08:00:00Z',
+        'revokedAt': null,
+        'pushTarget': null,
+        'pushPreferences': defaultPushPreferences,
+        'pushStatus': null,
+      });
+
   /// The push client options the server serves; `null` when the operator
   /// configured none.
   Map<String, Object?>? pushConfig;
@@ -148,6 +172,9 @@ class FakeBackend {
       }
       return _json(200, event);
     }
+    if (path.startsWith('/api/v1/client/devices') && deviceEndpoints) {
+      return _devices(request.method, path);
+    }
     final route = '${request.method} $path';
     switch (route) {
       case 'GET /api/v1/events/unread-count':
@@ -219,6 +246,40 @@ class FakeBackend {
     return _json(404, {'title': 'Not Found', 'status': 404});
   }
 
+  /// Device management: only an admin device's key is accepted, and nothing
+  /// can be done to an admin.
+  http.Response _devices(String method, String path) {
+    if (admin != true) {
+      return _json(403, {'title': 'Not an admin device', 'status': 403});
+    }
+    final all = [_client(), ...otherClients];
+    if ('$method $path' == 'GET /api/v1/client/devices') {
+      return _json(200, {'items': all});
+    }
+    final match = RegExp(r'^/api/v1/client/devices/([^/]+)/(admin|revoke)$')
+        .firstMatch(path);
+    final target = all.where((c) => c['id'] == match?.group(1)).firstOrNull;
+    if (method != 'POST' || target == null) {
+      return _json(404, {'title': 'Not Found', 'status': 404});
+    }
+    final other = otherClients.contains(target);
+    if (match!.group(2) == 'admin') {
+      if (target['revokedAt'] != null) {
+        return _json(409, {'title': 'Client is revoked', 'status': 409});
+      }
+      if (other) target['admin'] = true;
+    } else {
+      if (target['admin'] == true) {
+        return _json(409, {
+          'title': 'Client is an admin device',
+          'status': 409,
+        });
+      }
+      if (other) target['revokedAt'] ??= '2026-09-27T09:00:00Z';
+    }
+    return _json(200, target);
+  }
+
   /// The listing's filters: values of one parameter are alternatives, and
   /// every parameter must match.
   bool Function(Map<String, Object?>) _matches(Uri url) {
@@ -242,6 +303,7 @@ class FakeBackend {
   Map<String, Object?> _client() => {
     'id': '01a0da2c-1f3e-7a51-8d0c-6b1f2e3d4c5b',
     'name': 'Pixel 8',
+    'admin': ?admin,
     'createdAt': '2026-09-25T18:02:11.108811Z',
     'revokedAt': null,
     'pushTarget': pushTarget,

@@ -1079,4 +1079,209 @@ void main() {
       [('p-2', 'nas'), ('p-1', 'nightly-build')],
     );
   });
+
+  group('device management', () {
+    const tablet = 'c-tablet';
+    const laptop = 'c-laptop';
+
+    setUp(() {
+      backend
+        ..admin = true
+        ..addClient(tablet, 'Tablet')
+        ..addClient(laptop, 'Laptop', admin: true);
+    });
+
+    int deviceRequests() => backend.requests
+        .where((r) => r.url.path.startsWith('/api/v1/client/devices'))
+        .length;
+
+    test('an admin device lists every device, active ones first', () async {
+      backend.otherClients.first['revokedAt'] = '2026-09-26T09:00:00Z';
+      backend.addClient('c-phone', 'Old phone');
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      expect(app.registration?.admin, isTrue);
+      expect(app.canManageDevices, isTrue);
+
+      await app.loadDevices();
+
+      expect(
+        [for (final d in app.devices!) (d.name, d.admin, d.isRevoked)],
+        [
+          ('Pixel 8', true, false),
+          ('Laptop', true, false),
+          ('Old phone', false, false),
+          ('Tablet', false, true),
+        ],
+      );
+      expect(app.devicesError, isNull);
+      expect(app.lostAdminRights, isFalse);
+    });
+
+    test('a device that is not an admin reads no devices', () async {
+      backend.admin = false;
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+
+      await app.loadDevices();
+
+      expect(app.canManageDevices, isFalse);
+      expect(app.devices, isNull);
+      expect(app.lostAdminRights, isFalse);
+      expect(deviceRequests(), 0);
+    });
+
+    test('a server without admin devices offers nothing', () async {
+      backend.admin = null;
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+
+      await app.loadDevices();
+
+      expect(app.registration?.admin, isFalse);
+      expect(app.canManageDevices, isFalse);
+      expect(deviceRequests(), 0);
+    });
+
+    test('a server without the device endpoints offers nothing', () async {
+      backend.deviceEndpoints = false;
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+
+      await app.loadDevices();
+
+      expect(app.canManageDevices, isFalse);
+      expect(app.devices, isNull);
+      expect(app.devicesError, isNull);
+      expect(app.lostAdminRights, isFalse);
+    });
+
+    test('makes a device an admin', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.loadDevices();
+
+      final error = await app.makeDeviceAdmin(tablet);
+
+      expect(error, isNull);
+      expect(backend.otherClients.first['admin'], isTrue);
+      expect(app.devices!.firstWhere((d) => d.id == tablet).admin, isTrue);
+      expect(app.changingDeviceId, isNull);
+    });
+
+    test('revokes a device, which moves after the active ones', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.loadDevices();
+
+      final error = await app.revokeDevice(tablet);
+
+      expect(error, isNull);
+      expect(backend.otherClients.first['revokedAt'], isNotNull);
+      expect(app.devices!.last.id, tablet);
+      expect(app.devices!.last.isRevoked, isTrue);
+    });
+
+    test('a refused change says why and shows the device as it is', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.loadDevices();
+      // Another admin device made it an admin meanwhile.
+      backend.otherClients.first['admin'] = true;
+
+      final error = await app.revokeDevice(tablet);
+
+      expect(error, 'The server answered 409: Client is an admin device');
+      expect(backend.otherClients.first['revokedAt'], isNull);
+      expect(app.devices!.firstWhere((d) => d.id == tablet).admin, isTrue);
+    });
+
+    test('a failed change is reported and changes nothing', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.loadDevices();
+      backend.offline = true;
+
+      final error = await app.revokeDevice(tablet);
+
+      expect(error, 'Could not reach the server');
+      expect(app.devices!.firstWhere((d) => d.id == tablet).isRevoked, false);
+      expect(app.changingDeviceId, isNull);
+    });
+
+    test('rights taken away meanwhile are reported on reading', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      backend.admin = false;
+
+      await app.loadDevices();
+
+      expect(app.lostAdminRights, isTrue);
+      expect(app.devices, isNull);
+      // The registration was re-read, so nothing is offered any more.
+      expect(app.registration?.admin, isFalse);
+      expect(app.canManageDevices, isFalse);
+    });
+
+    test('rights taken away meanwhile are reported on a change', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.loadDevices();
+      backend.admin = false;
+
+      final error = await app.makeDeviceAdmin(tablet);
+
+      expect(error, AppController.notAdminMessage);
+      expect(backend.otherClients.first['admin'], isFalse);
+      expect(app.lostAdminRights, isTrue);
+      expect(app.devices, isNull);
+      expect(app.canManageDevices, isFalse);
+    });
+
+    test('rights taken away, seen in a refresh, are reported', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.loadDevices();
+      backend.admin = false;
+
+      await app.refresh();
+      await app.loadDevices();
+
+      expect(app.lostAdminRights, isTrue);
+      expect(app.devices, isNull);
+
+      // Once said, it is not said again.
+      await app.loadDevices();
+      expect(app.lostAdminRights, isFalse);
+    });
+
+    test('a failed listing is reported and can be retried', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      backend.offline = true;
+
+      await app.loadDevices();
+      expect(app.devicesError, 'Could not reach the server');
+      expect(app.devices, isNull);
+
+      backend.offline = false;
+      await app.loadDevices();
+      expect(app.devicesError, isNull);
+      expect(app.devices, hasLength(3));
+    });
+
+    test('a revoked key while managing devices returns to setup', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.loadDevices();
+      backend.acceptedKey = null;
+
+      final error = await app.revokeDevice(tablet);
+
+      expect(error, isNull);
+      expect(app.phase, ConnectionPhase.disconnected);
+      expect(app.devices, isNull);
+      expect(store.saved, isNull);
+    });
+  });
 }

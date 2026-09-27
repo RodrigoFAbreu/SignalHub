@@ -66,7 +66,8 @@ the server's push options when the build has none, the
 event inbox with its filters (unread only, producer, category, severity)
 and event details with opening an event's link, read state,
 push preferences, and its build
-and commit on the *This device* screen; every release attaches it as an
+and commit on the *This device* screen, where an admin device also lists
+every device to make one an admin or revoke one that is not an admin; every release attaches it as an
 Android APK signed with SignalHub's release key), and the
 Python producer package and `signalhub` command in `sdk/python/` (its wheel
 attached to every release, reporting that release), and

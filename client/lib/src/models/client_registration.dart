@@ -70,6 +70,7 @@ class ClientRegistration {
     required this.id,
     required this.name,
     required this.createdAt,
+    this.admin = false,
     this.revokedAt,
     this.pushTarget,
     this.pushPreferences,
@@ -82,6 +83,8 @@ class ClientRegistration {
       id: json.string('id'),
       name: json.string('name'),
       createdAt: json.timestamp('createdAt'),
+      // Absent from a server released before admin devices existed.
+      admin: json.optionalBoolean('admin') ?? false,
       revokedAt: json.optionalTimestamp('revokedAt'),
       pushTarget: pushTarget == null
           ? null
@@ -95,9 +98,43 @@ class ClientRegistration {
   final String id;
   final String name;
   final DateTime createdAt;
+
+  /// Whether this installation is one of the owner's admin devices, which
+  /// may manage the others.
+  final bool admin;
+
   final DateTime? revokedAt;
   final PushTargetInfo? pushTarget;
 
   /// `null` from a server released before push preferences existed.
   final PushPreferences? pushPreferences;
+}
+
+/// One of the owner's clients, as an admin device lists them
+/// (`GET /api/v1/client/devices`). The listing also has each client's push
+/// target and results, which the app does not show.
+class ManagedDevice {
+  const ManagedDevice({
+    required this.id,
+    required this.name,
+    required this.admin,
+    required this.createdAt,
+    this.revokedAt,
+  });
+
+  factory ManagedDevice.fromJson(Map<String, Object?> json) => ManagedDevice(
+    id: json.string('id'),
+    name: json.string('name'),
+    admin: json.boolean('admin'),
+    createdAt: json.timestamp('createdAt'),
+    revokedAt: json.optionalTimestamp('revokedAt'),
+  );
+
+  final String id;
+  final String name;
+  final bool admin;
+  final DateTime createdAt;
+  final DateTime? revokedAt;
+
+  bool get isRevoked => revokedAt != null;
 }

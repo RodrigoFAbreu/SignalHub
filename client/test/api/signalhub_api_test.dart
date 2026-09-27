@@ -123,6 +123,47 @@ void main() {
     expect(backend.pushTarget, isNull);
   });
 
+  test('an admin device lists devices, makes admins and revokes', () async {
+    backend
+      ..admin = true
+      ..addClient('c-2', 'Tablet')
+      ..addClient('c-3', 'Old phone');
+    final api = backend.api();
+
+    final devices = await api.listDevices();
+    expect(
+      [for (final d in devices) d.name],
+      ['Pixel 8', 'Tablet', 'Old phone'],
+    );
+    expect(devices.first.admin, isTrue);
+    expect(backend.requests.last.url.path, '/api/v1/client/devices');
+
+    final admin = await api.makeDeviceAdmin('c-2');
+    expect(admin.admin, isTrue);
+    expect(backend.requests.last.method, 'POST');
+    expect(backend.requests.last.url.path, '/api/v1/client/devices/c-2/admin');
+    expect(backend.requests.last.body, isEmpty);
+
+    final revoked = await api.revokeDevice('c-3');
+    expect(revoked.isRevoked, isTrue);
+    expect(backend.requests.last.url.path, '/api/v1/client/devices/c-3/revoke');
+  });
+
+  test('device management refuses a device that is not an admin', () {
+    expect(
+      backend.api().listDevices(),
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.statusCode, 'statusCode', 403)
+            .having(
+              (e) => e.message,
+              'message',
+              'The server answered 403: Not an admin device',
+            ),
+      ),
+    );
+  });
+
   test('replaces the push preferences', () async {
     final api = backend.api();
 
