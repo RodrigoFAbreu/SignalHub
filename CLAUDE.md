@@ -74,7 +74,7 @@ push preferences, and its build
 and commit on the *This device* screen, where an admin device also lists
 every device to make one an admin, revoke one that is not an admin or
 delete a revoked one, and connects a new device with a pairing code shown as a QR code with its
-countdown and a link to copy; every release attaches it as an
+countdown and a link to copy, saying which device used it; every release attaches it as an
 Android APK signed with SignalHub's release key), and the
 Python producer package and `signalhub` command in `sdk/python/` (its wheel
 attached to every release, reporting that release), and

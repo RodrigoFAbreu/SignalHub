@@ -190,6 +190,15 @@ class SignalHubApi {
     DevicePairing.fromJson,
   );
 
+  /// `GET /api/v1/client/pairings/{id}`: whether a pairing code this device
+  /// created was used, and by which device. `404` for any other pairing, and
+  /// `403` for a device that is not an admin; a server released before this
+  /// answers `404` or `405`.
+  Future<PairingStatus> getPairingStatus(String id) async => _read(
+    await _send('GET', 'api/v1/client/pairings/${Uri.encodeComponent(id)}'),
+    PairingStatus.fromJson,
+  );
+
   /// `GET /api/v1/events`: one page of events matching [filter], newest
   /// first. Pass the previous page's [EventPage.nextCursor] as [cursor], with
   /// the same filter, for the next one.

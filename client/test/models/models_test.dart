@@ -193,6 +193,7 @@ void main() {
       'uri': 'signalhub://pair?server=x&code=shpc1_Zt1vQ3x9rB2mKc8wYp4aLd',
     });
 
+    expect(pairing.id, isNull);
     expect(pairing.name, 'Tablet');
     expect(pairing.expiresAt, DateTime.utc(2026, 9, 27, 12, 10));
     expect(pairing.uri, startsWith('signalhub://pair'));
@@ -210,6 +211,47 @@ void main() {
     );
     expect(
       () => DevicePairing.fromJson({'name': 'Tablet', 'admin': false}),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('DevicePairing reads the ID its status is asked by', () {
+    final pairing = DevicePairing.fromJson({
+      'id': '01997d5e-0000-7000-8000-000000000001',
+      'name': 'Tablet',
+      'admin': false,
+      'code': 'shpc1_Zt1vQ3x9rB2mKc8wYp4aLd',
+      'expiresAt': '2026-09-27T12:10:00Z',
+      'uri': null,
+    });
+
+    expect(pairing.id, '01997d5e-0000-7000-8000-000000000001');
+  });
+
+  test('PairingStatus reads whether a code was used, and by which device', () {
+    final used = PairingStatus.fromJson({
+      'id': 'pairing-1',
+      'state': 'REDEEMED',
+      'expiresAt': '2026-09-27T12:10:00Z',
+      'redeemedAt': '2026-09-27T12:02:41Z',
+      'client': {'id': 'c-2', 'name': 'Tablet'},
+    });
+    expect(used.isRedeemed, isTrue);
+    expect(used.clientName, 'Tablet');
+
+    for (final state in ['PENDING', 'EXPIRED', 'LATER']) {
+      final status = PairingStatus.fromJson({
+        'id': 'pairing-1',
+        'state': state,
+        'expiresAt': '2026-09-27T12:10:00Z',
+        'redeemedAt': null,
+        'client': null,
+      });
+      expect(status.isRedeemed, isFalse, reason: state);
+      expect(status.clientName, isNull);
+    }
+    expect(
+      () => PairingStatus.fromJson({'id': 'pairing-1'}),
       throwsA(isA<FormatException>()),
     );
   });

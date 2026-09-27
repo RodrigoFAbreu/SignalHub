@@ -181,8 +181,14 @@ device, active ones first, marked *This device*, *Admin device* or
   to scan with the new device, counts down to its expiry (10 minutes; it
   works once) and hides it once expired, and shows the pairing link with
   **Copy link**, to paste into a message to whoever sets up the new device;
-  **Create another code** starts over. The new device is never an admin:
-  make it one from the list once it has paired. The owner's devices are
+  **Create another code** starts over. Once a device has used the code,
+  the screen says so, naming it ("Tablet" connected with the pairing
+  code), and goes back to its first state, ready for the next device; the
+  new device is in the list on the way back. While a code is shown and
+  the app is in the foreground, the screen asks the server every 2.5
+  seconds, and once more as the code expires; with a server older than
+  v2.14.0, which cannot say, the screen stays as it was. The new device is
+  never an admin: make it one from the list once it has paired. The owner's devices are
   told when it pairs, naming this device, and the code stops working if
   this device is revoked or loses its admin rights first. The code is kept
   only while the screen shows it. With a server released before pairing

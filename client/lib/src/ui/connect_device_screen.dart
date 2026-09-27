@@ -5,10 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:qr/qr.dart';
 
 import '../app_controller.dart';
+import '../models/client_registration.dart';
 
 /// _Connect a device_, for an admin device: creates a one-time pairing code
 /// for a new device and shows it as a QR code with its countdown, and as a
-/// link to copy, as the admin page does.
+/// link to copy, as the admin page does. While the code is shown it asks now
+/// and then whether a device used it, and once one has, says which and is
+/// ready for the next device.
 class ConnectDeviceScreen extends StatefulWidget {
   const ConnectDeviceScreen({
     super.key,
@@ -21,6 +24,10 @@ class ConnectDeviceScreen extends StatefulWidget {
   /// The clock the countdown reads; replaced in tests.
   final DateTime Function() now;
 
+  /// How often the screen asks whether the code shown was used, as the
+  /// admin page does.
+  static const pollInterval = Duration(milliseconds: 2500);
+
   @override
   State<ConnectDeviceScreen> createState() => _ConnectDeviceScreenState();
 }
@@ -31,21 +38,61 @@ class _ConnectDeviceScreenState extends State<ConnectDeviceScreen> {
   final _name = TextEditingController();
   String? _error;
   late final Timer _ticker;
+  late final Timer _poller;
+
+  /// The code last asked about once more as it expired, so it is asked once.
+  DevicePairing? _askedAtExpiry;
 
   @override
   void initState() {
     super.initState();
     // Redraws the countdown; nothing to do while no code is shown.
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_controller.pairing != null) setState(() {});
+      final pairing = _controller.pairing;
+      if (pairing == null) return;
+      setState(() {});
+      if (_expired(pairing) && !identical(_askedAtExpiry, pairing)) {
+        // Once more: it may have been used in its last seconds.
+        _askedAtExpiry = pairing;
+        unawaited(_check());
+      }
+    });
+    // Asks only while an unexpired code is shown; the screen stops asking
+    // when it is left.
+    _poller = Timer.periodic(ConnectDeviceScreen.pollInterval, (_) {
+      final pairing = _controller.pairing;
+      if (pairing != null && !_expired(pairing)) unawaited(_check());
     });
   }
 
   @override
   void dispose() {
     _ticker.cancel();
+    _poller.cancel();
     _name.dispose();
     super.dispose();
+  }
+
+  bool _expired(DevicePairing pairing) =>
+      !pairing.expiresAt.isAfter(widget.now());
+
+  Future<void> _check() async {
+    // Not while the app is in the background: the screen is not seen then.
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle == AppLifecycleState.hidden ||
+        lifecycle == AppLifecycleState.paused) {
+      return;
+    }
+    final result = await _controller.checkPairing();
+    if (!mounted) return;
+    if (result.error case final error?) setState(() => _error = error);
+    if (result.connected case final name?) {
+      _name.clear();
+      setState(() => _error = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"$name" connected with the pairing code.')),
+      );
+    }
   }
 
   Future<void> _create() async {

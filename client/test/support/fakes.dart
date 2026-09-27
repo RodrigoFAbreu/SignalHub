@@ -88,6 +88,38 @@ class FakeBackend {
   /// The names of the devices pairing codes were created for from a device.
   final devicePairingNames = <String>[];
 
+  /// Whether pairings from a device carry the ID their status is asked by; a
+  /// server released before it could say whether a code was used leaves it
+  /// out.
+  bool pairingIds = true;
+
+  /// How a server without the status of a pairing answers for it: `404` or
+  /// `405`; `null` for a server that has it.
+  int? noPairingStatus;
+
+  /// The pairings from a device a device used, by pairing ID: the client
+  /// each registered.
+  final _pairingsUsed = <String, Map<String, Object?>>{};
+
+  /// A device named [name] uses the last pairing code created from a device:
+  /// it is registered, and listed with the owner's other clients.
+  void usePairing(String name) {
+    final index = devicePairingNames.length - 1;
+    pairingCodes.remove(_devicePairingCode(index));
+    final id = 'paired-$index';
+    addClient(id, name);
+    _pairingsUsed[_devicePairingId(index)] = otherClients.last;
+  }
+
+  /// How often the status of a pairing was asked for.
+  int get pairingStatusRequests => requests
+      .where(
+        (r) =>
+            r.method == 'GET' &&
+            r.url.path.contains('/api/v1/client/pairings/'),
+      )
+      .length;
+
   /// The push client options the server serves; `null` when the operator
   /// configured none.
   Map<String, Object?>? pushConfig;
@@ -200,6 +232,12 @@ class FakeBackend {
     if ('${request.method} $path' == 'POST /api/v1/client/pairings' &&
         devicePairings) {
       return _createPairing(request);
+    }
+    final statusId = RegExp(r'^/api/v1/client/pairings/([^/]+)$')
+        .firstMatch(path)
+        ?.group(1);
+    if (request.method == 'GET' && statusId != null) {
+      return _pairingStatus(statusId);
     }
     final route = '${request.method} $path';
     switch (route) {
@@ -334,10 +372,12 @@ class FakeBackend {
     if (name is! String || name.trim().isEmpty) {
       return _json(400, {'title': 'Bad Request', 'status': 400});
     }
-    final code = 'shpc1_fromDevice${devicePairingNames.length}xxxxxxx';
+    final index = devicePairingNames.length;
+    final code = _devicePairingCode(index);
     devicePairingNames.add(name);
     pairingCodes.add(code);
     return _json(201, {
+      if (pairingIds) 'id': _devicePairingId(index),
       'name': name,
       'admin': false,
       'code': code,
@@ -349,6 +389,38 @@ class FakeBackend {
               host: 'pair',
               queryParameters: {'server': publicUrl, 'code': code},
             ).toString(),
+    });
+  }
+
+  static String _devicePairingCode(int index) =>
+      'shpc1_fromDevice${index}xxxxxxx';
+
+  static String _devicePairingId(int index) => 'pairing-$index';
+
+  /// Whether a pairing from a device was used, and by which device: only an
+  /// admin device's key is accepted. The fake has no clock, so a code not
+  /// used is pending.
+  http.Response _pairingStatus(String id) {
+    if (noPairingStatus case final status?) {
+      final title = status == 405 ? 'Method Not Allowed' : 'Not Found';
+      return _json(status, {'title': title, 'status': status});
+    }
+    if (admin != true) {
+      return _json(403, {'title': 'Not an admin device', 'status': 403});
+    }
+    final index = int.tryParse(id.replaceFirst('pairing-', '')) ?? -1;
+    if (!id.startsWith('pairing-') ||
+        index < 0 ||
+        index >= devicePairingNames.length) {
+      return _json(404, {'title': 'Pairing not found', 'status': 404});
+    }
+    final used = _pairingsUsed[id];
+    return _json(200, {
+      'id': id,
+      'state': used == null ? 'PENDING' : 'REDEEMED',
+      'expiresAt': pairingExpiresAt.toIso8601String(),
+      'redeemedAt': used == null ? null : '2026-09-27T12:02:00Z',
+      'client': used == null ? null : {'id': used['id'], 'name': used['name']},
     });
   }
 

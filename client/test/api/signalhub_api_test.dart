@@ -214,6 +214,41 @@ void main() {
     );
   });
 
+  test('an admin device asks whether its pairing code was used', () async {
+    backend.admin = true;
+    final api = backend.api();
+    final pairing = await api.createPairing('Tablet');
+
+    final pending = await api.getPairingStatus(pairing.id!);
+    expect(backend.requests.last.method, 'GET');
+    expect(
+      backend.requests.last.url.path,
+      '/api/v1/client/pairings/${pairing.id}',
+    );
+    expect(pending.state, 'PENDING');
+    expect(pending.isRedeemed, isFalse);
+
+    backend.usePairing('Anna\'s tablet');
+    final used = await api.getPairingStatus(pairing.id!);
+    expect(used.isRedeemed, isTrue);
+    expect(used.clientName, 'Anna\'s tablet');
+  });
+
+  test('asking about a pairing refuses a device that is not an admin', () {
+    expect(
+      backend.api().getPairingStatus('pairing-0'),
+      throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 403)),
+    );
+  });
+
+  test('asking about an unknown pairing is 404', () {
+    backend.admin = true;
+    expect(
+      backend.api().getPairingStatus('pairing-9'),
+      throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 404)),
+    );
+  });
+
   test('replaces the push preferences', () async {
     final api = backend.api();
 
