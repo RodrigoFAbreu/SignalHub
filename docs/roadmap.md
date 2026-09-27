@@ -1203,7 +1203,7 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   are always set as text; the same locked-down headers, now on `/admin/*`
 - `/connect` and `/connect/` answer `301` to `/admin/` (a hidden resource,
   not in the OpenAPI document), so bookmarks and older notes keep working;
-  the Connect page's files are gone
+  the Connect page's files are gone (the redirect was removed in R39)
 - `admin` on every client response (`Client`, `ManagedClient`, so also a
   client's own registration, registering, pairing and revoking) and on the
   `Pairing` response; optional `admin` in `CreateClientRequest`, for
@@ -1359,6 +1359,20 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   backend (an older server, lost rights, the countdown, copying);
   `docs/architecture.md` (Pairing, Pairing notice, Client API, Security
   limitations, Client application), `client/README.md`; compatible (`feat`)
+
+### R39 - Remove the /connect redirect
+
+- `ConnectPageRedirect` is gone: `/connect` and `/connect/` answer `404`
+  on the backend's own port, as they already did through the proxy; the
+  admin page at `/admin/` is unchanged
+- tests: `/connect`, `/connect/` and `/connect/connect.js` answer `404`,
+  and the OpenAPI document still has no `/connect` path; the Compose smoke
+  test expects `404` for `/connect/` and `/connect` on the host and
+  through the proxy
+- `docs/architecture.md` (The admin page), `docs/deployment.md` (Network
+  exposure, and an upgrade note to change bookmarks to `/admin/`),
+  `docs/development.md`; not a public contract (hidden from OpenAPI, not
+  under `/api`, never forwarded by the proxy), so compatible (`chore`)
 
 ---
 
@@ -1916,6 +1930,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 25    | R36 - Managing devices from an admin device: the API                                             | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 26    | R37 - Managing devices in the app                                                                | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 27    | R38 - Pairing codes from an admin device                                                         | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 28    | R39 - Remove the /connect redirect                                                               | Increment (`chore`)                    | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -2966,6 +2981,31 @@ Scope:
 
 Compatible (`feat`): a new endpoint and app screen; redeeming is unchanged.
 
+### R39 - Remove the /connect redirect
+
+Status: complete (see section 3). Added by the maintainer (2026-09-27),
+after R38.
+
+Goal: the admin page has one address. The `/connect/` redirect that R35
+kept for R34's bookmarks goes, so the path answers `404` on the backend's
+own port, as it already did through the proxy.
+
+Scope:
+
+- remove the hidden `/connect` resource
+- tests that `/connect`, `/connect/` and the old Connect page's script
+  answer `404`, and that the OpenAPI document has no `/connect` path; the
+  Compose smoke test expects `404` on the host as through the proxy
+- `docs/architecture.md` (The admin page), `docs/deployment.md` (with an
+  upgrade note to change bookmarks to `/admin/`), `docs/development.md`
+
+Compatibility: not a breaking change. The redirect was never a public
+contract: hidden from the OpenAPI document, not under `/api`, and never
+forwarded by the proxy. No migration; bookmarks change to `/admin/`
+(`chore`).
+
+Non-goals: any other change to the admin page, the API or the app.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -3076,9 +3116,9 @@ Determine this from repository state rather than trusting this section blindly.
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
 (section 4) is authoritative. R34 (the Connect page and the pairing
 notice), R35 (the admin page), R36 (managing devices from an admin
-device: the API), R37 (managing devices in the app) and R38 (pairing codes
-from an admin device) are done. **The queue is empty: nothing further is
-scheduled.** A new item comes only from the maintainer, or from a
+device: the API), R37 (managing devices in the app), R38 (pairing codes
+from an admin device) and R39 (removing the /connect redirect) are done.
+**The queue is empty: nothing further is scheduled.** A new item comes only from the maintainer, or from a
 [deferred candidate](#deferred-candidates) the maintainer adds to the
 queue.
 

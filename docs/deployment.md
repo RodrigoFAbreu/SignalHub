@@ -173,7 +173,7 @@ Not reachable from other machines:
   [Pairing a device](development.md#pairing-a-device)). A pairing's URI names
   `https://` and `SIGNALHUB_DOMAIN`, or `SIGNALHUB_PUBLIC_URL` if set in
   `.env`. Listing events with the admin token still works through the proxy.
-- **The admin page** (`/admin/`, and `/connect/`, which leads to it): lists
+- **The admin page** (`/admin/`): lists
   and changes devices and creates pairing codes with the admin token, like
   the management API, so it is on `127.0.0.1:8080` only too;
   reach it from another computer through SSH (see step 6 of
@@ -341,6 +341,13 @@ release's. Keep the clone for rolling back to the release it ran.
 Upgrading in the clone as before (`git checkout` the new tag and
 `docker compose up --build --wait`) keeps working, but builds the backend
 on the host and reports a development build.
+
+### From a release with the Connect page
+
+Releases up to v2.11.0 answered `/connect/` on the host (the Connect page,
+then a redirect to the admin page). It is gone now and answers `404`:
+change bookmarks to `/connect/` to `/admin/`, reached the same way (see
+[Network exposure](#network-exposure)). Nothing else changes.
 
 ### When the backend does not start
 

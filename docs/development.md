@@ -386,7 +386,7 @@ doubt.
 | `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
 | `/api/v1/admin/pairings` | `POST`: create a pairing code for a new device, with the admin token. See [Pairing a device](#pairing-a-device). |
 | `/api/v1/pairing` | `POST`: a device redeems a pairing code and gets its client key; the owner's other devices get a push. See [Pairing a device](#pairing-a-device). |
-| `/admin/` | The admin page: with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and creates a pairing code shown as a QR code to scan, copy or download. Not forwarded by the proxy. `/connect/`, its earlier name, redirects to it. See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
+| `/admin/` | The admin page: with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and creates a pairing code shown as a QR code to scan, copy or download. Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
 | `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |

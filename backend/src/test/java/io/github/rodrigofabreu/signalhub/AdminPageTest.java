@@ -2,7 +2,6 @@ package io.github.rodrigofabreu.signalhub;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -66,19 +65,8 @@ class AdminPageTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"/connect", "/connect/"})
-  void theConnectPageOfEarlierReleasesLeadsToTheAdminPage(String path) {
-    given()
-        .redirects()
-        .follow(false)
-        .get(path)
-        .then()
-        .statusCode(301)
-        .header("Location", endsWith("/admin/"));
-  }
-
-  @Test
-  void theConnectPageIsGone() {
-    given().get("/connect/connect.js").then().statusCode(404);
+  @ValueSource(strings = {"/connect", "/connect/", "/connect/connect.js"})
+  void theConnectPageOfEarlierReleasesIsGone(String path) {
+    given().redirects().follow(false).get(path).then().statusCode(404);
   }
 }

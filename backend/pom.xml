@@ -86,7 +86,7 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-scheduler</artifactId>
     </dependency>
-    <!-- Draws the pairing QR code on the /connect page (docs/architecture.md#the-connect-page).
+    <!-- Draws the pairing QR code on the admin page (docs/architecture.md#the-admin-page).
          Its script is served from the jar at /webjars/qrcode-generator/<version>/. -->
     <dependency>
       <groupId>org.webjars.npm</groupId>

@@ -941,9 +941,10 @@ every change and with **Refresh**, for example once a device has paired.
   told when it connects.
 - **It needs `SIGNALHUB_PUBLIC_URL`** for pairing, as the URI does; without
   it, the page says to set it.
-- **`/connect/`**, the Connect page of earlier releases, is part of this page
-  now: `/connect` and `/connect/` answer `301` to `/admin/`, so bookmarks
-  keep working, and its old files are gone.
+- **`/connect/`**, the Connect page of earlier releases, is gone: its
+  pairing codes are part of this page, and `/connect` and `/connect/`
+  answer `404`, on the backend's own port as through the proxy. Bookmarks
+  to it must be changed to `/admin/`.
 
 ### Pairing notice
 
