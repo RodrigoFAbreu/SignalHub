@@ -41,6 +41,25 @@ class ClientPersistenceTest {
   }
 
   @Test
+  void migrationCreatesThePairingsTable() throws SQLException {
+    var columns = new LinkedHashMap<String, String>();
+    columns.put("id", "uuid NO");
+    columns.put("code_hash", "bytea NO");
+    columns.put("client_name", "text NO");
+    columns.put("created_at", "timestamp with time zone NO");
+    columns.put("expires_at", "timestamp with time zone NO");
+    assertEquals(columns, columnsOf("pairings"));
+  }
+
+  @Test
+  void aPairingExpiresAfterItIsCreated() {
+    assertRejected("INSERT INTO pairings VALUES (?, sha256('code'::bytea), 'x', now(), now())");
+    assertRejected(
+        "INSERT INTO pairings VALUES (?, 'short'::bytea, 'x', now(),"
+            + " now() + interval '1 minute')");
+  }
+
+  @Test
   void onlyTheHashOfTheKeyIsStored() throws SQLException {
     var client = TestClients.register("persist-hash");
     try (var connection = dataSource.getConnection();

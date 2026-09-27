@@ -347,6 +347,38 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Authorization: Bearer $client_key" http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+      - name: A device pairs through the proxy with a code the operator made on the host
+        run: |
+          pairing=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data '{"name": "ci-paired-phone"}' \
+            http://localhost:8080/api/v1/admin/pairings)
+          code=$(jq --raw-output .code <<<"$pairing")
+          echo "::add-mask::$code"
+          # The URI names the proxy's address, from SIGNALHUB_DOMAIN.
+          jq --exit-status '.uri == "signalhub://pair?server=https%3A%2F%2Flocalhost&code=" + .code' \
+            <<<"$pairing" > /dev/null
+          # Creating pairings is management, which never leaves the host.
+          status=$(curl --silent --cacert "$RUNNER_TEMP/proxy-ca.crt" --output /dev/null \
+            --write-out '%{http_code}' --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header 'Content-Type: application/json' --data '{"name": "x"}' \
+            https://localhost/api/v1/admin/pairings)
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
+          redeem() {
+            curl --silent --cacert "$RUNNER_TEMP/proxy-ca.crt" --request POST \
+              --header "Authorization: Bearer $code" "$@" https://localhost/api/v1/pairing
+          }
+          paired=$(redeem --fail --show-error)
+          client_key=$(jq --raw-output .clientKey <<<"$paired")
+          echo "::add-mask::$client_key"
+          jq --exit-status '.client.name == "ci-paired-phone"' <<<"$paired" > /dev/null
+          curl --fail --silent --show-error --cacert "$RUNNER_TEMP/proxy-ca.crt" \
+            --header "Authorization: Bearer $client_key" https://localhost/api/v1/client \
+            | jq --exit-status '.name == "ci-paired-phone" and .revokedAt == null'
+          # The code works once.
+          status=$(redeem --output /dev/null --write-out '%{http_code}')
+          test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"

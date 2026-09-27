@@ -123,23 +123,26 @@ What other machines can reach, with the proxy enabled:
 
 | Port | Serves |
 |---|---|
-| 443 (TCP and UDP for HTTP/3) | `/api/`: publishing, the inbox and read state, the client API. Everything else answers `404`. |
+| 443 (TCP and UDP for HTTP/3) | `/api/`: publishing, the inbox and read state, the client API, redeeming a pairing code. Everything else answers `404`. |
 | 80 | Redirects to HTTPS; Let's Encrypt's certificate challenges. |
 
 Not reachable from other machines:
 
 - **The management API** (`/api/v1/admin/`): the proxy answers `404`
-  however the path is spelled. Manage producers and clients on the host,
-  over SSH, with `http://localhost:8080/api/v1/admin/...` (see
-  [development.md](development.md#producers-and-api-keys)). Listing events
-  with the admin token still works through the proxy.
+  however the path is spelled. Manage producers and clients, and create
+  pairing codes for new devices, on the host, over SSH, with
+  `http://localhost:8080/api/v1/admin/...` (see
+  [development.md](development.md#producers-and-api-keys) and
+  [Pairing a device](development.md#pairing-a-device)). A pairing's URI names
+  `https://` and `SIGNALHUB_DOMAIN`, or `SIGNALHUB_PUBLIC_URL` if set in
+  `.env`. Listing events with the admin token still works through the proxy.
 - **Health, metrics and OpenAPI** (`/q/`): on `127.0.0.1:8080` only, for
   monitoring on the host. They need no credential, so they are never
   exposed.
 - **PostgreSQL**: no published port at all.
 
-Every request through the proxy carries a producer API key or a client key;
-none of the product API answers without one. On the host,
+Every request through the proxy carries a producer API key, a client key or
+a one-time pairing code; none of the product API answers without one. On the host,
 allow only ports 22 (SSH, from the home network), 80 and 443 in the
 firewall. Ports 80 and 443 need to be open to the internet only for Let's
 Encrypt, or for clients outside the home network; a VPN is the tighter
