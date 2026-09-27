@@ -236,7 +236,7 @@ The following capabilities are already implemented and merged unless repository 
 - opening an event, from the inbox or a notification, marks it read; a
   failure leaves it unread until it is opened again
 - the event screen marks an event unread again and returns to the inbox
-- *Mark all as read* marks read up to the newest event shown; events that
+- _Mark all as read_ marks read up to the newest event shown; events that
   arrived since stay unread
 - no backend changes; unit and widget tests against the fake backend
 
@@ -254,7 +254,7 @@ The following capabilities are already implemented and merged unless repository 
 
 ### R12b - Push preferences in the client app
 
-- a *Notifications* screen (from the inbox menu) sets this client's push
+- a _Notifications_ screen (from the inbox menu) sets this client's push
   preferences: pause, minimum severity, a switch per category and per
   producer
 - each change is saved at once with `PUT /api/v1/client/push-preferences`
@@ -390,7 +390,7 @@ The following capabilities are already implemented and merged unless repository 
 
 - `docs/deployment.md` documents upgrades: read the release notes, back up,
   check out the new tag, compare `.env.example`, `docker compose up --build
-  --wait`, check health; rolling back is restoring the pre-upgrade backup
+--wait`, check health; rolling back is restoring the pre-upgrade backup
   with the older release, since migrations only go forward; a new
   PostgreSQL major version is moved with a backup and restore
 - health monitoring: what Docker's restart policy and health checks already
@@ -398,7 +398,7 @@ The following capabilities are already implemented and merged unless repository 
   machine, alerting through a channel that does not depend on SignalHub,
   disk space, delivery metrics and logs
 - no backend changes; a new CI job, `Backend container (upgrade from the
-  latest release)`, starts the latest release, stores a producer, a client
+latest release)`, starts the latest release, stores a producer, a client
   and a read event, backs up, upgrades in place to the commit under test,
   checks the data, keys, preferences, every migration and the health of
   every service, then rolls back to the release by restoring the backup
@@ -499,7 +499,7 @@ The following capabilities are already implemented and merged unless repository 
 
 ### R18f - Compatibility policy and enum evolution
 
-- `docs/architecture.md` gains a *Compatibility* section: what the public
+- `docs/architecture.md` gains a _Compatibility_ section: what the public
   contract is (product and management API, event schema and enum values,
   push data, operator configuration, health and `signalhub_*` meters,
   forward migrations, the `signalhub` command and SDK), what is not (the
@@ -534,7 +534,7 @@ The following capabilities are already implemented and merged unless repository 
 ### R18h - Upgrade from an older release
 
 - the upgrade job becomes a matrix: besides `Backend container (upgrade from
-  the latest release)`, `Backend container (upgrade from v0.13.0)` stores
+the latest release)`, `Backend container (upgrade from v0.13.0)` stores
   the same producer, client, read event and push preferences with v0.13.0,
   upgrades in place to the commit under test, skipping every release and
   migration since (V8 and V9 for now), checks the data, keys, preferences,
@@ -619,7 +619,7 @@ The following capabilities are already implemented and merged unless repository 
   later without another breaking change (breaking: releases up to v0.25
   answered arrays; a script reading `.[]` now reads `.items[]`)
 - `ProducerList` and `ClientList` in the OpenAPI document; the
-  *Compatibility* section says every listing answers an object
+  _Compatibility_ section says every listing answers an object
 - nothing else reads these listings: the app and the SDK use neither, and
   CI's Compose, upgrade, end-to-end and deployment jobs only register
 - tested against real PostgreSQL and in the OpenAPI document; no schema or
@@ -628,7 +628,7 @@ The following capabilities are already implemented and merged unless repository 
 ### R18o - Pop-up notifications, app icon and refresh on return
 
 - found while verifying push on the maintainer's Android phone (PR #54,
-  `v0.27.0`, superseding PRs #51 to #53): pushes go to an *Events* channel
+  `v0.27.0`, superseding PRs #51 to #53): pushes go to an _Events_ channel
   of high importance, so they pop up on Android instead of landing silently
   in Firebase's fallback channel; the owner's own settings for the channel
   are kept
@@ -644,15 +644,15 @@ The following capabilities are already implemented and merged unless repository 
 ### R18p - Read-state toggle on the event screen
 
 - the event screen's one read-state action follows the event's state as
-  the server last returned it: *Mark as read* (`PUT`) while it is unread,
-  for example when marking it read on opening failed, and *Mark as unread*
+  the server last returned it: _Mark as read_ (`PUT`) while it is unread,
+  for example when marking it read on opening failed, and _Mark as unread_
   (`DELETE`) once it is read, fixing the defect found by the `v0.27.0`
   device review
 - the screen shows the event the server returned when marking it read on
   opening and after each change, including when it was read; a failed
   change says why and leaves the state and the action as they were; the
   action is disabled while a change is in flight
-- *Mark as unread* returns to the inbox as before; *Mark as read* stays on
+- _Mark as unread_ returns to the inbox as before; _Mark as read_ stays on
   the event; the inbox's bold title, dot and unread count follow both
 - widget and controller tests for both directions, a failure in each, and
   an event whose marking on opening failed
@@ -670,7 +670,7 @@ The following capabilities are already implemented and merged unless repository 
   aborts the run unless SignalHub, or the notification shade a check
   opened, is in front
 - the checks of the `v0.27.0` review, with R18p's toggle in both
-  directions (*Mark as read* on an event whose marking on opening failed
+  directions (_Mark as read_ on an event whose marking on opening failed
   while the backend was down); the checks that stop the backend or turn
   on airplane mode restore them even when they fail, and push preferences
   are restored
@@ -825,9 +825,9 @@ The following capabilities are already implemented and merged unless repository 
   of the development identity and of the version substitution
 - no backend, API, schema or client changes
 
-### R22a - The app's version and commit on the *This device* screen
+### R22a - The app's version and commit on the _This device_ screen
 
-- the *This device* screen has a build entry of two lines: "SignalHub
+- the _This device_ screen has a build entry of two lines: "SignalHub
   X.Y.Z" for an app a release built, "SignalHub development build" for any
   other, and "Commit" with the first 7 characters of the commit it was built
   from, or "Commit unknown" for a build not given it
@@ -854,7 +854,7 @@ The following capabilities are already implemented and merged unless repository 
 - provider-neutral core: a `PushClientOptions` bean at the edge supplies
   them; `PushClientConfig` checks at startup that they are for an enabled
   provider and for one provider only, and logs `Push client options:
-  served for fcm` or `none`
+served for fcm` or `none`
 - FCM edge: `SIGNALHUB_PUSH_FCM_CLIENT_OPTIONS_FILE` names the app's
   `firebase-options.json`; a JSON object of at most 32 names and non-empty
   strings; a file that looks like a service account key is refused, and an
@@ -875,9 +875,9 @@ The following capabilities are already implemented and merged unless repository 
   precedence, and then the app never reads the served ones
 - the app checks served options before starting Firebase: provider `fcm`,
   every value its platform needs, a numeric sender ID and an app ID of this
-  platform and sender; otherwise push stays off and the *This device*
-  screen says why: *Push is not configured on this server* (`404`) or
-  *This server's push configuration does not work with this app* (also
+  platform and sender; otherwise push stays off and the _This device_
+  screen says why: _Push is not configured on this server_ (`404`) or
+  _This server's push configuration does not work with this app_ (also
   shown in the inbox); unreadable answers or an unreachable server count as
   a failed registration, retried on the next refresh
 - Firebase starts once per process: options that differ from those it
@@ -906,8 +906,8 @@ The following capabilities are already implemented and merged unless repository 
   directory it removes at its end and runs `scripts/release/app_files.py`,
   which builds the release-mode APK from the tagged commit with
   `versionName` `X.Y.Z`, `versionCode` `MAJOR × 1000000 + MINOR × 1000 +
-  PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
-  `SIGNALHUB_REVISION` for the *This device* screen (R22a), and no Firebase
+PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
+  `SIGNALHUB_REVISION` for the _This device_ screen (R22a), and no Firebase
   options (the app reads its server's, D5 and R23)
 - before the release attaches it, the script checks package, version name
   and code, not debuggable, the commit in the compiled Dart code of every
@@ -965,7 +965,7 @@ The following capabilities are already implemented and merged unless repository 
 - `docs/deployment.md#a-new-postgresql-major-version` moves an install as
   the backup and restore of R15d into a new volume, and rolls back by
   restoring the backup with the previous release; the `Backend container
-  (upgrade from ...)` jobs, from the latest release and from v0.13.0, do
+(upgrade from ...)` jobs, from the latest release and from v0.13.0, do
   this whenever the major version changes: they check the refusal and that
   the volume still holds 17's data, restore into 18 and check the data,
   keys and preferences, then roll back to the release and its backup
@@ -978,14 +978,14 @@ The following capabilities are already implemented and merged unless repository 
 ### R27 - Inbox and event-screen polish
 
 - the event screen's read-state action is a text button with its icon and
-  the label *Mark as read* or *Mark as unread*, instead of an icon whose
+  the label _Mark as read_ or _Mark as unread_, instead of an icon whose
   meaning was only in a tooltip; the keys and wording the device-review
   script uses are unchanged
 - an inbox row keeps its time out of the part that is cut: category,
   severity and producer give way to a narrow screen, and the time is shown
   in full for every severity (widget tests at a 360-pixel width)
-- when marking an event read on opening fails, a message says *Not marked
-  as read* and why, without blocking the screen; the event stays shown as
+- when marking an event read on opening fails, a message says _Not marked
+  as read_ and why, without blocking the screen; the event stays shown as
   the server's unread state; a later change replaces that message
 - a refresh that gets no answer from the server (unreachable or timed out)
   no longer tries push registration, so the inbox shows the one connection
@@ -1485,30 +1485,30 @@ The documented v1.0 readiness checks of the R18 exit criteria. Recorded by
 R18j from a review of the code, the docs and CI at `v0.25.2`; an increment
 that closes an item updates its row.
 
-| Area | Status | Evidence and notes |
-|---|---|---|
-| Public REST API consistency | Done | Every endpoint is under `/api/v1`; creating answers `201` with `Location` (a producer key has no resource of its own, so issuing one has no `Location`); every other change answers `200` with the resource; every error but `413` has the JSON error body (R18c); every listing answers `{"items": [...]}` (D1, done in R18n). |
-| Authentication and key lifecycle | Reviewed; limitations documented | Producer keys rotate without downtime (issue, switch, revoke). A client key is rotated by registering a new client and revoking the old one; read state is the owner's and stays, push preferences start from the defaults. No key expiry, scopes or rate limiting: `docs/architecture.md#security-limitations`. |
-| Event schema | Done | Idempotent publishing (R18g); the contract and how it may change (R18f). |
-| Enum evolution | Done | R18f. |
-| Pagination | Done | The event listing's keyset cursor matches its documentation, and events become visible in listing order (O1, closed in R18k). The admin listings are unpaginated, in an `items` envelope that leaves room for paging (D1, done in R18n). |
-| Migrations and upgrade path | Done | An older release refuses a newer schema (R18a); upgrades tested in CI from the latest release and from v0.13.0 (R18h). |
-| Client/device lifecycle | Reviewed; limitations documented | A revoked client loses its push target and gets no pending retries; invalid push targets are dropped. Revoked clients and producer keys are kept and listed. |
-| Push semantics | Reviewed; sound | The outbox, leases, retries (up to 5 sends over about 40 minutes), preference filtering and payload match `docs/architecture.md#push-delivery`; at least once, clients deduplicate by event ID. |
-| Error formats | Done | R18c. |
-| Configuration compatibility | Done | R18f; which settings Compose passes from `.env` is now stated in `docs/development.md#configuration`. |
-| Backup/restore | Reviewed; sound | `docs/deployment.md` matches `compose.yaml`; CI backs up, restores, and checks that restoring over data fails. |
-| Deployment documentation | Done | Fresh install tested by following the guide (R18e). |
-| Security boundaries | Done; limitations documented | Reading an event needs the owner's credential (R18b); the proxy serves only the product API (R16b). |
-| Observability | Reviewed; sound | The metrics table matches the code and `MetricsTest`; the startup summary example now matches the code. |
-| Test coverage | Done | Unit, PostgreSQL-backed, client, SDK and example tests; Compose smoke tests on x86-64 and ARM64; upgrade, end-to-end and fresh-install jobs. The dispatcher gaps (O2) are closed in R18l. |
-| Dependency health | Done; D2 and D3 decided (deferred past 1.0) | Versions and image digests are pinned; Dependabot tracks Actions, Maven, Docker, Compose, pub, the SDK's build backend, ruff and actionlint; CI checks that the tests' PostgreSQL image follows Compose's; Flutter is raised by hand (O3, closed in R18m; `docs/development.md#dependency-updates`). |
-| Release automation | Done (R19) | Below 1.0 no PR title could produce `1.0.0`; R19, approved by the maintainer (D4), removed that rule, and its `!` title releases `v1.0.0`. From 1.0 a `!` title bumps the major version. |
-| End-to-end, fresh-install and upgrade tests | Done | R18d, R18e, R18h. |
-| Real-device push | Done on Android; its defect fixed in R18p | Verified on the maintainer's Android phone with their Firebase project at `v0.27.0` (R18o): a functional review passed its 19 checks (foreground, background, killed app and cold start, pop-up over another app, read state, push preferences, idempotent publishing, backend down and restarted, phone offline). It found that the event screen only offered *Mark as unread*, fixed in R18p (the action now follows the event's read state; verifying it on the device is the maintainer's, with R18q's review). iOS with APNs does not block 1.0 unless another issue requires it. |
-| Device-review tooling | Done (R18q) | The review's `adb` script is in `scripts/device-review/`, configured only from the environment, arguments and key files, with a guard that touches the screen only while SignalHub or the shade it opened is in front; CI lints it and unit tests its parsing and guard on recorded samples. The device run stays manual. |
-| Real-device review after R18p and R18q | Passed; evidence for G1, not G1 | The maintainer's automated review of `v0.27.3` with R18q's script, as fixed in PR #58 (`v0.27.4`, tooling only): 18 of 18 checks passed, no app or backend defect. Non-blocking observations are queued after 1.0 as R27. |
-| Maintainer usability review | Passed (G1) | The maintainer signed off on 2026-09-26, after R18p to R18r. |
+| Area                                        | Status                                      | Evidence and notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public REST API consistency                 | Done                                        | Every endpoint is under `/api/v1`; creating answers `201` with `Location` (a producer key has no resource of its own, so issuing one has no `Location`); every other change answers `200` with the resource; every error but `413` has the JSON error body (R18c); every listing answers `{"items": [...]}` (D1, done in R18n).                                                                                                                                                                                                                                                        |
+| Authentication and key lifecycle            | Reviewed; limitations documented            | Producer keys rotate without downtime (issue, switch, revoke). A client key is rotated by registering a new client and revoking the old one; read state is the owner's and stays, push preferences start from the defaults. No key expiry, scopes or rate limiting: `docs/architecture.md#security-limitations`.                                                                                                                                                                                                                                                                       |
+| Event schema                                | Done                                        | Idempotent publishing (R18g); the contract and how it may change (R18f).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Enum evolution                              | Done                                        | R18f.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Pagination                                  | Done                                        | The event listing's keyset cursor matches its documentation, and events become visible in listing order (O1, closed in R18k). The admin listings are unpaginated, in an `items` envelope that leaves room for paging (D1, done in R18n).                                                                                                                                                                                                                                                                                                                                               |
+| Migrations and upgrade path                 | Done                                        | An older release refuses a newer schema (R18a); upgrades tested in CI from the latest release and from v0.13.0 (R18h).                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Client/device lifecycle                     | Reviewed; limitations documented            | A revoked client loses its push target and gets no pending retries; invalid push targets are dropped. Revoked clients and producer keys are kept and listed.                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Push semantics                              | Reviewed; sound                             | The outbox, leases, retries (up to 5 sends over about 40 minutes), preference filtering and payload match `docs/architecture.md#push-delivery`; at least once, clients deduplicate by event ID.                                                                                                                                                                                                                                                                                                                                                                                        |
+| Error formats                               | Done                                        | R18c.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Configuration compatibility                 | Done                                        | R18f; which settings Compose passes from `.env` is now stated in `docs/development.md#configuration`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Backup/restore                              | Reviewed; sound                             | `docs/deployment.md` matches `compose.yaml`; CI backs up, restores, and checks that restoring over data fails.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Deployment documentation                    | Done                                        | Fresh install tested by following the guide (R18e).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Security boundaries                         | Done; limitations documented                | Reading an event needs the owner's credential (R18b); the proxy serves only the product API (R16b).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Observability                               | Reviewed; sound                             | The metrics table matches the code and `MetricsTest`; the startup summary example now matches the code.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Test coverage                               | Done                                        | Unit, PostgreSQL-backed, client, SDK and example tests; Compose smoke tests on x86-64 and ARM64; upgrade, end-to-end and fresh-install jobs. The dispatcher gaps (O2) are closed in R18l.                                                                                                                                                                                                                                                                                                                                                                                              |
+| Dependency health                           | Done; D2 and D3 decided (deferred past 1.0) | Versions and image digests are pinned; Dependabot tracks Actions, Maven, Docker, Compose, pub, the SDK's build backend, ruff and actionlint; CI checks that the tests' PostgreSQL image follows Compose's; Flutter is raised by hand (O3, closed in R18m; `docs/development.md#dependency-updates`).                                                                                                                                                                                                                                                                                   |
+| Release automation                          | Done (R19)                                  | Below 1.0 no PR title could produce `1.0.0`; R19, approved by the maintainer (D4), removed that rule, and its `!` title releases `v1.0.0`. From 1.0 a `!` title bumps the major version.                                                                                                                                                                                                                                                                                                                                                                                               |
+| End-to-end, fresh-install and upgrade tests | Done                                        | R18d, R18e, R18h.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Real-device push                            | Done on Android; its defect fixed in R18p   | Verified on the maintainer's Android phone with their Firebase project at `v0.27.0` (R18o): a functional review passed its 19 checks (foreground, background, killed app and cold start, pop-up over another app, read state, push preferences, idempotent publishing, backend down and restarted, phone offline). It found that the event screen only offered _Mark as unread_, fixed in R18p (the action now follows the event's read state; verifying it on the device is the maintainer's, with R18q's review). iOS with APNs does not block 1.0 unless another issue requires it. |
+| Device-review tooling                       | Done (R18q)                                 | The review's `adb` script is in `scripts/device-review/`, configured only from the environment, arguments and key files, with a guard that touches the screen only while SignalHub or the shade it opened is in front; CI lints it and unit tests its parsing and guard on recorded samples. The device run stays manual.                                                                                                                                                                                                                                                              |
+| Real-device review after R18p and R18q      | Passed; evidence for G1, not G1             | The maintainer's automated review of `v0.27.3` with R18q's script, as fixed in PR #58 (`v0.27.4`, tooling only): 18 of 18 checks passed, no app or backend defect. Non-blocking observations are queued after 1.0 as R27.                                                                                                                                                                                                                                                                                                                                                              |
+| Maintainer usability review                 | Passed (G1)                                 | The maintainer signed off on 2026-09-26, after R18p to R18r.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 Open items, each small enough for one increment and needing no decision:
 
@@ -1570,55 +1570,59 @@ may be reordered by an orchestrator, and **nothing after R19 starts before
 G1 has passed, G2 is given and R19 has released `v1.0.0`.** The post-1.0
 rows are described in section 5, [After v1.0.0](#5-after-v100).
 
-| Order | Item | Kind | Status |
-|---|---|---|---|
-| 1 | R18p - Read-state toggle on the event screen | Increment (`fix(client)`) | Done (see section 3) |
-| 2 | R18q - Device-review tooling in the repository | Increment (`test`) | Done (see section 3) |
-| 3 | R18r - Stale branch cleanup | Repository hygiene (no PR, no release) | Done (see section 3) |
-| - | Clearing local device-test data | Documentation | Done with this queue ([development.md](development.md#clearing-local-test-data)) |
-| 4 | G1 - Maintainer usability review and sign-off | Human gate | Passed (2026-09-26) |
-| 5 | G2 - Explicit approval of `v1.0.0` (decision D4) | Human gate | Given (2026-09-26) |
-| 6 | R19 - `v1.0.0` | Increment (`!`, the release) | Done (see section 3); released `v1.0.0` on 2026-09-26 |
-| 7 | R20 - Version identity and the published backend image | Increment (`feat`) | Done (see section 3) |
-| 8 | R21 - Deploying from published images | Increment (`feat`) | Done (see section 3) |
-| 9 | R22 - SDK and command version, and SDK files in each release | Increment (`feat`) | Done (see section 3) |
-| 10 | R22a - The app's version and commit on the *This device* screen | Increment (`feat(client)`) | Done (see section 3) |
-| 11 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Given (2026-09-26): D5 = a, D6 = one stable release key |
-| 12 | R23a - Push client options served by the backend (first half of R23) | Increment (`feat`) | Done (see section 3) |
-| 12b | R23b - The app sets up push from served options (second half of R23) | Increment (`feat(client)`) | Done (see section 3) |
-| 13 | R24 - Installable Android app in each release | Increment (`feat`) | Done (see section 3) |
-| 14 | R25 - Java 25 (decision D2) | Increment (`build`) | Done (see section 3) |
-| 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Done (see section 3) |
-| 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Done (see section 3) |
-| 17 | R28 - Pairing a device: the API | Increment (`feat`) | Done (see section 3) |
-| 18 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Done (see section 3) |
+| Order | Item                                                                                             | Kind                                   | Status                                                                           |
+| ----- | ------------------------------------------------------------------------------------------------ | -------------------------------------- | -------------------------------------------------------------------------------- |
+| 1     | R18p - Read-state toggle on the event screen                                                     | Increment (`fix(client)`)              | Done (see section 3)                                                             |
+| 2     | R18q - Device-review tooling in the repository                                                   | Increment (`test`)                     | Done (see section 3)                                                             |
+| 3     | R18r - Stale branch cleanup                                                                      | Repository hygiene (no PR, no release) | Done (see section 3)                                                             |
+| -     | Clearing local device-test data                                                                  | Documentation                          | Done with this queue ([development.md](development.md#clearing-local-test-data)) |
+| 4     | G1 - Maintainer usability review and sign-off                                                    | Human gate                             | Passed (2026-09-26)                                                              |
+| 5     | G2 - Explicit approval of `v1.0.0` (decision D4)                                                 | Human gate                             | Given (2026-09-26)                                                               |
+| 6     | R19 - `v1.0.0`                                                                                   | Increment (`!`, the release)           | Done (see section 3); released `v1.0.0` on 2026-09-26                            |
+| 7     | R20 - Version identity and the published backend image                                           | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 8     | R21 - Deploying from published images                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 9     | R22 - SDK and command version, and SDK files in each release                                     | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 10    | R22a - The app's version and commit on the _This device_ screen                                  | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 11    | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate                             | Given (2026-09-26): D5 = a, D6 = one stable release key                          |
+| 12    | R23a - Push client options served by the backend (first half of R23)                             | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 12b   | R23b - The app sets up push from served options (second half of R23)                             | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 13    | R24 - Installable Android app in each release                                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 14    | R25 - Java 25 (decision D2)                                                                      | Increment (`build`)                    | Done (see section 3)                                                             |
+| 15    | R26 - PostgreSQL 18 (decision D3)                                                                | Increment (`!`)                        | Done (see section 3)                                                             |
+| 16    | R27 - Inbox and event-screen polish from the device review                                       | Increment (`fix(client)`)              | Done (see section 3)                                                             |
+| 17    | R28 - Pairing a device: the API                                                                  | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 18    | R29 - Pairing a device: the app                                                                  | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 19    | R30 - An event's link: the API and the SDK                                                       | Increment (`feat`)                     | Next once R29 is merged                                                          |
+| 20    | R31 - Opening an event's link in the app                                                         | Increment (`feat(client)`)             | Blocked until R30 is merged                                                      |
+| 21    | R32 - Inbox filters and an unread-only view                                                      | Increment (`feat`)                     | Blocked until R31 is merged                                                      |
+| 22    | R33 - Each client's last push result in the management API                                       | Increment (`feat`)                     | Blocked until R32 is merged                                                      |
 
 How an autonomous run uses it:
 
 1. Confirm from `main`, the releases and the open PRs that the table is
    current (an item's PR may have merged without its row being updated;
    then update the row first, in the next PR).
-2. Take the first row whose status is not *Done*. If it is a human gate, or
-   *Blocked*, stop and report: nothing after it may start. A gate is passed
+2. Take the first row whose status is not _Done_. If it is a human gate, or
+   _Blocked_, stop and report: nothing after it may start. A gate is passed
    only by the maintainer's answer, stated by the maintainer in a PR or
    issue; a run that finds such an answer records it here and marks the row
-   *Done* in its PR. Automation never answers a gate.
+   _Done_ in its PR. Automation never answers a gate.
 3. Implement exactly that one item on a branch from the latest `main`, with
-   its tests and docs, and in the same PR mark its row *Done*, mark the
-   following row *Next* if it is an increment, and add the item to section
+   its tests and docs, and in the same PR mark its row _Done_, mark the
+   following row _Next_ if it is an increment, and add the item to section
    3 (and, where it applies, the v1.0 readiness checklist).
 4. Open the PR, wait for required CI, let GitHub auto-merge it, verify the
    release, and stop. The next run takes the next row.
 
 R18r changes no files; its run records the deleted branches in the PR of
 the next item, or, if none is left before a gate, in a `docs` PR that
-marks the row *Done*.
+marks the row _Done_.
 
 #### R18p - Read-state toggle on the event screen
 
 The highest-priority remaining product defect, found by the functional
 review. An event's screen (opened from the inbox or by tapping a
-notification) has one read-state action, *Mark as unread*
+notification) has one read-state action, _Mark as unread_
 (`client/lib/src/ui/event_screen.dart`, key `markUnread`), whatever the
 event's state. Opening an event marks it read in the background, and a
 failure leaves it unread, so the screen can show an unread event whose
@@ -1626,15 +1630,15 @@ only action makes it unread.
 
 Implement:
 
-- the action follows the event's current read state: *Mark as read* when
-  it is unread, *Mark as unread* when it is read (label, tooltip, icon and
+- the action follows the event's current read state: _Mark as read_ when
+  it is unread, _Mark as unread_ when it is read (label, tooltip, icon and
   call: `PUT` or `DELETE /api/v1/events/{id}/read`)
 - the state shown is the server's: the event as marking it read on opening
   returned it, and after each change the event the call returned; a failed
   change shows its error and leaves the state and the action as they were
 - the event screen stays consistent with the inbox's bold title, dot and
   unread count, which follow the same changes; whether a successful change
-  closes the screen (as *Mark as unread* does today) follows the existing
+  closes the screen (as _Mark as unread_ does today) follows the existing
   semantics unless the review of the change finds a reason to change it
 - widget and controller tests for both directions, a failure in each, and
   an event whose marking on opening failed; the existing read-state tests
@@ -1667,9 +1671,9 @@ Implement:
   in front, or the notification shade where a check opens it
 - the checks of the `v0.27.0` review: connected start with a matching
   unread count; the device screen shows push on; the server has an `fcm`
-  push target; the *Events* channel at high importance; a foreground push
+  push target; the _Events_ channel at high importance; a foreground push
   goes to the inbox without a system notification; a background push is in
-  the *Events* channel and tapping it opens the event and marks it read;
+  the _Events_ channel and tapping it opens the event and marks it read;
   returning to the app refreshes the inbox; a push to a killed app arrives
   and a cold start opens its event; force-stop and relaunch re-register the
   push target; read state syncs (with R18p's toggle in both directions);
@@ -1800,6 +1804,9 @@ G1 → G2 → R19 v1.0.0
   → R25 Java 25 → R26 PostgreSQL 18
   → R27 inbox and event-screen polish
   → R28 pairing API → R29 pairing in the app
+  → R30 an event's link (API, SDK) → R31 opening it in the app
+  → R32 inbox filters and unread-only
+  → R33 each client's last push result
 ```
 
 - **Release distribution and version identity come first** (R20 to R24).
@@ -1824,6 +1831,23 @@ G1 → G2 → R19 v1.0.0
 - Product work follows: R27 is a small client fix with evidence from the
   device review; pairing (R28, R29) is the largest usability gain found, and
   a new API.
+- **R30 to R33 were added by the maintainer on 2026-09-27**, from the
+  [deferred candidates](#deferred-candidates), in order of daily value to
+  one owner whose producers are CI, coding agents, scripts and the homelab:
+  - an event's link (R30, R31) first: nearly every such producer has a
+    natural URL (the pull request, the failed run, the waiting session),
+    and today the owner reads the notification and then finds it by hand.
+    The API and SDK come first so producers can send links before the app
+    shows them, as R11a and R11b were split.
+  - inbox filters (R32) next: the API has had them since R5, so it is
+    mostly app work, and the inbox gets noisy once several producers are
+    active.
+  - each client's last push result (R33) last: "why did my phone not
+    buzz?" is answered today by metrics and logs, from a terminal; a last
+    result per client answers it from the management API.
+- Notification grouping on the device was considered with them and left
+  deferred: Android already bundles an app's notifications once several
+  arrive, and grouping beyond that cannot be verified without a device.
 - Java 25 and PostgreSQL 18 were numbered R20 and R21 before this queue was
   recorded. Renumbering milestones that never started costs no history and
   keeps the IDs in queue order; decisions D2 and D3 keep their names and
@@ -1836,16 +1860,20 @@ post-1.0 rules of [development.md](development.md#versioning): `feat` minor,
 every other type patch, `!` major. No version numbers are assigned in
 advance; they follow from the queue.
 
-| Item | Expected release | Why |
-|---|---|---|
-| R20, R22, R24 | minor (`feat`) | new artifacts and a new version surface; nothing existing changes |
-| R22a | minor (`feat(client)`) | a new entry on an existing screen; no API change |
-| R21 | minor (`feat`) if an install upgrading by the documented procedure keeps working; `!` with migration notes if it needs a new required setting or step | the deployment files and procedure are operator contract (Compatibility section of `docs/architecture.md`) |
-| R23 | minor (`feat`) | an addition to the client API; older apps ignore it |
-| R25 | patch (`build`) unless it changes something the Compatibility section lists | Java and the JVM are not part of the public contract |
-| R26 | major (`!`) with migration notes, unless its implementation finds an upgrade that needs no operator action and the upgrade jobs prove it | a dump and restore and a changed data directory mount are operator-breaking |
-| R27 | patch (`fix(client)`) | corrections to existing screens |
-| R28, R29 | minor (`feat`) | new, additive capability; manual setup stays |
+| Item          | Expected release                                                                                                                                      | Why                                                                                                        |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| R20, R22, R24 | minor (`feat`)                                                                                                                                        | new artifacts and a new version surface; nothing existing changes                                          |
+| R22a          | minor (`feat(client)`)                                                                                                                                | a new entry on an existing screen; no API change                                                           |
+| R21           | minor (`feat`) if an install upgrading by the documented procedure keeps working; `!` with migration notes if it needs a new required setting or step | the deployment files and procedure are operator contract (Compatibility section of `docs/architecture.md`) |
+| R23           | minor (`feat`)                                                                                                                                        | an addition to the client API; older apps ignore it                                                        |
+| R25           | patch (`build`) unless it changes something the Compatibility section lists                                                                           | Java and the JVM are not part of the public contract                                                       |
+| R26           | major (`!`) with migration notes, unless its implementation finds an upgrade that needs no operator action and the upgrade jobs prove it              | a dump and restore and a changed data directory mount are operator-breaking                                |
+| R27           | patch (`fix(client)`)                                                                                                                                 | corrections to existing screens                                                                            |
+| R28, R29      | minor (`feat`)                                                                                                                                        | new, additive capability; manual setup stays                                                               |
+| R30           | minor (`feat`)                                                                                                                                        | a new optional event field; older clients ignore it                                                        |
+| R31           | minor (`feat(client)`)                                                                                                                                | a new action in the app; no API change                                                                     |
+| R32           | minor (`feat`)                                                                                                                                        | a new optional listing filter and app screens; older servers ignore the parameter                          |
+| R33           | minor (`feat`)                                                                                                                                        | new response fields and a database migration that needs no operator action                                 |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -1967,7 +1995,7 @@ Non-goals: publishing on PyPI (deferred); other SDK languages (deferred).
 Exit criteria: an SDK installed from a release's files reports that
 release's version.
 
-### R22a - The app's version and commit on the *This device* screen
+### R22a - The app's version and commit on the _This device_ screen
 
 Status: done (see section 3).
 
@@ -1978,7 +2006,7 @@ names the official artifact, the commit names the exact source.
 
 Scope, client only:
 
-- the *This device* screen gets an entry of two lines:
+- the _This device_ screen gets an entry of two lines:
   - an app built by a SignalHub release as its official artifact:
     "SignalHub X.Y.Z" and "Commit <short commit>"
   - any other build, including a local build from a release's tag:
@@ -2020,7 +2048,7 @@ only); a release APK (R24); any API change.
 
 Exit criteria: an app built locally from a release's tag with the
 documented command shows "SignalHub development build" and that tag's
-short commit on the *This device* screen of a real phone; the widget tests
+short commit on the _This device_ screen of a real phone; the widget tests
 above pass in CI.
 
 ### G3 - Decisions D5 and D6
@@ -2045,7 +2073,7 @@ R24 do not start without the answers.
     app's Firebase options next to the service account key, and the app
     reads them after setup. One released app works with any SignalHub server
     and its owner's Firebase project. Costs an API addition and a client
-    change. *Recommended.*
+    change. _Recommended._
   - **b. the release compiles in the maintainer's options** from a GitHub
     Actions secret. Smallest; the app receives push only from a backend
     using the maintainer's Firebase project, so it is the maintainer's
@@ -2054,6 +2082,7 @@ R24 do not start without the answers.
     only to try the app.
 
   In every option the options stay out of git, as `CLAUDE.md` requires.
+
 - **D6 - Android release signing key.** Release builds are signed with the
   local debug key (`client/README.md#signing`), so each machine's builds
   differ and cannot update one another. A released app needs one stable
@@ -2164,7 +2193,7 @@ Scope:
   placeholder in `client/pubspec.yaml` stays for local builds, which
   identify themselves as development builds
 - the release's app build sets the version and the commit, so the
-  *This device* entry R22a added shows "SignalHub X.Y.Z" and "Commit <short
+  _This device_ entry R22a added shows "SignalHub X.Y.Z" and "Commit <short
   commit>"; a local build keeps showing "SignalHub development build" with
   its own commit
 - a pull request's CI builds a release-mode APK (unsigned or with a
@@ -2180,7 +2209,7 @@ iOS build (it needs the owner's Apple team: unchanged, built in Xcode).
 
 Exit criteria: the APK of a release installs on a phone, sets up with a
 client key, receives push as D5 decided, and reports that release and its
-commit on the *This device* screen.
+commit on the _This device_ screen.
 
 ### R25 - Java 25
 
@@ -2235,7 +2264,7 @@ Scope, client only:
 - the event screen's read-state action has a visible label, not only an
   icon whose meaning is in a tooltip
 - a row's time is readable in full at the default text size for every
-  severity (on *High* rows it was cut to `18:…` by the full date)
+  severity (on _High_ rows it was cut to `18:…` by the full date)
 - when marking an event read on opening fails, the screen says so without
   blocking; the state shown stays the server's, as R18p made it
 - while the server is unreachable, one message says so, instead of the
@@ -2302,6 +2331,142 @@ Scope:
 Exit criteria: a new phone is set up by scanning a code the operator made,
 and becomes its own revocable client.
 
+### R30 - An event's link: the API and the SDK
+
+Status: planned; next once R29 is merged. Added by the maintainer
+(2026-09-27) from the deferred candidate "notification actions and deep
+links", deliberately narrowed to one link.
+
+Goal: a producer can attach one URL to an event that the owner opens with a
+tap, without SignalHub interpreting it.
+
+Scope:
+
+- a new optional event field `link`, a single absolute `http` or `https`
+  URL (the maximum length is the increment's to pick and document, around
+  2000 characters), stored and returned as given and never fetched,
+  followed or checked for reachability by the backend; other schemes are
+  rejected with the usual violations
+- it is generic: no producer-specific meaning, no label, no list of links,
+  no action buttons; producer-specific URLs beyond the one the owner should
+  open stay in metadata
+- a Flyway migration adds a nullable column; existing events have no link
+- idempotent publishing (R18g) compares `link` like any other field
+- the Python SDK and the `signalhub` command accept it (`--link`)
+- the integration examples that have a natural URL send it (the GitHub
+  Actions example the run's URL); the others are unchanged
+- the push payload is unchanged: the app reads the event by ID, as today
+- tests against real PostgreSQL (valid, absent, too long, another scheme,
+  idempotent replays), the OpenAPI document, the SDK and command tests, the
+  examples' tests; `docs/architecture.md` (Events, Compatibility) and the
+  SDK's README
+
+Compatibility: additive (`feat`). Under the Compatibility section's rules a
+producer that sends `link` to an older server gets `400`, so producers are
+upgraded after the server; the release notes say so.
+
+Non-goals: several links or labelled links, attachments or images,
+notification action buttons, rendering metadata richer than today.
+
+### R31 - Opening an event's link in the app
+
+Status: planned; blocked until R30 is merged.
+
+Scope, client only:
+
+- the event screen shows the event's link, when it has one, as a clearly
+  labelled action that opens it in the system browser (or the app the
+  platform assigns to the URL), using one well-established Flutter package
+  (`url_launcher`), justified in the PR
+- tapping a notification still opens the event's screen, not the link: the
+  owner sees what happened first and opens the link from there with one
+  more tap, so a link never opens without the owner seeing it
+- an inbox row may show that the event has a link (a small icon); opening
+  it stays on the event screen
+- a link that cannot be opened shows a message without leaving the screen
+- the app ignores a `link` it cannot parse and shows the event as without
+  one; an event from an older server has no `link` and looks as today
+- widget and controller tests against the fake server; `client/README.md`
+  and `docs/architecture.md` (Client application)
+
+Non-goals: an in-app browser, opening the link directly from the
+notification, notification action buttons.
+
+Exit criteria: an event published with `--link` shows the link on its
+screen, and one tap opens it.
+
+### R32 - Inbox filters and an unread-only view
+
+Status: planned; blocked until R31 is merged. Added by the maintainer
+(2026-09-27) from the deferred candidates.
+
+Goal: the owner narrows a long inbox by producer, category, severity and
+unread, using the listing filters of R5.
+
+Scope:
+
+- the API: an optional listing filter on read state (for example
+  `read=false`), combined with the others by AND, served by the partial
+  unread index of R11a; tests against real PostgreSQL, including pagination
+  with the filter and events marked read between pages
+- the app: an unread-only toggle and filters for producer, category and
+  severity on the inbox, applied on the server with the existing
+  parameters; the active filters are visible and cleared with one action;
+  the inbox paginates and refreshes as today with the filters applied
+- the app remembers the filters on the device (not on the server, which has
+  no per-client inbox state), or not at all; the increment decides and
+  documents which
+- an older server ignores the unknown read-state parameter (unknown query
+  parameters are ignored), so it would return read events in the
+  unread-only view; the app either checks the returned events' `readAt`
+  and hides read ones, or documents that the view needs a server of this
+  release or later; the increment decides
+- the producers to choose from come from an existing source (the events
+  already loaded, or a listing a client key may read); if none fits, the
+  increment splits off the smallest API addition first, as its own row
+- widget and controller tests; `docs/architecture.md` (Listing events,
+  Client application) and `client/README.md`
+
+May be split into the API and the app (as R11a and R11b were) if one PR
+would be too large to review. Compatible (`feat`).
+
+Non-goals: full-text search, filtering on `context`, metadata or text,
+saved filters on the server, grouping, archive.
+
+### R33 - Each client's last push result in the management API
+
+Status: planned; blocked until R32 is merged. Added by the maintainer
+(2026-09-27) from the deferred candidate "per-client delivery status".
+
+Goal: the operator can see from the management API why a device got no
+push, without reading metrics or logs.
+
+Scope:
+
+- for each client, the last successful push (when, and which event) and
+  the last failed one (when, which event, and the provider's result, such
+  as a permanent failure or an invalid target, without the token), and the
+  number of pushes currently waiting for a retry
+- kept as the latest result per client, overwritten by each attempt: not an
+  attempt history (R13 found attempt records unjustified), and no
+  dashboard
+- recorded by the dispatcher and the retries after each send, without
+  changing delivery semantics or ordering; a failure to record it never
+  fails or repeats a push
+- returned by `GET /api/v1/admin/clients` and `GET /api/v1/admin/clients/{id}`
+  as new fields; nothing on the client API, and no app change
+- a Flyway migration that needs no operator action; revoking a client keeps
+  its last results
+- tests against real PostgreSQL with the fake push provider (success,
+  permanent failure, temporary failure then success, a retry pending,
+  revoked client); the OpenAPI document; `docs/architecture.md` (Push
+  dispatch, Client API) and `docs/development.md` (a curl example)
+
+Compatible (`feat`): new response fields only.
+
+Non-goals: showing it in the app (a later candidate), alerts on failures,
+per-attempt records, metrics beyond those of R15a.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -2323,21 +2488,20 @@ Not scheduled. Each becomes a queue row only when the evidence named here
 appears and the maintainer agrees; an orchestrator never schedules one by
 itself.
 
-| Candidate | Why not now | What would justify it |
-|---|---|---|
-| Per-client delivery status (last successful push, last failure and its result, pending retries) in the management API; the app later | Metrics (pushes by result, retries given up, backlogs), the final-failure log line and each client's push target answered every question of the device reviews; R13 found delivery-attempt records unjustified | The owner cannot tell from metrics and logs why a device got no push. Then a last-status per client, not an attempt history, and no dashboard. |
-| Inbox filters in the app (producer, category, severity, time: the API has them since R5) and an unread-only view | No usage evidence yet; unread-only needs an API filter | The owner searches a long inbox. The existing API's filters come first. |
-| Full-text search | No need shown; R5 ruled it out as premature | Filters prove insufficient. PostgreSQL's own search, no search engine. |
-| Unread navigation, grouping in the inbox, further bulk actions, archive or clear | *Mark all as read* and retention cover today's use | Usage evidence from the owner. |
-| Quiet hours or schedule-based suppression | Pause and the phone's own do-not-disturb and channel settings cover it (R12a found it unjustified) | A need the phone cannot meet, such as suppression by severity at night. Never a rules engine. |
-| Notification grouping on the device | Event volume is low | Bursts of pushes in practice. |
-| Rate limiting and brute-force resistance | Keys and pairing codes make guessing infeasible; the management API is not forwarded (`docs/architecture.md#security-limitations`) | Abusive or heavy traffic seen in logs or metrics; the proxy is the first place to limit. |
-| Key expiry, key scopes, a separate management port | One owner; rotation and revocation exist; the documented mitigations hold | A producer that must be restricted, or managing from another host. |
-| Richer metadata rendering, notification actions and deep links, attachments and images | Metadata is opaque by principle; actions need generic semantics in the event schema | Several unrelated producers needing the same generic capability, with a design that keeps the core producer-agnostic. |
-| Web or desktop client | The app covers the owner's phones | The owner needs the inbox away from the phone; the API assumes no platform, so no backend change. |
-| Distributed iOS builds, APNs directly | iOS builds need the owner's Apple team; FCM already relays to APNs | An iOS user of released builds. |
-| The SDK on PyPI | The release's wheel (R22) and installing from a tag suffice | Producers that cannot install from GitHub. |
-| SDKs in more languages | `curl`, the command and Python cover the examples' producers | A producer ecosystem where plain HTTP is a real burden. |
+| Candidate                                                                                                 | Why not now                                                                                                                           | What would justify it                                                                                                 |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Each client's push status in the app                                                                      | The management API shows it from R33                                                                                                  | The owner needs it on the phone, not from the management API.                                                         |
+| Full-text search                                                                                          | No need shown; R5 ruled it out as premature                                                                                           | Filters prove insufficient. PostgreSQL's own search, no search engine.                                                |
+| Unread navigation, grouping in the inbox, further bulk actions, archive or clear                          | _Mark all as read_ and retention cover today's use                                                                                    | Usage evidence from the owner.                                                                                        |
+| Quiet hours or schedule-based suppression                                                                 | Pause and the phone's own do-not-disturb and channel settings cover it (R12a found it unjustified)                                    | A need the phone cannot meet, such as suppression by severity at night. Never a rules engine.                         |
+| Notification grouping on the device                                                                       | Event volume is low, and Android already bundles an app's notifications once several arrive; considered with R30 to R33 and left here | Bursts of pushes that Android's own bundling does not make readable, seen on a device.                                |
+| Rate limiting and brute-force resistance                                                                  | Keys and pairing codes make guessing infeasible; the management API is not forwarded (`docs/architecture.md#security-limitations`)    | Abusive or heavy traffic seen in logs or metrics; the proxy is the first place to limit.                              |
+| Key expiry, key scopes, a separate management port                                                        | One owner; rotation and revocation exist; the documented mitigations hold                                                             | A producer that must be restricted, or managing from another host.                                                    |
+| Richer metadata rendering, notification action buttons, several or labelled links, attachments and images | Metadata is opaque by principle; actions need generic semantics in the event schema; one link per event is scheduled as R30 and R31   | Several unrelated producers needing the same generic capability, with a design that keeps the core producer-agnostic. |
+| Web or desktop client                                                                                     | The app covers the owner's phones                                                                                                     | The owner needs the inbox away from the phone; the API assumes no platform, so no backend change.                     |
+| Distributed iOS builds, APNs directly                                                                     | iOS builds need the owner's Apple team; FCM already relays to APNs                                                                    | An iOS user of released builds.                                                                                       |
+| The SDK on PyPI                                                                                           | The release's wheel (R22) and installing from a tag suffice                                                                           | Producers that cannot install from GitHub.                                                                            |
+| SDKs in more languages                                                                                    | `curl`, the command and Python cover the examples' producers                                                                          | A producer ecosystem where plain HTTP is a real burden.                                                               |
 
 ### Rejected
 
@@ -2411,10 +2575,9 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. R29 (pairing a device: the app), its last
-row, is done, so the queue is empty: there is no next item until the
-maintainer adds one (for example from the
-[deferred candidates](#deferred-candidates), which an orchestrator never
-schedules by itself).
+(section 4) is authoritative. R28 (pairing a device: the API) is done, so
+the expected next item is **R29 - Pairing a device: the app** (see
+[section 5](#5-after-v100)), then **R30 - An event's link: the API and the
+SDK**, and R31 to R33 after it, one per run.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
