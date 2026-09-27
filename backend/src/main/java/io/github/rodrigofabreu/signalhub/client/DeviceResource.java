@@ -72,7 +72,7 @@ public class DeviceResource {
       content = @Content(schema = @Schema(implementation = ClientList.class)))
   public ClientList list() {
     return switch (clients.listFor(caller.get().id())) {
-      case ClientService.DeviceList.Listed listed -> new ClientList(listed.clients());
+      case ClientService.DeviceList.Listed listed -> listed.clients();
       case ClientService.DeviceList.Refused refused -> throw refusal(refused.refusal());
     };
   }

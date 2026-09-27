@@ -150,7 +150,7 @@ public class ClientService {
     if (!caller.admin()) {
       return new DeviceList.Refused(Refusal.NOT_AN_ADMIN);
     }
-    return new DeviceList.Listed(list());
+    return new DeviceList.Listed(new ClientList(list()));
   }
 
   /**
@@ -243,7 +243,7 @@ public class ClientService {
 
   /** What {@link #listFor} found. */
   sealed interface DeviceList {
-    record Listed(List<ManagedClientResponse> clients) implements DeviceList {}
+    record Listed(ClientList clients) implements DeviceList {}
 
     record Refused(Refusal refusal) implements DeviceList {}
   }
