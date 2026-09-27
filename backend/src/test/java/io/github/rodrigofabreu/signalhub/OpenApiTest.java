@@ -301,7 +301,7 @@ class OpenApiTest {
         .statusCode(200)
         .body(
             SCHEMAS + ".ManagedClient.required",
-            containsInAnyOrder("id", "name", "createdAt", "pushPreferences", "pushStatus"))
+            containsInAnyOrder("id", "name", "admin", "createdAt", "pushPreferences", "pushStatus"))
         .body(
             SCHEMAS + ".ManagedClient.properties.pushStatus.$ref",
             equalTo("#/components/schemas/PushStatus"))
@@ -314,6 +314,37 @@ class OpenApiTest {
             containsInAnyOrder(
                 "UNSUPPORTED_PROVIDER", "INVALID_TARGET", "TRANSIENT_FAILURE", "PERMANENT_FAILURE"))
         .body(SCHEMAS + ".PushFailure.properties", not(hasKey("token")));
+  }
+
+  @Test
+  void describesAdminDevicesAndRenaming() {
+    var client = "paths.'/api/v1/admin/clients/{id}'.patch";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(SCHEMAS + ".Client.required", hasItem("admin"))
+        .body(SCHEMAS + ".Client.properties.admin.type", equalTo("boolean"))
+        .body(SCHEMAS + ".CreateClientRequest.properties.admin.type", equalTo("boolean"))
+        .body(SCHEMAS + ".CreateClientRequest.required", containsInAnyOrder("name"))
+        .body(client + ".security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(
+            client + ".requestBody.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/UpdateClientRequest"))
+        .body(
+            client + ".responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/ManagedClient"))
+        .body(client + ".responses", hasKey("400"))
+        .body(client + ".responses", hasKey("401"))
+        .body(client + ".responses", hasKey("404"))
+        .body(client + ".responses", hasKey("409"))
+        .body(SCHEMAS + ".UpdateClientRequest.properties", hasKey("name"))
+        .body(SCHEMAS + ".UpdateClientRequest.properties.admin.type", equalTo("boolean"))
+        .body(SCHEMAS + ".UpdateClientRequest", not(hasKey("required")))
+        // The admin page and the old Connect page's redirect are not part of the API.
+        .body("paths", not(hasKey("/connect")));
   }
 
   @Test
@@ -335,7 +366,8 @@ class OpenApiTest {
             "paths.'/api/v1/admin/pairings'.post.responses.'201'.content.'application/json'"
                 + ".schema.$ref",
             equalTo("#/components/schemas/Pairing"))
-        .body(SCHEMAS + ".Pairing.required", containsInAnyOrder("name", "code", "expiresAt"))
+        .body(
+            SCHEMAS + ".Pairing.required", containsInAnyOrder("name", "admin", "code", "expiresAt"))
         .body(SCHEMAS + ".Pairing.properties", hasKey("uri"))
         .body(
             "paths.'/api/v1/pairing'.post.security",

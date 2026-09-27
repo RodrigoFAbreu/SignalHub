@@ -57,16 +57,18 @@ public class ClientService {
     return Optional.of(new ClientIdentity(client.get().id(), client.get().name()));
   }
 
-  /** Registers a client and issues its key, which is returned only here. */
+  /**
+   * Registers a client, an admin device or not, and issues its key, which is returned only here.
+   */
   @Transactional
-  IssuedClientKey create(String name) {
+  IssuedClientKey create(String name, boolean admin) {
     // The ID is part of the key, so it is generated here rather than on persist; same UUIDv7
     // generator Hibernate uses for the other tables.
     var id = UuidVersion7Strategy.INSTANCE.generateUuid(null);
     var key = ClientKeys.generate(id);
-    var client = new ClientEntity(id, name, ApiKeys.hash(key), now());
+    var client = new ClientEntity(id, name, admin, ApiKeys.hash(key), now());
     clients.persist(client);
-    LOG.infof("Registered client %s", id);
+    LOG.infof("Registered client %s%s", id, admin ? " as an admin device" : "");
     return new IssuedClientKey(toResponse(client), key);
   }
 
@@ -98,6 +100,40 @@ public class ClientService {
               LOG.infof("Revoked client %s", id);
               return toResponse(client);
             });
+  }
+
+  /**
+   * Renames the client and grants or takes away its admin rights; a null leaves that field as it
+   * is. Empty if no client has this ID. A revoked client never changes: it is not a device of the
+   * owner's any more.
+   */
+  @Transactional
+  Optional<Update> update(UUID id, String name, Boolean admin) {
+    return clients
+        .findForUpdate(id)
+        .map(
+            client -> {
+              if (client.revoked()) {
+                return new Update.Revoked();
+              }
+              if (name != null && !name.equals(client.name())) {
+                client.rename(name);
+                LOG.infof("Renamed client %s", id);
+              }
+              if (admin != null && admin != client.admin()) {
+                client.setAdmin(admin);
+                LOG.infof(
+                    "Client %s %s", id, admin ? "is now an admin device" : "is no longer an admin");
+              }
+              return new Update.Updated(toManagedResponse(client, clients.pendingRetries(id)));
+            });
+  }
+
+  /** What {@link #update} did to a client that exists. */
+  sealed interface Update {
+    record Updated(ManagedClientResponse client) implements Update {}
+
+    record Revoked() implements Update {}
   }
 
   /**
@@ -217,6 +253,7 @@ public class ClientService {
     return new ClientResponse(
         client.id(),
         client.name(),
+        client.admin(),
         client.createdAt(),
         client.revokedAt(),
         pushTarget,

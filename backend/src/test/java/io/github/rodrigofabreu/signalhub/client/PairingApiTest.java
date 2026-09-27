@@ -63,6 +63,7 @@ class PairingApiTest {
     var pairing =
         createPairing("Pixel 8")
             .body("name", equalTo("Pixel 8"))
+            .body("admin", equalTo(false))
             .body("code", startsWith(PairingCodes.PREFIX))
             .header("Location", nullValue())
             .extract();
@@ -90,6 +91,7 @@ class PairingApiTest {
             .statusCode(201)
             .header("Location", endsWith(CLIENT))
             .body("client.name", equalTo("Paired phone"))
+            .body("client.admin", equalTo(false))
             .body("client.revokedAt", nullValue())
             .body("clientKey", startsWith("shck1_"))
             .extract();
@@ -99,6 +101,25 @@ class PairingApiTest {
     asClient(clientKey).get(CLIENT).then().statusCode(200).body("id", equalTo(id));
     asAdmin().get(ADMIN).then().body("items.id", hasItem(id));
     redeem(code).statusCode(401).body("title", equalTo("Unauthorized"));
+  }
+
+  @Test
+  void aPairingCanMakeAnAdminDevice() {
+    String code =
+        asAdmin()
+            .contentType(ContentType.JSON)
+            .body("{\"name\": \"Admin phone\", \"admin\": true}")
+            .post(PAIRINGS)
+            .then()
+            .statusCode(201)
+            .body("admin", equalTo(true))
+            .extract()
+            .path("code");
+
+    var issued = redeem(code).statusCode(201).body("client.admin", equalTo(true)).extract();
+
+    asClient(issued.path("clientKey")).get(CLIENT).then().body("admin", equalTo(true));
+    asAdmin().get(ADMIN + "/" + issued.path("client.id")).then().body("admin", equalTo(true));
   }
 
   @Test

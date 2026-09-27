@@ -73,7 +73,8 @@ public class PairingResource {
             .flatMap(pairings::redeem)
             .orElseThrow(() -> new NotAuthorizedException(BearerToken.unauthorized()));
     // Fired after redeem's transaction committed, so the client it names exists.
-    paired.fire(new ClientPaired(issued.client().id(), issued.client().name()));
+    paired.fire(
+        new ClientPaired(issued.client().id(), issued.client().name(), issued.client().admin()));
     return Response.created(UriBuilder.fromResource(ClientResource.class).build())
         .entity(issued)
         .build();

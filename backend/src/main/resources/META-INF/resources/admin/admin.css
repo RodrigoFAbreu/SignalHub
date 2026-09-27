@@ -10,6 +10,7 @@
   --error: #b3261e;
   --warning-bg: #fff4e0;
   --warning-text: #6b4500;
+  --danger: #b3261e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,6 +25,7 @@
     --error: #ff8a80;
     --warning-bg: #33280f;
     --warning-text: #f3d48b;
+    --danger: #ff8a80;
   }
 }
 
@@ -41,7 +43,7 @@ body {
 }
 
 main {
-  max-width: 440px;
+  max-width: 640px;
   margin: 32px auto;
   padding: 24px 16px;
   background: var(--card);
@@ -98,9 +100,101 @@ button {
   gap: 8px;
 }
 
-.actions button {
+button.secondary {
   background: transparent;
   color: var(--accent);
+}
+
+button.danger {
+  border-color: var(--danger);
+  background: transparent;
+  color: var(--danger);
+}
+
+.actions button {
+  margin-top: 8px;
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.heading button {
+  margin-top: 0;
+}
+
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: normal;
+}
+
+label.check input {
+  width: auto;
+}
+
+#devices {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.device {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.device.revoked {
+  color: var(--muted);
+}
+
+.device h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.device dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.device dt {
+  color: var(--muted);
+}
+
+.device dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.badge.muted {
+  background: var(--border);
+  color: var(--text);
+}
+
+.empty {
+  color: var(--muted);
 }
 
 button:disabled {

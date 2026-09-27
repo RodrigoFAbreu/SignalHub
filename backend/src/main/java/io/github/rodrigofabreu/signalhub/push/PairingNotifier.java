@@ -54,11 +54,15 @@ public class PairingNotifier {
   }
 
   static PushMessage messageFor(ClientPaired paired) {
+    // An admin device is said to be one: it matters most if the code leaked.
     return new PushMessage(
-        "New device paired",
+        paired.admin() ? "New admin device paired" : "New device paired",
         "\""
             + paired.name()
-            + "\" can now read your SignalHub events. If you did not pair it, revoke it.",
+            + (paired.admin()
+                ? "\" is an admin device and can now read your SignalHub events."
+                : "\" can now read your SignalHub events.")
+            + " If you did not pair it, revoke it.",
         Map.of("notice", "client-paired", "clientId", paired.clientId().toString()));
   }
 

@@ -1189,6 +1189,52 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   Pairing notice), `docs/deployment.md`, `docs/development.md`,
   `client/README.md`; compatible (`feat`)
 
+### R35 - The admin page: every device, admin rights, renaming
+
+- `/admin/`: R34's Connect page becomes the admin page, a static page on
+  the backend's own port (never forwarded by the proxy, which answers `404`
+  for it); after the admin token, typed in and kept only in the page's
+  memory, it lists every client, revoked or not (active first, newest
+  first), with its name, whether it is an admin, when it was created or
+  revoked, its push target and its last push results, and per device that
+  is not revoked: rename, make an admin or take admin rights away, and
+  revoke after a confirmation; **Connect a device** is R34's pairing code,
+  QR code, copy and download, with a choice to pair an admin device; names
+  are always set as text; the same locked-down headers, now on `/admin/*`
+- `/connect` and `/connect/` answer `301` to `/admin/` (a hidden resource,
+  not in the OpenAPI document), so bookmarks and older notes keep working;
+  the Connect page's files are gone
+- `admin` on every client response (`Client`, `ManagedClient`, so also a
+  client's own registration, registering, pairing and revoking) and on the
+  `Pairing` response; optional `admin` in `CreateClientRequest`, for
+  registering a client and creating a pairing (`false` when omitted or
+  `null`; a string is `400`)
+- `PATCH /api/v1/admin/clients/{id}` with `UpdateClientRequest`
+  (`name`, `admin`, each optional; at least one, else `400`): `200` with the
+  `ManagedClient`, `404` for an unknown ID, **`409` for a revoked client**,
+  which never changes; setting a value it already has changes nothing; a
+  client key can never change either field
+- `V13__add_client_admin.sql`: `clients.admin` and `pairings.admin`,
+  `boolean NOT NULL DEFAULT false`, so existing clients and unredeemed
+  pairings are not admins and no operator action is needed; the admin flag
+  grants nothing yet (R36 builds on it)
+- logged at `INFO` with client IDs only: renamed, now an admin device, no
+  longer an admin, registered as an admin device, a pairing for an admin
+  device; the pairing notice says "New admin device paired" and that the
+  device is an admin when it is one
+- tests against real PostgreSQL: the migration on a database with clients
+  and a pairing, the flag on every response, renaming, granting and taking
+  admin rights, both at once, a revoked client, an unknown one, invalid
+  bodies, the admin token required, pairing as an admin and its notice;
+  the OpenAPI document; the page, its headers on the page and its files,
+  its scripts resolving, no inline script, the redirect; the Compose smoke
+  test loads the page and its scripts on the host, checks the redirect,
+  renames a client, makes it an admin and gets `409` once it is revoked,
+  and gets `404` for the page through the proxy; `docs/architecture.md`
+  (Clients, Admin devices, Renaming a client, Pairing, The admin page,
+  Pairing notice, Client API), `docs/deployment.md`,
+  `docs/development.md`, `client/README.md`; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1741,8 +1787,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 21    | R32 - Inbox filters and an unread-only view                                                      | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 22    | R33 - Each client's last push result in the management API                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 23    | R34 - The Connect page and the pairing notice                                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 24    | R35 - The admin page: every device, admin rights, renaming                                       | Increment (`feat`)                     | Next                                                                             |
-| 25    | R36 - Managing devices from an admin device: the API                                             | Increment (`feat`)                     | Blocked until R35 is merged                                                      |
+| 24    | R35 - The admin page: every device, admin rights, renaming                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 25    | R36 - Managing devices from an admin device: the API                                             | Increment (`feat`)                     | Next                                                                             |
 | 26    | R37 - Managing devices in the app                                                                | Increment (`feat(client)`)             | Blocked until R36 is merged                                                      |
 | 27    | R38 - Pairing codes from an admin device                                                         | Increment (`feat`)                     | Blocked until R37 is merged                                                      |
 
@@ -2680,8 +2726,8 @@ device, a web client, rate limiting (still deferred).
 
 ### R35 - The admin page: every device, admin rights, renaming
 
-Status: planned; next. Added by the maintainer (2026-09-27), after R34
-(the Connect page and the pairing notice).
+Status: complete (see section 3). Added by the maintainer (2026-09-27),
+after R34 (the Connect page and the pairing notice).
 
 Goal: one page on the host where the operator sees every device and
 manages it, and the only place where a device's admin rights are taken
@@ -2726,8 +2772,7 @@ than the admin token.
 
 ### R36 - Managing devices from an admin device: the API
 
-Status: planned; blocked until R35 is merged. Added by the maintainer
-(2026-09-27).
+Status: planned; next. Added by the maintainer (2026-09-27).
 
 Goal: a device the owner made an admin can manage the others through the
 client API, with limits that keep a stolen admin device from taking over.
@@ -2907,7 +2952,8 @@ Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
 (section 4) is authoritative. R34 (the Connect page and the pairing
-notice) is done. **R35 (the admin page) is next**, then R36, R37 and R38
-in that order, each after the previous one is merged.
+notice) and R35 (the admin page) are done. **R36 (managing devices from an
+admin device: the API) is next**, then R37 and R38 in that order, each
+after the previous one is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
