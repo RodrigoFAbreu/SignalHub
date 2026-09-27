@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../connection/server_credentials.dart';
 import '../models/client_registration.dart';
 import '../models/event.dart';
+import '../models/inbox_filter.dart';
 import '../models/json.dart';
 import '../models/push_config.dart';
 
@@ -144,11 +145,21 @@ class SignalHubApi {
     ClientRegistration.fromJson,
   );
 
-  /// `GET /api/v1/events`: one page of events, newest first. Pass the
-  /// previous page's [EventPage.nextCursor] as [cursor] for the next one.
-  Future<EventPage> listEvents({int limit = 50, String? cursor}) async {
-    final query = Uri(queryParameters: {'limit': '$limit', 'cursor': ?cursor})
-        .query;
+  /// `GET /api/v1/events`: one page of events matching [filter], newest
+  /// first. Pass the previous page's [EventPage.nextCursor] as [cursor], with
+  /// the same filter, for the next one.
+  Future<EventPage> listEvents({
+    int limit = 50,
+    String? cursor,
+    InboxFilter filter = InboxFilter.none,
+  }) async {
+    final query = Uri(
+      queryParameters: {
+        'limit': '$limit',
+        'cursor': ?cursor,
+        ...filter.queryParameters,
+      },
+    ).query;
     return _read(
       await _send('GET', 'api/v1/events?$query'),
       EventPage.fromJson,

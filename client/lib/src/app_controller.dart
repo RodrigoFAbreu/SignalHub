@@ -8,6 +8,7 @@ import 'connection/pairing_uri.dart';
 import 'connection/server_credentials.dart';
 import 'models/client_registration.dart';
 import 'models/event.dart';
+import 'models/inbox_filter.dart';
 import 'models/push_config.dart';
 import 'push/push_registration.dart';
 import 'push/push_service.dart';
@@ -91,8 +92,13 @@ class AppController extends ChangeNotifier {
   /// [error] is the one thing to tell the owner.
   bool serverUnreachable = false;
 
-  /// The inbox: the events read so far, newest first.
+  /// The inbox: the events read so far that match [filter], newest first.
   List<Event> events = const [];
+
+  /// Which events the inbox shows. Kept only while the app runs: it starts
+  /// with every event, so an inbox left filtered never hides new events
+  /// after a restart.
+  InboxFilter filter = InboxFilter.none;
 
   /// How many events are unread on the server, including events not read
   /// into [events] yet; `null` until known.
@@ -122,12 +128,19 @@ class AppController extends ChangeNotifier {
   /// Whether the server has events older than [events].
   bool get hasMore => _nextCursor != null;
 
-  /// The producers of the events in the inbox, by name. Client keys cannot
-  /// list producers, so these are the ones the owner can mute by name.
-  List<EventProducer> get inboxProducers {
-    final byId = {for (final e in events.reversed) e.producer.id: e.producer};
-    return byId.values.toList()..sort((a, b) => a.name.compareTo(b.name));
-  }
+  /// The producers of the events the inbox has read since connecting, by id:
+  /// kept when a filter hides their events, so they can still be chosen.
+  final _producers = <String, EventProducer>{};
+
+  /// The producers of the events the inbox has read since connecting, by
+  /// name. Client keys cannot list producers, so these are the ones the owner
+  /// can filter by or mute by name.
+  List<EventProducer> get inboxProducers =>
+      _producers.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+
+  /// Whether _Mark all as read_ can be offered: it marks every unread event
+  /// up to the newest one shown, so not while the filter hides some of them.
+  bool get canMarkAllRead => !filter.narrowsEvents;
 
   /// Loads saved credentials and, if there are any, connects.
   Future<void> start() async {
@@ -219,10 +232,11 @@ class AppController extends ChangeNotifier {
     try {
       if (includeClient) registration = await api.getClient();
       final generation = ++_inboxGeneration;
-      final page = await api.listEvents(limit: pageSize);
+      final filter = this.filter;
+      final page = await api.listEvents(limit: pageSize, filter: filter);
       final unread = await api.unreadCount();
       if (generation == _inboxGeneration) {
-        _showFirstPage(page);
+        _showFirstPage(page, filter);
         unreadCount = unread;
       }
       error = null;
@@ -238,8 +252,8 @@ class AppController extends ChangeNotifier {
     return true;
   }
 
-  void _showFirstPage(EventPage page) {
-    events = page.items;
+  void _showFirstPage(EventPage page, InboxFilter filter) {
+    events = _shown(page, filter);
     _nextCursor = page.nextCursor;
     inboxLoaded = true;
     loadMoreError = null;
@@ -251,13 +265,18 @@ class AppController extends ChangeNotifier {
     final cursor = _nextCursor;
     if (api == null || cursor == null || loadingMore) return;
     final generation = _inboxGeneration;
+    final filter = this.filter;
     loadingMore = true;
     loadMoreError = null;
     notifyListeners();
     try {
-      final page = await api.listEvents(limit: pageSize, cursor: cursor);
+      final page = await api.listEvents(
+        limit: pageSize,
+        cursor: cursor,
+        filter: filter,
+      );
       if (generation == _inboxGeneration) {
-        events = [...events, ...page.items];
+        events = [...events, ..._shown(page, filter)];
         _nextCursor = page.nextCursor;
       }
     } on UnauthorizedException {
@@ -269,6 +288,33 @@ class AppController extends ChangeNotifier {
     loadingMore = false;
     notifyListeners();
   }
+
+  /// The events of [page] the inbox shows, noting their producers. Read
+  /// events are dropped from the unread-only view because a server released
+  /// before the `read` filter ignores it; events read while shown stay until
+  /// the inbox is read again.
+  List<Event> _shown(EventPage page, InboxFilter filter) {
+    for (final event in page.items) {
+      _producers[event.producer.id] = event.producer;
+    }
+    return page.items.where(filter.admits).toList(growable: false);
+  }
+
+  /// Shows only the events [next] admits, from the newest page. Pages read
+  /// with the previous filter are dropped, as is any still arriving.
+  Future<void> setFilter(InboxFilter next) async {
+    if (next == filter || _api == null) return;
+    filter = next;
+    events = const [];
+    _nextCursor = null;
+    inboxLoaded = false;
+    loadMoreError = null;
+    notifyListeners();
+    await _reload(includeClient: false);
+  }
+
+  /// Shows every event again.
+  Future<void> clearFilter() => setFilter(InboxFilter.none);
 
   /// The event with [id]: from the inbox if it is there, otherwise from the
   /// server. Throws an [ApiException] if it cannot be read.
@@ -309,11 +355,12 @@ class AppController extends ChangeNotifier {
   }
 
   /// Marks read every event up to the newest one shown. Events that arrived
-  /// since stay unread, so nothing the owner has not seen is marked. Returns
-  /// an error message, or `null` on success.
+  /// since stay unread, so nothing the owner has not seen is marked. Does
+  /// nothing unless [canMarkAllRead]. Returns an error message, or `null` on
+  /// success.
   Future<String?> markAllRead() async {
     final newest = events.firstOrNull;
-    if (newest == null) return null;
+    if (newest == null || !canMarkAllRead) return null;
     return _changeReadState(() async {
       await _api!.markReadThrough(newest.id);
       // The server answers only a count. Every event shown is at or before
@@ -474,6 +521,8 @@ class AppController extends ChangeNotifier {
     credentials = null;
     registration = null;
     events = const [];
+    filter = InboxFilter.none;
+    _producers.clear();
     unreadCount = null;
     _nextCursor = null;
     _inboxGeneration++;

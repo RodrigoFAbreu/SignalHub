@@ -858,4 +858,139 @@ void main() {
       findsOneWidget,
     );
   });
+
+  group('inbox filters', () {
+    setUp(() {
+      backend
+        ..publish(
+          'e-2',
+          'Disk almost full',
+          category: 'INFO',
+          severity: 'NORMAL',
+          producer: {'id': 'p-2', 'name': 'nas'},
+        )
+        ..publish('e-3', 'Deploy done', readAt: '2026-09-25T12:10:00Z');
+    });
+
+    Future<void> openFilters(WidgetTester tester) async {
+      await tester.tap(find.byKey(const Key('filter')));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> tapInSheet(WidgetTester tester, Finder target) async {
+      await tester.ensureVisible(target);
+      await tester.pumpAndSettle();
+      await tester.tap(target);
+      await settle(tester);
+    }
+
+    Future<void> closeSheet(WidgetTester tester) async {
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('show unread events only', (tester) async {
+      await connect(tester);
+      expect(find.text('Deploy done'), findsOneWidget);
+      expect(find.byKey(const Key('activeFilters')), findsNothing);
+
+      await openFilters(tester);
+      await tapInSheet(tester, find.byKey(const Key('unreadOnly')));
+      await closeSheet(tester);
+
+      expect(find.text('Deploy done'), findsNothing);
+      expect(find.text('Nightly build failed'), findsOneWidget);
+      expect(find.text('Disk almost full'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('activeFilters')),
+          matching: find.text('Unread'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        backend.requests
+            .lastWhere((r) => r.url.path == '/api/v1/events')
+            .url
+            .queryParameters['read'],
+        'false',
+      );
+    });
+
+    testWidgets('filter by producer, category and severity', (tester) async {
+      await connect(tester);
+
+      await openFilters(tester);
+      await tapInSheet(tester, find.byKey(const Key('filterProducer-p-2')));
+      await tapInSheet(tester, find.byKey(const Key('filterCategory-INFO')));
+      await tapInSheet(tester, find.byKey(const Key('filterSeverity-NORMAL')));
+      await closeSheet(tester);
+
+      expect(find.text('Disk almost full'), findsOneWidget);
+      expect(find.text('Nightly build failed'), findsNothing);
+      final bar = find.byKey(const Key('activeFilters'));
+      for (final label in ['nas', 'Info', 'Normal']) {
+        expect(
+          find.descendant(of: bar, matching: find.text(label)),
+          findsOneWidget,
+        );
+      }
+      // Marking read up to the newest event shown would mark hidden ones.
+      final markAllRead = tester.widget<IconButton>(
+        find.byKey(const Key('markAllRead')),
+      );
+      expect(markAllRead.onPressed, isNull);
+    });
+
+    testWidgets('clear every filter with one tap', (tester) async {
+      await connect(tester);
+      await openFilters(tester);
+      await tapInSheet(tester, find.byKey(const Key('unreadOnly')));
+      await tapInSheet(tester, find.byKey(const Key('filterProducer-p-2')));
+      await closeSheet(tester);
+      expect(find.text('Nightly build failed'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('clearFilters')));
+      await settle(tester);
+
+      expect(find.byKey(const Key('activeFilters')), findsNothing);
+      for (final title in [
+        'Nightly build failed',
+        'Disk almost full',
+        'Deploy done',
+      ]) {
+        expect(find.text(title), findsOneWidget);
+      }
+    });
+
+    testWidgets('say when no event matches', (tester) async {
+      await connect(tester);
+      await openFilters(tester);
+      await tapInSheet(
+        tester,
+        find.byKey(const Key('filterCategory-ACTION_REQUIRED')),
+      );
+      await closeSheet(tester);
+
+      expect(find.text('No events match these filters'), findsOneWidget);
+    });
+
+    testWidgets('an older server\'s unread-only view reads on past pages of '
+        'read events', (tester) async {
+      backend.readFilter = false;
+      for (var i = 0; i < AppController.pageSize; i++) {
+        backend.publish('r-$i', 'Read $i', readAt: '2026-09-25T12:10:00Z');
+      }
+      await connect(tester);
+
+      await openFilters(tester);
+      await tapInSheet(tester, find.byKey(const Key('unreadOnly')));
+      await closeSheet(tester);
+      await settle(tester);
+
+      expect(find.textContaining('Read '), findsNothing);
+      expect(find.text('Nightly build failed'), findsOneWidget);
+      expect(find.text('Disk almost full'), findsOneWidget);
+    });
+  });
 }

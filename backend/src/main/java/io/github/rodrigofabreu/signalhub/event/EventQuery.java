@@ -20,6 +20,7 @@ import java.util.UUID;
  * A validated event listing request. Values within one filter are alternatives; different filters
  * must all match. Empty sets and absent bounds mean "no restriction".
  *
+ * @param read only read events if true, only unread events if false
  * @param createdFrom inclusive lower bound on {@code createdAt}
  * @param createdBefore exclusive upper bound on {@code createdAt}
  * @param after position to continue after, from a previous page's cursor
@@ -28,6 +29,7 @@ record EventQuery(
     Set<UUID> producerIds,
     Set<Category> categories,
     Set<Severity> severities,
+    Optional<Boolean> read,
     Optional<Instant> createdFrom,
     Optional<Instant> createdBefore,
     Optional<EventCursor> after,
@@ -51,6 +53,7 @@ record EventQuery(
       List<String> producerIds,
       List<String> categories,
       List<String> severities,
+      String read,
       String createdFrom,
       String createdBefore,
       String cursor,
@@ -61,6 +64,7 @@ record EventQuery(
             parseAll("producerId", producerIds, EventQuery::parseUuid, problems),
             parseEnums("category", categories, Category.class, problems),
             parseEnums("severity", severities, Severity.class, problems),
+            parseRead(read, problems),
             parseTimestamp("createdFrom", createdFrom, problems),
             parseTimestamp("createdBefore", createdBefore, problems),
             parseCursor(cursor, problems),
@@ -118,6 +122,21 @@ record EventQuery(
     } catch (IllegalArgumentException e) {
       return null;
     }
+  }
+
+  private static Optional<Boolean> parseRead(String text, List<ApiError.Violation> problems) {
+    if (text == null) {
+      return Optional.empty();
+    }
+    // Strict, unlike Boolean.parseBoolean, which reads every other text as false.
+    return switch (text) {
+      case "true" -> Optional.of(true);
+      case "false" -> Optional.of(false);
+      default -> {
+        problems.add(new ApiError.Violation("read", "must be true or false"));
+        yield Optional.empty();
+      }
+    };
   }
 
   private static Optional<Instant> parseTimestamp(

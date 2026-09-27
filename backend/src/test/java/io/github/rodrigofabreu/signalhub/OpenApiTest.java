@@ -114,6 +114,7 @@ class OpenApiTest {
                 "producerId",
                 "category",
                 "severity",
+                "read",
                 "createdFrom",
                 "createdBefore",
                 "cursor",
@@ -121,6 +122,7 @@ class OpenApiTest {
         .body(
             EVENTS + ".get.parameters.find { it.name == 'category' }.schema.type", equalTo("array"))
         .body(EVENTS + ".get.parameters.find { it.name == 'limit' }.schema.maximum", equalTo(100))
+        .body(EVENTS + ".get.parameters.find { it.name == 'read' }.schema.type", equalTo("boolean"))
         .body(EVENTS + ".get.responses", hasKey("200"))
         .body(EVENTS + ".get.responses", hasKey("400"))
         .body(EVENTS + ".get.responses", hasKey("401"))

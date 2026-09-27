@@ -18,8 +18,8 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
 
   /**
    * Up to {@code count} events matching the query, in {@link #NEWEST_FIRST} order, starting after
-   * the query's cursor. Served by the {@code (created_at, id)} indexes of V3, so a page costs the
-   * same however deep it is.
+   * the query's cursor. Served by the {@code (created_at, id)} indexes of V3, and unread events by
+   * the partial index of V6, so a page costs the same however deep it is.
    */
   List<EventEntity> find(EventQuery query, int count) {
     var conditions = new ArrayList<String>();
@@ -36,6 +36,10 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
       conditions.add("severity in :severities");
       parameters.put("severities", query.severities());
     }
+    query
+        .read()
+        // Literal predicates: "read_at is null" is the one the partial index of V6 matches.
+        .ifPresent(read -> conditions.add(read ? "readAt is not null" : "readAt is null"));
     query
         .createdFrom()
         .ifPresent(

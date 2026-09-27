@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.agroal.api.AgroalDataSource;
 import io.github.rodrigofabreu.signalhub.TestProducers;
@@ -19,6 +20,7 @@ import io.restassured.specification.RequestSpecification;
 import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -222,6 +224,85 @@ class EventListApiTest {
   }
 
   @Test
+  void filtersByReadState() {
+    var producer = TestProducers.register("list-read");
+    var readInfo = publish(producer, "INFO", "LOW", "Read info").getString("id");
+    var unreadInfo = publish(producer, "INFO", "LOW", "Unread info").getString("id");
+    var unreadBlocked = publish(producer, "BLOCKED", "HIGH", "Unread blocked").getString("id");
+    markRead(readInfo);
+
+    UnaryOperator<RequestSpecification> ofProducer =
+        spec -> spec.queryParam("producerId", producer.id());
+    assertEquals(
+        List.of(unreadBlocked, unreadInfo),
+        ids(spec -> ofProducer.apply(spec).queryParam("read", false)));
+    assertEquals(List.of(readInfo), ids(spec -> ofProducer.apply(spec).queryParam("read", true)));
+    assertEquals(
+        List.of(unreadInfo),
+        ids(
+            spec ->
+                ofProducer.apply(spec).queryParam("read", false).queryParam("category", "INFO")));
+    assertEquals(List.of(unreadBlocked, unreadInfo, readInfo), ids(spec -> ofProducer.apply(spec)));
+  }
+
+  @Test
+  void pagesThroughUnreadEventsWhileEventsAreMarkedReadOrUnread() {
+    var producer = TestProducers.register("list-unread-pages");
+    var published = new ArrayList<String>();
+    for (int i = 0; i < 5; i++) {
+      published.add(publish(producer, "INFO", "LOW", "Event " + i).getString("id"));
+    }
+    markRead(published.get(0));
+    UnaryOperator<RequestSpecification> unreadOfProducer =
+        spec ->
+            spec.queryParam("producerId", producer.id())
+                .queryParam("read", false)
+                .queryParam("limit", 2);
+    var first = page(unreadOfProducer);
+    assertEquals(List.of(published.get(4), published.get(3)), first.getList("items.id"));
+
+    // Between pages: one event of the first page and one not listed yet are read, and one read
+    // before is unread again.
+    markRead(published.get(3));
+    markRead(published.get(1));
+    markUnread(published.get(0));
+    var second =
+        page(
+            spec ->
+                unreadOfProducer.apply(spec).queryParam("cursor", first.getString("nextCursor")));
+
+    // The cursor is a position: the next page starts after it whatever changed, never repeats the
+    // first page, and lists the events that are unread now.
+    assertEquals(List.of(published.get(2), published.get(0)), second.getList("items.id"));
+    assertNull(second.getString("nextCursor"));
+  }
+
+  @Test
+  void theUnreadListingIsServedByThePartialUnreadIndex() throws SQLException {
+    // The predicates the listing sends for read=false, first page and later pages. Sequential
+    // scans are disabled because the test database is small enough to prefer them.
+    var firstPage =
+        "SELECT id FROM events WHERE read_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 51";
+    var laterPage =
+        "SELECT id FROM events WHERE read_at IS NULL AND (created_at, id) < (now(), gen_random_uuid())"
+            + " ORDER BY created_at DESC, id DESC LIMIT 51";
+    try (var connection = dataSource.getConnection();
+        var statement = connection.createStatement()) {
+      connection.setAutoCommit(false);
+      try {
+        statement.execute("SET LOCAL enable_seqscan = off");
+        for (var query : List.of(firstPage, laterPage)) {
+          assertTrue(
+              plan(statement, query).contains("events_unread_created_at_id_idx"),
+              () -> "not served by the unread index: " + query);
+        }
+      } finally {
+        connection.rollback();
+      }
+    }
+  }
+
+  @Test
   void filtersByCreationTime() {
     var producer = TestProducers.register("list-time");
     var oldest = publish(producer, "INFO", "LOW", "Oldest").getString("id");
@@ -276,6 +357,9 @@ class EventListApiTest {
     "createdFrom, 1758800000",
     "createdBefore, +10000-01-01T00:00:00Z",
     "cursor, not-a-cursor",
+    "read, yes",
+    "read, FALSE",
+    "read, 0",
   })
   void rejectsAnInvalidParameterNamingIt(String parameter, String value) {
     asAdmin()
@@ -336,6 +420,24 @@ class EventListApiTest {
             + "\", \"title\": \""
             + title
             + "\"}");
+  }
+
+  private static void markRead(String event) {
+    asAdmin().put(EVENTS + "/" + event + "/read").then().statusCode(200);
+  }
+
+  private static void markUnread(String event) {
+    asAdmin().delete(EVENTS + "/" + event + "/read").then().statusCode(200);
+  }
+
+  private static String plan(Statement statement, String query) throws SQLException {
+    var plan = new StringBuilder();
+    try (var rows = statement.executeQuery("EXPLAIN " + query)) {
+      while (rows.next()) {
+        plan.append(rows.getString(1)).append('\n');
+      }
+    }
+    return plan.toString();
   }
 
   private static JsonPath page(UnaryOperator<RequestSpecification> query) {
