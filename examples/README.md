@@ -95,9 +95,10 @@ Copy [`notify-on-failure.yml`](github-actions/notify-on-failure.yml) to
 `.github/workflows/` in the repository to watch, and list the workflows to
 watch under `workflows:`. In the repository settings, add a variable
 `SIGNALHUB_URL` and a secret `SIGNALHUB_API_KEY`. When a listed workflow
-fails, it publishes the workflow, branch, commit and a link to the run, with
-the repository as the context, once per run attempt however often `curl`
-retries. The server must be reachable from GitHub's
+fails, it publishes the workflow, branch, commit and the run's URL as the
+event's `link` (so the app opens the run with a tap), with the repository as
+the context, once per run attempt however often `curl` retries. The `link`
+field needs a server of v2.3.0 or later; an older one rejects the event. The server must be reachable from GitHub's
 runners (see [docs/deployment.md](../docs/deployment.md)); on a self-hosted
 runner it can be a private address.
 

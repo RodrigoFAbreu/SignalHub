@@ -408,7 +408,8 @@ public class EventResource {
         "severity": "HIGH",
         "title": "Nightly build failed",
         "message": "3 of 412 tests failed on main.",
-        "metadata": {"pipeline": "nightly", "run": 1842, "url": "https://ci.example.com/runs/1842"},
+        "metadata": {"pipeline": "nightly", "run": 1842},
+        "link": "https://ci.example.com/runs/1842",
         "occurredAt": "2026-09-25T14:03:00+02:00"
       }
       """;

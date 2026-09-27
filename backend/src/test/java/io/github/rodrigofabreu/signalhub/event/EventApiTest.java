@@ -43,6 +43,7 @@ class EventApiTest {
         "title": "Nightly build failed",
         "message": "3 of 412 tests failed on main.",
         "metadata": {"pipeline": "nightly", "run": 1842},
+        "link": "https://ci.example.com/runs/1842?attempt=2#summary",
         "occurredAt": "2026-09-25T14:03:00+02:00"
       }
       """;
@@ -77,6 +78,7 @@ class EventApiTest {
             .body("severity", equalTo("HIGH"))
             .body("title", equalTo("Nightly build failed"))
             .body("message", equalTo("3 of 412 tests failed on main."))
+            .body("link", equalTo("https://ci.example.com/runs/1842?attempt=2#summary"))
             .body("occurredAt", equalTo("2026-09-25T12:03:00Z"))
             .extract();
 
@@ -130,6 +132,7 @@ class EventApiTest {
         .statusCode(201)
         .body("context", equalTo(null))
         .body("message", equalTo(null))
+        .body("link", equalTo(null))
         .body("occurredAt", equalTo(null))
         .body("metadata.size()", equalTo(0));
   }
@@ -293,6 +296,63 @@ class EventApiTest {
         Instant.parse(created.path("createdAt")).isAfter(Instant.parse("2026-01-01T00:00:00Z")));
   }
 
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "http://nas.local:8080/status",
+        "HTTPS://Example.com/a%20b?q=r%C3%A9sum%C3%A9&x=1#frag",
+        "https://192.168.1.10/",
+        "https://[2001:db8::1]:8443/path"
+      })
+  void linkIsReturnedExactlyAsSent(String link) {
+    post(withLink(link)).statusCode(201).body("link", equalTo(link));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "",
+        "ci.example.com/runs/1842", // relative
+        "/runs/1842",
+        "https://", // no host
+        "https:///runs/1842",
+        "https:runs/1842",
+        "ftp://files.example.com/log.txt",
+        "file:///etc/passwd",
+        "javascript:alert(1)",
+        "mailto:owner@example.com",
+        "intent://scan/#Intent;scheme=zxing;end",
+        "https://example.com/has space",
+        "https://example.com/\\u0000"
+      })
+  void linkMustBeAnAbsoluteHttpOrHttpsUrl(String link) {
+    post(withLink(link))
+        .statusCode(400)
+        .body("violations[0].field", equalTo("link"))
+        .body("violations[0].message", equalTo("must be an absolute http or https URL"));
+  }
+
+  @Test
+  void linkMustBeAJsonString() {
+    post(MINIMAL_EVENT.replace("}", ", \"link\": {\"url\": \"https://example.com\"}}"))
+        .statusCode(400)
+        .body("violations[0].field", equalTo("link"))
+        .body("violations[0].message", equalTo("must be a JSON string"));
+  }
+
+  @Test
+  void linkIsLimitedTo2000Characters() {
+    var prefix = "https://example.com/";
+    var atLimit = prefix + "p".repeat(ValidLink.MAX_LENGTH - prefix.length());
+    assertEquals(2000, atLimit.length());
+
+    post(withLink(atLimit)).statusCode(201).body("link", equalTo(atLimit));
+    post(withLink(atLimit + "p"))
+        .statusCode(400)
+        .body("violations.field", equalTo(List.of("link")))
+        .body("violations[0].message", equalTo("size must be between 0 and 2000"));
+  }
+
   @Test
   void metadataRoundTripsUnchanged() throws Exception {
     var metadata =
@@ -401,6 +461,10 @@ class EventApiTest {
 
   private static String withOccurredAt(String occurredAt) {
     return MINIMAL_EVENT.replace("}", ", \"occurredAt\": " + occurredAt + "}");
+  }
+
+  private static String withLink(String link) {
+    return MINIMAL_EVENT.replace("}", ", \"link\": \"" + link + "\"}");
   }
 
   private static String withMetadata(String metadata) {

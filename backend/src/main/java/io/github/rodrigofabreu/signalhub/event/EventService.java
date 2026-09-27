@@ -54,6 +54,7 @@ class EventService {
             request.title(),
             request.message(),
             metadata == null ? "{}" : metadata.toString(),
+            request.link(),
             request.occurredAt() == null ? null : toStoredInstant(request.occurredAt().toInstant()),
             nextCreatedAt(),
             idempotencyKey);
@@ -91,6 +92,7 @@ class EventService {
         && stored.severity() == sent.severity()
         && stored.title().equals(sent.title())
         && Objects.equals(stored.message(), sent.message())
+        && Objects.equals(stored.link(), sent.link())
         && Objects.equals(stored.occurredAt(), sent.occurredAt())
         && repository.sameMetadata(stored.metadata(), sent.metadata());
   }
@@ -184,6 +186,7 @@ class EventService {
         event.title(),
         event.message(),
         event.metadata(),
+        event.link(),
         event.occurredAt(),
         event.createdAt(),
         event.readAt());

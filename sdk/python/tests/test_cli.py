@@ -59,6 +59,7 @@ class SendTest(unittest.TestCase):
             '--metadata={"run": 42, "branch": "main"}',
             "--meta=branch=feature",
             "--meta=link=https://example.com/?a=b",
+            "--link=https://github.com/owner/repo/actions/runs/42",
             "--occurred-at=2026-09-25T14:03:00Z",
             "--idempotency-key=run-42",
         )
@@ -80,6 +81,7 @@ class SendTest(unittest.TestCase):
                     "branch": "feature",
                     "link": "https://example.com/?a=b",
                 },
+                "link": "https://github.com/owner/repo/actions/runs/42",
                 "occurredAt": "2026-09-25T14:03:00Z",
             },
         )

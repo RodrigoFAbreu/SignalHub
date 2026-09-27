@@ -105,7 +105,9 @@ class EventIdempotencyTest {
         "{\"category\": \"COMPLETED\", \"severity\": \"LOW\", \"title\": \"Backup done\","
             + " \"metadata\": {\"a\": 1}}",
         "{\"category\": \"COMPLETED\", \"severity\": \"LOW\", \"title\": \"Backup done\","
-            + " \"occurredAt\": \"2026-09-25T14:03:00Z\"}"
+            + " \"occurredAt\": \"2026-09-25T14:03:00Z\"}",
+        "{\"category\": \"COMPLETED\", \"severity\": \"LOW\", \"title\": \"Backup done\","
+            + " \"link\": \"https://nas.local/backups\"}"
       })
   void everyFieldTakesPartInTheComparison(String different) {
     post(producer, "compare", MINIMAL_EVENT).statusCode(201);

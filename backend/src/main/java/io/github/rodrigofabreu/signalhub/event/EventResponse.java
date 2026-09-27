@@ -32,6 +32,13 @@ public record EventResponse(
         @JsonRawValue
         String metadata,
     @Schema(
+            description =
+                "URL the owner can open from the event, as the producer sent it; null if it sent"
+                    + " none.",
+            examples = "https://ci.example.com/runs/1842",
+            nullable = true)
+        String link,
+    @Schema(
             description = "Producer-supplied occurrence time, normalized to UTC; null if not sent.",
             examples = "2026-09-25T12:03:00Z")
         Instant occurredAt,

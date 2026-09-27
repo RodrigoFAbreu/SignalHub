@@ -577,6 +577,7 @@ curl -i http://localhost:8080/api/v1/events \
         "title": "Nightly build failed",
         "message": "3 of 412 tests failed on main.",
         "metadata": {"pipeline": "nightly", "run": 1842},
+        "link": "https://ci.example.com/runs/1842",
         "occurredAt": "2026-09-25T14:03:00+02:00"
       }'
 ```
@@ -595,6 +596,7 @@ Content-Type: application/json;charset=UTF-8
   "title": "Nightly build failed",
   "message": "3 of 412 tests failed on main.",
   "metadata": {"pipeline": "nightly", "run": 1842},
+  "link": "https://ci.example.com/runs/1842",
   "occurredAt": "2026-09-25T12:03:00Z",
   "createdAt": "2026-09-25T15:31:42.209368Z"
 }

@@ -38,7 +38,7 @@ jobs:
             '{category: "BLOCKED", severity: "HIGH",
               title: "\(env.WORKFLOW) failed on \(env.BRANCH)"[:200],
               message: "\(env.WORKFLOW) #\(env.RUN_NUMBER) failed for \(env.COMMIT[:12]) on \(env.BRANCH): \(env.RUN_URL)",
-              context: env.REPOSITORY,
+              context: env.REPOSITORY, link: env.RUN_URL,
               metadata: {workflow: env.WORKFLOW, branch: env.BRANCH, commit: env.COMMIT,
                          runNumber: (env.RUN_NUMBER | tonumber), url: env.RUN_URL}}')
           # The idempotency key names this run and attempt, so a retry after a

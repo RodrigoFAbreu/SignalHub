@@ -82,6 +82,7 @@ It prints the stored event's ID (`--json` prints the whole event).
 | `--context NAME` | `context`, e.g. a repository, host or job |
 | `--metadata JSON` | `metadata`, a JSON object |
 | `--meta KEY=VALUE` | one metadata string value; repeatable, applied over `--metadata` |
+| `--link URL` | `link`, an `http` or `https` URL the owner can open from the event, e.g. a CI run's page (servers from v2.3.0) |
 | `--occurred-at TIMESTAMP` | `occurredAt`, ISO-8601 with an offset, e.g. `2026-09-25T14:03:00Z` |
 | `--idempotency-key KEY` | not a field: the `Idempotency-Key` header, 1 to 200 visible ASCII characters (see below) |
 
@@ -146,6 +147,7 @@ event = hub.publish(
     message="A human gate is waiting.",
     context="github.com/owner/repo",
     metadata={"pullRequest": 42},
+    link="https://github.com/owner/repo/pull/42",  # needs a server from v2.3.0
     occurred_at=datetime.now(timezone.utc),  # or an ISO-8601 string
     idempotency_key="review-42-1",  # optional: repeating the call stores nothing new
 )
