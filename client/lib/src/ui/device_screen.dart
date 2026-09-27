@@ -42,7 +42,9 @@ class _DeviceScreenState extends State<DeviceScreen> {
         onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          // Explicit padding drops the system insets a list pads by default:
+          // without them, its end is hidden under the navigation bar.
+          padding: const EdgeInsets.all(16) + MediaQuery.paddingOf(context),
           children: [
             Card(
               child: ListTile(

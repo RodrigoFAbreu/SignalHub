@@ -65,7 +65,9 @@ class _ConnectDeviceScreenState extends State<ConnectDeviceScreen> {
     body: ListenableBuilder(
       listenable: _controller,
       builder: (context, _) => ListView(
-        padding: const EdgeInsets.all(16),
+        // Explicit padding drops the system insets a list pads by default:
+        // without them, its end is hidden under the navigation bar.
+        padding: const EdgeInsets.all(16) + MediaQuery.paddingOf(context),
         children: [
           if (_controller.pairing != null)
             ..._pairing(context)

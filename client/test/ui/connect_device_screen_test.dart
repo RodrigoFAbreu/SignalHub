@@ -6,6 +6,7 @@ import 'package:signalhub_client/src/connection/pairing_uri.dart';
 import 'package:signalhub_client/src/ui/connect_device_screen.dart';
 
 import '../support/fakes.dart';
+import '../support/phone.dart';
 
 void main() {
   final created = DateTime.utc(2026, 9, 27, 12);
@@ -75,6 +76,20 @@ void main() {
     await tester.pump();
     expect(controller.pairing, isNull);
     expect(find.byKey(const Key('createPairing')), findsOneWidget);
+  });
+
+  testWidgets('the code scrolls clear of the navigation bar', (tester) async {
+    useEdgeToEdgePhone(tester);
+    // Larger text, as set in the phone's accessibility settings, makes the
+    // code longer than the screen.
+    tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await show(tester);
+    await create(tester, 'Tablet');
+
+    await scrollToEnd(tester, find.byType(ConnectDeviceScreen));
+
+    expectClearOfNavigationBar(tester, find.byKey(const Key('newPairing')));
   });
 
   testWidgets('copies the pairing link', (tester) async {
