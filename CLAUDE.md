@@ -12,7 +12,7 @@ delivered to the owner's client applications through push notifications.
 
 Planned stack (details in `docs/architecture.md`):
 
-- **Backend:** Java 21 (LTS) + Quarkus: Quarkus REST (RESTEasy Reactive),
+- **Backend:** Java 25 (LTS) + Quarkus: Quarkus REST (RESTEasy Reactive),
   Hibernate ORM with Panache, Flyway, Jakarta Validation, SmallRye OpenAPI,
   SmallRye Health. Tested with JUnit 5 and RestAssured.
 - **Database:** PostgreSQL.

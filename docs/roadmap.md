@@ -3,7 +3,7 @@
 Status: Active  
 Development model: lightweight trunk-based development  
 Release model: every merge to `main` is releasable and produces a release  
-Backend: Java 21 + Quarkus + PostgreSQL  
+Backend: Java 25 + Quarkus + PostgreSQL  
 Client: Flutter, one codebase for Android and iOS (decided in R9)  
 Version: one SignalHub version for the whole repository, the `vX.Y.Z` git tag (see [One version, many artifacts](#one-version-many-artifacts))
 
@@ -932,6 +932,26 @@ The following capabilities are already implemented and merged unless repository 
 - no backend, API or schema changes; the exit criterion's check of the
   released APK on a real phone is the maintainer's
 
+### R25 - Java 25
+
+- the backend builds and runs on Java 25 LTS: `maven.compiler.release` 25,
+  the build image `maven:3.9.16-eclipse-temurin-25-noble` and the runtime
+  image `eclipse-temurin:25-jre-noble`, both multi-platform and pinned by
+  index digest, and JDK 25 in the `Backend (build + test)` job; the tests
+  run on 25 only
+- the Java 25 JRE image no longer includes `curl`, which the image's health
+  check runs, so the runtime stage installs it (`--no-install-recommends`);
+  without it, Compose never saw the backend healthy
+- the Compose smoke tests (x86-64 and ARM64) check that the startup summary
+  reports Java 25
+- resource guidance of R15d checked again: with the documented limits the
+  backend used about 176 MiB of its 512 MiB after startup (heap limit
+  371 MiB with one CPU), PostgreSQL about 48 MiB of 256 MiB; unchanged
+- no language features adopted, no Quarkus upgrade (3.39.5 runs on 25); the
+  Dependabot PRs raising the images to the non-LTS JDK 24 (#48, #49) are
+  superseded
+- no API, schema, configuration or client changes: `build`, a patch release
+
 ---
 
 ## 4. Planned roadmap
@@ -1474,8 +1494,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 12 | R23a - Push client options served by the backend (first half of R23) | Increment (`feat`) | Done (see section 3) |
 | 12b | R23b - The app sets up push from served options (second half of R23) | Increment (`feat(client)`) | Done (see section 3) |
 | 13 | R24 - Installable Android app in each release | Increment (`feat`) | Done (see section 3) |
-| 14 | R25 - Java 25 (decision D2) | Increment | Next |
-| 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Blocked until R25 is merged |
+| 14 | R25 - Java 25 (decision D2) | Increment (`build`) | Done (see section 3) |
+| 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Next |
 | 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Blocked until R26 is merged |
 | 17 | R28 - Pairing a device: the API | Increment (`feat`) | Blocked until R27 is merged |
 | 18 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Blocked until R28 is merged |
@@ -2071,7 +2091,7 @@ commit on the *This device* screen.
 
 ### R25 - Java 25
 
-Status: next; decision D2.
+Status: done (see section 3); decision D2.
 
 Goal: move the backend from Java 21 LTS to Java 25 LTS in one step.
 
@@ -2092,7 +2112,7 @@ Java 25.
 
 ### R26 - PostgreSQL 18
 
-Status: planned; decision D3; blocked until R25 is merged.
+Status: next; decision D3.
 
 Goal: move the database to PostgreSQL 18 with a tested, documented path for
 existing installs.
@@ -2297,8 +2317,8 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. R24 (the Android app in each release) is
-done, so the expected next item is **R25 - Java 25** (decision D2), then
-PostgreSQL 18 (R26), each in its own PR (see [section 5](#5-after-v100)).
+(section 4) is authoritative. R25 (Java 25) is done, so the expected next
+item is **R26 - PostgreSQL 18** (decision D3), a major release with
+migration notes (see [section 5](#5-after-v100)).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

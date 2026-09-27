@@ -193,12 +193,12 @@ Every commit on `main` must:
 
 ## Backend
 
-The backend lives in `backend/`: a Quarkus service on Java 21, built with
+The backend lives in `backend/`: a Quarkus service on Java 25, built with
 Maven. See [architecture.md](architecture.md#backend-platform) for its design.
 
 ### Prerequisites
 
-- **JDK 21** (for example Eclipse Temurin). Maven itself is not needed: the
+- **JDK 25** (for example Eclipse Temurin). Maven itself is not needed: the
   committed wrapper `./mvnw` downloads the pinned version.
 - **Docker** with Docker Compose v2. Dev mode and the tests start PostgreSQL in
   a container through Quarkus Dev Services, and Compose runs the full stack.
@@ -976,6 +976,12 @@ Two versions have to follow others by hand:
   they differ) and the version under [Client](#client) are raised together
   by hand, from the stable releases;
   the packages in `client/pubspec.lock` are tracked by `pub`.
+
+The backend's Java version follows LTS releases only (Java 25 since R25). A
+Dependabot PR moving the images of `backend/Dockerfile` to another Java major
+version is not a routine update: a new Java version changes
+`maven.compiler.release`, CI's JDK and the documentation together, in its
+own PR.
 
 ## Repository settings (GitHub)
 
