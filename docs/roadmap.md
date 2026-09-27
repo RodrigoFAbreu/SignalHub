@@ -1931,6 +1931,11 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 26    | R37 - Managing devices in the app                                                                | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 27    | R38 - Pairing codes from an admin device                                                         | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 28    | R39 - Remove the /connect redirect                                                               | Increment (`chore`)                    | Done (see section 3)                                                             |
+| 29    | R40 - The device list scrolls to its last device                                                 | Increment (`fix(client)`)              | Next                                                                             |
+| 30    | R41 - Deleting revoked devices: the API and the admin page                                       | Increment (`feat`)                     | Blocked until R40 is merged                                                      |
+| 31    | R42 - Deleting revoked devices in the app                                                        | Increment (`feat(client)`)             | Blocked until R41 is merged                                                      |
+| 32    | R43 - A used pairing code: the API and the admin page                                            | Increment (`feat`)                     | Blocked until R42 is merged                                                      |
+| 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Blocked until R43 is merged                                                      |
 
 How an autonomous run uses it:
 
@@ -2145,6 +2150,10 @@ G1 → G2 → R19 v1.0.0
   → R34 the Connect page and the pairing notice
   → R35 the admin page → R36 device management API for admin devices
   → R37 device management in the app → R38 pairing codes from an admin device
+  → R39 removing the /connect redirect
+  → R40 the device list's last device → R41 deleting revoked devices (API,
+    admin page) → R42 deleting them in the app → R43 a used pairing code
+    (API, admin page) → R44 a used pairing code in the app
 ```
 
 - **Release distribution and version identity come first** (R20 to R24).
@@ -2210,6 +2219,23 @@ G1 → G2 → R19 v1.0.0
   - the API (R36) comes before the app (R37), as R28 and R29 were split,
     so each release is complete and the app never calls an API that does
     not exist yet.
+- **R40 to R44 were added by the maintainer on 2026-09-27**, from the
+  functional review of `v2.11.1`. The maintainer's answers, recorded here
+  so no increment has to ask again:
+  - the app's device list cuts off its last device when the list is long
+    (R40); a fix, so it comes first.
+  - **revoked devices can be deleted**, on the admin page and in the app,
+    so devices paired again do not pile up as duplicates in the list;
+    an active device has no delete: it must be revoked first (R41, R42).
+    This replaces the earlier choice to keep revoked clients as a record
+    (Security limitations of `docs/architecture.md`); the `INFO` log lines
+    of registering, revoking and deleting remain the record.
+  - when a pairing code is used, the admin page shows a toast naming the
+    device that connected with it and goes back to its first state (the
+    device name and _Create pairing code_), the QR code gone (R43); the
+    app's _Connect a device_ does the same (R44).
+  - the API comes before the app in both pairs, as R36 and R37 were split,
+    so the app never calls an API that does not exist yet.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -2244,6 +2270,10 @@ advance; they follow from the queue.
 | R36           | minor (`feat`)                                                                                                                                        | new client API endpoints, for admin clients only                                                           |
 | R37           | minor (`feat(client)`)                                                                                                                                | a new screen in the app for admin devices; no API change                                                   |
 | R38           | minor (`feat`)                                                                                                                                        | a new client API endpoint and app screen; pairing itself is unchanged                                      |
+| R39           | patch (`chore`)                                                                                                                                       | removes a hidden redirect on the host; no public contract changes                                          |
+| R40           | patch (`fix(client)`)                                                                                                                                 | a correction to an existing screen                                                                         |
+| R41, R43      | minor (`feat`)                                                                                                                                        | new endpoints and page actions; a migration, if any, needs no operator action                              |
+| R42, R44      | minor (`feat(client)`)                                                                                                                                | new actions in existing app screens; no API change                                                         |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -3006,6 +3036,135 @@ forwarded by the proxy. No migration; bookmarks change to `/admin/`
 
 Non-goals: any other change to the admin page, the API or the app.
 
+### R40 - The device list scrolls to its last device
+
+Status: planned; next. Added by the maintainer (2026-09-27), from the
+functional review of `v2.11.1`.
+
+Goal: an admin device sees every device in the app's device list (R37),
+however long the list is.
+
+Scope:
+
+- when the list is longer than the screen, the last device is cut off and
+  cannot be scrolled into view (found on a real phone); every device,
+  the last one included, scrolls fully into view, clear of the navigation
+  bar and system insets, with its actions reachable
+- check the app's other long lists (the inbox, the preferences screens)
+  for the same fault and fix it the same way where it occurs
+- a widget test with more devices than fit on the screen that scrolls to
+  the last one and finds it, and its actions, fully visible; it fails
+  without the fix
+
+Compatible (`fix(client)`): no API change.
+
+Non-goals: any other change to the device list.
+
+### R41 - Deleting revoked devices: the API and the admin page
+
+Status: planned; blocked until R40 is merged. Added by the maintainer
+(2026-09-27).
+
+Goal: devices that were revoked, for example a phone paired again, can be
+removed, so the list shows each device once.
+
+Scope:
+
+- a management endpoint (admin token) that deletes a **revoked** client;
+  an active client is refused and does not change (the increment picks the
+  statuses and documents them), an unknown ID is `404`
+- the same for an admin device through the client API, under
+  `/api/v1/client/devices`, admin only exactly as R36; a revoked admin
+  may be deleted too, since it can no longer act
+- deleting removes the client and everything that exists only for it (its
+  read state, push results and retries, the unused pairing codes it
+  created); events are never deleted. If a table references clients
+  without `ON DELETE CASCADE`, a Flyway migration fixes it with no
+  operator action
+- the admin page: **Delete** on revoked devices only, after a
+  confirmation; active devices have no delete, as before they must be
+  revoked first
+- logged at `INFO` with client IDs only, as revoking is; no push notice
+  (deleting changes nothing a device can use)
+- tests against real PostgreSQL (an active client refused, a revoked
+  client and an admin deleted with their data, an unknown ID, an ordinary
+  client key refused as R36), the OpenAPI document, the page;
+  `docs/architecture.md` (Clients, the admin page, Client API, Security
+  limitations: revoked clients can now be deleted, and the log is the
+  record)
+
+Compatible (`feat`): new endpoints; nothing existing changes.
+
+Non-goals: the app (R42); deleting producers or producer keys; undoing a
+delete.
+
+### R42 - Deleting revoked devices in the app
+
+Status: planned; blocked until R41 is merged. Added by the maintainer
+(2026-09-27).
+
+Scope:
+
+- on an admin device's device list (R37), **Delete** on revoked devices
+  only, after a confirmation; active devices have none
+- the device leaves the list once deleted; clear messages when this
+  device lost its admin rights meanwhile, and no delete shown with a
+  server older than R41
+- controller and widget tests against the fake server; `client/README.md`
+
+Compatible (`feat(client)`): no API change.
+
+### R43 - A used pairing code: the API and the admin page
+
+Status: planned; blocked until R42 is merged. Added by the maintainer
+(2026-09-27).
+
+Goal: whoever shows a pairing code learns when it has been used, and is
+ready to pair the next device.
+
+Scope:
+
+- a way for the admin page, and for an admin device about the codes it
+  created (R38), to learn that a pairing it created was redeemed, and by
+  which new device (its name), without ever exposing a code or a key: for
+  example an ID in the `Pairing` response and a status endpoint in the
+  management and client APIs that the page and the app poll while the
+  code is shown; the increment decides the mechanism, and documents it.
+  Redeeming a code today deletes its row, so the design must keep telling
+  "used" from "expired" long enough for whoever shows the code
+- the admin page: once the code is used, a toast says the device (its
+  name) connected with the pairing code, the QR code and link disappear,
+  and the page goes back to its first state (the device name and _Create
+  pairing code_); an expired code is unchanged
+- the client API part is admin only, as R38, and answers only about codes
+  the calling device created
+- tests against real PostgreSQL (used, expired, unknown, another device's
+  code), the OpenAPI document, the page; `docs/architecture.md` (Pairing,
+  the admin page, Client API)
+
+Compatible (`feat`): new response fields and endpoints; redeeming is
+unchanged.
+
+Non-goals: the app (R44); pushing the news to the page (polling while a
+code is shown is enough for one owner).
+
+### R44 - A used pairing code in the app
+
+Status: planned; blocked until R43 is merged. Added by the maintainer
+(2026-09-27).
+
+Scope:
+
+- on _Connect a device_ (R38): once the code is used, a message says the
+  device (its name) connected with the pairing code, the QR code and link
+  disappear, and the screen goes back to its first state, ready for the
+  next device; an expired code is unchanged
+- clear messages when this device lost its admin rights meanwhile, and the
+  screen as today with a server older than R43
+- controller and widget tests against the fake server; `client/README.md`
+
+Compatible (`feat(client)`): no API change.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -3118,8 +3277,7 @@ The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-af
 notice), R35 (the admin page), R36 (managing devices from an admin
 device: the API), R37 (managing devices in the app), R38 (pairing codes
 from an admin device) and R39 (removing the /connect redirect) are done.
-**The queue is empty: nothing further is scheduled.** A new item comes only from the maintainer, or from a
-[deferred candidate](#deferred-candidates) the maintainer adds to the
-queue.
+**R40 (the device list scrolls to its last device) is next**, then R41,
+R42, R43 and R44 in that order, each after the previous one is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
