@@ -39,7 +39,9 @@ authentication (server-issued API keys, managed through
 (per-installation client keys and provider-neutral push targets, managed
 through `/api/v1/admin/clients` and `/api/v1/client`, or by a device
 redeeming a one-time pairing code from `/api/v1/admin/pairings` at
-`/api/v1/pairing`) with per-client push
+`/api/v1/pairing`, made in a browser on the operator's Connect page
+`/connect/` on the backend's own port, with a push to the owner's devices
+when a device pairs) with per-client push
 preferences (pause, minimum severity, muted categories and producers) and
 each client's last push results in the management API, and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging

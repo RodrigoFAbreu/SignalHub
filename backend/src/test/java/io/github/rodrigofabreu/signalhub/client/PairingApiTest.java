@@ -21,6 +21,7 @@ import io.agroal.api.AgroalDataSource;
 import io.github.rodrigofabreu.signalhub.TestClients;
 import io.github.rodrigofabreu.signalhub.TestProducers;
 import io.github.rodrigofabreu.signalhub.producer.ApiKeys;
+import io.github.rodrigofabreu.signalhub.push.PairingNotifier;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
@@ -34,6 +35,7 @@ import java.util.ArrayList;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -46,6 +48,14 @@ class PairingApiTest {
   static final String PAIRING = "/api/v1/pairing";
 
   @Inject AgroalDataSource dataSource;
+  @Inject PairingNotifier notifier;
+
+  // Each redemption pushes a notice to the clients other tests gave push targets; it must be sent
+  // before those tests count their pushes.
+  @AfterEach
+  void awaitNotices() throws Exception {
+    notifier.awaitSent(Duration.ofSeconds(10));
+  }
 
   @Test
   void aPairingHasAOneTimeCodeAndAUriWithThePublicUrl() {

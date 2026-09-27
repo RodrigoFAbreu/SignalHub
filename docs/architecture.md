@@ -716,6 +716,67 @@ signalhub://pair?server=https%3A%2F%2Fsignalhub.example.com&code=shpc1_Zt1vQ3x9r
   proxy forwards it; creating pairings is management and stays on the host.
 - **Nothing provider-specific.** A pairing holds only a client name; push is
   set up afterwards with the client key, as for any client.
+- **The owner is told.** Once a code is redeemed, the owner's devices get a
+  push (see [Pairing notice](#pairing-notice)), so a code that leaked is
+  noticed when it is used.
+
+### The Connect page
+
+`/connect/` is the operator's page for pairings, the same
+`POST /api/v1/admin/pairings` without a terminal: the operator types the
+admin token and a device name, and the page shows the pairing URI as a QR
+code, counts down to its expiry and blurs the code once it has expired. It
+copies the QR code as an image or the URI as text, or downloads the image,
+so the code can be sent to someone whose device should connect.
+
+- **On the host only.** The page is on the backend's own port, like `/q/`
+  and the management API; the Compose proxy forwards only `/api/`, so it
+  never reaches other machines. From another computer, reach it through SSH
+  (`ssh -L 8080:localhost:8080 <host>`, then `http://localhost:8080/connect/`).
+- **Static, and nothing without the token.** The page and its script are
+  static files; everything it does is the management API call, with the
+  token typed into the page. Without the admin token, or with the management
+  API off, it shows the error and nothing else. The token stays in the page's
+  memory: it is not stored, and is gone when the tab closes.
+- **Locked down.** The page runs only its own scripts (a
+  `Content-Security-Policy` of `default-src 'none'`, with `'self'` for
+  scripts, styles and requests), cannot be framed, is never cached and sends
+  no referrer.
+- **One dependency.** The QR code is drawn in the browser by
+  [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)
+  (MIT), a Maven dependency of the backend (a WebJar) served from its jar,
+  version-pinned in `pom.xml` like any other. No CDN, no network access.
+- **Sharing a code** gives one device, whoever holds it, its own client
+  until the code is used or expires. The page says so next to the buttons.
+  The device is revoked like any other client, and the owner's devices are
+  told when it connects.
+- **It needs `SIGNALHUB_PUBLIC_URL`**, as the URI does; without it, the page
+  says to set it.
+
+### Pairing notice
+
+When a device redeems a pairing code, SignalHub pushes a notice to every
+other client that has a push target and has not paused pushes:
+
+```
+New device paired
+"Pixel 8" can now read your SignalHub events. If you did not pair it, revoke it.
+```
+
+with the data `{"notice": "client-paired", "clientId": "<the new client>"}`.
+An app shows it like any push; it has no `eventId`, so tapping it opens the
+app. The client's other [push preferences](#push-preferences) (minimum
+severity, muted categories and producers) are about events and do not apply.
+
+It is a notice, not an event, and deliberately lighter than
+[push dispatch](#push-dispatch): nothing is stored, nothing appears in the
+inbox, and it is sent once, through the same
+[push delivery](#push-delivery) boundary, without retries, and counted in `signalhub.push.deliveries` like any push. It is sent after
+the pairing's transaction commits, on a thread of its own, so the device
+that is pairing never waits for it and a failed notice never fails a
+pairing. The durable record is the log line `Redeemed pairing ... as client
+...` and the client itself, listed by the management API. Registering a
+client with the management API sends no notice: the operator holds its key.
 
 ### Push targets
 

@@ -22,6 +22,7 @@
     <spotless-plugin.version>3.10.2</spotless-plugin.version>
     <google-java-format.version>1.36.1</google-java-format.version>
     <spotbugs-plugin.version>4.10.4.1</spotbugs-plugin.version>
+    <qrcode-generator.version>1.4.4</qrcode-generator.version>
   </properties>
 
   <dependencyManagement>
@@ -84,6 +85,13 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-scheduler</artifactId>
+    </dependency>
+    <!-- Draws the pairing QR code on the /connect page (docs/architecture.md#the-connect-page).
+         Its script is served from the jar at /webjars/qrcode-generator/<version>/. -->
+    <dependency>
+      <groupId>org.webjars.npm</groupId>
+      <artifactId>qrcode-generator</artifactId>
+      <version>${qrcode-generator.version}</version>
     </dependency>
 
     <dependency>

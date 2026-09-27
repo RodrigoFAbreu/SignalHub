@@ -2,6 +2,7 @@ package io.github.rodrigofabreu.signalhub.client;
 
 import io.github.rodrigofabreu.signalhub.api.ApiError;
 import io.github.rodrigofabreu.signalhub.producer.BearerToken;
+import jakarta.enterprise.event.Event;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.POST;
@@ -39,9 +40,11 @@ public class PairingResource {
   public static final String SECURITY_SCHEME = "pairingCode";
 
   private final PairingService pairings;
+  private final Event<ClientPaired> paired;
 
-  PairingResource(PairingService pairings) {
+  PairingResource(PairingService pairings, Event<ClientPaired> paired) {
     this.pairings = pairings;
+    this.paired = paired;
   }
 
   @POST
@@ -51,7 +54,8 @@ public class PairingResource {
       description =
           "Registers the calling device as a new client, named as the pairing says, and issues"
               + " its client key, shown only once. The code works once, before it expires. The"
-              + " request has no body.")
+              + " request has no body. The owner's other devices get a push saying a device was"
+              + " paired.")
   @APIResponse(
       responseCode = "201",
       description = "Client created. The Location header points to its own registration.",
@@ -68,6 +72,8 @@ public class PairingResource {
         BearerToken.from(authorization)
             .flatMap(pairings::redeem)
             .orElseThrow(() -> new NotAuthorizedException(BearerToken.unauthorized()));
+    // Fired after redeem's transaction committed, so the client it names exists.
+    paired.fire(new ClientPaired(issued.client().id(), issued.client().name()));
     return Response.created(UriBuilder.fromResource(ClientResource.class).build())
         .entity(issued)
         .build();

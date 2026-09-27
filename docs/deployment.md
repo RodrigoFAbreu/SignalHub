@@ -79,9 +79,20 @@ operator on the host ──http://localhost:8080──▶ backend (management AP
 
 6. Set up each phone. Install the app (see
    [client/README.md](../client/README.md#install-a-release)), then pair
-   it: on the host, create a pairing code for the phone and show it as a QR
-   code, and scan it in the app's **Scan pairing code**, within 10 minutes
-   (see [Pairing a device](development.md#pairing-a-device)):
+   it with a pairing code, scanned in the app's **Scan pairing code** within
+   10 minutes. The simplest way to make one is the
+   [Connect page](architecture.md#the-connect-page), on the host only: from
+   your computer, forward its port over SSH and open it in a browser:
+
+   ```sh
+   ssh -L 8080:localhost:8080 you@signalhub-host   # keep it open
+   # then open http://localhost:8080/connect/ and enter the admin token
+   ```
+
+   It shows the code as a QR code until it expires, and copies it as an
+   image or a link to send to whoever should connect a device. On the host
+   itself, a terminal does the same (see
+   [Pairing a device](development.md#pairing-a-device)):
 
    ```sh
    ADMIN_TOKEN=$(sed -n 's/^SIGNALHUB_ADMIN_TOKEN=//p' .env)
@@ -93,7 +104,7 @@ operator on the host ──http://localhost:8080──▶ backend (management AP
    ```
 
    The phone becomes a client of its own, listed and revoked through the
-   management API. The URI names `https://` and `SIGNALHUB_DOMAIN`, or
+   management API, and your other devices get a push saying it was paired. The URI names `https://` and `SIGNALHUB_DOMAIN`, or
    `SIGNALHUB_PUBLIC_URL` if set; the app says so if it cannot reach it.
    Setting a phone up by hand still works: register a client
    (`POST /api/v1/admin/clients`, see
@@ -159,6 +170,10 @@ Not reachable from other machines:
   [Pairing a device](development.md#pairing-a-device)). A pairing's URI names
   `https://` and `SIGNALHUB_DOMAIN`, or `SIGNALHUB_PUBLIC_URL` if set in
   `.env`. Listing events with the admin token still works through the proxy.
+- **The Connect page** (`/connect/`): creates pairing codes with the admin
+  token, like the management API, so it is on `127.0.0.1:8080` only too;
+  reach it from another computer through SSH (see step 6 of
+  [Setup](#setup)).
 - **Health, metrics and OpenAPI** (`/q/`): on `127.0.0.1:8080` only, for
   monitoring on the host. They need no credential, so they are never
   exposed.

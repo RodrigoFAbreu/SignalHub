@@ -272,6 +272,13 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+          # The Connect page and its QR library are served on the host.
+          curl --fail --silent --show-error http://localhost:8080/connect/ | grep --quiet 'Connect a device'
+          for asset in $(curl --fail --silent http://localhost:8080/connect/ \
+              | grep --only-matching --extended-regexp '(src|href)="[^"]+"' | cut --delimiter '"' --fields 2); do
+            case "$asset" in /*) url="http://localhost:8080$asset" ;; *) url="http://localhost:8080/connect/$asset" ;; esac
+            curl --fail --silent --show-error --output /dev/null "$url"
+          done
       - name: Other machines reach only the product API, over TLS through the proxy
         run: |
           docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt > "$RUNNER_TEMP/proxy-ca.crt"
@@ -290,10 +297,10 @@ jobs:
             --data '{"category": "INFO", "severity": "LOW", "title": "Rejected"}' \
             https://localhost/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
-          # Management, health, metrics and OpenAPI stay on the host, however the path is spelled.
+          # Management, health, metrics, OpenAPI and the Connect page stay on the host, however the path is spelled.
           for path in /api/v1/admin/producers /api//v1/admin/producers /api/v1/%61dmin/producers \
               /api/v1/events/../admin/producers /api/%2e%2e/q/metrics /q/health/ready /q/metrics \
-              /q/openapi /; do
+              /q/openapi / /connect/ /connect /connect/connect.js /webjars/qrcode-generator/1.4.4/qrcode.js; do
             status=$(https_status "$path")
             test "$status" = 404 || { echo "$path: expected 404, got $status"; exit 1; }
           done
