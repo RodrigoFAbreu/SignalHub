@@ -952,6 +952,29 @@ The following capabilities are already implemented and merged unless repository 
   superseded
 - no API, schema, configuration or client changes: `build`, a patch release
 
+### R26 - PostgreSQL 18
+
+- `compose.yaml` runs `postgres:18-alpine`, pinned by its multi-platform
+  index digest; the tests' images (Dev Services, Testcontainers) follow it,
+  as CI checks
+- PostgreSQL 18 keeps its data in a directory named for its major version,
+  so the volume `postgres-data` is mounted at `/var/lib/postgresql`
+  instead of `/var/lib/postgresql/data`; the volume keeps its name, so on a
+  volume of 17 PostgreSQL 18 exits at once and leaves the data alone, and
+  the release it came from still starts on it
+- `docs/deployment.md#a-new-postgresql-major-version` moves an install as
+  the backup and restore of R15d into a new volume, and rolls back by
+  restoring the backup with the previous release; the `Backend container
+  (upgrade from ...)` jobs, from the latest release and from v0.13.0, do
+  this whenever the major version changes: they check the refusal and that
+  the volume still holds 17's data, restore into 18 and check the data,
+  keys and preferences, then roll back to the release and its backup
+- no in-place `pg_upgrade`: dump and restore needs no second image and is
+  the procedure operators already use for backups
+- Dependabot PR #5 is superseded
+- no API, schema or backend code change; an operator change, so `!`: a
+  major release with migration notes
+
 ---
 
 ## 4. Planned roadmap
@@ -1449,7 +1472,7 @@ Decisions for the maintainer (human gates), with the maintainer's answers:
   data directory mount in `compose.yaml`, so it is a breaking operator
   change with migration notes, not a routine update. **Decided: keep
   PostgreSQL 17 for 1.0; PostgreSQL 18 is a dedicated maintenance milestone
-  after 1.0** (R26).
+  after 1.0** (R26). **Done in R26.**
 - **D4 - promotion to `v1.0.0`.** The maintainer approves the public
   contract as stable. The release is then a PR, titled with `!`, that
   removes the pre-1.0 rule from `scripts/release/release.py` and its tests
@@ -1495,8 +1518,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 12b | R23b - The app sets up push from served options (second half of R23) | Increment (`feat(client)`) | Done (see section 3) |
 | 13 | R24 - Installable Android app in each release | Increment (`feat`) | Done (see section 3) |
 | 14 | R25 - Java 25 (decision D2) | Increment (`build`) | Done (see section 3) |
-| 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Next |
-| 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Blocked until R26 is merged |
+| 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Done (see section 3) |
+| 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Next |
 | 17 | R28 - Pairing a device: the API | Increment (`feat`) | Blocked until R27 is merged |
 | 18 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Blocked until R28 is merged |
 
@@ -2112,7 +2135,7 @@ Java 25.
 
 ### R26 - PostgreSQL 18
 
-Status: next; decision D3.
+Status: done (see section 3); decision D3.
 
 Goal: move the database to PostgreSQL 18 with a tested, documented path for
 existing installs.
@@ -2133,7 +2156,7 @@ release (see [Release implications](#release-implications)).
 
 ### R27 - Inbox and event-screen polish
 
-Status: planned; blocked until R26 is merged.
+Status: next.
 
 Evidence: the non-blocking observations of the device review of `v0.27.3`.
 
@@ -2317,8 +2340,8 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. R25 (Java 25) is done, so the expected next
-item is **R26 - PostgreSQL 18** (decision D3), a major release with
-migration notes (see [section 5](#5-after-v100)).
+(section 4) is authoritative. R26 (PostgreSQL 18) is done, so the expected
+next item is **R27 - Inbox and event-screen polish**, a client fix (see
+[section 5](#5-after-v100)).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

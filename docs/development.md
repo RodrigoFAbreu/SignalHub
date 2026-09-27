@@ -297,7 +297,7 @@ migrations are listed in
 ### Docker Compose
 
 `compose.yaml` at the repository root runs the backend image (built from
-`backend/Dockerfile`) and PostgreSQL 17 with a persistent volume, building
+`backend/Dockerfile`) and PostgreSQL 18 with a persistent volume, building
 the backend from source:
 
 ```sh
@@ -306,6 +306,11 @@ docker compose up --build --wait
 curl http://localhost:8080/q/health/ready
 docker compose down           # keeps the database volume; add --volumes to delete it
 ```
+
+A local database volume made before the move to PostgreSQL 18 does not
+start with it: PostgreSQL logs that there is data of an older version and
+exits. Delete it with `docker compose down --volumes`, or move its data as
+in [deployment.md](deployment.md#a-new-postgresql-major-version).
 
 Deployments run a release's published image instead, from its deployment
 files (see [deployment.md](deployment.md#deployment-files)): this
