@@ -37,7 +37,7 @@ class EventCommitOrderTest {
     var registered = TestProducers.register("commit-order");
     var producer = new ProducerIdentity(registered.id(), registered.name());
     var request =
-        new CreateEventRequest(null, Category.INFO, Severity.LOW, "Slow", null, null, null);
+        new CreateEventRequest(null, Category.INFO, Severity.LOW, "Slow", null, null, null, null);
     var slowCreated = new CountDownLatch(1);
     var release = new CountDownLatch(1);
     try (var pool = Executors.newSingleThreadExecutor()) {

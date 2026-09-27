@@ -390,11 +390,12 @@ jobs:
           pip install ./sdk/python
           id=$(SIGNALHUB_API_KEY=$API_KEY signalhub send --category action-required \
             --severity HIGH --title "From the command" --context ci/sdk \
-            --metadata '{"run": 42}' --meta step=smoke)
+            --metadata '{"run": 42}' --meta step=smoke --link https://ci.example.com/runs/42)
           curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
             "http://localhost:8080/api/v1/events/$id" \
             | jq --exit-status '.category == "ACTION_REQUIRED" and .title == "From the command"
-                and .metadata == {"run": 42, "step": "smoke"} and .producer.id == env.PRODUCER_ID'
+                and .metadata == {"run": 42, "step": "smoke"} and .producer.id == env.PRODUCER_ID
+                and .link == "https://ci.example.com/runs/42"'
           status=0
           SIGNALHUB_API_KEY=shpk1_not-a-key signalhub send --category INFO --severity LOW \
             --title Rejected || status=$?
@@ -511,10 +512,10 @@ jobs:
           curl --fail --silent --show-error --get \
             --header "Authorization: Bearer $ADMIN_TOKEN" --data limit=5 \
             http://localhost:8080/api/v1/events \
-            | jq --exit-status '[.items[] | [.producer.name, .category]] == [
-                ["example-github", "BLOCKED"],
-                ["example-usage", "ACTION_REQUIRED"], ["example-agent", "ACTION_REQUIRED"],
-                ["example-disk-usage", "ACTION_REQUIRED"], ["example-shell", "COMPLETED"]]'
+            | jq --exit-status '[.items[] | [.producer.name, .category, .link]] == [
+                ["example-github", "BLOCKED", "https://github.com/owner/repo/actions/runs/7"],
+                ["example-usage", "ACTION_REQUIRED", null], ["example-agent", "ACTION_REQUIRED", null],
+                ["example-disk-usage", "ACTION_REQUIRED", null], ["example-shell", "COMPLETED", null]]'
       - name: A revoked key no longer authenticates
         run: |
           curl --fail --silent --show-error --output /dev/null --request POST \

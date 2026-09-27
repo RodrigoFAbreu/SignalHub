@@ -118,6 +118,12 @@ def _parser() -> argparse.ArgumentParser:
         help="one metadata string value; repeatable, applied over --metadata",
     )
     send.add_argument(
+        "--link",
+        metavar="URL",
+        help="an http or https URL the owner can open from the event, "
+        "e.g. the page of a failed run",
+    )
+    send.add_argument(
         "--occurred-at",
         metavar="TIMESTAMP",
         help="when it happened, ISO-8601 with an offset, e.g. 2026-09-25T14:03:00Z",
@@ -169,6 +175,7 @@ def main(
             message=stdin.read() if args.message == "-" else args.message,
             context=args.context,
             metadata=_metadata(args.metadata, args.meta),
+            link=args.link,
             occurred_at=args.occurred_at,
             idempotency_key=args.idempotency_key,
         )

@@ -101,6 +101,7 @@ way, plus opaque metadata for everything else.
 | `title` | string, 1–200, not blank | yes | producer | Short human-readable summary. |
 | `message` | string, 0–4000 | no | producer | Longer human-readable text. |
 | `metadata` | JSON object, ≤ 16 KiB | no | producer | Opaque producer data (below). |
+| `link` | `http`/`https` URL, ≤ 2000 | no | producer | One URL the owner can open from the event (below). |
 | `occurredAt` | timestamp | no | producer | When the underlying occurrence happened, per the producer. |
 | `createdAt` | timestamp | always present | server | When SignalHub stored the event. |
 
@@ -177,7 +178,7 @@ Idempotency-Key: nightly-1842-1
   nothing: the answer is `200` (not `201`) with the stored event, as it is
   now (its `readAt` may have changed), and its `Location`. No second push is
   sent. "The same" compares the stored fields (`context`, `category`,
-  `severity`, `title`, `message`, `metadata` and `occurredAt`) as they are
+  `severity`, `title`, `message`, `metadata`, `link` and `occurredAt`) as they are
   stored, so key order and whitespace in `metadata` and the offset of
   `occurredAt` do not matter.
 - **A different event** with a used key is `422`, and nothing is stored: the
@@ -215,7 +216,8 @@ body gets the same `401` or `400` as without the header.
 ### Metadata
 
 `metadata` is an optional JSON object for producer-specific data, for example a
-CI run number, a workflow step, or a link. SignalHub stores it as PostgreSQL
+CI run number, a workflow step, or further links (the one the owner should
+open goes in [`link`](#link)). SignalHub stores it as PostgreSQL
 `jsonb` and returns it, but never reads, validates, or branches on its
 contents. An absent or `null` value is stored and returned as `{}`.
 
@@ -229,6 +231,26 @@ contents. An absent or `null` value is stored and returned as `{}`.
   one wins) follow `jsonb` semantics and are not preserved.
 - It must not contain NUL characters or numbers outside PostgreSQL's numeric
   range.
+
+### Link
+
+`link` is an optional URL the owner can open from the event, such as the
+page of a failed CI run or of a pull request waiting for review. It is
+generic: one link, with no label and no meaning SignalHub knows of; any
+further URLs a producer has belong in metadata.
+
+- It must be an absolute `http` or `https` URL with a host
+  (`https://ci.example.com/runs/1842`), at most 2000 characters. Anything
+  else, a relative URL, another scheme (`javascript:`, `file:`, `intent:`,
+  `mailto:`) or characters a URL may not contain unescaped such as spaces,
+  is `400` with a violation for `link`, so a client can hand every stored
+  link to a browser. Hosts are ASCII: an internationalized name is sent in
+  its `xn--` form.
+- It is stored and returned exactly as sent (no normalization), and `null`
+  when the producer sent none, as for every event stored before v2.3.0.
+- SignalHub never fetches, follows or checks it: whether it is reachable,
+  and what it points to, is the producer's business. The push message does
+  not carry it; the app reads the event by its ID, as for every other field.
 
 ### HTTP API
 
@@ -395,6 +417,8 @@ events, which serves the unread count and marking read up to an event.
 `V9__add_event_idempotency_key.sql` adds the nullable `idempotency_key` column
 (existing events have none), checked against the key format, and a partial
 unique index on `(producer_id, idempotency_key)` over events that have one.
+`V11__add_event_link.sql` adds the nullable `link` column (existing events
+have none), checked to be 1 to 2000 characters; the API checks the scheme.
 
 ## Producers and authentication
 
@@ -1626,7 +1650,8 @@ server adds. The server stays strict in the other direction: it rejects
 unknown request fields and enum values with `400`, so a mistake is reported
 instead of silently dropped. A producer that uses a newer field or value
 against an older server therefore gets `400`, and must be upgraded after the
-server, not before. Unknown query parameters are ignored.
+server, not before. `link` (v2.3.0) is such a field: an older server
+rejects an event that has one. Unknown query parameters are ignored.
 
 **Versioning of the API path.** `/api/v1/` changes only for a redesign that
 cannot be made compatible; a breaking change within `v1` is released under

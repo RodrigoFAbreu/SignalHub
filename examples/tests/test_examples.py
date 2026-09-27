@@ -208,6 +208,7 @@ class GitHubActionsTest(ExampleTest):
         self.assertEqual(event["severity"], "HIGH")
         self.assertEqual(event["title"], "CI failed on feature/x")
         self.assertEqual(event["context"], "owner/repo")
+        self.assertEqual(event["link"], "https://github.com/owner/repo/actions/runs/1")
         self.assertIn("CI #42 failed for 0123456789ab on feature/x", event["message"])
         self.assertEqual(event["metadata"]["runNumber"], 42)
         self.assertEqual(event["metadata"]["branch"], "feature/x")

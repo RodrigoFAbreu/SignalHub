@@ -158,6 +158,7 @@ class SignalHub:
         message: str | None = None,
         context: str | None = None,
         metadata: dict[str, Any] | None = None,
+        link: str | None = None,
         occurred_at: datetime | str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -167,6 +168,10 @@ class SignalHub:
         `createdAt`. Category and severity are case-insensitive, and `-`
         stands for `_` (`action-required`). Values unknown to this package
         are sent as they are, so the server stays the judge of what it accepts.
+
+        `link` is one absolute `http` or `https` URL the owner can open from
+        the event, such as the page of a failed run; SignalHub stores it as
+        sent and never fetches it. Servers older than v2.3.0 reject it.
 
         With an `idempotency_key` (1 to 200 visible ASCII characters, unique
         per event, such as a UUID or a run ID), publishing the same event
@@ -185,6 +190,8 @@ class SignalHub:
             body["context"] = context
         if metadata is not None:
             body["metadata"] = metadata
+        if link is not None:
+            body["link"] = link
         if occurred_at is not None:
             body["occurredAt"] = _timestamp(occurred_at)
         headers = {}

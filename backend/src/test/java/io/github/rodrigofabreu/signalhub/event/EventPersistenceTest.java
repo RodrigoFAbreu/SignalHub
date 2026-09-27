@@ -85,6 +85,8 @@ class EventPersistenceTest {
     expected.put("read_at", "timestamp with time zone YES");
     // Added by V9: null when the producer sent no Idempotency-Key.
     expected.put("idempotency_key", "text YES");
+    // Added by V11: null when the producer sent no link.
+    expected.put("link", "text YES");
     assertEquals(expected, columnsOf("events"));
   }
 
@@ -105,7 +107,7 @@ class EventPersistenceTest {
         var statement =
             connection.prepareStatement(
                 "SELECT producer_id, context, category, severity, title, message, metadata::text,"
-                    + " occurred_at, created_at FROM events WHERE id = ?")) {
+                    + " link, occurred_at, created_at FROM events WHERE id = ?")) {
       statement.setObject(1, UUID.fromString(id));
       try (var row = statement.executeQuery()) {
         assertTrue(row.next(), "event " + id + " must be in the database");
@@ -118,6 +120,7 @@ class EventPersistenceTest {
         assertEquals(
             json.readTree("{\"pipeline\": \"nightly\", \"run\": 1842}"),
             json.readTree(row.getString(7)));
+        assertEquals("https://ci.example.com/runs/1842?attempt=2#summary", row.getString("link"));
         assertEquals(
             OffsetDateTime.of(2026, 9, 25, 12, 3, 0, 0, ZoneOffset.UTC).toInstant(),
             row.getObject("occurred_at", OffsetDateTime.class).toInstant());
@@ -172,6 +175,9 @@ class EventPersistenceTest {
         "message  | repeat('m', 4001)",
         "metadata | '[1, 2]'::jsonb",
         "metadata | '\"text\"'::jsonb",
+        "link     | ''",
+        // Quoted: || is the delimiter.
+        "link     | `'https://example.com/' || repeat('p', 1981)`",
       })
   void checkConstraintsRejectInvalidRows(String column, String value) {
     var row = validRow();
@@ -179,6 +185,13 @@ class EventPersistenceTest {
 
     var error = assertThrows(SQLException.class, () -> insert(row));
     assertEquals(CHECK_VIOLATION, error.getSQLState(), error.getMessage());
+  }
+
+  @Test
+  void linkAtItsMaximumLengthIsAccepted() throws SQLException {
+    var row = validRow();
+    row.put("link", "'https://example.com/' || repeat('p', 1980)");
+    insert(row);
   }
 
   @ParameterizedTest

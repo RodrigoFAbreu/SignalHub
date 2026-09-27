@@ -148,7 +148,16 @@ class OpenApiTest {
         .body(
             SCHEMAS + ".CreateEventRequest.properties.keySet()",
             containsInAnyOrder(
-                "context", "category", "severity", "title", "message", "metadata", "occurredAt"))
+                "context",
+                "category",
+                "severity",
+                "title",
+                "message",
+                "metadata",
+                "link",
+                "occurredAt"))
+        .body(SCHEMAS + ".CreateEventRequest.properties.link.maxLength", equalTo(2000))
+        .body(SCHEMAS + ".Event.properties.link.type", hasItems("string", "null"))
         .body(SCHEMAS + ".CreateEventRequest.properties.title.maxLength", equalTo(200))
         .body(
             SCHEMAS + ".Event.required",

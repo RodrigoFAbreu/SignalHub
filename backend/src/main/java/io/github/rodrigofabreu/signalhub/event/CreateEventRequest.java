@@ -50,6 +50,17 @@ public record CreateEventRequest(
         ObjectNode metadata,
     @Schema(
             description =
+                "Optional URL the owner can open from the event, such as the page of the failed"
+                    + " run. An absolute http or https URL with a host, at most 2000 characters,"
+                    + " stored and returned as sent. SignalHub never fetches it. Further URLs"
+                    + " belong in metadata.",
+            maxLength = ValidLink.MAX_LENGTH,
+            examples = "https://ci.example.com/runs/1842")
+        @Size(max = ValidLink.MAX_LENGTH)
+        @ValidLink
+        String link,
+    @Schema(
+            description =
                 "Optional time the underlying occurrence happened, according to the producer."
                     + " ISO-8601 with a UTC offset. Informational only: SignalHub orders and"
                     + " records events by its own createdAt. Truncated to microseconds.",

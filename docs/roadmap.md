@@ -1045,6 +1045,32 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   pairing first and manual setup second; no API change; compatible
   (`feat(client)`)
 
+### R30 - An event's link: the API and the SDK
+
+- a new optional event field `link`: one absolute `http` or `https` URL
+  with a host, at most 2000 characters (`ValidLink`, over `java.net.URI`),
+  stored and returned exactly as sent, `null` when absent; never fetched,
+  followed or checked by the backend; relative URLs, other schemes
+  (`javascript:`, `file:`, `intent:`, `mailto:`, `ftp:`) and unescaped
+  spaces are `400` with a violation for `link`
+- `V11__add_event_link.sql`: a nullable `events.link`, checked to be 1 to
+  2000 characters; existing events have none
+- idempotent publishing compares `link` like the other fields
+- the SDK's `link=` and the command's `--link`, passed through unchecked so
+  the server decides; the GitHub Actions example sends the run's URL as its
+  link; the other examples have no natural URL and are unchanged
+- the push payload is unchanged; `docs/architecture.md` (Events, Link,
+  Compatibility), the SDK's README, `docs/development.md` and the examples'
+  README; an older server rejects an event with a link, so producers are
+  upgraded after the server
+- tests against real PostgreSQL (valid, absent, exact round trip, too long,
+  other schemes, relative, not a string, the column and its check,
+  idempotent replays), the OpenAPI document, the SDK and command tests, the
+  examples' tests; the Compose smoke test publishes a link with the command
+  and reads the GitHub Actions example's link from the real backend
+- compatible (`feat`); no client change (the app ignores the new field
+  until R31)
+
 ---
 
 ## 4. Planned roadmap
@@ -2333,7 +2359,7 @@ and becomes its own revocable client.
 
 ### R30 - An event's link: the API and the SDK
 
-Status: planned; next once R29 is merged. Added by the maintainer
+Status: complete (see section 3). Added by the maintainer
 (2026-09-27) from the deferred candidate "notification actions and deep
 links", deliberately narrowed to one link.
 
@@ -2370,7 +2396,7 @@ notification action buttons, rendering metadata richer than today.
 
 ### R31 - Opening an event's link in the app
 
-Status: planned; blocked until R30 is merged.
+Status: planned; next now that R30 is merged.
 
 Scope, client only:
 
@@ -2575,9 +2601,8 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. R28 (pairing a device: the API) is done, so
-the expected next item is **R29 - Pairing a device: the app** (see
-[section 5](#5-after-v100)), then **R30 - An event's link: the API and the
-SDK**, and R31 to R33 after it, one per run.
+(section 4) is authoritative. R30 (an event's link: the API and the SDK) is
+done, so the expected next item is **R31 - Opening an event's link in the
+app** (see [section 5](#5-after-v100)), then R32 and R33, one per run.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

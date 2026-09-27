@@ -48,6 +48,9 @@ class EventEntity {
   @Column(nullable = false, updatable = false)
   private String metadata;
 
+  @Column(updatable = false)
+  private String link;
+
   @Column(name = "occurred_at", updatable = false)
   private Instant occurredAt;
 
@@ -72,6 +75,7 @@ class EventEntity {
       String title,
       String message,
       String metadata,
+      String link,
       Instant occurredAt,
       Instant createdAt,
       String idempotencyKey) {
@@ -82,6 +86,7 @@ class EventEntity {
     this.title = title;
     this.message = message;
     this.metadata = metadata;
+    this.link = link;
     this.occurredAt = occurredAt;
     this.createdAt = createdAt;
     this.idempotencyKey = idempotencyKey;
@@ -117,6 +122,10 @@ class EventEntity {
 
   String metadata() {
     return metadata;
+  }
+
+  String link() {
+    return link;
   }
 
   Instant occurredAt() {

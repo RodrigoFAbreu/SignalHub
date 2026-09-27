@@ -59,6 +59,7 @@ class PublishTest(unittest.TestCase):
             message="A human gate is waiting.",
             context="github.com/owner/repo",
             metadata={"run": 42, "nested": {"ok": True}},
+            link="https://github.com/owner/repo/pull/7",
             occurred_at=occurred,
         )
 
@@ -71,6 +72,7 @@ class PublishTest(unittest.TestCase):
                 "message": "A human gate is waiting.",
                 "context": "github.com/owner/repo",
                 "metadata": {"run": 42, "nested": {"ok": True}},
+                "link": "https://github.com/owner/repo/pull/7",
                 "occurredAt": "2026-09-25T16:03:00+02:00",
             },
         )
@@ -142,6 +144,15 @@ class PublishTest(unittest.TestCase):
         self.hub.publish(category="future_category", severity="NORMAL", title="t")
 
         self.assertEqual(self.server.requests[0]["body"]["category"], "FUTURE_CATEGORY")
+
+    def test_leaves_checking_the_link_to_the_server(self) -> None:
+        self.hub.publish(
+            category="INFO", severity="LOW", title="t", link="HTTPS://Example.com/a%20b"
+        )
+
+        self.assertEqual(
+            self.server.requests[0]["body"]["link"], "HTTPS://Example.com/a%20b"
+        )
 
     def test_passes_timestamp_strings_through(self) -> None:
         self.hub.publish(
