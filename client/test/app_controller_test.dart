@@ -6,6 +6,8 @@ import 'package:signalhub_client/src/app_controller.dart';
 import 'package:signalhub_client/src/connection/pairing_uri.dart';
 import 'package:signalhub_client/src/connection/server_credentials.dart';
 import 'package:signalhub_client/src/models/client_registration.dart';
+import 'package:signalhub_client/src/models/event.dart';
+import 'package:signalhub_client/src/models/inbox_filter.dart';
 import 'package:signalhub_client/src/push/push_registration.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
 
@@ -565,6 +567,228 @@ void main() {
     expect(app.events, hasLength(AppController.pageSize));
     expect(app.hasMore, isTrue);
     expect(app.loadingMore, isFalse);
+  });
+
+  group('inbox filters', () {
+    const unreadOnly = InboxFilter(unreadOnly: true);
+
+    Map<String, List<String>> lastListing() => backend.requests
+        .lastWhere((r) => r.url.path == '/api/v1/events')
+        .url
+        .queryParametersAll;
+
+    test('start with every event', () async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+
+      expect(app.filter, InboxFilter.none);
+      expect(app.filter.isActive, isFalse);
+      expect(lastListing().keys, ['limit']);
+    });
+
+    test('are applied by the server, from the newest page', () async {
+      backend
+        ..publish('e-1', 'Disk full', producer: {'id': 'p-2', 'name': 'nas'})
+        ..publish('e-2', 'Build failed')
+        ..publish('e-3', 'Build fixed', category: 'COMPLETED');
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+
+      await app.setFilter(
+        const InboxFilter(
+          producerIds: {'p-1'},
+          categories: {EventCategory.blocked},
+        ),
+      );
+
+      expect(lastListing(), {
+        'limit': ['${AppController.pageSize}'],
+        'producerId': ['p-1'],
+        'category': ['BLOCKED'],
+      });
+      expect(app.events.map((e) => e.id), ['e-2']);
+      expect(app.inboxLoaded, isTrue);
+      // The unread count stays the server's, for every event.
+      expect(app.unreadCount, 3);
+    });
+
+    test('keep paging and refreshing with the filter', () async {
+      for (var i = 1; i <= AppController.pageSize * 2; i++) {
+        backend.publish(
+          'e-$i',
+          'Event $i',
+          severity: i.isEven ? 'CRITICAL' : 'LOW',
+        );
+      }
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      const critical = InboxFilter(severities: {EventSeverity.critical});
+      await app.setFilter(critical);
+
+      expect(app.events, hasLength(AppController.pageSize));
+      expect(app.hasMore, isFalse);
+      expect(
+        app.events.every((e) => e.severity == EventSeverity.critical),
+        isTrue,
+      );
+
+      backend.publish('e-new', 'New and critical', severity: 'CRITICAL');
+      await app.refresh();
+
+      expect(app.filter, critical);
+      expect(app.events.first.id, 'e-new');
+      expect(lastListing()['severity'], ['CRITICAL']);
+    });
+
+    test('pass the filter with the cursor for older pages', () async {
+      for (var i = 1; i <= AppController.pageSize + 3; i++) {
+        backend.publish('e-$i', 'Event $i');
+      }
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.setFilter(unreadOnly);
+
+      await app.loadMore();
+
+      expect(lastListing()['read'], ['false']);
+      expect(lastListing()['cursor'], isNotNull);
+      expect(app.events, hasLength(AppController.pageSize + 3));
+    });
+
+    test('an unread-only view lists unread events only', () async {
+      backend
+        ..publish('e-1', 'Seen', readAt: '2026-09-25T12:10:00Z')
+        ..publish('e-2', 'Not seen');
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+
+      await app.setFilter(unreadOnly);
+
+      expect(app.events.map((e) => e.id), ['e-2']);
+    });
+
+    test('an older server\'s read events are left out of the unread-only '
+        'view', () async {
+      backend.readFilter = false;
+      for (var i = 1; i <= AppController.pageSize + 2; i++) {
+        backend.publish(
+          'e-$i',
+          'Event $i',
+          readAt: i > 2 ? '2026-09-25T12:10:00Z' : null,
+        );
+      }
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+
+      await app.setFilter(unreadOnly);
+
+      // The first page held only read events; the next one has the rest.
+      expect(app.events, isEmpty);
+      expect(app.hasMore, isTrue);
+      await app.loadMore();
+      expect(app.events.map((e) => e.id), ['e-2', 'e-1']);
+    });
+
+    test(
+      'an event read while shown stays until the inbox is read again',
+      () async {
+        backend.publish('e-1', 'Build failed');
+        final app = controller();
+        await app.connect(serverUrl, clientKey);
+        await app.setFilter(unreadOnly);
+
+        await app.markRead('e-1');
+
+        expect(app.events.single.isRead, isTrue);
+        await app.refresh();
+        expect(app.events, isEmpty);
+      },
+    );
+
+    test('are cleared with one action', () async {
+      backend
+        ..publish('e-1', 'Seen', readAt: '2026-09-25T12:10:00Z')
+        ..publish('e-2', 'Not seen', category: 'INFO');
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.setFilter(
+        const InboxFilter(unreadOnly: true, categories: {EventCategory.info}),
+      );
+
+      await app.clearFilter();
+
+      expect(app.filter, InboxFilter.none);
+      expect(app.events.map((e) => e.id), ['e-2', 'e-1']);
+      expect(lastListing().keys, ['limit']);
+    });
+
+    test('a page read with the previous filter is not shown', () async {
+      for (var i = 1; i <= AppController.pageSize + 1; i++) {
+        backend.publish('e-$i', 'Event $i');
+      }
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+
+      backend.holdOlderPages = Completer();
+      final older = app.loadMore();
+      await app.setFilter(const InboxFilter(categories: {EventCategory.info}));
+      backend.holdOlderPages!.complete();
+      await older;
+
+      expect(app.events, isEmpty);
+      expect(app.loadingMore, isFalse);
+    });
+
+    test('keep the producers to choose from that they hide', () async {
+      backend
+        ..publish('e-1', 'Disk full', producer: {'id': 'p-2', 'name': 'nas'})
+        ..publish('e-2', 'Build failed');
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+
+      await app.setFilter(const InboxFilter(producerIds: {'p-2'}));
+
+      expect(app.events.map((e) => e.id), ['e-1']);
+      expect(
+        [for (final p in app.inboxProducers) p.name],
+        ['nas', 'nightly-build'],
+      );
+    });
+
+    test(
+      'allow marking all read only while they hide no event by what it is',
+      () async {
+        backend
+          ..publish('e-1', 'Disk full', producer: {'id': 'p-2', 'name': 'nas'})
+          ..publish('e-2', 'Build failed');
+        final app = controller();
+        await app.connect(serverUrl, clientKey);
+
+        await app.setFilter(const InboxFilter(producerIds: {'p-2'}));
+        expect(app.canMarkAllRead, isFalse);
+        expect(await app.markAllRead(), isNull);
+        expect(backend.isRead('e-1'), isFalse);
+        expect(backend.isRead('e-2'), isFalse);
+
+        await app.setFilter(unreadOnly);
+        expect(app.canMarkAllRead, isTrue);
+        expect(await app.markAllRead(), isNull);
+        expect(backend.isRead('e-1'), isTrue);
+        expect(backend.isRead('e-2'), isTrue);
+      },
+    );
+
+    test('are forgotten with the server', () async {
+      backend.publish('e-1', 'Build failed');
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.setFilter(unreadOnly);
+
+      await app.disconnect();
+
+      expect(app.filter, InboxFilter.none);
+      expect(app.inboxProducers, isEmpty);
+    });
   });
 
   test('opens an event from the inbox or the server', () async {

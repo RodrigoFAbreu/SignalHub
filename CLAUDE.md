@@ -31,7 +31,8 @@ OpenAPI, Docker Compose) with generic event ingestion
 (`POST /api/v1/events`, idempotent with an optional `Idempotency-Key`, with
 an optional `link` URL, `GET /api/v1/events/{id}` with a client key or the
 admin token), a paginated event listing
-(`GET /api/v1/events`, with a client key or the admin token), read state
+(`GET /api/v1/events`, with a client key or the admin token, filterable by
+read state among others), read state
 (mark events read or unread, the unread count), producer
 authentication (server-issued API keys, managed through
 `/api/v1/admin/producers` with an admin token), and client registration
@@ -56,7 +57,8 @@ and the Flutter client app
 in `client/` (setup by scanning or pasting a pairing code, or with a client
 key, push registration and reception, with
 the server's push options when the build has none, the
-event inbox and event details with opening an event's link, read state,
+event inbox with its filters (unread only, producer, category, severity)
+and event details with opening an event's link, read state,
 push preferences, and its build
 and commit on the *This device* screen; every release attaches it as an
 Android APK signed with SignalHub's release key), and the

@@ -7,6 +7,7 @@ import 'package:signalhub_client/src/api/signalhub_api.dart';
 import 'package:signalhub_client/src/connection/server_credentials.dart';
 import 'package:signalhub_client/src/models/client_registration.dart';
 import 'package:signalhub_client/src/models/event.dart';
+import 'package:signalhub_client/src/models/inbox_filter.dart';
 
 import '../support/fakes.dart';
 
@@ -186,6 +187,39 @@ void main() {
       'limit': '2',
       'cursor': first.nextCursor,
     });
+  });
+
+  test('sends the filter as the listing\'s parameters', () async {
+    backend
+      ..publish('e-1', 'Read', readAt: '2026-09-25T12:10:00Z')
+      ..publish('e-2', 'Other producer', producer: {'id': 'p-2', 'name': 'nas'})
+      ..publish('e-3', 'Info', category: 'INFO', severity: 'LOW')
+      ..publish('e-4', 'Match');
+
+    final page = await backend.api().listEvents(
+      limit: 10,
+      filter: const InboxFilter(
+        unreadOnly: true,
+        producerIds: {'p-1'},
+        categories: {EventCategory.blocked, EventCategory.actionRequired},
+        severities: {EventSeverity.high},
+      ),
+    );
+
+    expect(backend.requests.single.url.queryParametersAll, {
+      'limit': ['10'],
+      'read': ['false'],
+      'producerId': ['p-1'],
+      'category': ['ACTION_REQUIRED', 'BLOCKED'],
+      'severity': ['HIGH'],
+    });
+    expect(page.items.map((e) => e.id), ['e-4']);
+  });
+
+  test('no filter sends no filter parameters', () async {
+    await backend.api().listEvents(filter: InboxFilter.none);
+
+    expect(backend.requests.single.url.queryParameters, {'limit': '50'});
   });
 
   test('reads one event by its ID', () async {

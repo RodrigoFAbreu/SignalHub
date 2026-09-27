@@ -7,6 +7,10 @@ push notifications, and shows the inbox: every event, newest first, and each
 event's details, also opened by tapping its notification. Unread events are
 marked and counted; opening one marks it read on every client of the owner,
 and its screen marks it read or unread again, whichever it is not.
+The filter button narrows the inbox to unread events, and to chosen
+producers, categories and severities; the server applies them, a bar above
+the inbox shows the active ones, and *Clear* removes them all. They last
+while the app runs and are not remembered after a restart.
 An event with a link offers *Open link* on its screen, which opens it in the
 system browser (or the app the phone assigns to the address); the link is
 never opened from the inbox or the notification, only from the event.
@@ -22,14 +26,14 @@ commands that CI runs.
 |---|---|
 | `lib/main.dart` | Wiring: starts push with built-in options, or hands the controller the start from served ones; creates the controller, runs the app. |
 | `lib/src/api/` | `SignalHubApi`, the client side of the backend's HTTP API. |
-| `lib/src/models/` | Events, the client registration and the served push options, read from API JSON. |
+| `lib/src/models/` | Events, the inbox filter, the client registration and the served push options, read from API JSON. |
 | `lib/src/connection/` | Server address and client key, kept in secure storage; the pairing URI. |
 | `lib/src/push/push_service.dart` | `PushService`, the provider-neutral push port, and `PushNotice`. |
 | `lib/src/push/push_registration.dart` | Keeps the server's push target in step with the provider's token. |
 | `lib/src/push/firebase_push_service.dart` | The Firebase Cloud Messaging adapter: the only Dart code that knows Firebase. |
 | `lib/src/build_identity.dart` | Which SignalHub build the app is: release version and commit, from build-time defines. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
-| `lib/src/ui/` | The setup, pairing scanner, inbox, event, device and notifications screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
+| `lib/src/ui/` | The setup, pairing scanner, inbox (with its filter sheet), event, device and notifications screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
 | `android/`, `ios/` | Platform projects: identifiers, permissions, push capability, the browsers an event's link may open in (Android `<queries>`). |
 | `icon/` | The app icon (`icon.svg`) and `render.sh`, which renders its PNGs for both platforms. |
 | `test/` | Unit and widget tests against a fake backend and a fake push service. |

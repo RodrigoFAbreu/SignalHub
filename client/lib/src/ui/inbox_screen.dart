@@ -8,11 +8,13 @@ import '../push/push_registration.dart';
 import 'device_screen.dart';
 import 'event_screen.dart';
 import 'event_style.dart';
+import 'inbox_filter_sheet.dart';
 import 'link_opener.dart';
 import 'push_preferences_screen.dart';
 
 /// The connected app: every event, newest first, read page by page from
-/// `GET /api/v1/events`, with unread events marked and counted. Tapping an
+/// `GET /api/v1/events`, with unread events marked and counted, optionally
+/// filtered by read state, producer, category and severity. Tapping an
 /// event, or a notification about it, opens its details and marks it read;
 /// an event's link is opened from there, never straight from the inbox or
 /// the notification.
@@ -78,14 +80,31 @@ class _InboxScreenState extends State<InboxScreen> {
     }
   }
 
+  void _editFilter() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => InboxFilterSheet(controller: _controller),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _controller,
     builder: (context, _) => Scaffold(
       appBar: _appBar(),
-      body: RefreshIndicator(
-        onRefresh: _controller.refresh,
-        child: _list(context),
+      body: Column(
+        children: [
+          if (_controller.filter.isActive)
+            ActiveFilterBar(controller: _controller, onEdit: _editFilter),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _controller.refresh,
+              child: _list(context),
+            ),
+          ),
+        ],
       ),
     ),
   );
@@ -109,10 +128,21 @@ class _InboxScreenState extends State<InboxScreen> {
       ),
       actions: [
         IconButton(
+          key: const Key('filter'),
+          tooltip: 'Filter',
+          isSelected: _controller.filter.isActive,
+          icon: const Icon(Icons.filter_list),
+          selectedIcon: const Icon(Icons.filter_alt),
+          onPressed: _editFilter,
+        ),
+        IconButton(
           key: const Key('markAllRead'),
           tooltip: 'Mark all as read',
           icon: const Icon(Icons.done_all),
-          onPressed: unread > 0 && _controller.events.isNotEmpty
+          onPressed:
+              unread > 0 &&
+                  _controller.events.isNotEmpty &&
+                  _controller.canMarkAllRead
               ? _markAllRead
               : null,
         ),
@@ -175,7 +205,13 @@ class _InboxScreenState extends State<InboxScreen> {
         padding: EdgeInsets.all(32),
         child: Center(child: CircularProgressIndicator()),
       ),
-      (true, []) => const _Placeholder('No events yet'),
+      // An older server may answer a page with only read events for the
+      // unread-only view: the footer reads on.
+      (true, []) when !controller.hasMore => _Placeholder(
+        controller.filter.isActive
+            ? 'No events match these filters'
+            : 'No events yet',
+      ),
       _ => null,
     };
     return ListView.builder(

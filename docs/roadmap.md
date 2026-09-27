@@ -1095,6 +1095,37 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `client/README.md` and `docs/architecture.md` (Client application); no
   API change; compatible (`feat(client)`)
 
+### R32 - Inbox filters and an unread-only view
+
+- a new optional listing parameter `read`: `false` lists only unread
+  events, `true` only read ones, anything else is `400` with a violation
+  for `read`; combined with the other filters by AND, and served for
+  `read=false` by the partial unread index of V6 (no migration)
+- a cursor stays a position: paging with `read=false` while events are
+  marked read or unread never repeats an event, and a later page lists the
+  events after the cursor that are unread by then
+- the app's filter button opens a sheet with *Unread only* and chips for
+  producers, categories and severities, applied on the server with `read`,
+  `producerId`, `category` and `severity` on every page and refresh
+  (including after a push or a return to the foreground); a changed filter
+  reads the inbox again from the newest page and drops a page in flight
+- a bar above the inbox names the active filters, and *Clear* removes
+  them all with one tap; an empty result says no event matches
+- decided: the filters are not remembered on the device (they last while
+  the app runs, so the inbox always starts with every event); the producers
+  offered are those of the events read since connecting, kept when a filter
+  hides them (client keys cannot list producers; no API was needed); the
+  app also drops read events a page brings to the unread-only view, so a
+  server older than v2.5.0, which ignores `read`, still shows only unread
+  events; *Mark all as read* is offered with *Unread only* but not with a
+  producer, category or severity filter, which would mark hidden events
+- tests against real PostgreSQL (the filter alone and with others, paging
+  while events are marked read and unread, invalid values, the index
+  serving both the first and later pages), the OpenAPI document, and the
+  app's API client, controller and screens against the fake server
+  (including an older server); `docs/architecture.md` (Listing events,
+  Client application), `client/README.md`; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1644,8 +1675,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 18    | R29 - Pairing a device: the app                                                                  | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 19    | R30 - An event's link: the API and the SDK                                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 20    | R31 - Opening an event's link in the app                                                         | Increment (`feat(client)`)             | Done (see section 3)                                                             |
-| 21    | R32 - Inbox filters and an unread-only view                                                      | Increment (`feat`)                     | Next                                                                             |
-| 22    | R33 - Each client's last push result in the management API                                       | Increment (`feat`)                     | Blocked until R32 is merged                                                      |
+| 21    | R32 - Inbox filters and an unread-only view                                                      | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 22    | R33 - Each client's last push result in the management API                                       | Increment (`feat`)                     | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -2447,7 +2478,7 @@ screen, and one tap opens it.
 
 ### R32 - Inbox filters and an unread-only view
 
-Status: planned; next now that R31 is merged. Added by the maintainer
+Status: complete (see section 3). Added by the maintainer
 (2026-09-27) from the deferred candidates.
 
 Goal: the owner narrows a long inbox by producer, category, severity and
@@ -2485,7 +2516,7 @@ saved filters on the server, grouping, archive.
 
 ### R33 - Each client's last push result in the management API
 
-Status: planned; blocked until R32 is merged. Added by the maintainer
+Status: planned; next now that R32 is merged. Added by the maintainer
 (2026-09-27) from the deferred candidate "per-client delivery status".
 
 Goal: the operator can see from the management API why a device got no
@@ -2625,8 +2656,8 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. R31 (opening an event's link in the app) is
-done, so the expected next item is **R32 - Inbox filters and an unread-only
-view** (see [section 5](#5-after-v100)), then R33, one per run.
+(section 4) is authoritative. R32 (inbox filters and an unread-only view)
+is done, so the expected next item is **R33 - Each client's last push
+result in the management API** (see [section 5](#5-after-v100)).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

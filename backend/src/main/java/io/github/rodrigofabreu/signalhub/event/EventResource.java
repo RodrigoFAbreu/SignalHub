@@ -222,6 +222,13 @@ public class EventResource {
           List<String> severities,
       @Parameter(
               description =
+                  "Only unread events (false) or only read events (true). Omit for both. Unread"
+                      + " events are the ones without readAt.",
+              schema = @Schema(type = SchemaType.BOOLEAN))
+          @QueryParam("read")
+          String read,
+      @Parameter(
+              description =
                   "Only events created at or after this time (inclusive). ISO-8601 with a UTC"
                       + " offset; URL-encode a + offset as %2B.",
               example = "2026-09-25T00:00:00Z",
@@ -257,7 +264,7 @@ public class EventResource {
           String limit) {
     return events.list(
         EventQuery.parse(
-            producerIds, categories, severities, createdFrom, createdBefore, cursor, limit));
+            producerIds, categories, severities, read, createdFrom, createdBefore, cursor, limit));
   }
 
   @GET

@@ -50,6 +50,10 @@ class FakeBackend {
   /// [pairedClientKey], which the backend then accepts.
   final pairingCodes = <String>{};
 
+  /// Whether the listing knows the `read` filter; a server released before
+  /// it ignores the parameter, as it ignores every unknown one.
+  bool readFilter = true;
+
   /// When set, every request fails to connect.
   bool offline = false;
 
@@ -72,6 +76,8 @@ class FakeBackend {
     String? context,
     String? readAt,
     String? link,
+    String category = 'BLOCKED',
+    String severity = 'HIGH',
     Map<String, Object?> producer = const {
       'id': 'p-1',
       'name': 'nightly-build',
@@ -80,8 +86,8 @@ class FakeBackend {
     'id': id,
     'producer': producer,
     'context': context,
-    'category': 'BLOCKED',
-    'severity': 'HIGH',
+    'category': category,
+    'severity': severity,
     'title': title,
     'message': message,
     'metadata': {'run': 7},
@@ -201,14 +207,29 @@ class FakeBackend {
           final cursor? => events.indexWhere((e) => e['id'] == cursor) + 1,
           null => 0,
         };
-        final page = events.skip(start).take(limit).toList();
-        final more = start + page.length < events.length;
+        final matching = events.skip(start).where(_matches(request.url));
+        final page = matching.take(limit).toList();
+        final more = matching.length > page.length;
         return _json(200, {
           'items': page,
           'nextCursor': more ? page.last['id'] : null,
         });
     }
     return _json(404, {'title': 'Not Found', 'status': 404});
+  }
+
+  /// The listing's filters: values of one parameter are alternatives, and
+  /// every parameter must match.
+  bool Function(Map<String, Object?>) _matches(Uri url) {
+    final query = url.queryParametersAll;
+    bool within(String parameter, Object? value) =>
+        !query.containsKey(parameter) || query[parameter]!.contains(value);
+    final read = readFilter ? query['read']?.single : null;
+    return (event) =>
+        within('producerId', (event['producer'] as Map)['id']) &&
+        within('category', event['category']) &&
+        within('severity', event['severity']) &&
+        (read == null || (event['readAt'] != null) == (read == 'true'));
   }
 
   Map<String, Object?>? _event(String id) =>

@@ -331,13 +331,16 @@ matches any of its values (OR), e.g. `severity=HIGH&severity=CRITICAL`.
 | `producerId` | Events of this producer (canonical ID). Repeatable. |
 | `category` | Events with this category. Repeatable. |
 | `severity` | Events with this severity. Repeatable. |
+| `read` | `false`: only unread events (`readAt` is `null`); `true`: only read events. Anything else is `400`. See [Read state](#read-state). |
 | `createdFrom` | Events with `createdAt` at or after this time (inclusive). |
 | `createdBefore` | Events with `createdAt` before this time (exclusive). |
 
 Timestamps follow the same rules as in request bodies: ISO-8601 with an
 explicit offset. In a URL, write a `+` offset as `%2B`, or use `Z`. Filters
 use only generic fields; there is no filtering on `context`, metadata, or
-text, and no full-text search.
+text, and no full-text search. `read=false` is served by the partial index
+over unread events in listing order (V6), so the unread-only view costs the
+same per page however many events are read.
 
 **Pagination.** Cursor-based (keyset), not page numbers or offsets:
 
@@ -354,6 +357,10 @@ text, and no full-text search.
   page. Every page costs the same however deep it is.
 - Changing the filters while keeping a cursor is allowed: the result is the
   events after that position that match the new filters.
+- With `read`, whether an event matches is decided when each page is read.
+  Paging through `read=false` while events are marked read or unread never
+  repeats an event of an earlier page; a later page lists the events after
+  the cursor that are unread by then.
 - Cursors are versioned internally; a client must not construct or parse
   them, only pass them back.
 - Events become visible in listing order: publishing is serialized (a
@@ -1075,7 +1082,7 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   including the notification that started the app. Pushes shown in the
   background never reach the app, so it also re-reads the inbox whenever it
   returns to the foreground.
-- **Inbox.** The home screen lists every event, newest first, from
+- **Inbox.** The home screen lists events, newest first, from
   `GET /api/v1/events`, 30 per page. The next page is read with the previous
   page's `nextCursor` when the owner scrolls near the end; a pull to refresh
   starts again from the first page, and an older page still in flight is
@@ -1090,6 +1097,31 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   generic fields. The time is always shown in full; a long producer name
   gives way instead. An event with a [link](#link) has a small link icon;
   tapping the row still opens the event, not the link.
+- **Inbox filters.** A filter button in the app bar opens a sheet with an
+  *Unread only* switch and chips for producers, categories and severities;
+  each change applies at once. The server applies them, through the
+  listing's `read=false`, `producerId`, `category` and `severity` parameters
+  (combined as the [listing](#listing-events) combines them), on the first
+  page, on older pages with the same cursor rules, and on every refresh,
+  including those after a push or a return to the foreground. Changing them
+  reads the inbox again from the newest page and drops a page still in
+  flight. While any filter is on, a bar above the inbox names each one and
+  *Clear* removes them all with one tap; an empty result says that no event
+  matches. The filters are kept only while the app runs: they are not
+  remembered on the device, so the inbox always starts with every event and
+  never hides new events behind a filter set days ago (the server keeps no
+  per-client inbox state either). Client keys cannot list producers, so the
+  producers offered are those of the events the inbox has read since the
+  app connected, by name, including those a filter now hides; a producer
+  appears once one of its events has been listed. An event read while shown
+  in the unread-only view stays, shown as read, until the inbox is read
+  again. The app bar's unread count is always the server's count of every
+  unread event. *Mark all as read* is offered with *Unread only* but not
+  with a producer, category or severity filter, since it would also mark
+  events the filter hides. A server older than v2.5.0 ignores `read`
+  (unknown query parameters are ignored), so the app also leaves out any
+  read event a page brings in the unread-only view; a page with none left
+  just reads the next one.
 - **Event details.** Every field the API returns: title, message, category,
   severity, producer, context, `occurredAt`, `createdAt`, ID, and the
   metadata as indented JSON, shown as the producer sent it and never
@@ -1133,8 +1165,8 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   with `PUT /api/v1/client/push-preferences`, sending all of them (the
   server replaces them), and the screen then shows what the server stored;
   a failed change says so and leaves the switches as they were. Client keys
-  cannot list producers, so the producers offered are those of the events in
-  the inbox, by name; a muted producer with no event there is listed by ID so
+  cannot list producers, so the producers offered are those of the events
+  the inbox has read since the app connected, by name; a muted producer with no event there is listed by ID so
   it can be unmuted. Severities and categories are sent back as the server
   sent them, so values added in a later backend release survive a change. A
   server without push preferences (older than the app) is reported instead
