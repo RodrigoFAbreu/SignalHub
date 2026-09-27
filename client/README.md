@@ -17,7 +17,7 @@ never opened from the inbox or the notification, only from the event.
 The *Notifications* screen chooses which events are pushed to this device.
 On an [admin device](../docs/architecture.md#admin-devices), the *This
 device* screen also lists every device of the owner, with *Make an admin*
-and *Revoke* on those that are not admins (see
+and *Revoke* on those that are not admins, and *Delete* on revoked ones (see
 [Manage devices](#manage-devices)).
 See
 [docs/architecture.md](../docs/architecture.md#client-application) for its
@@ -169,6 +169,13 @@ device, active ones first, marked *This device*, *Admin device* or
 - **Admins**, this device included, offer neither: a device cannot take
   admin rights away or revoke an admin. Only the operator can, on the admin
   page, which is also where devices are renamed.
+- **Delete** is in the menu of each revoked device, an admin or not, after
+  a confirmation, so a device paired again is not listed twice. Deleted, it
+  leaves the list for good; events and their read state stay. An active
+  device has no *Delete*: revoke it first. A device the operator or another
+  admin device deleted meanwhile simply leaves the list. With a server
+  older than v2.12.0, which cannot delete devices, the first *Delete* says
+  so, changes nothing, and the app stops offering it.
 - **Connect a device**, above the list, pairs a new device: enter its name
   and tap **Create pairing code**. The screen shows the code as a QR code
   to scan with the new device, counts down to its expiry (10 minutes; it

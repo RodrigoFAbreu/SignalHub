@@ -165,6 +165,14 @@ class SignalHubApi {
   /// an admin. Idempotent; `409` for an admin.
   Future<ManagedDevice> revokeDevice(String id) => _changeDevice(id, 'revoke');
 
+  /// `DELETE /api/v1/client/devices/{id}`: deletes a revoked client, `204`.
+  /// `409` for an active client, `404` for one that does not exist (deleted
+  /// already); a server released before deleting devices answers `404` or
+  /// `405` for a device it lists.
+  Future<void> deleteDevice(String id) async {
+    await _send('DELETE', 'api/v1/client/devices/${Uri.encodeComponent(id)}');
+  }
+
   Future<ManagedDevice> _changeDevice(String id, String action) async => _read(
     await _send(
       'POST',
@@ -303,6 +311,7 @@ class SignalHubApi {
     if (status < 200 || status >= 300) {
       throw ApiException(_errorTitle(response), statusCode: status);
     }
+    if (status == 204) return const {};
     try {
       return asObject(jsonDecode(response.body), 'response');
     } on FormatException {

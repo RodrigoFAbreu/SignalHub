@@ -6,7 +6,7 @@ import 'connect_device_screen.dart';
 
 /// This installation: its registration, server, push status and build. On
 /// an admin device, also the owner's devices, to connect a new one, make one
-/// an admin or revoke one that is not an admin.
+/// an admin, revoke one that is not an admin or delete one that is revoked.
 class DeviceScreen extends StatefulWidget {
   const DeviceScreen({super.key, required this.controller});
 
@@ -78,8 +78,9 @@ class _DeviceScreenState extends State<DeviceScreen> {
   );
 }
 
-/// The owner's devices, for an admin device. Actions are offered only on
-/// devices that are neither admins nor revoked: the server refuses the rest.
+/// The owner's devices, for an admin device. Actions are offered only where
+/// the server accepts them: making an admin and revoking on devices that are
+/// neither admins nor revoked, deleting on revoked devices.
 class _DevicesSection extends StatelessWidget {
   const _DevicesSection({required this.controller});
 
@@ -131,6 +132,9 @@ class _DevicesSection extends StatelessWidget {
               busy: controller.changingDeviceId != null,
               makeAdmin: () => _makeAdmin(context, device),
               revoke: () => _revoke(context, device),
+              delete: controller.canDeleteDevices
+                  ? () => _delete(context, device)
+                  : null,
             ),
         ] else if (controller.devicesError case final error?)
           Card(
@@ -189,6 +193,20 @@ class _DevicesSection extends StatelessWidget {
     }
   }
 
+  Future<void> _delete(BuildContext context, ManagedDevice device) async {
+    final confirmed = await _confirm(
+      context,
+      title: 'Delete "${device.name}"?',
+      message:
+          'It leaves the list of devices for good. Events and whether they '
+          'are read stay. This cannot be undone.',
+      action: 'Delete',
+    );
+    if (confirmed && context.mounted) {
+      await _show(context, controller.deleteDevice(device.id));
+    }
+  }
+
   static Future<bool> _confirm(
     BuildContext context, {
     required String title,
@@ -234,6 +252,7 @@ class _DeviceTile extends StatelessWidget {
     required this.busy,
     required this.makeAdmin,
     required this.revoke,
+    required this.delete,
   });
 
   final ManagedDevice device;
@@ -242,6 +261,9 @@ class _DeviceTile extends StatelessWidget {
   final VoidCallback makeAdmin;
   final VoidCallback revoke;
 
+  /// `null` when the server cannot delete devices.
+  final VoidCallback? delete;
+
   @override
   Widget build(BuildContext context) {
     final details = [
@@ -249,36 +271,50 @@ class _DeviceTile extends StatelessWidget {
       if (device.admin) 'Admin device',
       if (device.isRevoked) 'Revoked',
     ];
-    final manageable = !device.admin && !device.isRevoked;
+    final delete = this.delete;
+    final actions = <PopupMenuEntry<VoidCallback>>[
+      if (!device.admin && !device.isRevoked) ...[
+        PopupMenuItem(
+          key: const Key('makeAdmin'),
+          value: makeAdmin,
+          child: const Text('Make an admin'),
+        ),
+        PopupMenuItem(
+          key: const Key('revoke'),
+          value: revoke,
+          child: const Text('Revoke'),
+        ),
+      ],
+      if (device.isRevoked && delete != null)
+        PopupMenuItem(
+          key: const Key('delete'),
+          value: delete,
+          child: const Text('Delete'),
+        ),
+    ];
+    // Greyed out by hand: a disabled tile would also ignore its menu.
+    final revokedColor = device.isRevoked
+        ? Theme.of(context).disabledColor
+        : null;
     return Card(
       key: Key('device-${device.id}'),
       child: ListTile(
-        enabled: !device.isRevoked,
+        textColor: revokedColor,
         leading: Icon(
           device.admin
               ? Icons.admin_panel_settings_outlined
               : Icons.phone_android,
+          color: revokedColor,
         ),
         title: Text(device.name),
         subtitle: details.isEmpty ? null : Text(details.join(' · ')),
-        trailing: manageable
+        trailing: actions.isNotEmpty
             ? PopupMenuButton<VoidCallback>(
                 key: Key('deviceActions-${device.id}'),
                 tooltip: 'Manage',
                 enabled: !busy,
                 onSelected: (action) => action(),
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    key: const Key('makeAdmin'),
-                    value: makeAdmin,
-                    child: const Text('Make an admin'),
-                  ),
-                  PopupMenuItem(
-                    key: const Key('revoke'),
-                    value: revoke,
-                    child: const Text('Revoke'),
-                  ),
-                ],
+                itemBuilder: (context) => actions,
               )
             : null,
       ),

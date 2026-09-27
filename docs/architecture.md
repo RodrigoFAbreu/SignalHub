@@ -814,7 +814,8 @@ A revoked client stays in the list, so a phone paired again would show up
 twice. `DELETE /api/v1/admin/clients/{id}` (admin token), or `DELETE
 /api/v1/client/devices/{id}` from an
 [admin device](#device-management-from-an-admin-device), removes it for
-good. Usually it is done on the [admin page](#the-admin-page).
+good. Usually it is done on the [admin page](#the-admin-page), or from an
+admin device's device list in the app ([Client application](#client-application)).
 
 - **Only a revoked client.** An active client, an admin device included,
   answers `409 Client is not revoked` and does not change: revoke it first.
@@ -1557,8 +1558,19 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   an admin nor revoked offers *Make an admin* and *Revoke*, each after a
   confirmation ([Device management from an admin device](#device-management-from-an-admin-device));
   admins, this device included, offer neither, as the server would refuse
-  them. The list shows each change as the server returned it; a refused
-  change says why and re-reads the list. It lives on *This device*, not in
+  them. A revoked device, an admin or not, offers *Delete*, after a
+  confirmation, with `DELETE /api/v1/client/devices/{id}`
+  ([Deleting a revoked client](#deleting-a-revoked-client)); an active
+  device offers none, since it must be revoked first. The list shows each
+  change as the server returned it, and a deleted device leaves it; a
+  refused change says why and re-reads the list. A `404` for a delete
+  re-reads the list too: a device no longer listed was deleted meanwhile
+  (by the operator or another admin device) and is gone, while one still
+  listed means a server released before deleting devices (older than
+  v2.12.0), which has no such route; so does a `405`. The app then says the
+  server cannot delete devices and stops offering *Delete*, which is shown
+  until that first try because the server does not say which endpoints it
+  has, and that try changes nothing. It lives on *This device*, not in
   a tab of its own: the app has no tabs, managing devices is occasional,
   and ordinary devices would never use one. A `403` from the device
   endpoints, or a registration read since without admin rights, says "This
