@@ -1568,6 +1568,10 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Done (see section 3) |
 | 17 | R28 - Pairing a device: the API | Increment (`feat`) | Done (see section 3) |
 | 18 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Next |
+| 19 | R30 - An event's link: the API and the SDK | Increment (`feat`) | Next once R29 is merged |
+| 20 | R31 - Opening an event's link in the app | Increment (`feat(client)`) | Blocked until R30 is merged |
+| 21 | R32 - Inbox filters and an unread-only view | Increment (`feat`) | Blocked until R31 is merged |
+| 22 | R33 - Each client's last push result in the management API | Increment (`feat`) | Blocked until R32 is merged |
 
 How an autonomous run uses it:
 
@@ -1776,6 +1780,9 @@ G1 → G2 → R19 v1.0.0
   → R25 Java 25 → R26 PostgreSQL 18
   → R27 inbox and event-screen polish
   → R28 pairing API → R29 pairing in the app
+  → R30 an event's link (API, SDK) → R31 opening it in the app
+  → R32 inbox filters and unread-only
+  → R33 each client's last push result
 ```
 
 - **Release distribution and version identity come first** (R20 to R24).
@@ -1800,6 +1807,23 @@ G1 → G2 → R19 v1.0.0
 - Product work follows: R27 is a small client fix with evidence from the
   device review; pairing (R28, R29) is the largest usability gain found, and
   a new API.
+- **R30 to R33 were added by the maintainer on 2026-09-27**, from the
+  [deferred candidates](#deferred-candidates), in order of daily value to
+  one owner whose producers are CI, coding agents, scripts and the homelab:
+  - an event's link (R30, R31) first: nearly every such producer has a
+    natural URL (the pull request, the failed run, the waiting session),
+    and today the owner reads the notification and then finds it by hand.
+    The API and SDK come first so producers can send links before the app
+    shows them, as R11a and R11b were split.
+  - inbox filters (R32) next: the API has had them since R5, so it is
+    mostly app work, and the inbox gets noisy once several producers are
+    active.
+  - each client's last push result (R33) last: "why did my phone not
+    buzz?" is answered today by metrics and logs, from a terminal; a last
+    result per client answers it from the management API.
+- Notification grouping on the device was considered with them and left
+  deferred: Android already bundles an app's notifications once several
+  arrive, and grouping beyond that cannot be verified without a device.
 - Java 25 and PostgreSQL 18 were numbered R20 and R21 before this queue was
   recorded. Renumbering milestones that never started costs no history and
   keeps the IDs in queue order; decisions D2 and D3 keep their names and
@@ -1822,6 +1846,10 @@ advance; they follow from the queue.
 | R26 | major (`!`) with migration notes, unless its implementation finds an upgrade that needs no operator action and the upgrade jobs prove it | a dump and restore and a changed data directory mount are operator-breaking |
 | R27 | patch (`fix(client)`) | corrections to existing screens |
 | R28, R29 | minor (`feat`) | new, additive capability; manual setup stays |
+| R30 | minor (`feat`) | a new optional event field; older clients ignore it |
+| R31 | minor (`feat(client)`) | a new action in the app; no API change |
+| R32 | minor (`feat`) | a new optional listing filter and app screens; older servers ignore the parameter |
+| R33 | minor (`feat`) | new response fields and a database migration that needs no operator action |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -2278,6 +2306,142 @@ Scope:
 Exit criteria: a new phone is set up by scanning a code the operator made,
 and becomes its own revocable client.
 
+### R30 - An event's link: the API and the SDK
+
+Status: planned; next once R29 is merged. Added by the maintainer
+(2026-09-27) from the deferred candidate "notification actions and deep
+links", deliberately narrowed to one link.
+
+Goal: a producer can attach one URL to an event that the owner opens with a
+tap, without SignalHub interpreting it.
+
+Scope:
+
+- a new optional event field `link`, a single absolute `http` or `https`
+  URL (the maximum length is the increment's to pick and document, around
+  2000 characters), stored and returned as given and never fetched,
+  followed or checked for reachability by the backend; other schemes are
+  rejected with the usual violations
+- it is generic: no producer-specific meaning, no label, no list of links,
+  no action buttons; producer-specific URLs beyond the one the owner should
+  open stay in metadata
+- a Flyway migration adds a nullable column; existing events have no link
+- idempotent publishing (R18g) compares `link` like any other field
+- the Python SDK and the `signalhub` command accept it (`--link`)
+- the integration examples that have a natural URL send it (the GitHub
+  Actions example the run's URL); the others are unchanged
+- the push payload is unchanged: the app reads the event by ID, as today
+- tests against real PostgreSQL (valid, absent, too long, another scheme,
+  idempotent replays), the OpenAPI document, the SDK and command tests, the
+  examples' tests; `docs/architecture.md` (Events, Compatibility) and the
+  SDK's README
+
+Compatibility: additive (`feat`). Under the Compatibility section's rules a
+producer that sends `link` to an older server gets `400`, so producers are
+upgraded after the server; the release notes say so.
+
+Non-goals: several links or labelled links, attachments or images,
+notification action buttons, rendering metadata richer than today.
+
+### R31 - Opening an event's link in the app
+
+Status: planned; blocked until R30 is merged.
+
+Scope, client only:
+
+- the event screen shows the event's link, when it has one, as a clearly
+  labelled action that opens it in the system browser (or the app the
+  platform assigns to the URL), using one well-established Flutter package
+  (`url_launcher`), justified in the PR
+- tapping a notification still opens the event's screen, not the link: the
+  owner sees what happened first and opens the link from there with one
+  more tap, so a link never opens without the owner seeing it
+- an inbox row may show that the event has a link (a small icon); opening
+  it stays on the event screen
+- a link that cannot be opened shows a message without leaving the screen
+- the app ignores a `link` it cannot parse and shows the event as without
+  one; an event from an older server has no `link` and looks as today
+- widget and controller tests against the fake server; `client/README.md`
+  and `docs/architecture.md` (Client application)
+
+Non-goals: an in-app browser, opening the link directly from the
+notification, notification action buttons.
+
+Exit criteria: an event published with `--link` shows the link on its
+screen, and one tap opens it.
+
+### R32 - Inbox filters and an unread-only view
+
+Status: planned; blocked until R31 is merged. Added by the maintainer
+(2026-09-27) from the deferred candidates.
+
+Goal: the owner narrows a long inbox by producer, category, severity and
+unread, using the listing filters of R5.
+
+Scope:
+
+- the API: an optional listing filter on read state (for example
+  `read=false`), combined with the others by AND, served by the partial
+  unread index of R11a; tests against real PostgreSQL, including pagination
+  with the filter and events marked read between pages
+- the app: an unread-only toggle and filters for producer, category and
+  severity on the inbox, applied on the server with the existing
+  parameters; the active filters are visible and cleared with one action;
+  the inbox paginates and refreshes as today with the filters applied
+- the app remembers the filters on the device (not on the server, which has
+  no per-client inbox state), or not at all; the increment decides and
+  documents which
+- an older server ignores the unknown read-state parameter (unknown query
+  parameters are ignored), so it would return read events in the
+  unread-only view; the app either checks the returned events' `readAt`
+  and hides read ones, or documents that the view needs a server of this
+  release or later; the increment decides
+- the producers to choose from come from an existing source (the events
+  already loaded, or a listing a client key may read); if none fits, the
+  increment splits off the smallest API addition first, as its own row
+- widget and controller tests; `docs/architecture.md` (Listing events,
+  Client application) and `client/README.md`
+
+May be split into the API and the app (as R11a and R11b were) if one PR
+would be too large to review. Compatible (`feat`).
+
+Non-goals: full-text search, filtering on `context`, metadata or text,
+saved filters on the server, grouping, archive.
+
+### R33 - Each client's last push result in the management API
+
+Status: planned; blocked until R32 is merged. Added by the maintainer
+(2026-09-27) from the deferred candidate "per-client delivery status".
+
+Goal: the operator can see from the management API why a device got no
+push, without reading metrics or logs.
+
+Scope:
+
+- for each client, the last successful push (when, and which event) and
+  the last failed one (when, which event, and the provider's result, such
+  as a permanent failure or an invalid target, without the token), and the
+  number of pushes currently waiting for a retry
+- kept as the latest result per client, overwritten by each attempt: not an
+  attempt history (R13 found attempt records unjustified), and no
+  dashboard
+- recorded by the dispatcher and the retries after each send, without
+  changing delivery semantics or ordering; a failure to record it never
+  fails or repeats a push
+- returned by `GET /api/v1/admin/clients` and `GET /api/v1/admin/clients/{id}`
+  as new fields; nothing on the client API, and no app change
+- a Flyway migration that needs no operator action; revoking a client keeps
+  its last results
+- tests against real PostgreSQL with the fake push provider (success,
+  permanent failure, temporary failure then success, a retry pending,
+  revoked client); the OpenAPI document; `docs/architecture.md` (Push
+  dispatch, Client API) and `docs/development.md` (a curl example)
+
+Compatible (`feat`): new response fields only.
+
+Non-goals: showing it in the app (a later candidate), alerts on failures,
+per-attempt records, metrics beyond those of R15a.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -2301,15 +2465,14 @@ itself.
 
 | Candidate | Why not now | What would justify it |
 |---|---|---|
-| Per-client delivery status (last successful push, last failure and its result, pending retries) in the management API; the app later | Metrics (pushes by result, retries given up, backlogs), the final-failure log line and each client's push target answered every question of the device reviews; R13 found delivery-attempt records unjustified | The owner cannot tell from metrics and logs why a device got no push. Then a last-status per client, not an attempt history, and no dashboard. |
-| Inbox filters in the app (producer, category, severity, time: the API has them since R5) and an unread-only view | No usage evidence yet; unread-only needs an API filter | The owner searches a long inbox. The existing API's filters come first. |
+| Each client's push status in the app | The management API shows it from R33 | The owner needs it on the phone, not from the management API. |
 | Full-text search | No need shown; R5 ruled it out as premature | Filters prove insufficient. PostgreSQL's own search, no search engine. |
 | Unread navigation, grouping in the inbox, further bulk actions, archive or clear | *Mark all as read* and retention cover today's use | Usage evidence from the owner. |
 | Quiet hours or schedule-based suppression | Pause and the phone's own do-not-disturb and channel settings cover it (R12a found it unjustified) | A need the phone cannot meet, such as suppression by severity at night. Never a rules engine. |
-| Notification grouping on the device | Event volume is low | Bursts of pushes in practice. |
+| Notification grouping on the device | Event volume is low, and Android already bundles an app's notifications once several arrive; considered with R30 to R33 and left here | Bursts of pushes that Android's own bundling does not make readable, seen on a device. |
 | Rate limiting and brute-force resistance | Keys and pairing codes make guessing infeasible; the management API is not forwarded (`docs/architecture.md#security-limitations`) | Abusive or heavy traffic seen in logs or metrics; the proxy is the first place to limit. |
 | Key expiry, key scopes, a separate management port | One owner; rotation and revocation exist; the documented mitigations hold | A producer that must be restricted, or managing from another host. |
-| Richer metadata rendering, notification actions and deep links, attachments and images | Metadata is opaque by principle; actions need generic semantics in the event schema | Several unrelated producers needing the same generic capability, with a design that keeps the core producer-agnostic. |
+| Richer metadata rendering, notification action buttons, several or labelled links, attachments and images | Metadata is opaque by principle; actions need generic semantics in the event schema; one link per event is scheduled as R30 and R31 | Several unrelated producers needing the same generic capability, with a design that keeps the core producer-agnostic. |
 | Web or desktop client | The app covers the owner's phones | The owner needs the inbox away from the phone; the API assumes no platform, so no backend change. |
 | Distributed iOS builds, APNs directly | iOS builds need the owner's Apple team; FCM already relays to APNs | An iOS user of released builds. |
 | The SDK on PyPI | The release's wheel (R22) and installing from a tag suffice | Producers that cannot install from GitHub. |
@@ -2389,6 +2552,7 @@ Determine this from repository state rather than trusting this section blindly.
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
 (section 4) is authoritative. R28 (pairing a device: the API) is done, so
 the expected next item is **R29 - Pairing a device: the app** (see
-[section 5](#5-after-v100)).
+[section 5](#5-after-v100)), then **R30 - An event's link: the API and the
+SDK**, and R31 to R33 after it, one per run.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
