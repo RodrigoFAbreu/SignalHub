@@ -3,7 +3,8 @@ name: Release
 # Every commit on main is a release: re-run CI on the merged commit, publish the
 # backend image for it, check that image on both platforms, then tag the commit
 # with the next semantic version and publish a GitHub release naming the image,
-# with the deployment files that run it and the Python SDK's files attached.
+# with the deployment files that run it, the Python SDK's files and the signed
+# Android app attached.
 on:
   push:
     branches: [main]
@@ -20,6 +21,7 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/rodrigofabreu/signalhub
+  FLUTTER_VERSION: 3.47.5 # the same as in ci.yml
 
 jobs:
   ci:
@@ -138,8 +140,73 @@ jobs:
           docker pull "$IMAGE:${NEXT#v}"
           scripts/release/check-image.sh "$IMAGE:${NEXT#v}" "${NEXT#v}" "$GITHUB_SHA"
 
+  # The release's Android app, SignalHub-X.Y.Z.apk, signed with SignalHub's
+  # release key (client/README.md#signing). The key exists only in this job,
+  # in a directory removed at its end; it is never printed or uploaded.
+  app:
+    needs: version
+    if: needs.version.outputs.next != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Flutter
+        run: |
+          git clone --quiet --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - run: flutter --disable-analytics && flutter --version
+      - working-directory: client
+        run: flutter pub get --enforce-lockfile
+      - id: build
+        name: Build and check the signed APK
+        env:
+          NEXT: ${{ needs.version.outputs.next }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+          ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          # Never an unsigned or debug-signed app: without the key, no release.
+          for name in KEYSTORE_BASE64 ANDROID_RELEASE_KEYSTORE_PASSWORD ANDROID_RELEASE_KEY_ALIAS ANDROID_RELEASE_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::The release signing secret for $name is not set (client/README.md#signing)."
+              exit 1
+            fi
+          done
+          signing="$RUNNER_TEMP/signing"
+          mkdir --mode=700 "$signing"
+          export ANDROID_RELEASE_KEYSTORE="$signing/release.jks"
+          (umask 077 && printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$ANDROID_RELEASE_KEYSTORE")
+          unset KEYSTORE_BASE64
+          mkdir "$RUNNER_TEMP/app"
+          python3 scripts/release/app_files.py "${NEXT#v}" "$GITHUB_SHA" "$RUNNER_TEMP/app" > "$RUNNER_TEMP/app.out"
+          { read -r apk; read -r certificate; } < "$RUNNER_TEMP/app.out"
+          echo "apk=$apk" >> "$GITHUB_OUTPUT"
+          echo "certificate=$certificate" >> "$GITHUB_OUTPUT"
+      - name: Remove the signing key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/signing"
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.build.outputs.apk }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: ${{ steps.build.outputs.apk }}
+          if-no-files-found: error
+          retention-days: 1
+    outputs:
+      certificate: ${{ steps.build.outputs.certificate }}
+
   release:
-    needs: [version, image, check]
+    needs: [version, image, check, app]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -149,14 +216,19 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install --requirement .github/tools/requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: app
+          path: ${{ runner.temp }}/assets
       - env:
           GH_TOKEN: ${{ github.token }}
           NEXT: ${{ needs.version.outputs.next }}
           DIGEST: ${{ needs.image.outputs.digest }}
+          CERTIFICATE: ${{ needs.app.outputs.certificate }}
         run: |
           version=${NEXT#v}
           # The files docs/deployment.md installs and upgrades from, running this image.
-          mkdir "$RUNNER_TEMP/assets"
+          # The app is already in assets/, downloaded from the app job.
           archive=$(python scripts/release/deployment_files.py "$IMAGE:$version@$DIGEST" "$version" "$RUNNER_TEMP/assets")
           # The Python SDK's wheel and source archive, reporting this version.
           python scripts/release/sdk_files.py "$version" "$RUNNER_TEMP/assets"
@@ -173,8 +245,16 @@ jobs:
             '' \
             '## Python SDK and command' \
             '' \
-            "Install the attached \`signalhub-$version-py3-none-any.whl\`; see [sdk/python/README.md](https://github.com/$GITHUB_REPOSITORY/blob/$NEXT/sdk/python/README.md#install).")
+            "Install the attached \`signalhub-$version-py3-none-any.whl\`; see [sdk/python/README.md](https://github.com/$GITHUB_REPOSITORY/blob/$NEXT/sdk/python/README.md#install)." \
+            '' \
+            '## Android app' \
+            '' \
+            "Install the attached \`SignalHub-$version.apk\`; see [client/README.md](https://github.com/$GITHUB_REPOSITORY/blob/$NEXT/client/README.md#install-a-release). It is signed with SignalHub's release key, whose certificate has the SHA-256 digest" \
+            '' \
+            '```text' \
+            "$CERTIFICATE" \
+            '```')
           # The generated notes follow these; the deployment files, the SDK's
-          # files and their checksums are the release's assets.
+          # files, the app and their checksums are the release's assets.
           gh release create "$NEXT" --target "$GITHUB_SHA" --title "$NEXT" --notes "$notes" --generate-notes \
             "$RUNNER_TEMP"/assets/*

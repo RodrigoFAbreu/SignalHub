@@ -1176,7 +1176,9 @@ time as `--dart-define`s, never the placeholder `version:` of
 `client/pubspec.yaml`: `SIGNALHUB_REVISION`, the commit, which the build
 commands in [client/README.md](../client/README.md#build-identity) pass for
 every build, and `SIGNALHUB_VERSION`, which only a release's own app build
-sets (none does yet: the release attaches no app until R24). So an app built
+sets: the release's `SignalHub-X.Y.Z.apk`, whose Android `versionName` is
+the version too (see
+[client/README.md](../client/README.md#install-a-release)). So an app built
 locally, even from a release's tag, says "SignalHub development build" and
 names its commit; one built without the commit, such as by a plain
 `flutter run`, says "Commit unknown".

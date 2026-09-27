@@ -202,6 +202,13 @@ v1.1.0, which has no deployment files, runs from a clone of the repository
 at its tag with `docker compose up --build --wait`, in place of steps 2 and
 5 of [Setup](#setup); such a build reports itself as a development build.
 
+The Android app of a release, `SignalHub-X.Y.Z.apk`, is attached to the
+same GitHub release and listed in the same `SHA256SUMS`; phones install and
+update it as described in
+[client/README.md](../client/README.md#install-a-release). It reads the
+push options the backend serves, so give the backend the app's Firebase
+options (see [Secrets](#secrets)) for it to receive push.
+
 ## Upgrades
 
 Every release is a `vX.Y.Z` tag with notes on GitHub. An upgrade replaces

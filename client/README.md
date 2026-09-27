@@ -30,6 +30,52 @@ commands that CI runs.
 | `icon/` | The app icon (`icon.svg`) and `render.sh`, which renders its PNGs for both platforms. |
 | `test/` | Unit and widget tests against a fake backend and a fake push service. |
 
+## Install a release
+
+Every release from v1.7.0 attaches the Android app, `SignalHub-X.Y.Z.apk`,
+built from the release's commit and signed with SignalHub's release key.
+It has no Firebase options of its own: after setup it reads the push
+options your server serves (see [Push notifications](#push-notifications)),
+so it works with any SignalHub server. There is no iOS release: iOS builds
+need the owner's Apple team (see [Signing](#signing)).
+
+1. Download the app and the checksums, and check them:
+
+   ```sh
+   version=1.2.3
+   curl --fail --location --remote-name-all \
+     "https://github.com/RodrigoFAbreu/SignalHub/releases/download/v$version/SignalHub-$version.apk" \
+     "https://github.com/RodrigoFAbreu/SignalHub/releases/download/v$version/SHA256SUMS"
+   sha256sum --check --ignore-missing SHA256SUMS
+   ```
+
+   Optionally, check that GitHub built it from the release's commit
+   (`gh attestation verify SignalHub-$version.apk --repo
+   RodrigoFAbreu/SignalHub`) and that it is signed with the release key:
+   `apksigner verify --print-certs SignalHub-$version.apk` (from the
+   Android SDK's build-tools) prints the certificate's SHA-256 digest,
+   which the release notes name.
+2. Install it: `adb install SignalHub-$version.apk` from a computer, or
+   open the file on the phone and allow installing from that source.
+3. Open it and set it up with a client key, as in [Run it](#run-it). The
+   *This device* screen says "SignalHub X.Y.Z" and the release's commit.
+
+**Updating** is installing the next release's APK the same way: Android
+keeps the app's data, and the client key with it, because every release is
+signed with the same key and has a higher `versionCode`
+([docs/development.md](../docs/development.md#release-process)). The app
+and the backend are parts of the same release; an app works with backends
+of other releases within the
+[compatibility rules](../docs/architecture.md#compatibility).
+
+**Replacing a locally built app, once.** An app you built yourself is
+signed with your machine's debug key, so Android refuses to update it with
+the release's APK (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`). Uninstall it,
+install the release's APK and set it up again with a client key: the old
+key was in the uninstalled app's storage, so register a new client (and
+revoke the old one) or reuse a key you kept. The same happens in the other
+direction, from a release to a local build.
+
 ## Run it
 
 With the Flutter SDK (version in
@@ -130,11 +176,11 @@ in two lines: the release and the exact source.
 Both come in at build time as `--dart-define`s, never from the placeholder
 `version:` in `pubspec.yaml`. The commands above pass the commit,
 `SIGNALHUB_REVISION` (`git rev-parse HEAD`). The version,
-`SIGNALHUB_VERSION`, is set only by a release's own app build; it is not a
-setting for local builds, so a build from a release's tag never claims to be
-that release (see
-[docs/architecture.md](../docs/architecture.md#version)). No release builds
-the app yet, so every installed app is a development build.
+`SIGNALHUB_VERSION`, is set only by a release's own app build
+(`scripts/release/app_files.py`); it is not a setting for local builds, so
+a build from a release's tag never claims to be that release (see
+[docs/architecture.md](../docs/architecture.md#version)). Releases up to
+v1.6.0 attach no app, so an app from before v1.7.0 is a development build.
 
 ## Icon
 
@@ -147,7 +193,26 @@ the results.
 
 ## Signing
 
-SignalHub is self-hosted and not distributed through the app stores. Android
-release builds are signed with the local debug key, which is enough to
-install them on your own devices. iOS builds are signed in Xcode with the
-owner's Apple developer team (`open ios/Runner.xcworkspace`).
+SignalHub is self-hosted and not distributed through the app stores.
+
+- **Official Android apps**, the APKs attached to releases, are all signed
+  with one release key, SignalHub's (decision D6). Only the release
+  workflow uses it: it rebuilds the keystore from the repository's secrets
+  inside its `app` job, which removes it at its end, and passes it to
+  Gradle through `ANDROID_RELEASE_KEYSTORE`, `ANDROID_RELEASE_KEYSTORE_PASSWORD`,
+  `ANDROID_RELEASE_KEY_ALIAS` and `ANDROID_RELEASE_KEY_PASSWORD`
+  ([docs/development.md](../docs/development.md#repository-settings-github)).
+  The keystore and its passwords are never committed, printed or uploaded;
+  the maintainer keeps an offline backup.
+- **Losing the release key** means no later APK can update the official
+  installs: Android accepts an update only from the key that signed the
+  installed app. Every device would then uninstall the app and set it up
+  again with a client key, as when
+  [replacing a locally built app](#install-a-release). A leaked key must be
+  replaced the same way, since anyone holding it can sign updates.
+- **Local Android builds**, debug or `flutter build apk --release`, are
+  signed with your machine's debug key when those variables are not set,
+  which is enough to install them on your own devices; they call themselves
+  development builds.
+- **iOS builds** are signed in Xcode with the owner's Apple developer team
+  (`open ios/Runner.xcworkspace`).

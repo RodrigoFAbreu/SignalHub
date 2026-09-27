@@ -896,6 +896,42 @@ The following capabilities are already implemented and merged unless repository 
   served options on a real phone is the maintainer's check, with R24's
   released app
 
+### R24 - Installable Android app in each release
+
+- the maintainer created SignalHub's release key (D6) and stored it as the
+  repository secrets `ANDROID_RELEASE_KEYSTORE_BASE64`,
+  `ANDROID_RELEASE_KEYSTORE_PASSWORD`, `ANDROID_RELEASE_KEY_ALIAS` and
+  `ANDROID_RELEASE_KEY_PASSWORD` on 2026-09-27
+- the release workflow's `app` job rebuilds the keystore from them in a
+  directory it removes at its end and runs `scripts/release/app_files.py`,
+  which builds the release-mode APK from the tagged commit with
+  `versionName` `X.Y.Z`, `versionCode` `MAJOR × 1000000 + MINOR × 1000 +
+  PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
+  `SIGNALHUB_REVISION` for the *This device* screen (R22a), and no Firebase
+  options (the app reads its server's, D5 and R23)
+- before the release attaches it, the script checks package, version name
+  and code, not debuggable, the commit in the compiled Dart code of every
+  ABI, a valid v2 or v3 signature by exactly one signer, and that signer
+  being the release key's certificate, never a debug key; a release without
+  the secrets fails before tagging
+- attached as `SignalHub-X.Y.Z.apk`, in `SHA256SUMS` with the other files,
+  with a GitHub build provenance attestation; the release notes name the
+  signing certificate's SHA-256 digest
+- Gradle signs a release build with the key only when
+  `ANDROID_RELEASE_KEYSTORE` is set (and then needs every other variable);
+  local builds keep the debug key and call themselves development builds
+- the `Client (analyze + test + Android build)` job builds and checks the
+  release APK the same way, with the test version `0.0.0-ci` and a
+  throwaway key it makes; unit tests of the script on recorded `aapt2`,
+  `apksigner` and `keytool` output
+- `client/README.md`: download, checksum, attestation and certificate
+  check, install, updates, the one-time uninstall when replacing a locally
+  built app, and that losing (or leaking) the key means reinstalling on
+  every device; `docs/development.md`: the release step, the rule and the
+  secrets
+- no backend, API or schema changes; the exit criterion's check of the
+  released APK on a real phone is the maintainer's
+
 ---
 
 ## 4. Planned roadmap
@@ -1437,8 +1473,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 11 | G3 - Decisions D5 (push configuration of a distributed app) and D6 (Android release signing key) | Human gate | Given (2026-09-26): D5 = a, D6 = one stable release key |
 | 12 | R23a - Push client options served by the backend (first half of R23) | Increment (`feat`) | Done (see section 3) |
 | 12b | R23b - The app sets up push from served options (second half of R23) | Increment (`feat(client)`) | Done (see section 3) |
-| 13 | R24 - Installable Android app in each release | Increment (`feat`) | Next; needs the D6 key in GitHub Actions secrets (maintainer) |
-| 14 | R25 - Java 25 (decision D2) | Increment | Blocked until R24 is merged |
+| 13 | R24 - Installable Android app in each release | Increment (`feat`) | Done (see section 3) |
+| 14 | R25 - Java 25 (decision D2) | Increment | Next |
 | 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Blocked until R25 is merged |
 | 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Blocked until R26 is merged |
 | 17 | R28 - Pairing a device: the API | Increment (`feat`) | Blocked until R27 is merged |
@@ -1997,9 +2033,9 @@ would be too large to review. Compatible (`feat`).
 
 ### R24 - Installable Android app in each release
 
-Status: next (R23b is merged). D6 chose one stable release
-key (G3, 2026-09-26); the maintainer creates it and stores it as GitHub
-Actions secrets (see [G3 answers](#g3-answers)).
+Status: done (see section 3). D6 chose one stable release key (G3,
+2026-09-26); the maintainer stored it as GitHub Actions secrets on
+2026-09-27 (see [G3 answers](#g3-answers)).
 
 Goal: an operator installs the app of a release from its GitHub release
 page, without building it, and the app says which release it is.
@@ -2035,7 +2071,7 @@ commit on the *This device* screen.
 
 ### R25 - Java 25
 
-Status: planned; decision D2; blocked until R24 is merged.
+Status: next; decision D2.
 
 Goal: move the backend from Java 21 LTS to Java 25 LTS in one step.
 
@@ -2261,12 +2297,8 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. G3 was answered on 2026-09-26 (D5 = a,
-D6 = one stable release key), and R23 (R23a, the backend, and R23b, the app)
-is done, so the expected next item is **R24 - Installable Android app in
-each release**, under the requirements in [G3 answers](#g3-answers). It
-needs the maintainer's release key in GitHub Actions secrets: if they are
-not present, the run stops and asks for them. Then Java 25 (R25) and
+(section 4) is authoritative. R24 (the Android app in each release) is
+done, so the expected next item is **R25 - Java 25** (decision D2), then
 PostgreSQL 18 (R26), each in its own PR (see [section 5](#5-after-v100)).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
