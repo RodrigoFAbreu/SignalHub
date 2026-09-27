@@ -618,6 +618,21 @@ Every product API endpoint requires a credential. This version does not yet:
 - **Delete** revoked producer keys or revoked clients. They are kept, and
   listed by the management API, as a record of what was issued.
 
+**A stolen admin device** (its client key copied, or the device lost
+unlocked) can do what an [admin device](#device-management-from-an-admin-device)
+can, through the proxy, until the operator acts: read every event, list every
+device (names, push providers and push results, never keys or push tokens),
+make other devices admins, and revoke devices that are not admins. It cannot
+revoke an admin or take admin rights away, rename a device, create pairing
+codes, publish, or reach the management API, so the owner's admin devices
+keep working and the operator keeps control. Every change it makes is
+logged and pushes a notice to the owner's devices naming it. To recover, on
+the [admin page](#the-admin-page) (or the management API) with the admin
+token: revoke the stolen device, take admin rights away from, or revoke, any
+device it made an admin, and pair again any device it revoked (a revoked
+client cannot be restored). Keep few admin devices: each is a key that can
+do this.
+
 ## Clients
 
 > Status: implemented. Clients are registered by the operator or by
@@ -636,7 +651,7 @@ the same for every platform.
 |---|---|
 | `id` | Server-generated canonical ID (UUIDv7). |
 | `name` | Human-readable label chosen by the owner, e.g. `Pixel 8`. 1–100 characters, not blank. Need not be unique. The operator can rename a client. |
-| `admin` | Whether the client is one of the owner's [admin devices](#admin-devices). `false` unless the operator makes it one. |
+| `admin` | Whether the client is one of the owner's [admin devices](#admin-devices). `false` unless the operator, or another admin device, makes it one. |
 | `createdAt` | When it was registered. |
 | `revokedAt` | Set once the client is revoked; `null` while it is active. |
 | `pushTarget` | `{provider, updatedAt}`, or `null` if the client has no push target. |
@@ -665,8 +680,11 @@ new client and revoking the old one. Revocation is permanent and immediate.
 
 **What a client key may do:** read the event listing, and read and change its
 own registration (push target and push preferences) under `/api/v1/client`.
-It cannot rename itself or change whether it is an admin. It cannot publish, manage producers
-or other clients, or see push targets of other clients.
+It cannot rename itself or take its own admin rights away. It cannot publish,
+manage producers, or see push tokens of other clients. Only an
+[admin device](#admin-devices)'s key may list the other clients, make one an
+admin and revoke one that is not an admin (see
+[Device management from an admin device](#device-management-from-an-admin-device)).
 
 ### Admin devices
 
@@ -676,18 +694,79 @@ devices lent or given to others. Each client response has `admin`, including
 a client's own registration (`GET /api/v1/client`), so an app can tell that
 it is one.
 
-- **Only the operator sets it,** with the admin token: when registering a
+- **The operator sets it,** with the admin token: when registering a
   client or creating a pairing (`"admin": true`, optional, `false` when
   omitted), or afterwards with `PATCH /api/v1/admin/clients/{id}`
   (`{"admin": true}` or `{"admin": false}`), usually from the
-  [admin page](#the-admin-page). A client key can never change it.
-- **It grants nothing yet.** Today an admin device reads events and keeps its
-  own registration exactly like any other client; the flag is the record the
-  device management of a later release builds on.
+  [admin page](#the-admin-page). An admin device can also make another
+  device an admin, but only the operator can take admin rights away; no
+  other client key can change it.
+- **It lets the device manage the others,** within limits: see
+  [Device management from an admin device](#device-management-from-an-admin-device).
+  Otherwise an admin device reads events and keeps its own registration
+  exactly like any other client.
 - **Existing clients are not admins.** `V13__add_client_admin.sql` adds the
   column with `false` for every client and unredeemed pairing, so upgrading
   needs no operator action.
-- **Revoking works the same** for an admin device as for any other client.
+- **Revoking works the same** for an admin device as for any other client,
+  with the admin token; an admin device cannot revoke an admin.
+
+### Device management from an admin device
+
+An admin device manages the owner's other devices with its own client key,
+under `/api/v1/client/devices`, so the [proxy](deployment.md#network-exposure)
+forwards it like the rest of the client API and the device needs neither the
+admin token nor the host:
+
+| Method and path | Result |
+|---|---|
+| `GET /api/v1/client/devices` | Every client, revoked or not, oldest first, as `{"items": [...]}`: exactly what `GET /api/v1/admin/clients` returns (schema `ManagedClient`, with `pushStatus`), never a key or a push token. |
+| `POST /api/v1/client/devices/{id}/admin` | Makes the client an admin device. `200` with the client; `200` and no change if it already is one (the caller included); `409 Client is revoked` for a revoked client; `404` for an unknown ID. |
+| `POST /api/v1/client/devices/{id}/revoke` | Revokes a client that is not an admin and removes its push target, as the operator's revoke does. `200` with the client; `200` and no change if it is already revoked; `409 Client is an admin device` for an admin, the caller included; `404` for an unknown ID. |
+
+Neither `POST` has a body. The limits keep a stolen admin device from taking
+over:
+
+- **Only an admin device's key is accepted.** Every other client key gets
+  `403 Not an admin device` on every path, before the path's client is looked
+  up, so the answer is the same whatever the target and says nothing about
+  it. A missing, unknown or revoked key is the usual `401`, and the admin
+  token is not a client key (`401`): the operator has the
+  [management API](#client-api). The caller's admin flag is read, and its
+  row locked, in the transaction that makes the change, so a device whose
+  rights the operator took away, or that the operator revoked, cannot make
+  a change after that.
+- **An admin device can do nothing to an admin**, itself included: it cannot
+  take admin rights away (there is no endpoint for it) or revoke an admin.
+  Only the operator can, with the admin token, usually on the
+  [admin page](#the-admin-page). Renaming is the operator's too.
+- **Every change is logged** at `INFO` with client IDs only: `Client <caller>
+  made client <id> an admin device` and `Client <caller> revoked client
+  <id>`. A request that changes nothing or is refused logs nothing.
+- **The owner's devices are told.** Every change pushes a
+  [notice](#pairing-notice), naming the device that made it, to every client
+  that has a push target and has not paused pushes, the calling device
+  included (its key may be in someone else's hands):
+
+  ```
+  Device made an admin
+  "Anna's phone" made "Tablet" an admin device. If this was not you, revoke both on the admin page.
+  ```
+
+  ```
+  Device revoked
+  "Anna's phone" revoked "Old tablet". If this was not you, revoke "Anna's phone" on the admin page.
+  ```
+
+  with the data `{"notice": "client-made-admin"}` or `{"notice":
+  "client-revoked"}` and `clientId` (the changed client) and `byClientId`
+  (the calling device). It is sent like the pairing notice: after the
+  change commits, once, without retries, never failing the request. A
+  request that changes nothing sends nothing; a revoked device has no push
+  target, so it is not told.
+
+What a stolen admin key can do, and how to recover, is in
+[Security limitations](#security-limitations).
 
 ### Renaming a client
 
@@ -842,7 +921,9 @@ the pairing's transaction commits, on a thread of its own, so the device
 that is pairing never waits for it and a failed notice never fails a
 pairing. The durable record is the log line `Redeemed pairing ... as client
 ...` and the client itself, listed by the management API. Registering a
-client with the management API sends no notice: the operator holds its key.
+client with the management API sends no notice: the operator holds its key. A device made an admin or revoked
+[from an admin device](#device-management-from-an-admin-device) sends a
+notice of the same kind.
 
 ### Push targets
 
@@ -918,6 +999,9 @@ suppressed push is simply not sent to that client.
 | `DELETE /api/v1/client/push-target` | client key | Removes the push target. Idempotent. `200` with the client. |
 | `PUT /api/v1/client/push-preferences` | client key | Replaces the push preferences (`{"enabled", "minimumSeverity", "mutedCategories", "mutedProducerIds"}`, each optional). `200` with the client. |
 | `GET /api/v1/client/push-config` | client key | The options an app needs to set up push with the server's provider, `{"provider", "options"}` (see [Push client options](#push-client-options)); `404` if the operator configured none. |
+| `GET /api/v1/client/devices` | admin device's client key | Every client, as `GET /api/v1/admin/clients` lists them; `403` for any other client key. See [Device management from an admin device](#device-management-from-an-admin-device). |
+| `POST /api/v1/client/devices/{id}/admin` | admin device's client key | Makes the client an admin device. `200` with the client (`ManagedClient`); `409` if it is revoked; `403` for any other client key. |
+| `POST /api/v1/client/devices/{id}/revoke` | admin device's client key | Revokes a client that is not an admin. `200` with the client (`ManagedClient`), idempotent; `409` for an admin, the caller included; `403` for any other client key. |
 
 The management paths behave like producer management: `404` for every path
 while no admin token is configured, `404` for unknown IDs, and `400` for
@@ -973,8 +1057,9 @@ rather than one overwriting the other.
 
 ### Logging
 
-Registration, revocation, push-target and push-preference changes are logged
-at `INFO` with the client ID, provider name and preferences only; never the key, its hash, or the push
+Registration, revocation, push-target and push-preference changes, and the
+changes an admin device makes, are logged
+at `INFO` with the client IDs, provider name and preferences only; never the key, its hash, or the push
 token. Creating and redeeming a pairing are logged at `INFO` with the pairing
 and client IDs, never the code. Rejected client keys and pairing codes are
 logged at `DEBUG` like producer keys.

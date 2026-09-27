@@ -160,7 +160,7 @@ What other machines can reach, with the proxy enabled:
 
 | Port | Serves |
 |---|---|
-| 443 (TCP and UDP for HTTP/3) | `/api/`: publishing, the inbox and read state, the client API, redeeming a pairing code. Everything else answers `404`. |
+| 443 (TCP and UDP for HTTP/3) | `/api/`: publishing, the inbox and read state, the client API (including device management from an [admin device](architecture.md#admin-devices)), redeeming a pairing code. Everything else answers `404`. |
 | 80 | Redirects to HTTPS; Let's Encrypt's certificate challenges. |
 
 Not reachable from other machines:

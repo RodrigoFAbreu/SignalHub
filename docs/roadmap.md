@@ -1235,6 +1235,53 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   Pairing notice, Client API), `docs/deployment.md`,
   `docs/development.md`, `client/README.md`; compatible (`feat`)
 
+### R36 - Managing devices from an admin device: the API
+
+- `GET /api/v1/client/devices`, `POST /api/v1/client/devices/{id}/admin`
+  and `POST /api/v1/client/devices/{id}/revoke`, with a client key, under
+  `/api/v1/client` so the proxy forwards them; no request bodies
+- only an active admin device's key is accepted; **every other client key
+  gets `403 Not an admin device`** on every path, checked before the target
+  is looked up, so the answer says nothing about it; a missing, unknown or
+  revoked key (a revoked admin included) is the usual `401`; the admin token
+  is not a client key (`401`)
+- the listing is exactly the management API's (`ClientList` of
+  `ManagedClient`, with push results, never a key or a push token)
+- making an admin: `200` with the `ManagedClient`; already an admin (the
+  caller included) is `200` and changes nothing; `409 Client is revoked`
+  for a revoked client; `404` for an unknown ID
+- revoking: a client that is not an admin, `200` with the `ManagedClient`,
+  its key stops working and its push target is removed; already revoked is
+  `200` and changes nothing; **`409 Client is an admin device` for an
+  admin, the caller included**; `404` for an unknown ID; taking admin
+  rights away and renaming have no device endpoint
+- the caller's and the target's rows are locked, in a fixed order, in the
+  transaction that makes the change, so an operator revoking the caller or
+  taking its rights away is applied before or after, never beside, and two
+  admin devices acting on each other cannot deadlock
+- logged at `INFO` with client IDs only (`Client <caller> made client <id>
+  an admin device`, `Client <caller> revoked client <id>`); a change pushes
+  "Device made an admin" or "Device revoked", naming the device that did
+  it and pointing to the admin page, with data `notice`
+  (`client-made-admin`, `client-revoked`), `clientId` and `byClientId`, to
+  every client with a push target and pushes not paused, the calling device
+  included (its key may be the stolen one); sent as R34's pairing notice
+  (after the commit, once, never failing the request); a request that
+  changes nothing or is refused sends nothing; `PairingNotifier` became
+  `DeviceNotifier`, sending both kinds
+- tests against real PostgreSQL for every caller (an ordinary client, an
+  admin, a revoked admin, an admin whose rights were taken away) and every
+  target (an ordinary client, an admin, itself, revoked, unknown), the
+  listing, the notices with the fake provider (the acting device told, no
+  notice for no change or a refusal, a failed notice not failing the
+  change), the OpenAPI document; the Compose smoke test lists devices and
+  revokes a device from an admin device through the proxy and gets `403`
+  for an ordinary one; `docs/architecture.md` (Clients, Admin devices,
+  Device management from an admin device, Pairing notice, Client API,
+  Logging, Security limitations: what a stolen admin key can do and how the
+  operator recovers), `docs/deployment.md`, `docs/development.md`;
+  compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1788,8 +1835,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 22    | R33 - Each client's last push result in the management API                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 23    | R34 - The Connect page and the pairing notice                                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 24    | R35 - The admin page: every device, admin rights, renaming                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 25    | R36 - Managing devices from an admin device: the API                                             | Increment (`feat`)                     | Next                                                                             |
-| 26    | R37 - Managing devices in the app                                                                | Increment (`feat(client)`)             | Blocked until R36 is merged                                                      |
+| 25    | R36 - Managing devices from an admin device: the API                                             | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 26    | R37 - Managing devices in the app                                                                | Increment (`feat(client)`)             | Next                                                                             |
 | 27    | R38 - Pairing codes from an admin device                                                         | Increment (`feat`)                     | Blocked until R37 is merged                                                      |
 
 How an autonomous run uses it:
@@ -2772,7 +2819,7 @@ than the admin token.
 
 ### R36 - Managing devices from an admin device: the API
 
-Status: planned; next. Added by the maintainer (2026-09-27).
+Status: complete (see section 3). Added by the maintainer (2026-09-27).
 
 Goal: a device the owner made an admin can manage the others through the
 client API, with limits that keep a stolen admin device from taking over.
@@ -2805,8 +2852,7 @@ rights away or revoking an admin from a device, the app (R37).
 
 ### R37 - Managing devices in the app
 
-Status: planned; blocked until R36 is merged. Added by the maintainer
-(2026-09-27).
+Status: planned; next. Added by the maintainer (2026-09-27).
 
 Scope:
 
@@ -2952,8 +2998,8 @@ Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
 (section 4) is authoritative. R34 (the Connect page and the pairing
-notice) and R35 (the admin page) are done. **R36 (managing devices from an
-admin device: the API) is next**, then R37 and R38 in that order, each
-after the previous one is merged.
+notice), R35 (the admin page) and R36 (managing devices from an admin
+device: the API) are done. **R37 (managing devices in the app) is next**,
+then R38, after R37 is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

@@ -520,6 +520,18 @@ curl -s -X POST "$API/$CLIENT/revoke" -H "$H"   # revoke it and drop its push ta
 A revoked client cannot be renamed or changed (`409`). See
 [Admin devices](architecture.md#admin-devices).
 
+An admin device does part of this with its own client key, through the
+proxy too ($ADMIN_KEY is an admin device's key); any other client key gets
+`403`, and nothing can be done to an admin (`409` on revoke; see
+[Device management from an admin device](architecture.md#device-management-from-an-admin-device)):
+
+```sh
+D=http://localhost:8080/api/v1/client/devices
+curl -s "$D" -H "Authorization: Bearer $ADMIN_KEY"                           # every device
+curl -s -X POST "$D/$CLIENT/admin" -H "Authorization: Bearer $ADMIN_KEY"     # make it an admin
+curl -s -X POST "$D/$CLIENT/revoke" -H "Authorization: Bearer $ADMIN_KEY"    # revoke a non-admin
+```
+
 Both reads show each client's latest push results in `pushStatus` (see
 [Client API](architecture.md#client-api)), which answers why a device got no
 push:

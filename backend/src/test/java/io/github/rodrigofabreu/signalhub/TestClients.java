@@ -19,10 +19,19 @@ public final class TestClients {
   public record Registered(UUID id, String name, String clientKey) {}
 
   public static Registered register(String name) {
+    return register(name, false);
+  }
+
+  /** Registers one of the owner's admin devices. */
+  public static Registered registerAdmin(String name) {
+    return register(name, true);
+  }
+
+  private static Registered register(String name, boolean admin) {
     var created =
         asAdmin()
             .contentType(ContentType.JSON)
-            .body("{\"name\": \"" + name + "\"}")
+            .body("{\"name\": \"" + name + "\", \"admin\": " + admin + "}")
             .when()
             .post(ADMIN)
             .then()
