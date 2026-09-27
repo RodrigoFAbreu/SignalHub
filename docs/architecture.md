@@ -999,8 +999,9 @@ provider is logged by type only.
 
 > Status: implemented in `client/`: setup by [pairing](#pairing) or with a
 > client key, push
-> registration and reception, the inbox and event details,
-> [read state](#read-state), and [push preferences](#push-preferences).
+> registration and reception, the inbox and event details (including
+> opening an event's [link](#link)), [read state](#read-state), and
+> [push preferences](#push-preferences).
 
 **Technology: Flutter**, chosen by the maintainer for roadmap R9. One Dart
 codebase targets Android and iOS. Other platforms Flutter supports (web,
@@ -1087,13 +1088,27 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   category, severity, producer name and `createdAt`, with an icon for the
   category and a color for the severity; they depend on nothing but these
   generic fields. The time is always shown in full; a long producer name
-  gives way instead.
+  gives way instead. An event with a [link](#link) has a small link icon;
+  tapping the row still opens the event, not the link.
 - **Event details.** Every field the API returns: title, message, category,
   severity, producer, context, `occurredAt`, `createdAt`, ID, and the
   metadata as indented JSON, shown as the producer sent it and never
   interpreted. An event opened from the inbox needs no request; one opened
   from a notification is read with `GET /api/v1/events/{id}` unless the
   inbox already has it, and an unknown ID says so.
+- **Opening a link.** An event with a [link](#link) shows it among its
+  fields and offers *Open link*, labelled with text beside its icon, which
+  hands it to the platform with `url_launcher` to open outside the app: in
+  the system browser, or in the app the platform assigns to the address
+  (Android lists `http` and `https` `VIEW` intents under `<queries>`, as
+  package visibility requires). There is no browser inside the app. A link
+  no app opens leaves the owner on the event with a message. A tapped
+  notification opens the event, never the link, so a link is only opened
+  after the owner has seen the event it belongs to. The app accepts only
+  what the server accepts, an absolute `http` or `https` URL with a host;
+  any other value is ignored and the event is shown without a link, as are
+  events from a server older than v2.3.0, which have no `link` field. The
+  opener is injected, so tests replace the platform.
 - **Read state.** The app shows the server's [read state](#read-state), so
   it is the same on every client. Unread rows have a bold title and a dot,
   and the app bar shows the unread count from

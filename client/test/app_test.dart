@@ -17,7 +17,13 @@ void main() {
   late FakePushService push;
   late AppController controller;
 
+  /// The links the app handed to the platform, and whether it opens them.
+  late List<Uri> openedLinks;
+  late bool linksOpen;
+
   setUp(() {
+    openedLinks = [];
+    linksOpen = true;
     backend = FakeBackend()..publish('e-1', 'Nightly build failed');
     push = FakePushService();
     controller = AppController(
@@ -30,7 +36,15 @@ void main() {
   });
 
   Future<void> connect(WidgetTester tester, {String key = clientKey}) async {
-    await tester.pumpWidget(SignalHubApp(controller: controller));
+    await tester.pumpWidget(
+      SignalHubApp(
+        controller: controller,
+        linkOpener: (link) async {
+          openedLinks.add(link);
+          return linksOpen;
+        },
+      ),
+    );
     await tester.runAsync(controller.start);
     await tester.pump();
     // Manual setup comes after pairing, below the fold.
@@ -331,6 +345,111 @@ void main() {
     expect(find.text('e-2'), findsOneWidget);
     // Metadata is shown as the producer sent it.
     expect(find.text('{\n  "run": 7\n}'), findsOneWidget);
+  });
+
+  group('an event\'s link', () {
+    const link = 'https://ci.example.com/runs/1842';
+
+    Finder linkIcon(String title) => find.descendant(
+      of: find.widgetWithText(ListTile, title),
+      matching: find.byKey(const Key('hasLink')),
+    );
+
+    testWidgets('is shown on its screen and opened with one tap', (
+      tester,
+    ) async {
+      backend.publish('e-2', 'Build failed', link: link);
+      await connect(tester);
+
+      await tester.tap(find.text('Build failed'));
+      await settle(tester);
+
+      // The action is labelled, and the address is shown before it is used.
+      expect(find.text('Open link'), findsOneWidget);
+      expect(find.text(link), findsOneWidget);
+      expect(openedLinks, isEmpty);
+
+      await tester.tap(find.byKey(const Key('openLink')));
+      await settle(tester);
+
+      expect(openedLinks, [Uri.parse(link)]);
+      // Still on the event.
+      expect(find.text('e-2'), findsOneWidget);
+      expect(find.text('Could not open the link'), findsNothing);
+    });
+
+    testWidgets('that cannot be opened says so and stays on the event', (
+      tester,
+    ) async {
+      linksOpen = false;
+      backend.publish('e-2', 'Build failed', link: link);
+      await connect(tester);
+      await tester.tap(find.text('Build failed'));
+      await settle(tester);
+
+      await tester.tap(find.byKey(const Key('openLink')));
+      await settle(tester);
+
+      expect(find.text('Could not open the link'), findsOneWidget);
+      expect(find.text('e-2'), findsOneWidget);
+      expect(find.byKey(const Key('openLink')), findsOneWidget);
+    });
+
+    testWidgets('is marked in the inbox, and the row opens the event', (
+      tester,
+    ) async {
+      backend.publish('e-2', 'Build failed', link: link);
+      await connect(tester);
+
+      expect(linkIcon('Build failed'), findsOneWidget);
+      expect(linkIcon('Nightly build failed'), findsNothing);
+
+      await tester.tap(find.text('Build failed'));
+      await settle(tester);
+
+      expect(openedLinks, isEmpty);
+      expect(find.byKey(const Key('openLink')), findsOneWidget);
+    });
+
+    testWidgets('is not opened by tapping its notification', (tester) async {
+      await connect(tester);
+      backend.publish('e-2', 'Build failed', link: link);
+
+      push.received.add(
+        const PushNotice(title: 'Build failed', eventId: 'e-2', opened: true),
+      );
+      await settle(tester);
+
+      expect(find.text('e-2'), findsOneWidget);
+      expect(find.byKey(const Key('openLink')), findsOneWidget);
+      expect(openedLinks, isEmpty);
+    });
+
+    testWidgets('that the app cannot open is not offered', (tester) async {
+      backend.publish('e-2', 'Build failed', link: 'javascript:alert(1)');
+      await connect(tester);
+
+      expect(linkIcon('Build failed'), findsNothing);
+      await tester.tap(find.text('Build failed'));
+      await settle(tester);
+
+      expect(find.text('e-2'), findsOneWidget);
+      expect(find.byKey(const Key('openLink')), findsNothing);
+      expect(find.text('javascript:alert(1)'), findsNothing);
+    });
+
+    testWidgets('is absent from an older server\'s events', (tester) async {
+      backend.events.single.remove('link');
+      await connect(tester);
+
+      expect(linkIcon('Nightly build failed'), findsNothing);
+      await tester.tap(find.text('Nightly build failed'));
+      await settle(tester);
+
+      expect(find.text('e-1'), findsOneWidget);
+      expect(find.byKey(const Key('openLink')), findsNothing);
+      expect(find.text('Link'), findsNothing);
+    });
   });
 
   testWidgets('scrolling down loads older events', (tester) async {

@@ -66,6 +66,7 @@ class Event {
     this.context,
     this.message,
     this.metadata = const {},
+    this.link,
     this.occurredAt,
     this.readAt,
   });
@@ -79,6 +80,7 @@ class Event {
     title: json.string('title'),
     message: json.optionalString('message'),
     metadata: json.optionalObject('metadata') ?? const {},
+    link: parseLink(json['link']),
     occurredAt: json.optionalTimestamp('occurredAt'),
     createdAt: json.timestamp('createdAt'),
     readAt: json.optionalTimestamp('readAt'),
@@ -94,6 +96,10 @@ class Event {
 
   /// Opaque producer data. Shown, never interpreted.
   final Map<String, Object?> metadata;
+
+  /// The URL the owner can open from the event; `null` when it has none, or
+  /// one the app cannot open (see [parseLink]).
+  final Uri? link;
   final DateTime? occurredAt;
   final DateTime createdAt;
 
@@ -113,10 +119,25 @@ class Event {
     title: title,
     message: message,
     metadata: metadata,
+    link: link,
     occurredAt: occurredAt,
     createdAt: createdAt,
     readAt: readAt,
   );
+}
+
+/// An event's `link` when it is what the server accepts: an absolute `http`
+/// or `https` URL with a host. Anything else, including a missing field from
+/// a server released before links, is no link rather than an error, so the
+/// event is still shown and nothing but a web address is ever handed to the
+/// platform to open.
+Uri? parseLink(Object? value) {
+  if (value is! String) return null;
+  final uri = Uri.tryParse(value);
+  if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
+    return null;
+  }
+  return uri.host.isEmpty ? null : uri;
 }
 
 /// One page of the event listing.

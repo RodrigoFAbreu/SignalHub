@@ -56,7 +56,8 @@ and the Flutter client app
 in `client/` (setup by scanning or pasting a pairing code, or with a client
 key, push registration and reception, with
 the server's push options when the build has none, the
-event inbox and event details, read state, push preferences, and its build
+event inbox and event details with opening an event's link, read state,
+push preferences, and its build
 and commit on the *This device* screen; every release attaches it as an
 Android APK signed with SignalHub's release key), and the
 Python producer package and `signalhub` command in `sdk/python/` (its wheel

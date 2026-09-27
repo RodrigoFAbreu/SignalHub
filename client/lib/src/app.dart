@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_controller.dart';
 import 'ui/inbox_screen.dart';
+import 'ui/link_opener.dart';
 import 'ui/pairing_scanner_screen.dart';
 import 'ui/setup_screen.dart';
 
@@ -10,12 +11,16 @@ class SignalHubApp extends StatefulWidget {
     super.key,
     required this.controller,
     this.scanner = scanPairingCode,
+    this.linkOpener = openLink,
   });
 
   final AppController controller;
 
   /// Scans a pairing code on the setup screen; tests replace the camera.
   final PairingScanner scanner;
+
+  /// Opens an event's link; tests replace the platform.
+  final LinkOpener linkOpener;
 
   @override
   State<SignalHubApp> createState() => _SignalHubAppState();
@@ -56,7 +61,10 @@ class _SignalHubAppState extends State<SignalHubApp> {
           controller: controller,
           scan: widget.scanner,
         ),
-        ConnectionPhase.connected => InboxScreen(controller: controller),
+        ConnectionPhase.connected => InboxScreen(
+          controller: controller,
+          openLink: widget.linkOpener,
+        ),
       },
     ),
   );

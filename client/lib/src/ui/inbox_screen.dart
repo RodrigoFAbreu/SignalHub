@@ -8,15 +8,25 @@ import '../push/push_registration.dart';
 import 'device_screen.dart';
 import 'event_screen.dart';
 import 'event_style.dart';
+import 'link_opener.dart';
 import 'push_preferences_screen.dart';
 
 /// The connected app: every event, newest first, read page by page from
 /// `GET /api/v1/events`, with unread events marked and counted. Tapping an
-/// event, or a notification about it, opens its details and marks it read.
+/// event, or a notification about it, opens its details and marks it read;
+/// an event's link is opened from there, never straight from the inbox or
+/// the notification.
 class InboxScreen extends StatefulWidget {
-  const InboxScreen({super.key, required this.controller});
+  const InboxScreen({
+    super.key,
+    required this.controller,
+    required this.openLink,
+  });
 
   final AppController controller;
+
+  /// Opens an event's link from its screen.
+  final LinkOpener openLink;
 
   @override
   State<InboxScreen> createState() => _InboxScreenState();
@@ -54,6 +64,7 @@ class _InboxScreenState extends State<InboxScreen> {
           initial: event,
           markOpened: () => _controller.markRead(id),
           setRead: (read) => _controller.setRead(id, read: read),
+          openLink: widget.openLink,
         ),
       ),
     );
@@ -212,7 +223,8 @@ class _InboxScreenState extends State<InboxScreen> {
 }
 
 /// One event in the inbox: what it is about, where it came from, and when.
-/// Unread events have a bold title and a dot.
+/// Unread events have a bold title and a dot; events with a link, a link
+/// icon.
 class EventTile extends StatelessWidget {
   const EventTile(this.event, {super.key, this.onTap});
 
@@ -243,6 +255,15 @@ class EventTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (event.link != null) ...[
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.link,
+              key: Key('hasLink'),
+              size: 16,
+              semanticLabel: 'Has a link',
+            ),
+          ],
           const SizedBox(width: 8),
           Text(
             formatTimestamp(event.createdAt),

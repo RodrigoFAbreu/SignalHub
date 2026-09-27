@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../api/signalhub_api.dart';
 import '../models/event.dart';
 import 'event_style.dart';
+import 'link_opener.dart';
 
 /// One event with every field the API returns. Opened from the inbox with
 /// the event at hand, or from a notification with only its ID.
@@ -13,6 +14,9 @@ import 'event_style.dart';
 /// event stays shown as unread. Its one read-state action, labelled, follows
 /// the event's state as the server last returned it: *Mark as read* while it
 /// is unread, *Mark as unread* once it is read.
+///
+/// An event with a link offers *Open link*, which hands it to the system
+/// browser; a link that cannot be opened is reported here.
 class EventScreen extends StatefulWidget {
   const EventScreen({
     super.key,
@@ -20,6 +24,7 @@ class EventScreen extends StatefulWidget {
     this.initial,
     this.markOpened,
     this.setRead,
+    required this.openLink,
   });
 
   /// Reads the event, from the inbox or the server.
@@ -35,6 +40,9 @@ class EventScreen extends StatefulWidget {
   /// Marks the event read or unread; returns the event as the server
   /// returned it, or an error message.
   final Future<({Event? event, String? error})> Function(bool read)? setRead;
+
+  /// Opens the event's link outside the app.
+  final LinkOpener openLink;
 
   @override
   State<EventScreen> createState() => _EventScreenState();
@@ -103,6 +111,13 @@ class _EventScreenState extends State<EventScreen> {
     }
   }
 
+  Future<void> _openLink(Uri link) async {
+    if (await widget.openLink(link) || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Could not open the link')));
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -125,7 +140,7 @@ class _EventScreenState extends State<EventScreen> {
       ],
     ),
     body: switch ((_event, _error)) {
-      (final Event event, _) => _EventDetails(event),
+      (final Event event, _) => _EventDetails(event, openLink: _openLink),
       (null, final String error) => Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -149,9 +164,10 @@ class _EventScreenState extends State<EventScreen> {
 }
 
 class _EventDetails extends StatelessWidget {
-  const _EventDetails(this.event);
+  const _EventDetails(this.event, {required this.openLink});
 
   final Event event;
+  final void Function(Uri link) openLink;
 
   @override
   Widget build(BuildContext context) {
@@ -181,9 +197,23 @@ class _EventDetails extends StatelessWidget {
             const SizedBox(height: 16),
             Text(message, style: theme.textTheme.bodyLarge),
           ],
+          if (event.link case final link?) ...[
+            const SizedBox(height: 16),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: FilledButton.tonalIcon(
+                key: const Key('openLink'),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('Open link'),
+                onPressed: () => openLink(link),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           _Field('Producer', event.producer.name),
           if (event.context case final context?) _Field('Context', context),
+          // Where the action goes, before the owner taps it.
+          if (event.link case final link?) _Field('Link', link.toString()),
           if (event.occurredAt case final occurredAt?)
             _Field('Occurred', formatTimestamp(occurredAt)),
           _Field('Received', formatTimestamp(event.createdAt)),

@@ -71,6 +71,7 @@ class FakeBackend {
     String? message,
     String? context,
     String? readAt,
+    String? link,
     Map<String, Object?> producer = const {
       'id': 'p-1',
       'name': 'nightly-build',
@@ -84,6 +85,7 @@ class FakeBackend {
     'title': title,
     'message': message,
     'metadata': {'run': 7},
+    'link': link,
     'occurredAt': null,
     'createdAt': '2026-09-25T12:03:00.123456Z',
     'readAt': readAt,
