@@ -161,13 +161,21 @@ def parse_signers(output: str) -> dict[str, str]:
     signers = re.search(r"^Number of signers: ([0-9]+)$", output, re.MULTILINE)
     if not signers or signers.group(1) != "1":
         raise AppFilesError("the APK is not signed by exactly one signer")
-    digest = re.search(
-        r"^Signer #1 certificate SHA-256 digest: ([0-9a-f]{64})$", output, re.MULTILINE
+    # "Signer #1 certificate ..." or, for v3 signers, "Signer (minSdkVersion=...,
+    # maxSdkVersion=...) certificate ..."; every line must name the one key.
+    digests = set(
+        re.findall(
+            r"^Signer [^:]*certificate SHA-256 digest: ([0-9a-f]{64})$",
+            output,
+            re.MULTILINE,
+        )
     )
-    dn = re.search(r"^Signer #1 certificate DN: (.*)$", output, re.MULTILINE)
-    if not digest or not dn:
+    dns = set(re.findall(r"^Signer [^:]*certificate DN: (.*)$", output, re.MULTILINE))
+    if not digests or not dns:
         raise AppFilesError("apksigner printed no certificate")
-    return {"digest": digest.group(1), "dn": dn.group(1)}
+    if len(digests) != 1 or len(dns) != 1:
+        raise AppFilesError("the APK is signed by more than one key")
+    return {"digest": digests.pop(), "dn": dns.pop()}
 
 
 def parse_keystore_digest(output: str) -> str:
@@ -238,9 +246,10 @@ def build(
         parse_badging(run([str(aapt2), "dump", "badging", str(apk)])), version
     )
     check_revision(apk, revision)
-    signer = parse_signers(
-        run([str(apksigner), "verify", "--print-certs", "--verbose", str(apk)])
-    )
+    verified = run([str(apksigner), "verify", "--print-certs", "--verbose", str(apk)])
+    # Only public certificate data: the release log shows what signed the APK.
+    sys.stderr.write(verified)
+    signer = parse_signers(verified)
     key_digest = parse_keystore_digest(
         run(
             [

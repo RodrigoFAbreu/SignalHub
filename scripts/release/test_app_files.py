@@ -178,9 +178,8 @@ class BuildToolTest(unittest.TestCase):
             )
 
     def test_refuses_an_sdk_without_it(self):
-        with tempfile.TemporaryDirectory() as sdk:
-            with self.assertRaises(AppFilesError):
-                build_tool("apksigner", {"ANDROID_HOME": sdk})
+        with tempfile.TemporaryDirectory() as sdk, self.assertRaises(AppFilesError):
+            build_tool("apksigner", {"ANDROID_HOME": sdk})
         with self.assertRaises(AppFilesError):
             build_tool("apksigner", {})
 
@@ -206,9 +205,11 @@ class IdentityTest(unittest.TestCase):
             (BADGING.replace("1007000", "1"), "1.7.0"),
             (BADGING.replace("rodrigofabreu.signalhub", "example.app"), "1.7.0"),
         ):
-            with self.subTest(badging=badging, version=version):
-                with self.assertRaises(AppFilesError):
-                    check_identity(parse_badging(badging), version)
+            with (
+                self.subTest(badging=badging, version=version),
+                self.assertRaises(AppFilesError),
+            ):
+                check_identity(parse_badging(badging), version)
 
     def test_refuses_a_debuggable_app(self):
         badging = parse_badging(BADGING + "application-debuggable\n")
@@ -247,6 +248,26 @@ class SignerTest(unittest.TestCase):
         )
         with self.assertRaises(AppFilesError):
             parse_signers(output)
+
+    def test_reads_v3_signer_lines(self):
+        output = APKSIGNER.replace(
+            "Signer #1", "Signer (minSdkVersion=24, maxSdkVersion=2147483647)"
+        )
+        self.assertEqual(
+            parse_signers(output), {"digest": DIGEST, "dn": "CN=SignalHub"}
+        )
+
+    def test_refuses_a_second_key(self):
+        output = APKSIGNER + (
+            "Signer (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256"
+            " digest: " + "1" * 64 + "\n"
+        )
+        with self.assertRaises(AppFilesError):
+            parse_signers(output)
+
+    def test_refuses_output_without_a_certificate(self):
+        with self.assertRaises(AppFilesError):
+            parse_signers(APKSIGNER.split("Signer #1")[0])
 
     def test_refuses_more_than_one_signer(self):
         with self.assertRaises(AppFilesError):
