@@ -146,15 +146,23 @@ class DevicePairing {
     required this.name,
     required this.code,
     required this.expiresAt,
+    this.id,
     this.uri,
   });
 
   factory DevicePairing.fromJson(Map<String, Object?> json) => DevicePairing(
+    // Absent from a server released before it could say whether a code was
+    // used.
+    id: json.optionalString('id'),
     name: json.string('name'),
     code: json.string('code'),
     expiresAt: json.timestamp('expiresAt'),
     uri: json.optionalString('uri'),
   );
+
+  /// Asks whether the code was used ([PairingStatus]); not a secret. `null`
+  /// from a server that cannot say.
+  final String? id;
 
   /// The name the new device gets.
   final String name;
@@ -171,4 +179,28 @@ class DevicePairing {
 
   @override
   String toString() => 'DevicePairing($name, expires $expiresAt)';
+}
+
+/// Whether a pairing code this admin device created was used (the backend's
+/// `PairingStatus`). It never holds the code or a key.
+class PairingStatus {
+  const PairingStatus({required this.state, this.clientName});
+
+  factory PairingStatus.fromJson(Map<String, Object?> json) {
+    final client = json.optionalObject('client');
+    return PairingStatus(
+      state: json.string('state'),
+      clientName: client?.string('name'),
+    );
+  }
+
+  /// `PENDING`, `REDEEMED` or `EXPIRED`, as the server sends it; a state
+  /// added later counts as pending.
+  final String state;
+
+  /// The name, as it is now, of the device that used the code; `null` until
+  /// one has.
+  final String? clientName;
+
+  bool get isRedeemed => state == 'REDEEMED' && clientName != null;
 }

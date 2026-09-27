@@ -1304,6 +1304,29 @@ void main() {
       );
     });
 
+    testWidgets('a used code is announced and its device listed on return', (
+      tester,
+    ) async {
+      backend.pairingExpiresAt = DateTime.now().add(
+        const Duration(minutes: 10),
+      );
+      await openDevices(tester);
+      await createPairing(tester, 'New tablet');
+
+      backend.usePairing('New tablet');
+      await tester.pump(ConnectDeviceScreen.pollInterval);
+      await settle(tester);
+
+      expect(
+        find.text('"New tablet" connected with the pairing code.'),
+        findsOneWidget,
+      );
+      expect(find.byType(PairingQr), findsNothing);
+      expect(find.byKey(const Key('createPairing')), findsOneWidget);
+      await goBack(tester);
+      expect(inDevice('paired-0', find.text('New tablet')), findsOneWidget);
+    });
+
     testWidgets('a server older than pairing from a device says so', (
       tester,
     ) async {

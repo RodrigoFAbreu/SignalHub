@@ -178,6 +178,13 @@ class AppController extends ChangeNotifier {
   /// Whether this installation may create pairing codes for new devices.
   bool get canCreatePairings => canManageDevices && !_pairingUnsupported;
 
+  /// Whether the server cannot say whether the code shown was used (released
+  /// before that), so the app stops asking about it.
+  bool _pairingStatusUnknown = false;
+
+  /// Whether the server is being asked about the code shown.
+  bool _checkingPairing = false;
+
   /// For the owner, when the server has no pairing codes for devices.
   static const pairingUnsupportedMessage =
       'This server cannot create pairing codes from a device. Update '
@@ -641,6 +648,7 @@ class AppController extends ChangeNotifier {
     notifyListeners();
     try {
       pairing = await api.createPairing(name);
+      _pairingStatusUnknown = false;
       return null;
     } on UnauthorizedException {
       await _forgetRevokedKey();
@@ -667,6 +675,51 @@ class AppController extends ChangeNotifier {
   void clearPairing() {
     pairing = null;
     notifyListeners();
+  }
+
+  /// Asks the server whether the code shown in [pairing] was used; nothing
+  /// is asked when the server cannot say. Once it was used, forgets it, so
+  /// _Connect a device_ is ready for the next device, and returns the name
+  /// of the device that used it. Returns an error message only when this
+  /// device is no longer an admin device, which also ends the code; other
+  /// failures are left to the next time it asks.
+  Future<({String? connected, String? error})> checkPairing() async {
+    const unchanged = (connected: null, error: null);
+    final api = _api;
+    final asked = pairing;
+    final id = asked?.id;
+    if (api == null || id == null || _pairingStatusUnknown) return unchanged;
+    if (_checkingPairing) return unchanged;
+    _checkingPairing = true;
+    try {
+      final status = await api.getPairingStatus(id);
+      // A code created or dismissed meanwhile is not the one asked about.
+      if (!identical(pairing, asked) || !status.isRedeemed) return unchanged;
+      pairing = null;
+      notifyListeners();
+      return (connected: status.clientName, error: null);
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+    } on ApiException catch (e) {
+      switch (e.statusCode) {
+        case 403:
+          // The server no longer accepts this device's codes either.
+          pairing = null;
+          await _lostAdminRights(api);
+          notifyListeners();
+          // Unless the key turned out to be revoked too: setup says that.
+          if (phase == ConnectionPhase.connected) {
+            return (connected: null, error: notAdminMessage);
+          }
+        case 404 || 405 when identical(pairing, asked):
+          _pairingStatusUnknown = true;
+        default:
+          debugPrint('Pairing status not read: ${e.message}');
+      }
+    } finally {
+      _checkingPairing = false;
+    }
+    return unchanged;
   }
 
   /// The server refused device management: shows why, and re-reads the
@@ -797,6 +850,7 @@ class AppController extends ChangeNotifier {
     pairing = null;
     creatingPairing = false;
     _pairingUnsupported = false;
+    _pairingStatusUnknown = false;
     _eventToOpen = null;
     pushStatus = _initialPushStatus;
     error = reason;

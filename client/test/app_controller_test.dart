@@ -1495,4 +1495,115 @@ void main() {
       expect(app.pairing, isNull);
     });
   });
+
+  group('whether a pairing code was used', () {
+    setUp(() => backend.admin = true);
+
+    const unchanged = (connected: null, error: null);
+
+    Future<AppController> showingCode() async {
+      final app = controller();
+      await app.connect(serverUrl, clientKey);
+      await app.createPairing('Tablet');
+      return app;
+    }
+
+    test('a code not used yet stays shown', () async {
+      final app = await showingCode();
+      final shown = app.pairing;
+
+      expect(await app.checkPairing(), unchanged);
+
+      expect(app.pairing, same(shown));
+      expect(backend.pairingStatusRequests, 1);
+    });
+
+    test('a used code names the device and is forgotten', () async {
+      final app = await showingCode();
+      await app.loadDevices();
+      backend.usePairing('Tablet of Anna');
+
+      final result = await app.checkPairing();
+
+      expect(result, (connected: 'Tablet of Anna', error: null));
+      expect(app.pairing, isNull);
+      expect(app.canCreatePairings, isTrue);
+      // The device list shows it once read again.
+      await app.loadDevices();
+      expect(app.devices?.map((d) => d.name), contains('Tablet of Anna'));
+      // Nothing is asked once no code is shown.
+      await app.checkPairing();
+      expect(backend.pairingStatusRequests, 1);
+    });
+
+    test('an answer about a code dismissed meanwhile is ignored', () async {
+      final app = await showingCode();
+      backend.usePairing('Tablet');
+      final asking = app.checkPairing();
+      app.clearPairing();
+      await app.createPairing('Laptop');
+      final laptop = app.pairing;
+
+      expect(await asking, unchanged);
+      expect(app.pairing, same(laptop));
+    });
+
+    test('rights taken away meanwhile are reported and end the code', () async {
+      final app = await showingCode();
+      backend.admin = false;
+
+      final result = await app.checkPairing();
+
+      expect(result, (connected: null, error: AppController.notAdminMessage));
+      expect(app.pairing, isNull);
+      expect(app.lostAdminRights, isTrue);
+      expect(app.canCreatePairings, isFalse);
+    });
+
+    test('a revoked key returns to setup', () async {
+      final app = await showingCode();
+      backend.acceptedKey = null;
+
+      expect(await app.checkPairing(), unchanged);
+
+      expect(app.phase, ConnectionPhase.disconnected);
+      expect(app.pairing, isNull);
+    });
+
+    test('a failed request keeps the code and asks again', () async {
+      final app = await showingCode();
+      backend.offline = true;
+
+      expect(await app.checkPairing(), unchanged);
+      expect(app.pairing, isNotNull);
+
+      backend.offline = false;
+      backend.usePairing('Tablet');
+      expect((await app.checkPairing()).connected, 'Tablet');
+    });
+
+    test('a server whose codes have no ID is never asked', () async {
+      backend.pairingIds = false;
+      final app = await showingCode();
+
+      expect(await app.checkPairing(), unchanged);
+
+      expect(app.pairing, isNotNull);
+      expect(backend.pairingStatusRequests, 0);
+    });
+
+    for (final status in [404, 405]) {
+      test('a server answering $status is asked once per code', () async {
+        backend.noPairingStatus = status;
+        final app = await showingCode();
+
+        expect(await app.checkPairing(), unchanged);
+        expect(await app.checkPairing(), unchanged);
+
+        expect(app.pairing, isNotNull);
+        expect(app.lostAdminRights, isFalse);
+        expect(backend.pairingStatusRequests, 1);
+      });
+    }
+  });
 }

@@ -1504,6 +1504,36 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   admin device, the admin page, Client API, Schema), `docs/development.md`,
   `docs/deployment.md`; compatible (`feat`)
 
+### R44 - A used pairing code in the app
+
+- **decided: the screen asks, the controller answers.** _Connect a device_
+  (R38) asks `GET /api/v1/client/pairings/{id}` (R43) every 2.5 seconds, as
+  the admin page does, only while an unexpired code is shown, the screen is
+  open and the app is in the foreground, and once more as the code expires;
+  leaving the screen, the code expiring or being used stops it. The
+  controller forgets an answer about a code dismissed or replaced meanwhile
+- once the code is used, a SnackBar names the device ("Tablet" connected
+  with the pairing code.), the QR code and link disappear and the screen
+  goes back to its first state (an empty name and _Create pairing code_);
+  the device list, read again when the screen closes (R38), shows the new
+  device. An expired code is unchanged
+- `403` says "This device is no longer an admin device" in place of the
+  code, which no longer works, as R38 and R42 do; a revoked key returns to
+  setup; any other failure is left to the next poll without a message
+- **decided: an older server is found by the pairing, not probed.** A
+  `Pairing` without `id` (a server older than R43) is never asked about; a
+  `404` or `405` for the status stops asking about that code, and the
+  screen stays exactly as before, without an error
+- controller tests against the fake backend (pending, used, an answer about
+  a dismissed code ignored, lost rights, a revoked key, an unreachable
+  server, no `id`, `404` and `405`), widget tests (the message and the
+  first state, polling stopping when the screen is left, in the background,
+  at expiry, a code used in its last seconds, lost rights, older servers),
+  an app test (the new device listed on return), API and model tests; the
+  fake backend gained the status endpoint and a device redeeming a code;
+  `client/README.md`, `docs/architecture.md` (Client application); no API
+  change; compatible (`feat(client)`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2065,7 +2095,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 30    | R41 - Deleting revoked devices: the API and the admin page                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 31    | R42 - Deleting revoked devices in the app                                                        | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 32    | R43 - A used pairing code: the API and the admin page                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Next                                                                             |
+| 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -3280,7 +3310,7 @@ code is shown is enough for one owner).
 
 ### R44 - A used pairing code in the app
 
-Status: planned; next. Added by the maintainer
+Status: complete (see section 3). Added by the maintainer
 (2026-09-27).
 
 Scope:
@@ -3408,8 +3438,11 @@ notice), R35 (the admin page), R36 (managing devices from an admin
 device: the API), R37 (managing devices in the app), R38 (pairing codes
 from an admin device), R39 (removing the /connect redirect), R40 (the
 device list scrolls to its last device), R41 (deleting revoked devices:
-the API and the admin page), R42 (deleting revoked devices in the app) and
-R43 (a used pairing code: the API and the admin page) are done. **R44 (a
-used pairing code in the app) is next**; it is the last row of the queue.
+the API and the admin page), R42 (deleting revoked devices in the app),
+R43 (a used pairing code: the API and the admin page) and R44 (a used
+pairing code in the app) are done. **The queue is empty: nothing further
+is scheduled.** New work starts only when the maintainer adds it to the
+queue; the [deferred candidates](#deferred-candidates) are not started
+without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

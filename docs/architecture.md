@@ -1661,6 +1661,20 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   the screen closes. A `403` says "This device is no longer an admin
   device" as for the list; a server without the endpoint (`404`) says it
   cannot create pairing codes from a device, and the app stops offering it.
+- **A used code.** While a code is shown, and only while the screen is
+  open and the app in the foreground, the screen asks
+  `GET /api/v1/client/pairings/{id}`
+  ([Whether a code was used](#whether-a-code-was-used)) every 2.5 seconds,
+  as the admin page does, and once more as the code expires; it stops when
+  the screen closes, the code expires or it is used. Once it is used, a
+  message names the device ("Tablet" connected with the pairing code), the
+  QR code and link disappear and the screen goes back to its first state,
+  ready for the next device; the device list, read again when the screen
+  closes, shows the new device. A `403` says "This device is no longer an
+  admin device" and drops the code, which no longer works. A server older
+  than the status (no `id` in the `Pairing`, or `404` or `405` for it) is
+  not asked, or asked no more about that code, and the screen stays as it
+  was; any other failure is left to the next time it asks.
 - **Events.** The app maps the API's events to a typed model. A category or
   severity added in a later backend release maps to *unknown* rather than
   failing, so older apps keep working (see
