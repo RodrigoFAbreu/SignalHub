@@ -91,7 +91,7 @@ class SignalHubApi {
     return _read(
       body,
       (json) => PairedClient(
-        ClientRegistration.fromJson(json),
+        ClientRegistration.fromJson(json.object('client')),
         json.string('clientKey'),
       ),
     );
