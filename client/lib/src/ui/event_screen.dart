@@ -175,7 +175,9 @@ class _EventDetails extends StatelessWidget {
     final severityColor = event.severity.color(theme.colorScheme);
     return SelectionArea(
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        // Explicit padding drops the system insets a list pads by default:
+        // without them, its end is hidden under the navigation bar.
+        padding: const EdgeInsets.all(16) + MediaQuery.paddingOf(context),
         children: [
           Text(event.title, style: theme.textTheme.headlineSmall),
           const SizedBox(height: 12),

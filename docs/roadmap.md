@@ -1374,6 +1374,23 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `docs/development.md`; not a public contract (hidden from OpenAPI, not
   under `/api`, never forwarded by the proxy), so compatible (`chore`)
 
+### R40 - The device list scrolls to its last device
+
+- the cause: the device list, the event screen and _Connect a device_ gave
+  their lists an explicit padding, which replaces the padding a list
+  otherwise adds for the system insets; drawn edge to edge, as Android 15
+  and later require, their end stayed under the navigation bar. They now
+  add the insets to their padding, so the last device, and its actions,
+  scroll fully into view clear of the navigation bar
+- the inbox and the push preferences keep a list's default padding, which
+  already includes the insets: they did not have the fault
+- widget tests on a large phone drawn edge to edge (1080 x 2340 pixels at
+  2.625x, with a status bar and a navigation bar as insets): more devices
+  than fit on the screen, scrolled to the last one, which with its actions
+  is fully visible and its actions open; a long event and a pairing code
+  in large text scrolled to their end; each fails without the fix;
+  compatible (`fix(client)`), no API change
+
 ---
 
 ## 4. Planned roadmap
@@ -1931,8 +1948,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 26    | R37 - Managing devices in the app                                                                | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 27    | R38 - Pairing codes from an admin device                                                         | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 28    | R39 - Remove the /connect redirect                                                               | Increment (`chore`)                    | Done (see section 3)                                                             |
-| 29    | R40 - The device list scrolls to its last device                                                 | Increment (`fix(client)`)              | Next                                                                             |
-| 30    | R41 - Deleting revoked devices: the API and the admin page                                       | Increment (`feat`)                     | Blocked until R40 is merged                                                      |
+| 29    | R40 - The device list scrolls to its last device                                                 | Increment (`fix(client)`)              | Done (see section 3)                                                             |
+| 30    | R41 - Deleting revoked devices: the API and the admin page                                       | Increment (`feat`)                     | Next                                                                             |
 | 31    | R42 - Deleting revoked devices in the app                                                        | Increment (`feat(client)`)             | Blocked until R41 is merged                                                      |
 | 32    | R43 - A used pairing code: the API and the admin page                                            | Increment (`feat`)                     | Blocked until R42 is merged                                                      |
 | 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Blocked until R43 is merged                                                      |
@@ -3038,8 +3055,8 @@ Non-goals: any other change to the admin page, the API or the app.
 
 ### R40 - The device list scrolls to its last device
 
-Status: planned; next. Added by the maintainer (2026-09-27), from the
-functional review of `v2.11.1`.
+Status: complete (see section 3). Added by the maintainer (2026-09-27),
+from the functional review of `v2.11.1`.
 
 Goal: an admin device sees every device in the app's device list (R37),
 however long the list is.
@@ -3062,7 +3079,7 @@ Non-goals: any other change to the device list.
 
 ### R41 - Deleting revoked devices: the API and the admin page
 
-Status: planned; blocked until R40 is merged. Added by the maintainer
+Status: planned; next. Added by the maintainer
 (2026-09-27).
 
 Goal: devices that were revoked, for example a phone paired again, can be
@@ -3276,8 +3293,9 @@ The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-af
 (section 4) is authoritative. R34 (the Connect page and the pairing
 notice), R35 (the admin page), R36 (managing devices from an admin
 device: the API), R37 (managing devices in the app), R38 (pairing codes
-from an admin device) and R39 (removing the /connect redirect) are done.
-**R40 (the device list scrolls to its last device) is next**, then R41,
-R42, R43 and R44 in that order, each after the previous one is merged.
+from an admin device), R39 (removing the /connect redirect) and R40 (the
+device list scrolls to its last device) are done. **R41 (deleting revoked
+devices: the API and the admin page) is next**, then R42, R43 and R44 in
+that order, each after the previous one is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

@@ -10,8 +10,11 @@ import 'package:signalhub_client/src/connection/pairing_uri.dart';
 import 'package:signalhub_client/src/push/push_registration.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
 import 'package:signalhub_client/src/ui/connect_device_screen.dart';
+import 'package:signalhub_client/src/ui/device_screen.dart';
+import 'package:signalhub_client/src/ui/event_screen.dart';
 
 import 'support/fakes.dart';
+import 'support/phone.dart';
 
 void main() {
   late FakeBackend backend;
@@ -346,6 +349,24 @@ void main() {
     expect(find.text('e-2'), findsOneWidget);
     // Metadata is shown as the producer sent it.
     expect(find.text('{\n  "run": 7\n}'), findsOneWidget);
+  });
+
+  testWidgets('a long event scrolls clear of the navigation bar', (
+    tester,
+  ) async {
+    useEdgeToEdgePhone(tester);
+    backend.publish(
+      'e-2',
+      'Deploy done',
+      message: List.filled(60, 'A line of the message.').join('\n'),
+    );
+    await connect(tester);
+    await tester.tap(find.text('Deploy done'));
+    await tester.pumpAndSettle();
+
+    await scrollToEnd(tester, find.byType(EventScreen));
+
+    expectClearOfNavigationBar(tester, find.byKey(const Key('metadata')));
   });
 
   group('an event\'s link', () {
@@ -1070,6 +1091,28 @@ void main() {
       expect(find.byKey(const Key('deviceActions-$laptop')), findsNothing);
       expect(find.byKey(const Key('deviceActions-c-phone')), findsNothing);
       expect(find.byKey(const Key('deviceActions-$tablet')), findsOneWidget);
+    });
+
+    testWidgets('the last device scrolls clear of the navigation bar', (
+      tester,
+    ) async {
+      useEdgeToEdgePhone(tester);
+      // More devices than fit on the screen. Revoked ones come last and
+      // offer no actions: the last device here is one that does.
+      backend.otherClients.removeWhere((c) => c['revokedAt'] != null);
+      for (var i = 1; i <= 20; i++) {
+        backend.addClient('c-$i', 'Device $i');
+      }
+      await openDevices(tester);
+
+      await scrollToEnd(tester, find.byType(DeviceScreen));
+
+      expectClearOfNavigationBar(tester, find.byKey(const Key('device-c-20')));
+      final actions = find.byKey(const Key('deviceActions-c-20'));
+      expectClearOfNavigationBar(tester, actions);
+      await tester.tap(actions);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('revoke')), findsOneWidget);
     });
 
     testWidgets('revokes a device after a confirmation', (tester) async {
