@@ -574,7 +574,8 @@ Every product API endpoint requires a credential. This version does not yet:
   without the management API (see [deployment.md](deployment.md)). Compose
   publishes the backend itself on `127.0.0.1` only.
 - **Rate-limit** authentication attempts. Guessing is infeasible (256-bit
-  secrets), but a flood of requests still costs a database lookup each.
+  secrets, 128-bit pairing codes that expire in 10 minutes), but a flood of
+  requests still costs a database lookup each.
 - **Separate the management API** onto its own port or network. It is
   protected by the admin token, disabled by default and not forwarded by the
   Compose proxy, so it is reachable only on the host; for the tightest
@@ -588,7 +589,8 @@ Every product API endpoint requires a credential. This version does not yet:
 
 ## Clients
 
-> Status: implemented. Clients are registered, authenticate with client keys,
+> Status: implemented. Clients are registered by the operator or by
+> [pairing](#pairing) a device, authenticate with client keys,
 > read events, and store a push target that receives pushes (see
 > [Push delivery](#push-delivery)), filtered by the client's
 > [push preferences](#push-preferences).
@@ -632,6 +634,57 @@ new client and revoking the old one. Revocation is permanent and immediate.
 **What a client key may do:** read the event listing, and read and change its
 own registration (push target and push preferences) under `/api/v1/client`. It cannot publish, manage producers
 or other clients, or see push targets of other clients.
+
+### Pairing
+
+Pairing lets a new device register itself, so setting it up needs neither
+the admin token on the device nor typing a client key:
+
+1. The operator creates a **pairing** for a client name with the admin token
+   (`POST /api/v1/admin/pairings`, `{"name": "Pixel 8"}`). The response has a
+   one-time **pairing code**, when it expires, and a **pairing URI** to show
+   as a QR code (for example with `qrencode`, see
+   [development.md](development.md#pairing-a-device)).
+2. The device redeems the code once, before it expires:
+   `POST /api/v1/pairing` with `Authorization: Bearer <code>` and no body.
+   SignalHub registers a new client of that name, exactly as the management
+   API does, and returns it with its client key (`201`, the same body as
+   registering a client), shown only in that response.
+
+```
+shpc1_Zt1vQ3x9rB2mKc8wYp4aLd        pairing code
+signalhub://pair?server=https%3A%2F%2Fsignalhub.example.com&code=shpc1_Zt1vQ3x9rB2mKc8wYp4aLd
+```
+
+- **Codes.** A format prefix (`shpc1_`, "SignalHub pairing code", version 1,
+  distinct from client and producer keys) and a 128-bit random secret,
+  base64url (22 characters). That makes guessing infeasible for a code that
+  lives minutes, and keeps the QR code small. Only `SHA-256(code)` is stored
+  (`pairings.code_hash`).
+- **Ten minutes, once.** A code expires 10 minutes after it is created.
+  Redeeming it deletes the pairing, in the same transaction that registers
+  the client, and the pairing's row is locked while it is redeemed, so two
+  concurrent redemptions of one code make one client. Expired pairings are
+  deleted when the next pairing is created. A missing, malformed, unknown,
+  used or expired code gets the same `401` as a wrong key (see
+  [Authentication errors](#authentication-errors)).
+- **Its own client.** A paired device is an ordinary client with its own key,
+  listed and revoked through the management API like any other; no key is
+  shared between devices. Registering a client with the management API and
+  giving the device its key by hand keeps working.
+- **The URI.** `signalhub://pair?server=<address>&code=<code>`, the address
+  percent-encoded. The address is `SIGNALHUB_PUBLIC_URL`, where devices reach
+  the server; SignalHub cannot learn it from the request, because the
+  operator creates pairings on the host, not through the proxy. Compose
+  defaults it to `https://` and `SIGNALHUB_DOMAIN` when the proxy is set up.
+  Without it, `uri` is `null` and the device is given the address and the
+  code separately. It must be an absolute `http` or `https` URL without
+  credentials, query or fragment, or startup stops; a trailing slash is
+  dropped.
+- **Reachable.** `/api/v1/pairing` is outside `/api/v1/admin/`, so the Compose
+  proxy forwards it; creating pairings is management and stays on the host.
+- **Nothing provider-specific.** A pairing holds only a client name; push is
+  set up afterwards with the client key, as for any client.
 
 ### Push targets
 
@@ -699,6 +752,8 @@ suppressed push is simply not sent to that client.
 | `GET /api/v1/admin/clients` | admin token | All clients, oldest first, as `{"items": [...]}`. |
 | `GET /api/v1/admin/clients/{id}` | admin token | One client. |
 | `POST /api/v1/admin/clients/{id}/revoke` | admin token | Revokes the client and removes its push target. Idempotent. |
+| `POST /api/v1/admin/pairings` | admin token | Creates a pairing for a new client (`{"name": ...}`). `201` with `{"name", "code", "expiresAt", "uri"}`; see [Pairing](#pairing). |
+| `POST /api/v1/pairing` | pairing code | Redeems the code: registers the client. `201` with the client and `clientKey`, `Location` `/api/v1/client`. |
 | `GET /api/v1/client` | client key | The calling client's registration. |
 | `PUT /api/v1/client/push-target` | client key | Sets the push target (`{"provider", "token"}`). `200` with the client. |
 | `DELETE /api/v1/client/push-target` | client key | Removes the push target. Idempotent. `200` with the client. |
@@ -719,7 +774,10 @@ forbids a push target on a revoked client. `V7__add_client_push_preferences.sql`
 adds `push_enabled`, `push_minimum_severity`, `push_muted_categories`
 (`text[]`) and `push_muted_producers` (`uuid[]`), with defaults that push
 every event, so existing clients keep receiving everything; check constraints
-allow only known severities and categories and at most 100 producers. Changes
+allow only known severities and categories and at most 100 producers.
+`V10__create_pairings.sql` creates `pairings`: `id`, `code_hash` (exactly 32
+bytes, unique), `client_name`, `created_at` and `expires_at`, which must be
+later than `created_at`. Changes
 to one client lock its
 row, so a revocation and a concurrent push-target update apply in order
 rather than one overwriting the other.
@@ -728,7 +786,9 @@ rather than one overwriting the other.
 
 Registration, revocation, push-target and push-preference changes are logged
 at `INFO` with the client ID, provider name and preferences only; never the key, its hash, or the push
-token. Rejected client keys are logged at `DEBUG` like producer keys.
+token. Creating and redeeming a pairing are logged at `INFO` with the pairing
+and client IDs, never the code. Rejected client keys and pairing codes are
+logged at `DEBUG` like producer keys.
 
 ## Push delivery
 

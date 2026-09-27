@@ -384,6 +384,8 @@ doubt.
 | `/api/v1/events/{id}` | `GET`: read an event by its ID, with a client key or the admin token. |
 | `/api/v1/admin/producers/...` | Producer management, with the admin token. See [Producers and API keys](#producers-and-api-keys). |
 | `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
+| `/api/v1/admin/pairings` | `POST`: create a pairing code for a new device, with the admin token. See [Pairing a device](#pairing-a-device). |
+| `/api/v1/pairing` | `POST`: a device redeems a pairing code and gets its client key. See [Pairing a device](#pairing-a-device). |
 | `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
@@ -496,7 +498,8 @@ curl -s -X PUT http://localhost:8080/api/v1/client/push-preferences -H "$C" \
   -H 'Content-Type: application/json' -d '{}'   # back to pushing every event
 ```
 
-The operator lists, inspects and revokes clients (`$CLIENT` is the ID above):
+The operator lists, inspects and revokes clients, paired ones included
+(`$CLIENT` is the ID above):
 
 ```sh
 H="Authorization: Bearer $ADMIN_TOKEN"
@@ -511,6 +514,48 @@ Every published event that the client's
 the target (see [Push dispatch](architecture.md#push-dispatch)); every event
 stays in the inbox either way. The client app does all of
 this itself; see [Client](#client).
+
+#### Pairing a device
+
+Instead of handing a device its client key, the operator can create a
+one-time pairing code, valid for 10 minutes, and the device registers itself
+with it (see [Pairing](architecture.md#pairing)):
+
+```sh
+curl -s http://localhost:8080/api/v1/admin/pairings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Pixel 8"}'
+```
+
+```json
+{
+  "name": "Pixel 8",
+  "code": "shpc1_<secret>",
+  "expiresAt": "2026-09-27T10:12:00.123456Z",
+  "uri": "signalhub://pair?server=https%3A%2F%2Fsignalhub.example.com&code=shpc1_<secret>"
+}
+```
+
+`uri` carries `SIGNALHUB_PUBLIC_URL` (see [Configuration](#configuration)) and
+is `null` without it. Show it as a QR code in the terminal with
+[`qrencode`](https://fukuchi.org/works/qrencode/) (package `qrencode` on
+Debian and Ubuntu):
+
+```sh
+qrencode -t ansiutf8 "$URI"
+```
+
+The device redeems the code once, with no body, through the proxy like any
+client request, and gets its client and key as registering a client returns
+them:
+
+```sh
+curl -s -X POST https://signalhub.example.com/api/v1/pairing \
+  -H "Authorization: Bearer $PAIRING_CODE"
+```
+
+A used, expired or unknown code gets `401`.
 
 ### Events API
 
@@ -663,13 +708,14 @@ Optional in every profile:
 |---|---|
 | `SIGNALHUB_ADMIN_TOKEN` | Enables the management API for producers and clients, and lets the operator list events. At least 32 characters (`openssl rand -hex 32`); shorter stops startup. Unset or empty disables the management API; clients keep reading events with their keys. |
 | `SIGNALHUB_EVENTS_RETENTION` | How long events are kept, a duration of at least `1d` such as `365d`; older events are deleted every hour. Shorter stops startup. Unset or empty keeps events forever (the default). See [Retention](architecture.md#retention). |
+| `SIGNALHUB_PUBLIC_URL` | The address devices reach SignalHub at, such as `https://signalhub.example.com`; [pairing](architecture.md#pairing) URIs carry it. An absolute `http` or `https` URL without credentials, query or fragment, or startup stops. Unset or empty: pairings have no URI. Compose defaults it to `https://` and `SIGNALHUB_DOMAIN` when that is set. |
 | `SIGNALHUB_LOG_JSON` | `true` writes console logs as JSON, one object per line, for log collectors; default `false` (plain text). See [Logs](architecture.md#logs). |
 | `SIGNALHUB_PUSH_DISPATCH_INTERVAL` | How often the push dispatcher looks for new events to push; default `2s`. See [Push dispatch](architecture.md#push-dispatch). |
 | `SIGNALHUB_PUSH_FCM_CLIENT_OPTIONS_FILE` | Path to the app's Firebase options (JSON, the `firebase-options.json` of [client/README.md](../client/README.md#push-notifications)), served to clients at `GET /api/v1/client/push-config`. Needs `SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE`; an unreadable or invalid file, or a service account key, stops startup. Unset or empty: no options are served. See [Firebase Cloud Messaging](#firebase-cloud-messaging). |
 | `SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE` | Path to a Firebase service account key file (JSON). Enables push through Firebase Cloud Messaging (provider `fcm`); an unreadable or invalid file stops startup. Unset or empty: no `fcm` provider, and `fcm` push targets are reported as unsupported. See [Firebase Cloud Messaging](#firebase-cloud-messaging). |
 
 Compose passes `SIGNALHUB_ADMIN_TOKEN`, `SIGNALHUB_EVENTS_RETENTION`,
-`SIGNALHUB_LOG_JSON` and the database settings from `.env` (see
+`SIGNALHUB_LOG_JSON`, `SIGNALHUB_PUBLIC_URL` and the database settings from `.env` (see
 `.env.example`); any other variable, such as
 `SIGNALHUB_PUSH_DISPATCH_INTERVAL` or a log level, goes in the backend's
 `environment` in `compose.override.yaml`, as for FCM below. Never commit
@@ -901,7 +947,10 @@ scripts/release/check-image.sh signalhub-backend:check 0.0.0-ci "$(git rev-parse
 # and expects 404 there for management, health, metrics and OpenAPI, however
 # the path is spelled, and a redirect from plain HTTP, registers a client that lists the event
 # with its key, marks it read and counts no unread events, sets a push
-# target, revokes the client and expects 401, publishes with the Python command
+# target, revokes the client and expects 401, creates a pairing on the host
+# (and expects 404 for that through the proxy), checks that its URI names the
+# proxy's address, redeems it through the proxy, reads the new client with its
+# key, and expects 401 when redeeming it again, publishes with the Python command
 # and reads the event back (and expects exit status 1 with an invalid key),
 # restarts the backend with JSON logs and checks that every line is JSON, that
 # the startup summary is logged, and that no secret is, backs up the database,

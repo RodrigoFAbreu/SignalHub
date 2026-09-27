@@ -34,6 +34,13 @@ class AdminApiDisabledTest {
     given().get(ADMIN).then().statusCode(404);
     given()
         .header("Authorization", SOME_TOKEN)
+        .contentType(ContentType.JSON)
+        .body("{\"name\": \"disabled-admin\"}")
+        .post("/api/v1/admin/pairings")
+        .then()
+        .statusCode(404);
+    given()
+        .header("Authorization", SOME_TOKEN)
         .post(ADMIN + "/" + UUID.randomUUID() + "/keys")
         .then()
         .statusCode(404);

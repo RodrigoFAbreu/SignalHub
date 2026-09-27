@@ -22,3 +22,4 @@ creates or alters tables.
 | `V7__add_client_push_preferences.sql` | Push preferences on `clients`: paused, minimum severity, muted categories and producers |
 | `V8__create_push_retries.sql` | `push_retries` table: pushes to one client waiting to be sent again after a temporary failure |
 | `V9__add_event_idempotency_key.sql` | `events.idempotency_key`, unique per producer: publishing again with the same key returns the stored event |
+| `V10__create_pairings.sql` | `pairings` table: hashes of one-time pairing codes that register a new client |

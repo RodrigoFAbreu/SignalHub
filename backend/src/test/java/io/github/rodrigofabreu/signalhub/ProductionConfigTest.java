@@ -74,6 +74,16 @@ class ProductionConfigTest {
   }
 
   @Test
+  void publicUrlComesOnlyFromTheEnvironment() throws IOException {
+    var publicUrl = "signalhub.public-url";
+    assertEquals(Optional.empty(), prodConfig(Map.of()).getOptionalValue(publicUrl, String.class));
+    assertEquals(
+        Optional.of("https://signalhub.example.com"),
+        prodConfig(Map.of("SIGNALHUB_PUBLIC_URL", "https://signalhub.example.com"))
+            .getOptionalValue(publicUrl, String.class));
+  }
+
+  @Test
   void jsonLogsAreOptIn() throws IOException {
     assertEquals(false, prodConfig(Map.of()).getValue(JSON_LOGS, Boolean.class));
     assertEquals(

@@ -52,6 +52,7 @@ class StartupDiagnostics {
                 .orElse("not configured")
             + value("quarkus.datasource.username").map(user -> " as " + user).orElse(""),
         "management API " + (adminToken.enabled() ? "enabled" : "disabled"),
+        "public URL " + value("signalhub.public-url").orElse("not set (pairings have no URI)"),
         "FCM credentials file "
             + value("signalhub.push.fcm.credentials-file").orElse("not set (no fcm provider)"),
         "FCM client options file "

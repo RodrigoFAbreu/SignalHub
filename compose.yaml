@@ -50,6 +50,9 @@ services:
       SIGNALHUB_LOG_JSON: ${SIGNALHUB_LOG_JSON:-false}
       # How long events are kept, such as 365d. Empty or unset keeps them forever.
       SIGNALHUB_EVENTS_RETENTION: ${SIGNALHUB_EVENTS_RETENTION:-}
+      # The address devices reach SignalHub at, carried by pairing URIs. Defaults
+      # to the proxy's https://SIGNALHUB_DOMAIN; empty when neither is set.
+      SIGNALHUB_PUBLIC_URL: ${SIGNALHUB_PUBLIC_URL:-${SIGNALHUB_DOMAIN:+https://${SIGNALHUB_DOMAIN}}}
     ports:
       # Localhost only: the API has no TLS, and health, metrics and the
       # management API are for the host. Other machines go through the proxy.

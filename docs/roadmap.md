@@ -995,6 +995,32 @@ The following capabilities are already implemented and merged unless repository 
 - client only: no API, schema or backend change; `fix(client)`, a patch
   release
 
+### R28 - Pairing a device: the API
+
+- `POST /api/v1/admin/pairings` (admin token, `{"name"}`) creates a pairing
+  for a new client: a one-time code `shpc1_<22 base64url characters>` (128
+  random bits), valid for 10 minutes, and a pairing URI
+  `signalhub://pair?server=<public URL>&code=<code>` to show as a QR code
+  (`qrencode`, documented in `docs/development.md#pairing-a-device`)
+- the public URL is a new optional setting, `SIGNALHUB_PUBLIC_URL`: the
+  operator creates pairings on the host, so the request cannot tell the
+  server's address; Compose defaults it to `https://` and `SIGNALHUB_DOMAIN`,
+  a malformed one stops startup, and without it `uri` is `null`
+- `POST /api/v1/pairing` with `Authorization: Bearer <code>` redeems the code
+  once before it expires: it registers the client as the management API
+  does (its own key, listed and revocable) and returns it with its key
+  (`201`); a missing, malformed, unknown, used or expired code gets the
+  usual `401`; it is outside `/api/v1/admin/`, so the proxy forwards it
+- `V10__create_pairings.sql`: only the SHA-256 of the code is stored;
+  redeeming deletes the pairing under its row lock, in the transaction that
+  registers the client, so concurrent redemptions make one client; expired
+  pairings are deleted when the next one is created
+- tests against real PostgreSQL (single use, expiry, eight concurrent
+  redemptions making one client, revoking a paired client, the stored hash),
+  the OpenAPI document, the configuration, and a pairing redeemed through
+  the proxy in the Compose smoke test; registering a client with the
+  management API and manual setup are unchanged; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1540,8 +1566,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 14 | R25 - Java 25 (decision D2) | Increment (`build`) | Done (see section 3) |
 | 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Done (see section 3) |
 | 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Done (see section 3) |
-| 17 | R28 - Pairing a device: the API | Increment (`feat`) | Next |
-| 18 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Blocked until R28 is merged |
+| 17 | R28 - Pairing a device: the API | Increment (`feat`) | Done (see section 3) |
+| 18 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Next |
 
 How an autonomous run uses it:
 
@@ -2197,7 +2223,7 @@ under [Deferred candidates](#deferred-candidates).
 
 ### R28 - Pairing a device: the API
 
-Status: next.
+Status: complete (see section 3).
 
 Goal: setting up a device needs neither the admin token on the phone nor
 typing a long client key.
@@ -2234,7 +2260,8 @@ Compatible (`feat`).
 
 ### R29 - Pairing a device: the app
 
-Status: planned; blocked until R28 is merged.
+Status: next. The API it uses is described in
+`docs/architecture.md#pairing` (R28).
 
 Scope:
 
@@ -2360,8 +2387,8 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. R27 (inbox and event-screen polish) is done,
-so the expected next item is **R28 - Pairing a device: the API**, a new
-additive API (see [section 5](#5-after-v100)).
+(section 4) is authoritative. R28 (pairing a device: the API) is done, so
+the expected next item is **R29 - Pairing a device: the app** (see
+[section 5](#5-after-v100)).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

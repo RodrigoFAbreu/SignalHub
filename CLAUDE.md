@@ -35,7 +35,9 @@ admin token), a paginated event listing
 authentication (server-issued API keys, managed through
 `/api/v1/admin/producers` with an admin token), and client registration
 (per-installation client keys and provider-neutral push targets, managed
-through `/api/v1/admin/clients` and `/api/v1/client`) with per-client push
+through `/api/v1/admin/clients` and `/api/v1/client`, or by a device
+redeeming a one-time pairing code from `/api/v1/admin/pairings` at
+`/api/v1/pairing`) with per-client push
 preferences (pause, minimum severity, muted categories and producers), and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging
 provider enabled by a service account key file (and the app's push options

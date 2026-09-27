@@ -27,6 +27,7 @@ class StartupDiagnosticsTest {
     assertThat(summary, startsWith("SignalHub development build; Configuration: profile test;"));
     assertThat(summary, containsString("database jdbc:postgresql://"));
     assertThat(summary, containsString("management API enabled"));
+    assertThat(summary, containsString("public URL https://signalhub.example.test/"));
     assertThat(summary, containsString("FCM credentials file not set (no fcm provider)"));
     assertThat(
         summary,

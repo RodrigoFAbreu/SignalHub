@@ -273,4 +273,36 @@ class OpenApiTest {
         .body(SCHEMAS + ".Client.properties", not(hasKey("clientKey")))
         .body(SCHEMAS + ".PushTarget.properties", not(hasKey("token")));
   }
+
+  @Test
+  void describesPairing() {
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body("components.securitySchemes.pairingCode.scheme", equalTo("bearer"))
+        .body(
+            "paths.'/api/v1/admin/pairings'.post.security",
+            equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(
+            "paths.'/api/v1/admin/pairings'.post.requestBody.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/CreateClientRequest"))
+        .body(
+            "paths.'/api/v1/admin/pairings'.post.responses.'201'.content.'application/json'"
+                + ".schema.$ref",
+            equalTo("#/components/schemas/Pairing"))
+        .body(SCHEMAS + ".Pairing.required", containsInAnyOrder("name", "code", "expiresAt"))
+        .body(SCHEMAS + ".Pairing.properties", hasKey("uri"))
+        .body(
+            "paths.'/api/v1/pairing'.post.security",
+            equalTo(List.of(Map.of("pairingCode", List.of()))))
+        .body(
+            "paths.'/api/v1/pairing'.post.responses.'201'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/IssuedClientKey"))
+        .body("paths.'/api/v1/pairing'.post.responses", hasKey("401"))
+        .body("paths.'/api/v1/pairing'.post", not(hasKey("parameters")))
+        .body("paths.'/api/v1/pairing'.post", not(hasKey("requestBody")));
+  }
 }
