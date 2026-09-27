@@ -91,7 +91,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
           cache: maven
           cache-dependency-path: backend/pom.xml
       # Compiles, runs the tests against real PostgreSQL (Dev Services and
@@ -388,7 +388,7 @@ jobs:
           summary=$(jq --raw-input --raw-output \
             'fromjson | select(.loggerName | endswith(".StartupDiagnostics")) | .message' <<<"$logs")
           echo "$summary"
-          grep --quiet '^SignalHub development build; Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; .*event retention 400d; JSON logs on' <<<"$summary"
+          grep --quiet '^SignalHub development build; Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; .*event retention 400d; JSON logs on; Java 25\.' <<<"$summary"
           if grep --quiet --fixed-strings --regexp="$ADMIN_TOKEN" --regexp="$db_password" <<<"$logs"; then
             echo "a secret reached the logs"; exit 1
           fi

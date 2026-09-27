@@ -1120,7 +1120,7 @@ collect it. Credentials never reach the logs (see the Logging sections of
   running service uses:
 
   ```text
-  SignalHub 1.2.3 (commit 0123456789abcdef0123456789abcdef01234567); Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; FCM credentials file /run/secrets/fcm.json; FCM client options file /run/config/firebase-options.json; push dispatch every 2s; event retention off (events are kept forever); JSON logs off; Java 21.0.8+9-LTS, 2 CPUs, max heap 768 MiB
+  SignalHub 1.2.3 (commit 0123456789abcdef0123456789abcdef01234567); Configuration: profile prod; database jdbc:postgresql://postgres:5432/signalhub as signalhub; management API enabled; FCM credentials file /run/secrets/fcm.json; FCM client options file /run/config/firebase-options.json; push dispatch every 2s; event retention off (events are kept forever); JSON logs off; Java 25.0.4.1+1-LTS, 2 CPUs, max heap 768 MiB
   ```
 
   It names settings, never secret values: the admin token appears only as
@@ -1356,7 +1356,7 @@ storage was measured on PostgreSQL with SignalHub's schema.
 
 | Component | Direction | Responsibility |
 |---|---|---|
-| Backend | Java 21, Quarkus (see [Backend platform](#backend-platform)) | Producer API, validation, persistence, dispatch, client-facing API |
+| Backend | Java 25, Quarkus (see [Backend platform](#backend-platform)) | Producer API, validation, persistence, dispatch, client-facing API |
 | Database | PostgreSQL | System of record for events, producers, devices, delivery state |
 | Push | A push provider, likely Firebase Cloud Messaging | Transport to devices only, carrying minimal payloads |
 | Clients | Flutter app for Android and iOS (see [Client application](#client-application)); other clients (CLI, web) may follow | Device registration, notifications, event browsing |
@@ -1377,7 +1377,7 @@ cannot meet.
 
 | Concern | Choice |
 |---|---|
-| Language and runtime | Java 21 (LTS) |
+| Language and runtime | Java 25 (LTS) |
 | Framework | Quarkus |
 | HTTP API | Quarkus REST (RESTEasy Reactive), JSON |
 | Persistence | Hibernate ORM with Panache over PostgreSQL |
@@ -1430,9 +1430,10 @@ Implementation expectations:
   `javac -Xlint:all` with warnings as errors. Both run in `./mvnw verify`
   alongside the tests, which is exactly what CI runs.
 - **Packaging:** Quarkus fast-jar in JVM mode. `backend/Dockerfile` builds it
-  in a Maven stage and runs it on an Eclipse Temurin 21 JRE as a non-root
-  user, with base images pinned by digest. Heap is sized from the container
-  limit (`-XX:MaxRAMPercentage=75`). Native images are out of scope.
+  in a Maven stage and runs it on an Eclipse Temurin 25 JRE as a non-root
+  user, with base images pinned by digest and `curl` added for the image's
+  health check. Heap is sized from the container limit
+  (`-XX:MaxRAMPercentage=75`). Native images are out of scope.
 - **Configuration:** `application.properties` holds non-secret defaults.
   Dev and test get PostgreSQL from Quarkus Dev Services. The `prod` profile
   reads `SIGNALHUB_DB_URL`, `SIGNALHUB_DB_USERNAME`, and

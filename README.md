@@ -16,7 +16,7 @@ producers ──HTTPS──▶ backend (Quarkus + PostgreSQL) ──push──�
 optional SDK/CLI
 ```
 
-- **Backend:** Java 21, Quarkus (Quarkus REST, Hibernate ORM with Panache,
+- **Backend:** Java 25, Quarkus (Quarkus REST, Hibernate ORM with Panache,
   Flyway, Jakarta Validation, SmallRye OpenAPI and Health), PostgreSQL
 - **Push delivery:** a push provider, likely Firebase Cloud Messaging
 - **Client app:** Flutter, one codebase for Android and iOS, with push
