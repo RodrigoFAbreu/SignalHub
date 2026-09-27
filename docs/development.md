@@ -384,7 +384,7 @@ doubt.
 | `/api/v1/events/{id}` | `GET`: read an event by its ID, with a client key or the admin token. |
 | `/api/v1/admin/producers/...` | Producer management, with the admin token. See [Producers and API keys](#producers-and-api-keys). |
 | `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
-| `/api/v1/admin/pairings` | `POST`: create a pairing code for a new device, with the admin token. See [Pairing a device](#pairing-a-device). |
+| `/api/v1/admin/pairings` | `POST`: create a pairing code for a new device, with the admin token; `GET /{id}`: whether it was used, and by which device. See [Pairing a device](#pairing-a-device). |
 | `/api/v1/pairing` | `POST`: a device redeems a pairing code and gets its client key; the owner's other devices get a push. See [Pairing a device](#pairing-a-device). |
 | `/admin/` | The admin page: with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and to delete it once revoked, and creates a pairing code shown as a QR code to scan, copy or download. Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
 | `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
@@ -576,7 +576,9 @@ with it (see [Pairing](architecture.md#pairing)). The
 `http://localhost:8080/admin/` does it in a browser: enter the admin token,
 then under **Connect a device** a device name (and whether it is an admin
 device), and it shows the QR code with a countdown, and copies it as an
-image or a link, or downloads it. From a terminal:
+image or a link, or downloads it. Once a device has used the code, the page
+says which device connected, hides the code and is ready for the next one.
+From a terminal:
 
 ```sh
 curl -s http://localhost:8080/api/v1/admin/pairings \
@@ -587,6 +589,7 @@ curl -s http://localhost:8080/api/v1/admin/pairings \
 
 ```json
 {
+  "id": "01997d5e-8a3c-7b1e-9f2a-4c6d8e0f1a2b",
   "name": "Pixel 8",
   "admin": false,
   "code": "shpc1_<secret>",
@@ -617,6 +620,20 @@ curl -s -X POST https://signalhub.example.com/api/v1/pairing \
 A used, expired or unknown code gets `401`. Once a code is redeemed, every
 other client with a push target that has not paused pushes gets the
 [pairing notice](architecture.md#pairing-notice), "New device paired".
+
+Whether the code was used, and by which device, is asked with the pairing's
+`id` (see [Whether a code was used](architecture.md#whether-a-code-was-used));
+an admin device asks about its own codes the same way at
+`/api/v1/client/pairings/$PAIRING_ID` with its key:
+
+```sh
+curl -s "http://localhost:8080/api/v1/admin/pairings/$PAIRING_ID" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '{state, client}'
+```
+
+`state` is `PENDING`, `REDEEMED` (with `client`, the new device's ID and
+name) or `EXPIRED`; a pairing is `404` once it is deleted, 10 minutes after
+it expired.
 
 ### Events API
 
@@ -1014,8 +1031,11 @@ scripts/release/check-image.sh signalhub-backend:check 0.0.0-ci "$(git rev-parse
 # deletes it (204, then 404) with the event it read kept read, creates a pairing on the host
 # (and expects 404 for that through the proxy), checks that its URI names the
 # proxy's address, redeems it through the proxy, reads the new client with its
-# key, and expects 401 when redeeming it again, has an admin device revoke it and
-# delete it (204, then 404) through the proxy, publishes with the Python command
+# key, and expects 401 when redeeming it again, sees on the host that the
+# pairing was used and by which device, has an admin device pair another device
+# and see its own code used through the proxy (403 for another device, 404 for
+# the operator's code), revoke the first and delete it (204, then 404) through
+# the proxy, publishes with the Python command
 # and reads the event back (and expects exit status 1 with an invalid key),
 # restarts the backend with JSON logs and checks that every line is JSON, that
 # the startup summary is logged, and that no secret is, backs up the database,

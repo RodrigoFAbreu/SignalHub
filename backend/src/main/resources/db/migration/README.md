@@ -27,3 +27,4 @@ creates or alters tables.
 | `V12__add_client_push_results.sql` | Each client's last successful and last failed push on `clients`, for the management API |
 | `V13__add_client_admin.sql` | `clients.admin` and `pairings.admin`: whether a client is an admin device, and whether a pairing makes one |
 | `V14__add_pairing_created_by.sql` | `pairings.created_by`: the admin device that created a pairing, if one did |
+| `V15__add_pairing_redemption.sql` | `pairings.redeemed_at` and `pairings.redeemed_by`: when a pairing was redeemed, and as which client |

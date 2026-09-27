@@ -11,6 +11,7 @@ import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,6 +33,8 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -65,6 +68,7 @@ class PairingApiTest {
             .body("name", equalTo("Pixel 8"))
             .body("admin", equalTo(false))
             .body("code", startsWith(PairingCodes.PREFIX))
+            .body("id", notNullValue())
             .header("Location", nullValue())
             .extract();
     String code = pairing.path("code");
@@ -142,13 +146,148 @@ class PairingApiTest {
   }
 
   @Test
-  void creatingAPairingDeletesExpiredOnes() throws SQLException {
-    String code = createPairing("Forgotten phone").extract().path("code");
-    expire(code);
+  void aPairingIsPendingUntilItsCodeIsUsed() {
+    var pairing = createPairing("Waiting phone").extract();
+    String id = pairing.path("id");
+
+    status(id)
+        .statusCode(200)
+        .body("id", equalTo(id))
+        .body("state", equalTo("PENDING"))
+        .body("expiresAt", equalTo(pairing.path("expiresAt")))
+        .body("redeemedAt", nullValue())
+        .body("client", nullValue());
+  }
+
+  @Test
+  void aUsedPairingNamesTheDeviceThatRedeemedIt() {
+    var pairing = createPairing("Used phone").extract();
+    String id = pairing.path("id");
+    String code = pairing.path("code");
+    String clientId = redeem(code).statusCode(201).extract().path("client.id");
+
+    var status =
+        status(id)
+            .statusCode(200)
+            .body("state", equalTo("REDEEMED"))
+            .body("client.id", equalTo(clientId))
+            .body("client.name", equalTo("Used phone"))
+            .body("redeemedAt", notNullValue())
+            .extract();
+
+    // Neither the code nor a key, ever.
+    assertEquals(Map.of("id", clientId, "name", "Used phone"), status.path("client"));
+    assertFalse(status.asString().contains(code.substring(6)));
+    assertFalse(status.asString().contains("shck1_"));
+  }
+
+  @Test
+  void aUsedCodeNeverRedeemsAgain() throws SQLException {
+    var pairing = createPairing("Once phone").extract();
+    String code = pairing.path("code");
+    redeem(code).statusCode(201);
+
+    redeem(code).statusCode(401).body("title", equalTo("Unauthorized"));
+
+    // Kept, marked as used, so its status can still be read.
+    assertEquals(1, pairingsWith(code));
+    assertEquals(1, clientsNamed("Once phone"));
+    status(pairing.path("id")).body("state", equalTo("REDEEMED"));
+  }
+
+  @Test
+  void aUsedPairingNamesTheDeviceAsItIsNamedNow() {
+    var pairing = createPairing("Before rename").extract();
+    String clientId = redeem(pairing.path("code")).statusCode(201).extract().path("client.id");
+    asAdmin()
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", "After rename"))
+        .patch(ADMIN + "/" + clientId)
+        .then()
+        .statusCode(200);
+
+    status(pairing.path("id")).body("client.name", equalTo("After rename"));
+  }
+
+  @Test
+  void aPairingWhoseDeviceWasDeletedIsUnknown() {
+    var pairing = createPairing("Deleted phone").extract();
+    String clientId = redeem(pairing.path("code")).statusCode(201).extract().path("client.id");
+    asAdmin().post(ADMIN + "/" + clientId + "/revoke").then().statusCode(200);
+    asAdmin().delete(ADMIN + "/" + clientId).then().statusCode(204);
+
+    status(pairing.path("id")).statusCode(404);
+  }
+
+  @Test
+  void anExpiredPairingSaysSo() throws SQLException {
+    var pairing = createPairing("Expired phone").extract();
+    expire(pairing.path("code"));
+
+    status(pairing.path("id")).statusCode(200).body("state", equalTo("EXPIRED"));
+  }
+
+  @Test
+  void anUnknownPairingIsNotFound() {
+    status(UUID.randomUUID().toString())
+        .statusCode(404)
+        .body("title", equalTo("Not found"))
+        .body("status", equalTo(404));
+    status("not-a-uuid").statusCode(404);
+  }
+
+  @Test
+  void anAdminDevicesPairingIsUnknownToTheAdminToken() {
+    var admin = TestClients.registerAdmin("device-with-pairing");
+    String id =
+        asClient(admin.clientKey())
+            .contentType(ContentType.JSON)
+            .body(Map.of("name", "Device's code"))
+            .post(CLIENT + "/pairings")
+            .then()
+            .statusCode(201)
+            .extract()
+            .path("id");
+
+    status(id).statusCode(404);
+  }
+
+  @Test
+  void aPairingsStatusNeedsTheAdminToken() {
+    String id = createPairing("Private phone").extract().path("id");
+    var client = TestClients.register("pairing-status-caller");
+
+    given().get(PAIRINGS + "/" + id).then().statusCode(401);
+    asClient(client.clientKey()).get(PAIRINGS + "/" + id).then().statusCode(401);
+  }
+
+  @Test
+  void creatingAPairingKeepsRecentlyExpiredOnes() throws SQLException {
+    var pairing = createPairing("Just expired phone").extract();
+    expire(pairing.path("code"));
 
     createPairing("Next phone");
 
-    assertEquals(0, pairingsWith(code));
+    status(pairing.path("id")).statusCode(200).body("state", equalTo("EXPIRED"));
+  }
+
+  @Test
+  void creatingAPairingDeletesThoseExpiredLongerAgo() throws SQLException {
+    var forgotten = createPairing("Forgotten phone").extract();
+    var used = createPairing("Long used phone").extract();
+    String usedClient = redeem(used.path("code")).statusCode(201).extract().path("client.id");
+    var longAgo = PairingService.LIFETIME.plus(PairingService.KEPT_AFTER_EXPIRY).plusMinutes(1);
+    expire(forgotten.path("code"), longAgo);
+    expire(used.path("code"), longAgo);
+
+    createPairing("Next phone");
+
+    assertEquals(0, pairingsWith(forgotten.path("code")));
+    assertEquals(0, pairingsWith(used.path("code")));
+    status(forgotten.path("id")).statusCode(404);
+    status(used.path("id")).statusCode(404);
+    // The client it made stays.
+    asAdmin().get(ADMIN + "/" + usedClient).then().statusCode(200);
   }
 
   @Test
@@ -261,13 +400,22 @@ class PairingApiTest {
     return given().header("Authorization", "Bearer " + code).post(PAIRING).then();
   }
 
+  private static ValidatableResponse status(String id) {
+    return asAdmin().get(PAIRINGS + "/" + id).then();
+  }
+
+  // Just expired: 11 minutes old.
   private void expire(String code) throws SQLException {
+    expire(code, Duration.ofMinutes(11));
+  }
+
+  private void expire(String code, Duration age) throws SQLException {
     try (var connection = dataSource.getConnection();
         var statement =
             connection.prepareStatement(
                 "UPDATE pairings SET created_at = created_at - ?::interval,"
                     + " expires_at = expires_at - ?::interval WHERE code_hash = ?")) {
-      var shift = Duration.ofMinutes(11).toSeconds() + " seconds";
+      var shift = age.toSeconds() + " seconds";
       statement.setString(1, shift);
       statement.setString(2, shift);
       statement.setBytes(3, ApiKeys.hash(code));

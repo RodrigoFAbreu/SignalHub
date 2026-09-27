@@ -179,7 +179,7 @@ public class DeviceResource {
       // Revoked between authentication and the change: answer as if the key had been rejected.
       case CALLER_REVOKED -> new NotAuthorizedException(BearerToken.unauthorized());
       case NOT_AN_ADMIN -> error(Response.Status.FORBIDDEN, "Not an admin device");
-      case UNKNOWN_CLIENT -> error(Response.Status.NOT_FOUND, "Not found");
+      case UNKNOWN_CLIENT, UNKNOWN_PAIRING -> error(Response.Status.NOT_FOUND, "Not found");
       case CLIENT_REVOKED -> error(Response.Status.CONFLICT, "Client is revoked");
       case CLIENT_IS_ADMIN -> error(Response.Status.CONFLICT, "Client is an admin device");
       case CLIENT_NOT_REVOKED -> error(Response.Status.CONFLICT, "Client is not revoked");

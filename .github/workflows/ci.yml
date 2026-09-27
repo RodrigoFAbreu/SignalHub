@@ -388,7 +388,7 @@ jobs:
           test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
           curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
             "http://localhost:8080/api/v1/events/$newest" | jq --exit-status '.readAt != null'
-      - name: A device pairs through the proxy with a code the operator made on the host, and an admin device pairs another, revokes it and deletes it
+      - name: A device pairs through the proxy with a code the operator made on the host, and an admin device pairs another, sees it used, revokes it and deletes it
         run: |
           pairing=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
@@ -400,6 +400,12 @@ jobs:
           # The URI names the proxy's address, from SIGNALHUB_DOMAIN.
           jq --exit-status '.uri == "signalhub://pair?server=https%3A%2F%2Flocalhost&code=" + .code' \
             <<<"$pairing" > /dev/null
+          pairing_id=$(jq --raw-output .id <<<"$pairing")
+          pairing_status() {
+            curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+              "http://localhost:8080/api/v1/admin/pairings/$pairing_id"
+          }
+          pairing_status | jq --exit-status '.state == "PENDING" and .client == null'
           # Creating pairings is management, which never leaves the host.
           status=$(curl --silent --cacert "$RUNNER_TEMP/proxy-ca.crt" --output /dev/null \
             --write-out '%{http_code}' --header "Authorization: Bearer $ADMIN_TOKEN" \
@@ -421,6 +427,12 @@ jobs:
           status=$(redeem --output /dev/null --write-out '%{http_code}')
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
           paired_id=$(jq --raw-output .client.id <<<"$paired")
+          # Whoever shows the code learns it was used, and by which device, never its key.
+          pairing_status | jq --exit-status --arg id "$paired_id" '.state == "REDEEMED"
+              and .client == {"id": $id, "name": "ci-paired-phone"}'
+          if pairing_status | grep --quiet --fixed-strings "$client_key"; then
+            echo "the pairing status holds the client key"; exit 1
+          fi
           devices() {
             curl --silent --cacert "$RUNNER_TEMP/proxy-ca.crt" "$@"
           }
@@ -450,9 +462,28 @@ jobs:
           jq --exit-status '.admin == false
               and .uri == "signalhub://pair?server=https%3A%2F%2Flocalhost&code=" + .code' \
             <<<"$device_pairing" > /dev/null
+          device_pairing_id=$(jq --raw-output .id <<<"$device_pairing")
           devices --fail --show-error --request POST \
             --header "Authorization: Bearer $device_code" https://localhost/api/v1/pairing \
             | jq --exit-status '.client.name == "ci-device-paired" and .client.admin == false'
+          # The admin device learns through the proxy that its code was used; no other device can.
+          devices --fail --show-error --header "Authorization: Bearer $admin_key" \
+            "https://localhost/api/v1/client/pairings/$device_pairing_id" \
+            | jq --exit-status '.state == "REDEEMED" and .client.name == "ci-device-paired"'
+          status=$(devices --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $client_key" \
+            "https://localhost/api/v1/client/pairings/$device_pairing_id")
+          test "$status" = 403 || { echo "expected 403, got $status"; exit 1; }
+          # The operator's pairing is not the admin device's.
+          status=$(devices --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $admin_key" \
+            "https://localhost/api/v1/client/pairings/$pairing_id")
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
+          # Asking about pairings with the admin token is management, which never leaves the host.
+          status=$(devices --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            "https://localhost/api/v1/admin/pairings/$pairing_id")
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
           devices --fail --show-error --request POST --header "Authorization: Bearer $admin_key" \
             "https://localhost/api/v1/client/devices/$paired_id/revoke" \
             | jq --exit-status '.revokedAt != null'

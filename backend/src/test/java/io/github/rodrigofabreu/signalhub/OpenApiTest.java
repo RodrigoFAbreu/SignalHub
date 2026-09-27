@@ -1,6 +1,7 @@
 package io.github.rodrigofabreu.signalhub;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
@@ -423,8 +424,31 @@ class OpenApiTest {
                 + ".schema.$ref",
             equalTo("#/components/schemas/Pairing"))
         .body(
-            SCHEMAS + ".Pairing.required", containsInAnyOrder("name", "admin", "code", "expiresAt"))
+            SCHEMAS + ".Pairing.required",
+            containsInAnyOrder("id", "name", "admin", "code", "expiresAt"))
         .body(SCHEMAS + ".Pairing.properties", hasKey("uri"))
+        .body(
+            "paths.'/api/v1/admin/pairings/{id}'.get.security",
+            equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(
+            "paths.'/api/v1/admin/pairings/{id}'.get.responses.'200'.content.'application/json'"
+                + ".schema.$ref",
+            equalTo("#/components/schemas/PairingStatus"))
+        .body(
+            "paths.'/api/v1/admin/pairings/{id}'.get.responses.keySet()",
+            hasItems("200", "401", "404"))
+        .body(SCHEMAS + ".PairingStatus.required", containsInAnyOrder("id", "state", "expiresAt"))
+        .body(
+            SCHEMAS + ".PairingStatus.properties.state.enum",
+            contains("PENDING", "REDEEMED", "EXPIRED"))
+        .body(SCHEMAS + ".PairingStatus.properties", hasKey("redeemedAt"))
+        .body(
+            SCHEMAS + ".PairingStatus.properties.client.$ref",
+            equalTo("#/components/schemas/PairedClient"))
+        .body(SCHEMAS + ".PairedClient.required", containsInAnyOrder("id", "name"))
+        // Whether a code was used never shows the code or a key.
+        .body(SCHEMAS + ".PairingStatus.properties", not(hasKey("code")))
+        .body(SCHEMAS + ".PairedClient.properties", not(hasKey("clientKey")))
         .body(
             "paths.'/api/v1/pairing'.post.security",
             equalTo(List.of(Map.of("pairingCode", List.of()))))
@@ -439,6 +463,7 @@ class OpenApiTest {
   @Test
   void describesPairingFromAnAdminDevice() {
     var create = "paths.'/api/v1/client/pairings'.post";
+    var status = "paths.'/api/v1/client/pairings/{id}'.get";
     given()
         .queryParam("format", "json")
         .when()
@@ -454,6 +479,12 @@ class OpenApiTest {
             create + ".responses.'201'.content.'application/json'.schema.$ref",
             equalTo("#/components/schemas/Pairing"))
         .body(create + ".responses.keySet()", hasItems("201", "400", "401", "403"))
+        .body(status + ".security", equalTo(List.of(Map.of("clientKey", List.of()))))
+        .body(status + ".tags", equalTo(List.of("Device management")))
+        .body(
+            status + ".responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/PairingStatus"))
+        .body(status + ".responses.keySet()", hasItems("200", "401", "403", "404"))
         .body(SCHEMAS + ".CreateDevicePairingRequest.required", equalTo(List.of("name")))
         // An admin device pairs only devices that are not admins.
         .body(SCHEMAS + ".CreateDevicePairingRequest.properties", not(hasKey("admin")));

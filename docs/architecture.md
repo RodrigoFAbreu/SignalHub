@@ -847,15 +847,18 @@ the admin token on the device nor typing a client key:
    (`POST /api/v1/admin/pairings`, `{"name": "Pixel 8"}`, and `"admin": true`
    to pair an [admin device](#admin-devices)), or an admin device does
    ([Pairing from an admin device](#pairing-from-an-admin-device)). The
-   response has a one-time **pairing code**, when it expires, and a
-   **pairing URI** to show as a QR code (for example with `qrencode`, see
-   [development.md](development.md#pairing-a-device)).
+   response has the pairing's `id`, a one-time **pairing code**, when it
+   expires, and a **pairing URI** to show as a QR code (for example with
+   `qrencode`, see [development.md](development.md#pairing-a-device)).
 2. The device redeems the code once, before it expires:
    `POST /api/v1/pairing` with `Authorization: Bearer <code>` and no body.
    SignalHub registers a new client of that name (an admin device if the
    pairing said so), exactly as the management
    API does, and returns it with its client key (`201`, the same body as
    registering a client), shown only in that response.
+3. Whoever shows the code, the operator or the admin device that created
+   it, can ask whether it was used, and by which device
+   ([Whether a code was used](#whether-a-code-was-used)).
 
 ```
 shpc1_Zt1vQ3x9rB2mKc8wYp4aLd        pairing code
@@ -868,11 +871,14 @@ signalhub://pair?server=https%3A%2F%2Fsignalhub.example.com&code=shpc1_Zt1vQ3x9r
   lives minutes, and keeps the QR code small. Only `SHA-256(code)` is stored
   (`pairings.code_hash`).
 - **Ten minutes, once.** A code expires 10 minutes after it is created.
-  Redeeming it deletes the pairing, in the same transaction that registers
-  the client, and the pairing's row is locked while it is redeemed, so two
-  concurrent redemptions of one code make one client. Expired pairings are
-  deleted when the next pairing is created. A missing, malformed, unknown,
-  used or expired code gets the same `401` as a wrong key (see
+  Redeeming it marks the pairing redeemed, with the time and the new
+  client's ID (`pairings.redeemed_at`, `pairings.redeemed_by`), in the same
+  transaction that registers the client, and a redeemed pairing never
+  redeems again. The pairing's row is locked while it is redeemed, so two
+  concurrent redemptions of one code make one client. Pairings, used or
+  not, are deleted when a pairing is created more than 10 minutes after
+  they expired; until then their status can be read. A missing, malformed,
+  unknown, used or expired code gets the same `401` as a wrong key (see
   [Authentication errors](#authentication-errors)).
 - **Its own client.** A paired device is an ordinary client with its own key,
   listed and revoked through the management API like any other; no key is
@@ -898,6 +904,52 @@ signalhub://pair?server=https%3A%2F%2Fsignalhub.example.com&code=shpc1_Zt1vQ3x9r
   push (see [Pairing notice](#pairing-notice)), so a code that leaked is
   noticed when it is used.
 
+#### Whether a code was used
+
+Whoever shows a pairing code learns, by asking, when a device has used it,
+so the admin page (and the app, from an admin device) can say which device
+connected and get ready for the next one:
+
+| Method and path | Credential | Result |
+|---|---|---|
+| `GET /api/v1/admin/pairings/{id}` | admin token | A pairing the operator created: `200` with its `PairingStatus`. |
+| `GET /api/v1/client/pairings/{id}` | admin device's client key | A pairing this device created: `200` with its `PairingStatus`. |
+
+```json
+{"id": "01997d5e-...", "state": "REDEEMED", "expiresAt": "2026-09-27T10:10:00.123456Z",
+ "redeemedAt": "2026-09-27T10:02:41.654321Z",
+ "client": {"id": "01997d60-...", "name": "Pixel 8"}}
+```
+
+- **States.** `PENDING`: the code still works. `REDEEMED`: a device redeemed
+  it, and `client` is that device's ID and its name now (it may have been
+  renamed since). `EXPIRED`: it expired unused. `redeemedAt` and `client` are
+  `null` unless `REDEEMED`. An asker that meets a state it does not know
+  treats it as `PENDING`, so a state added later is compatible.
+- **Polling, not pushing.** The asker polls while it shows the code; the
+  admin page asks every 2.5 seconds. For one owner that costs a lookup by
+  primary key now and then, and needs no connection held open.
+- **Kept long enough.** Redeeming no longer deletes a pairing: it is kept,
+  used or not, until a pairing is created more than 10 minutes after it
+  expired, so a used code is told from an expired one even by an asker whose
+  clock is late. Deleting the client it made deletes it too. After that it
+  is `404`, like an unknown ID.
+- **Only the creator's own.** The admin token answers only about pairings
+  created with it, and an admin device only about those it created; any
+  other pairing, another device's or the operator's, is `404` exactly like an
+  unknown ID. The client API part is admin only, as
+  [device management](#device-management-from-an-admin-device): every other
+  client key gets `403 Not an admin device` before the pairing is looked up,
+  and a missing, unknown or revoked key `401`, the admin token included. A
+  code whose admin device is revoked or no longer an admin stops working and
+  is deleted; that device can no longer ask either.
+- **No secrets.** The status never holds the code or a key, only IDs, times
+  and the new device's name. The pairing ID is not a secret: it redeems
+  nothing.
+- **No operator action.** `V15__add_pairing_redemption.sql` adds the two
+  nullable columns; pairings that existed before are unredeemed, as
+  redeeming used to delete them.
+
 #### Pairing from an admin device
 
 An [admin device](#admin-devices) creates pairing codes with its own client
@@ -905,7 +957,8 @@ key, so the owner can add a device from the app, away from the host:
 
 | Method and path | Result |
 |---|---|
-| `POST /api/v1/client/pairings` | Creates a pairing for a new client (`{"name": "Pixel 8"}`), exactly like the operator's: `201` with `{"name", "admin", "code", "expiresAt", "uri"}`, `admin` always `false`. The code redeems at `POST /api/v1/pairing` like any other. |
+| `POST /api/v1/client/pairings` | Creates a pairing for a new client (`{"name": "Pixel 8"}`), exactly like the operator's: `201` with `{"id", "name", "admin", "code", "expiresAt", "uri"}`, `admin` always `false`. The code redeems at `POST /api/v1/pairing` like any other. |
+| `GET /api/v1/client/pairings/{id}` | Whether a pairing this device created was used, and by which device; `404` for any other pairing. See [Whether a code was used](#whether-a-code-was-used). |
 
 - **Admin only, as device management.** Every other client key gets `403 Not
   an admin device`; a missing, unknown or revoked key is `401`, and so is the
@@ -962,8 +1015,16 @@ have no delete: they must be revoked first.
 admin device, and shows the pairing URI as a QR code, counts down to its
 expiry and blurs the code once it has expired. It copies the QR code as an
 image or the URI as text, or downloads the image, so the code can be sent to
-someone whose device should connect. The device list is read again after
-every change and with **Refresh**, for example once a device has paired.
+someone whose device should connect. While the code is shown, the page asks
+every 2.5 seconds whether it was used
+([Whether a code was used](#whether-a-code-was-used)), and once more when it
+expires. Once a device has used it, a toast says that the device (by name)
+connected with the pairing code, the QR code and the link disappear, the
+form goes back to its first state (the device name and _Create pairing
+code_) and the device list is read again, showing the new device. An
+expired code stays blurred until a new one is created, and the page stops
+asking. The device list is also read again after every change and with
+**Refresh**.
 
 - **On the host only.** The page is on the backend's own port, like `/q/`
   and the management API; the Compose proxy forwards only `/api/`, so it
@@ -1106,9 +1167,11 @@ suppressed push is simply not sent to that client.
 | `PATCH /api/v1/admin/clients/{id}` | admin token | Renames the client or makes it an admin device or not (`{"name", "admin"}`, each optional, at least one). `200` with the client and its `pushStatus`; `409` if it is revoked. See [Renaming a client](#renaming-a-client). |
 | `POST /api/v1/admin/clients/{id}/revoke` | admin token | Revokes the client and removes its push target. Idempotent. |
 | `DELETE /api/v1/admin/clients/{id}` | admin token | Deletes a revoked client with its push results, retries and unused pairing codes; events stay. `204`; `409` if it is not revoked; `404` for an unknown ID. See [Deleting a revoked client](#deleting-a-revoked-client). |
-| `POST /api/v1/admin/pairings` | admin token | Creates a pairing for a new client (`{"name": ..., "admin": ...}`, `admin` optional). `201` with `{"name", "admin", "code", "expiresAt", "uri"}`; see [Pairing](#pairing). |
+| `POST /api/v1/admin/pairings` | admin token | Creates a pairing for a new client (`{"name": ..., "admin": ...}`, `admin` optional). `201` with `{"id", "name", "admin", "code", "expiresAt", "uri"}`; see [Pairing](#pairing). |
+| `GET /api/v1/admin/pairings/{id}` | admin token | Whether a pairing created with the admin token was used, and by which client (`PairingStatus`); `404` for an unknown ID or an admin device's pairing. See [Whether a code was used](#whether-a-code-was-used). |
 | `POST /api/v1/pairing` | pairing code | Redeems the code: registers the client. `201` with the client and `clientKey`, `Location` `/api/v1/client`. |
 | `POST /api/v1/client/pairings` | admin device's client key | Creates a pairing for a new client that is not an admin (`{"name": ...}`). `201` as `POST /api/v1/admin/pairings`; `403` for any other client. See [Pairing from an admin device](#pairing-from-an-admin-device). |
+| `GET /api/v1/client/pairings/{id}` | admin device's client key | Whether a pairing this device created was used, and by which client (`PairingStatus`); `404` for an unknown ID or any other pairing; `403` for any other client key, before the pairing is looked up. See [Whether a code was used](#whether-a-code-was-used). |
 | `GET /api/v1/client` | client key | The calling client's registration, including whether it is an admin device. |
 | `PUT /api/v1/client/push-target` | client key | Sets the push target (`{"provider", "token"}`). `200` with the client. |
 | `DELETE /api/v1/client/push-target` | client key | Removes the push target. Idempotent. `200` with the client. |
@@ -1161,7 +1224,9 @@ every event, so existing clients keep receiving everything; check constraints
 allow only known severities and categories and at most 100 producers.
 `V10__create_pairings.sql` creates `pairings`: `id`, `code_hash` (exactly 32
 bytes, unique), `client_name`, `created_at` and `expires_at`, which must be
-later than `created_at`. `V12__add_client_push_results.sql` adds each
+later than `created_at`. `V15__add_pairing_redemption.sql` adds
+`redeemed_at` and `redeemed_by` (the client the code registered, deleted
+with it), set together when the code is redeemed and `null` before. `V12__add_client_push_results.sql` adds each
 client's last push results: `last_push_succeeded_at` and
 `last_push_succeeded_event_id`, set together, and `last_push_failed_at`,
 `last_push_failed_event_id` and `last_push_failed_result` (a failed

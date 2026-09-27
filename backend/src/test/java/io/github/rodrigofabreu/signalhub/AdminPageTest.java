@@ -84,6 +84,41 @@ class AdminPageTest {
     assertTrue(script.contains("response.status === 204 ? null : response.json()"));
   }
 
+  @Test
+  void thePageAsksWhetherTheCodeShownWasUsedAndThenStartsOver() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    // Only while a code is shown: polling starts with it and stops when it expires or is used.
+    assertTrue(script.contains("poller = setInterval(() => check(pairing), POLL_MS);"));
+    assertTrue(script.contains("const POLL_MS = 2500;"));
+    assertTrue(
+        Pattern.compile(
+                "if \\(left === 0\\) \\{\\s*clearInterval\\(timer\\);\\s*clearInterval\\(poller\\);")
+            .matcher(script)
+            .find());
+    assertTrue(script.contains("status = await call(\"GET\", `${PAIRINGS}/${pairing.id}`);"));
+    // Used: a toast names the device, the code goes, the form is reset and the list read again.
+    assertTrue(
+        Pattern.compile(
+                "if \\(current !== pairing \\|\\| status\\.state !== \"REDEEMED\"\\) return;\\s*"
+                    + "connected\\(status\\.client\\);")
+            .matcher(script)
+            .find());
+    assertTrue(
+        Pattern.compile(
+                "function connected\\(client\\) \\{\\s*clearInterval\\(timer\\);\\s*"
+                    + "clearInterval\\(poller\\);\\s*current = null;\\s*"
+                    + "\\$\\(\"pairing\"\\)\\.hidden = true;\\s*\\$\\(\"link\"\\)\\.value = \"\";\\s*"
+                    + "\\$\\(\"create\"\\)\\.reset\\(\\);\\s*"
+                    + "toast\\(`\"\\$\\{client\\.name\\}\" connected with the pairing code\\.`\\);\\s*"
+                    + "refresh\\(\\);")
+            .matcher(script)
+            .find());
+    // The name is set as text, never as HTML.
+    assertTrue(script.contains("$(\"toast\").textContent = text;"));
+    var page = given().get("/admin/").then().extract().asString();
+    assertTrue(page.contains("<p id=\"toast\" class=\"toast\" role=\"status\" hidden></p>"));
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"/connect", "/connect/", "/connect/connect.js"})
   void theConnectPageOfEarlierReleasesIsGone(String path) {

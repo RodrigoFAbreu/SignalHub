@@ -1,7 +1,8 @@
 "use strict";
 
 // The admin page (docs/architecture.md#the-admin-page): lists every client with the management API,
-// changes them, deletes revoked ones, and creates pairings shown as a QR code until they expire.
+// changes them, deletes revoked ones, and creates pairings shown as a QR code until they are used or
+// expire.
 // The admin token lives only in this closure; it is never stored, and every request goes to this
 // same origin.
 // Names come from the server and are always set as text, never as HTML.
@@ -9,11 +10,16 @@
   const CLIENTS = "/api/v1/admin/clients";
   const PAIRINGS = "/api/v1/admin/pairings";
   const QR_SIZE = 320;
+  // Asked only while a code is shown; one owner's page, so a few seconds late is fine.
+  const POLL_MS = 2500;
+  const TOAST_MS = 8000;
   const $ = (id) => document.getElementById(id);
 
   let token = null;
   let timer = null;
+  let poller = null;
   let current = null;
+  let toastTimer = null;
 
   $("unlock").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -220,14 +226,19 @@
     draw(pairing.uri);
     $("pairing").hidden = false;
     clearInterval(timer);
+    clearInterval(poller);
     tick();
     timer = setInterval(tick, 1000);
+    poller = setInterval(() => check(pairing), POLL_MS);
   }
 
   function tick() {
     const left = Math.max(0, Date.parse(current.expiresAt) - Date.now());
     if (left === 0) {
       clearInterval(timer);
+      clearInterval(poller);
+      // Once more: it may have been used in the last seconds.
+      check(current);
       $("countdown").textContent = "This code has expired.";
       $("status").textContent = "";
       $("qr-box").classList.add("expired");
@@ -239,6 +250,38 @@
     const minutes = Math.floor(left / 60000);
     const seconds = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
     $("countdown").textContent = `Expires in ${minutes}:${seconds}. It works once.`;
+  }
+
+  // Whether the code shown was used. The server keeps a used pairing past its expiry, so a late
+  // answer still says so; the countdown alone decides that a code expired.
+  async function check(pairing) {
+    let status;
+    try {
+      status = await call("GET", `${PAIRINGS}/${pairing.id}`);
+    } catch {
+      return; // Asked again at the next poll.
+    }
+    if (current !== pairing || status.state !== "REDEEMED") return;
+    connected(status.client);
+  }
+
+  // Back to the first state, ready for the next device, and the new one in the list.
+  function connected(client) {
+    clearInterval(timer);
+    clearInterval(poller);
+    current = null;
+    $("pairing").hidden = true;
+    $("link").value = "";
+    $("create").reset();
+    toast(`"${client.name}" connected with the pairing code.`);
+    refresh();
+  }
+
+  function toast(text) {
+    $("toast").textContent = text;
+    $("toast").hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => ($("toast").hidden = true), TOAST_MS);
   }
 
   function draw(text) {

@@ -42,12 +42,14 @@ redeeming a one-time pairing code from `/api/v1/admin/pairings` at
 `/api/v1/pairing`, made in a browser on the operator's admin page
 `/admin/` on the backend's own port, which also lists every device to
 rename it, make it an admin device or not, revoke it, or delete it once
-revoked, with a push to the
+revoked, and says which device used the code shown, with a push to the
 owner's devices when a device pairs, and an admin device can list every
 device, make one an admin, revoke one that is not an admin or delete a
 revoked one through
 `/api/v1/client/devices`, with a push naming it (none for a deletion), and create pairing codes
-for devices that are not admins at `/api/v1/client/pairings`) with
+for devices that are not admins at `/api/v1/client/pairings`; whoever
+created a pairing asks whether it was used, and by which device, at
+`/api/v1/admin/pairings/{id}` or `/api/v1/client/pairings/{id}`) with
 per-client push preferences (pause, minimum severity, muted categories and producers) and
 each client's last push results in the management API, and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging

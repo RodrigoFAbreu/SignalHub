@@ -89,10 +89,11 @@ operator on the host ──http://localhost:8080──▶ backend (management AP
    # then open http://localhost:8080/admin/ and enter the admin token
    ```
 
-   Under **Connect a device** it shows the code as a QR code until it
-   expires, and copies it as an image or a link to send to whoever should
-   connect a device; tick **Pair it as an admin device** for your own
-   phone. The page also lists every device, to rename it, make it an admin
+   Under **Connect a device** it shows the code as a QR code until it is
+   used or expires, and copies it as an image or a link to send to whoever
+   should connect a device; tick **Pair it as an admin device** for your own
+   phone. Once the phone has used the code, the page names it and is ready
+   for the next one. The page also lists every device, to rename it, make it an admin
    or take admin rights away, revoke it, and delete it once revoked. On the host
    itself, a terminal does the same (see
    [Pairing a device](development.md#pairing-a-device)):
@@ -160,7 +161,7 @@ What other machines can reach, with the proxy enabled:
 
 | Port | Serves |
 |---|---|
-| 443 (TCP and UDP for HTTP/3) | `/api/`: publishing, the inbox and read state, the client API (including device management and creating pairing codes from an [admin device](architecture.md#admin-devices)), redeeming a pairing code. Everything else answers `404`. |
+| 443 (TCP and UDP for HTTP/3) | `/api/`: publishing, the inbox and read state, the client API (including device management, and creating pairing codes and learning whether they were used, from an [admin device](architecture.md#admin-devices)), redeeming a pairing code. Everything else answers `404`. |
 | 80 | Redirects to HTTPS; Let's Encrypt's certificate challenges. |
 
 Not reachable from other machines:

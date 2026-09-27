@@ -287,7 +287,9 @@ public class ClientService {
     UNKNOWN_CLIENT,
     CLIENT_REVOKED,
     CLIENT_IS_ADMIN,
-    CLIENT_NOT_REVOKED
+    CLIENT_NOT_REVOKED,
+    /** No pairing with this ID that the caller created. */
+    UNKNOWN_PAIRING
   }
 
   /** What {@link #listFor} found. */
