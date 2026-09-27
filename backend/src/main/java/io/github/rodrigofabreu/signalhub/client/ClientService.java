@@ -1,6 +1,7 @@
 package io.github.rodrigofabreu.signalhub.client;
 
 import io.github.rodrigofabreu.signalhub.producer.ApiKeys;
+import io.github.rodrigofabreu.signalhub.push.DeliveryResult;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
@@ -69,16 +70,20 @@ public class ClientService {
     return new IssuedClientKey(toResponse(client), key);
   }
 
+  /** The client and its latest push results. */
   @Transactional
-  Optional<ClientResponse> get(UUID id) {
-    return clients.findByIdOptional(id).map(ClientService::toResponse);
+  Optional<ManagedClientResponse> get(UUID id) {
+    return clients
+        .findByIdOptional(id)
+        .map(client -> toManagedResponse(client, clients.pendingRetries(id)));
   }
 
-  /** All clients, oldest first. */
+  /** All clients, oldest first, and their latest push results. */
   @Transactional
-  List<ClientResponse> list() {
+  List<ManagedClientResponse> list() {
+    var pendingRetries = clients.pendingRetries();
     return clients.listAll(Sort.by("createdAt").and("id")).stream()
-        .map(ClientService::toResponse)
+        .map(client -> toManagedResponse(client, pendingRetries.getOrDefault(client.id(), 0L)))
         .toList();
   }
 
@@ -180,6 +185,21 @@ public class ClientService {
         .orElse(false);
   }
 
+  /**
+   * Records the result of a send to the client for the operator, overwriting the last success or
+   * the last failure. A send that found no push target sent nothing and is not recorded. Revoked
+   * clients keep their results.
+   */
+  @Transactional
+  public void recordPushResult(UUID id, UUID eventId, DeliveryResult result) {
+    switch (result) {
+      case DELIVERED -> clients.recordPushSuccess(id, eventId, now());
+      case NO_TARGET -> {}
+      case UNSUPPORTED_PROVIDER, INVALID_TARGET, TRANSIENT_FAILURE, PERMANENT_FAILURE ->
+          clients.recordPushFailure(id, eventId, result, now());
+    }
+  }
+
   private Optional<ClientEntity> active(UUID id) {
     return clients.findForUpdate(id).filter(client -> !client.revoked());
   }
@@ -201,6 +221,12 @@ public class ClientService {
         client.revokedAt(),
         pushTarget,
         client.pushPreferences());
+  }
+
+  private static ManagedClientResponse toManagedResponse(ClientEntity client, long pendingRetries) {
+    return ManagedClientResponse.of(
+        toResponse(client),
+        new PushStatus(client.lastPushSuccess(), client.lastPushFailure(), pendingRetries));
   }
 
   // PostgreSQL stores microseconds. Truncating first makes responses equal later reads.

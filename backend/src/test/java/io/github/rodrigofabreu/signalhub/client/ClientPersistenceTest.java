@@ -37,6 +37,12 @@ class ClientPersistenceTest {
     columns.put("push_minimum_severity", "text NO");
     columns.put("push_muted_categories", "ARRAY NO");
     columns.put("push_muted_producers", "ARRAY NO");
+    // Added by V12: empty until the client's first push.
+    columns.put("last_push_succeeded_at", "timestamp with time zone YES");
+    columns.put("last_push_succeeded_event_id", "uuid YES");
+    columns.put("last_push_failed_at", "timestamp with time zone YES");
+    columns.put("last_push_failed_event_id", "uuid YES");
+    columns.put("last_push_failed_result", "text YES");
     assertEquals(columns, columnsOf("clients"));
   }
 
@@ -108,6 +114,23 @@ class ClientPersistenceTest {
         insert.formatted(
             "push_muted_producers",
             "ARRAY(SELECT gen_random_uuid() FROM generate_series(1, 101))"));
+  }
+
+  @Test
+  void pushResultsAreCompleteAndKnown() {
+    var insert =
+        "INSERT INTO clients (id, name, key_hash, created_at, %s)"
+            + " VALUES (?, 'x', decode(repeat('00', 32), 'hex'), now(), %s)";
+    assertRejected(insert.formatted("last_push_succeeded_at", "now()"));
+    assertRejected(insert.formatted("last_push_succeeded_event_id", "gen_random_uuid()"));
+    assertRejected(
+        insert.formatted(
+            "last_push_failed_at, last_push_failed_event_id", "now(), gen_random_uuid()"));
+    assertRejected(insert.formatted("last_push_failed_result", "'PERMANENT_FAILURE'"));
+    assertRejected(
+        insert.formatted(
+            "last_push_failed_at, last_push_failed_event_id, last_push_failed_result",
+            "now(), gen_random_uuid(), 'DELIVERED'"));
   }
 
   @Test

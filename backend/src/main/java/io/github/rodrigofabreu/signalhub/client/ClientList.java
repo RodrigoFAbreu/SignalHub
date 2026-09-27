@@ -10,7 +10,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(name = "ClientList", description = "Every client, revoked or not, oldest first.")
 public record ClientList(
     @Schema(required = true, description = "The clients, oldest first.")
-        List<ClientResponse> items) {
+        List<ManagedClientResponse> items) {
 
   public ClientList {
     items = List.copyOf(items);

@@ -1126,6 +1126,37 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   (including an older server); `docs/architecture.md` (Listing events,
   Client application), `client/README.md`; compatible (`feat`)
 
+### R33 - Each client's last push result in the management API
+
+- `GET /api/v1/admin/clients` and `GET /api/v1/admin/clients/{id}` return
+  each client with a new `pushStatus` (schema `ManagedClient`, the fields
+  of `Client` and `pushStatus`): `lastSuccess` (`at`, `eventId`) and
+  `lastFailure` (`at`, `eventId`, `result`: `UNSUPPORTED_PROVIDER`,
+  `INVALID_TARGET`, `TRANSIENT_FAILURE` or `PERMANENT_FAILURE`), each `null`
+  until there is one, never the token, and `pendingRetries`; the client
+  API, the registration and revocation responses and the app are unchanged
+- only the latest results, each overwritten by the next send of its kind;
+  no attempt history (R13), no dashboard, no new metrics
+- recorded by the dispatch and the retries after each send, in a
+  transaction of its own; a send that found no push target is not
+  recorded; a failure to record is logged and ignored, so the push is
+  neither failed nor sent again and retries are scheduled as before
+- `pendingRetries` is counted from `push_retries` when the management API
+  is read, not stored, so it cannot drift from the retries
+- `V12__add_client_push_results.sql`: nullable `last_push_*` columns on
+  `clients`, set together by check constraints, `null` for existing
+  clients, so no operator action; not mapped for Hibernate's own updates of
+  a client, so a new push target or a revocation never overwrites them;
+  the event IDs are not foreign keys, as retention may delete the event;
+  revoking a client keeps its results
+- tests against real PostgreSQL with the fake provider (no results yet,
+  success, overwritten success, permanent failure without the token,
+  invalid target, temporary failure then success, retries pending,
+  revoked client, nothing on the client API, a failure to record that
+  neither fails nor repeats a push), the columns and their checks, the
+  OpenAPI document; `docs/architecture.md` (Push dispatch, Client API),
+  `docs/development.md`; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1676,7 +1707,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 19    | R30 - An event's link: the API and the SDK                                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 20    | R31 - Opening an event's link in the app                                                         | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 21    | R32 - Inbox filters and an unread-only view                                                      | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 22    | R33 - Each client's last push result in the management API                                       | Increment (`feat`)                     | Next                                                                             |
+| 22    | R33 - Each client's last push result in the management API                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -2516,7 +2547,7 @@ saved filters on the server, grouping, archive.
 
 ### R33 - Each client's last push result in the management API
 
-Status: planned; next now that R32 is merged. Added by the maintainer
+Status: complete (see section 3). Added by the maintainer
 (2026-09-27) from the deferred candidate "per-client delivery status".
 
 Goal: the operator can see from the management API why a device got no
@@ -2656,8 +2687,10 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. R32 (inbox filters and an unread-only view)
-is done, so the expected next item is **R33 - Each client's last push
-result in the management API** (see [section 5](#5-after-v100)).
+(section 4) is authoritative. R33 (each client's last push result in the
+management API) is done, and it was the last row: **the queue is empty.**
+No increment is scheduled; what comes next is the maintainer's choice, for
+example from the [deferred candidates](#deferred-candidates), which an
+orchestrator never schedules by itself.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

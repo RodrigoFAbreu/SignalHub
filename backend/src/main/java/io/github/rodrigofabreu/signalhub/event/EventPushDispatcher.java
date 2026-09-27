@@ -23,7 +23,8 @@ import org.jboss.logging.Logger;
  * PushDispatches} outbox, written with the event, so a push is attempted at least once for every
  * acknowledged event even across restarts; clients deduplicate by event ID. A send that fails
  * temporarily is retried with growing delays, up to {@link #MAX_ATTEMPTS} sends in all; other
- * failures are final, as repeating them cannot help.
+ * failures are final, as repeating them cannot help. The result of each send is recorded on the
+ * client for the operator.
  */
 // Created at startup so its meters are scraped before the first use.
 @Startup
@@ -130,6 +131,7 @@ class EventPushDispatcher {
       for (var recipient : clients.pushRecipients()) {
         if (push.get().allowedBy(recipient.preferences())) {
           var result = delivery.deliver(recipient.clientId(), push.get().message());
+          record(recipient.clientId(), eventId, result);
           results.merge(result, 1, Integer::sum);
           if (result == DeliveryResult.TRANSIENT_FAILURE) {
             retryClientIds.add(recipient.clientId());
@@ -156,6 +158,7 @@ class EventPushDispatcher {
         && recipient.isPresent()
         && push.get().allowedBy(recipient.get().preferences())) {
       var result = delivery.deliver(retry.clientId(), push.get().message());
+      record(retry.clientId(), retry.eventId(), result);
       var attempts = retry.attempts() + 1;
       if (result == DeliveryResult.TRANSIENT_FAILURE) {
         if (attempts < MAX_ATTEMPTS) {
@@ -173,5 +176,19 @@ class EventPushDispatcher {
       }
     }
     dispatches.completeRetry(retry);
+  }
+
+  /**
+   * Records the send's result on the client. The push has been sent by then, so failing to record
+   * it must neither fail the dispatch nor send the push again: the result is only missing.
+   */
+  private void record(UUID clientId, UUID eventId, DeliveryResult result) {
+    try {
+      clients.recordPushResult(clientId, eventId, result);
+    } catch (RuntimeException e) {
+      LOG.warnf(
+          "Could not record the push result of event %s for client %s: %s",
+          eventId, clientId, e.getClass().getName());
+    }
   }
 }
