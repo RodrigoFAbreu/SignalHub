@@ -24,6 +24,11 @@ class PairingService {
   // on a screen is soon useless.
   static final Duration LIFETIME = Duration.ofMinutes(10);
 
+  // How long a pairing is kept after it expires, used or not, so whoever shows the code can still
+  // tell used from expired: a page polls only while the code is shown, but its clock, or a poll in
+  // flight at expiry, may be late.
+  static final Duration KEPT_AFTER_EXPIRY = Duration.ofMinutes(10);
+
   private final PairingRepository pairings;
   private final ClientService clients;
   private final ClientRepository clientRows;
@@ -50,8 +55,8 @@ class PairingService {
     var issued = issue(clientName, admin, null);
     LOG.infof(
         "Created pairing %s%s, expires at %s",
-        issued.id(), admin ? " for an admin device" : "", issued.pairing().expiresAt());
-    return issued.pairing();
+        issued.id(), admin ? " for an admin device" : "", issued.expiresAt());
+    return issued;
   }
 
   /**
@@ -74,9 +79,8 @@ class PairingService {
     }
     var issued = issue(clientName, false, callerId);
     LOG.infof(
-        "Client %s created pairing %s, expires at %s",
-        callerId, issued.id(), issued.pairing().expiresAt());
-    return new DevicePairing.Created(issued.pairing());
+        "Client %s created pairing %s, expires at %s", callerId, issued.id(), issued.expiresAt());
+    return new DevicePairing.Created(issued);
   }
 
   /** What {@link #createBy} did. */
@@ -86,15 +90,64 @@ class PairingService {
     record Refused(ClientService.Refusal refusal) implements DevicePairing {}
   }
 
-  private record Issued(UUID id, IssuedPairing pairing) {}
-
-  // Expired pairings are cleared when a pairing is created rather than on a timer: they no longer
-  // redeem either way.
-  private void deleteExpired() {
-    pairings.deleteExpired(now());
+  /** Whether the operator's pairing was used; empty if it is unknown or an admin device's. */
+  @Transactional
+  Optional<PairingStatus> status(UUID id) {
+    return pairings.findByOperator(id).map(this::status);
   }
 
-  private Issued issue(String clientName, boolean admin, UUID createdBy) {
+  /**
+   * Whether a pairing this admin device created was used, if the caller is an active admin device;
+   * otherwise why not. Checked before the pairing is looked up, so a client that is not one learns
+   * nothing about it. Another device's pairing, and the operator's, are unknown to it.
+   */
+  @Transactional
+  PairingLookup statusFor(UUID callerId, UUID id) {
+    var caller = clientRows.findByIdOptional(callerId).orElseThrow();
+    if (caller.revoked()) {
+      return new PairingLookup.Refused(ClientService.Refusal.CALLER_REVOKED);
+    }
+    if (!caller.admin()) {
+      return new PairingLookup.Refused(ClientService.Refusal.NOT_AN_ADMIN);
+    }
+    return pairings
+        .findByCreator(id, callerId)
+        .<PairingLookup>map(pairing -> new PairingLookup.Found(status(pairing)))
+        .orElseGet(() -> new PairingLookup.Refused(ClientService.Refusal.UNKNOWN_PAIRING));
+  }
+
+  /** What {@link #statusFor} found. */
+  sealed interface PairingLookup {
+    record Found(PairingStatus status) implements PairingLookup {}
+
+    record Refused(ClientService.Refusal refusal) implements PairingLookup {}
+  }
+
+  private PairingStatus status(PairingEntity pairing) {
+    if (pairing.redeemedBy() != null) {
+      // The client exists: deleting it deletes the pairing too.
+      var client = clientRows.findById(pairing.redeemedBy());
+      return new PairingStatus(
+          pairing.id(),
+          PairingStatus.State.REDEEMED,
+          pairing.expiresAt(),
+          pairing.redeemedAt(),
+          new PairingStatus.PairedClient(client.id(), client.name()));
+    }
+    var state =
+        pairing.expiresAt().isAfter(now())
+            ? PairingStatus.State.PENDING
+            : PairingStatus.State.EXPIRED;
+    return new PairingStatus(pairing.id(), state, pairing.expiresAt(), null, null);
+  }
+
+  // Old pairings are cleared when a pairing is created rather than on a timer: they no longer
+  // redeem either way, and are kept a while after they expire so their status can still be read.
+  private void deleteExpired() {
+    pairings.deleteExpiredBy(now().minus(KEPT_AFTER_EXPIRY));
+  }
+
+  private IssuedPairing issue(String clientName, boolean admin, UUID createdBy) {
     var now = now();
     var code = PairingCodes.generate();
     var pairing =
@@ -107,17 +160,16 @@ class PairingService {
             now.plus(LIFETIME),
             createdBy);
     pairings.persist(pairing);
-    return new Issued(
-        pairing.id(),
-        new IssuedPairing(
-            clientName, admin, code, pairing.expiresAt(), uris.of(code).orElse(null)));
+    return new IssuedPairing(
+        pairing.id(), clientName, admin, code, pairing.expiresAt(), uris.of(code).orElse(null));
   }
 
   /**
-   * Registers the pairing's client and issues its key, if the code is known and unexpired, and
-   * deletes the pairing so the code never works again. Empty for a malformed, unknown, used or
-   * expired code, and for a code whose admin device was revoked or is no longer an admin since it
-   * created it: revoking a stolen admin device also stops the codes it handed out.
+   * Registers the pairing's client and issues its key, if the code is known, unused and unexpired,
+   * and marks the pairing redeemed by that client so the code never works again. Empty for a
+   * malformed, unknown, used or expired code, and for a code whose admin device was revoked or is
+   * no longer an admin since it created it: revoking a stolen admin device also stops the codes it
+   * handed out.
    */
   @Transactional
   Optional<Redeemed> redeem(String code) {
@@ -127,19 +179,23 @@ class PairingService {
     }
     var pairing = pairings.findForRedemption(ApiKeys.hash(code));
     if (pairing.isEmpty()) {
-      LOG.debug("Rejected pairing code: unknown or already used");
+      LOG.debug("Rejected pairing code: unknown");
+      return Optional.empty();
+    }
+    if (pairing.get().redeemedAt() != null) {
+      LOG.debugf("Rejected pairing code: pairing %s already used", pairing.get().id());
       return Optional.empty();
     }
     if (!pairing.get().expiresAt().isAfter(now())) {
       LOG.debugf("Rejected pairing code: pairing %s expired", pairing.get().id());
       return Optional.empty();
     }
-    pairings.delete(pairing.get());
     ClientEntity creator = null;
     if (pairing.get().createdBy() != null) {
       creator = clientRows.findForUpdate(pairing.get().createdBy()).orElseThrow();
       if (creator.revoked() || !creator.admin()) {
-        // Deleted all the same: the code can never redeem again.
+        // The code can never redeem again, and its creator can no longer ask about it.
+        pairings.delete(pairing.get());
         LOG.debugf(
             "Rejected pairing code: client %s, which created pairing %s, is no longer an active"
                 + " admin device",
@@ -148,6 +204,7 @@ class PairingService {
       }
     }
     var issued = clients.create(pairing.get().clientName(), pairing.get().admin());
+    pairing.get().redeem(issued.client().id(), now());
     LOG.infof("Redeemed pairing %s as client %s", pairing.get().id(), issued.client().id());
     var paired =
         new ClientPaired(

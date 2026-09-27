@@ -1456,6 +1456,54 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `client/README.md`, `docs/architecture.md` (Client application,
   Deleting a revoked client); no API change; compatible (`feat(client)`)
 
+### R43 - A used pairing code: the API and the admin page
+
+- **decided: an ID in the `Pairing` response and a status endpoint, polled
+  while the code is shown.** `POST /api/v1/admin/pairings` and `POST
+  /api/v1/client/pairings` add the pairing's `id` (not a secret: it redeems
+  nothing); `GET /api/v1/admin/pairings/{id}` (admin token) and `GET
+  /api/v1/client/pairings/{id}` (an admin device's key) answer a
+  `PairingStatus`: `state` `PENDING`, `REDEEMED` or `EXPIRED`, `expiresAt`,
+  and once redeemed `redeemedAt` and `client` (the new device's ID and its
+  current name), never a code or a key. Pushing the news to the page was
+  left out, as the roadmap said: polling a primary-key lookup every few
+  seconds while a code is shown costs nothing for one owner
+- **decided: each asks only about its own pairings.** The admin token
+  answers only about pairings made with it, an admin device only about
+  those it made; another device's pairing, or the operator's, is `404`
+  exactly like an unknown ID. The client API part is admin only as R38:
+  every other client key `403 Not an admin device` before the pairing is
+  looked up, a missing, unknown or revoked key and the admin token `401`
+- redeeming no longer deletes the pairing: it marks it with `redeemed_at`
+  and `redeemed_by` (`V15__add_pairing_redemption.sql`, nullable, set
+  together, `redeemed_by` referencing `clients` with `ON DELETE CASCADE` as
+  R41 requires; existing pairings are unredeemed, so no operator action),
+  and a redeemed pairing never redeems again, still under the row lock that
+  makes one code one client. Pairings, used or not, are deleted when a
+  pairing is created more than 10 minutes after they expired
+  (`KEPT_AFTER_EXPIRY`), so a late asker still tells used from expired; a
+  code whose admin device lost its rights is still deleted when tried.
+  Redeeming is unchanged for clients
+- the admin page asks every 2.5 seconds, only while a code is shown, and
+  once more when it expires; once the code is used, a toast says the device
+  (by name) connected with the pairing code, the QR code and link disappear,
+  the form goes back to its first state and the device list is read again;
+  an expired code is unchanged
+- tests against real PostgreSQL (pending, used with the new device named as
+  it is now, expired, unknown, an admin device's code asked with the admin
+  token, another device's code and the operator's code asked from a device,
+  an ordinary client refused before the lookup, lost rights, a revoked
+  admin, a used code not redeeming again, recently expired pairings kept and
+  older ones deleted with the client kept, a deleted client's pairing gone,
+  the new columns and their check), the OpenAPI document, the page's script
+  and markup; the Compose smoke test reads the operator's pairing as
+  `PENDING` then `REDEEMED` on the host (without the client key in it), and
+  an admin device's own code as `REDEEMED` through the proxy, with `403` for
+  an ordinary device and `404` for the operator's code;
+  `docs/architecture.md` (Pairing, Whether a code was used, Pairing from an
+  admin device, the admin page, Client API, Schema), `docs/development.md`,
+  `docs/deployment.md`; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2016,8 +2064,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 29    | R40 - The device list scrolls to its last device                                                 | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 | 30    | R41 - Deleting revoked devices: the API and the admin page                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 31    | R42 - Deleting revoked devices in the app                                                        | Increment (`feat(client)`)             | Done (see section 3)                                                             |
-| 32    | R43 - A used pairing code: the API and the admin page                                            | Increment (`feat`)                     | Next                                                                             |
-| 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Blocked until R43 is merged                                                      |
+| 32    | R43 - A used pairing code: the API and the admin page                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3198,7 +3246,7 @@ Compatible (`feat(client)`): no API change.
 
 ### R43 - A used pairing code: the API and the admin page
 
-Status: planned; next. Added by the maintainer
+Status: complete (see section 3). Added by the maintainer
 (2026-09-27).
 
 Goal: whoever shows a pairing code learns when it has been used, and is
@@ -3232,7 +3280,7 @@ code is shown is enough for one owner).
 
 ### R44 - A used pairing code in the app
 
-Status: planned; blocked until R43 is merged. Added by the maintainer
+Status: planned; next. Added by the maintainer
 (2026-09-27).
 
 Scope:
@@ -3360,8 +3408,8 @@ notice), R35 (the admin page), R36 (managing devices from an admin
 device: the API), R37 (managing devices in the app), R38 (pairing codes
 from an admin device), R39 (removing the /connect redirect), R40 (the
 device list scrolls to its last device), R41 (deleting revoked devices:
-the API and the admin page) and R42 (deleting revoked devices in the app)
-are done. **R43 (a used pairing code: the API and the admin page) is
-next**, then R44, after R43 is merged.
+the API and the admin page), R42 (deleting revoked devices in the app) and
+R43 (a used pairing code: the API and the admin page) are done. **R44 (a
+used pairing code in the app) is next**; it is the last row of the queue.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

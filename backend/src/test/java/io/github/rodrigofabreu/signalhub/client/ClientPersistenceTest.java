@@ -60,6 +60,9 @@ class ClientPersistenceTest {
     columns.put("admin", "boolean NO");
     // Added by V14: empty for pairings created with the admin token.
     columns.put("created_by", "uuid YES");
+    // Added by V15: empty until the code is redeemed.
+    columns.put("redeemed_at", "timestamp with time zone YES");
+    columns.put("redeemed_by", "uuid YES");
     assertEquals(columns, columnsOf("pairings"));
   }
 
@@ -89,6 +92,20 @@ class ClientPersistenceTest {
     assertRejected(
         "INSERT INTO pairings VALUES (?, 'short'::bytea, 'x', now(),"
             + " now() + interval '1 minute')");
+  }
+
+  @Test
+  void aRedeemedPairingNamesWhenAndAsWhichClient() {
+    // Checked before the foreign key: without redeemed_by, or without redeemed_at.
+    assertRejected(
+        "INSERT INTO pairings (id, code_hash, client_name, created_at, expires_at, redeemed_at)"
+            + " VALUES (?, sha256('once'::bytea), 'x', now(), now() + interval '1 minute', now())");
+    var client = TestClients.register("persist-redeemed-pairing");
+    assertRejected(
+        "INSERT INTO pairings (id, code_hash, client_name, created_at, expires_at, redeemed_by)"
+            + " VALUES (?, sha256('once'::bytea), 'x', now(), now() + interval '1 minute', '"
+            + client.id()
+            + "')");
   }
 
   @Test

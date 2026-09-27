@@ -6,6 +6,7 @@ import static io.github.rodrigofabreu.signalhub.TestClients.asClient;
 import static io.github.rodrigofabreu.signalhub.TestProducers.asAdmin;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,7 +35,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Creating pairing codes from an admin device, against real PostgreSQL: admin-only as the rest of
  * device management (an ordinary client, an admin, a revoked admin), never for an admin device, and
- * only as long as the device that created the code stays an active admin.
+ * only as long as the device that created the code stays an active admin; and whether a code it
+ * created was used, for that device only.
  */
 @QuarkusTest
 class DevicePairingApiTest {
@@ -62,6 +64,7 @@ class DevicePairingApiTest {
             .body("name", equalTo("Tablet"))
             .body("admin", equalTo(false))
             .body("code", startsWith(PairingCodes.PREFIX))
+            .body("id", notNullValue())
             .extract();
     String code = pairing.path("code");
 
@@ -201,6 +204,103 @@ class DevicePairingApiTest {
             .path("code");
 
     assertNull(createdBy(code));
+  }
+
+  @Test
+  void anAdminDeviceLearnsThatItsCodeWasUsedAndByWhichDevice() throws SQLException {
+    var caller = TestClients.registerAdmin("pairing-watcher");
+    var pairing = create(caller, "Watched tablet").statusCode(201).extract();
+    String id = pairing.path("id");
+
+    status(caller, id)
+        .statusCode(200)
+        .body("id", equalTo(id))
+        .body("state", equalTo("PENDING"))
+        .body("client", nullValue());
+
+    String clientId = redeem(pairing.path("code")).statusCode(201).extract().path("client.id");
+
+    status(caller, id)
+        .statusCode(200)
+        .body("state", equalTo("REDEEMED"))
+        .body("redeemedAt", notNullValue())
+        .body("client.id", equalTo(clientId))
+        .body("client.name", equalTo("Watched tablet"));
+    // Used once, and kept only to say so.
+    redeem(pairing.path("code")).statusCode(401);
+    assertEquals(1, clientsNamed("Watched tablet"));
+  }
+
+  @Test
+  void anExpiredCodeOfTheDeviceSaysSo() throws SQLException {
+    var caller = TestClients.registerAdmin("expired-pairing-watcher");
+    var pairing = create(caller, "Late tablet").statusCode(201).extract();
+    expire(pairing.path("code"));
+
+    status(caller, pairing.path("id")).statusCode(200).body("state", equalTo("EXPIRED"));
+  }
+
+  @Test
+  void anotherDevicesCodeIsUnknown() {
+    var creator = TestClients.registerAdmin("pairing-owner");
+    var other = TestClients.registerAdmin("pairing-snoop");
+    String id = create(creator, "Someone else's").statusCode(201).extract().path("id");
+
+    status(other, id).statusCode(404).body("title", equalTo("Not found"));
+    status(other, UUID.randomUUID().toString()).statusCode(404).body("title", equalTo("Not found"));
+    status(creator, id).statusCode(200);
+  }
+
+  @Test
+  void theOperatorsCodeIsUnknownToADevice() {
+    var caller = TestClients.registerAdmin("operator-pairing-snoop");
+    String id =
+        asAdmin()
+            .contentType(ContentType.JSON)
+            .body(Map.of("name", "Operator's code"))
+            .post("/api/v1/admin/pairings")
+            .then()
+            .statusCode(201)
+            .extract()
+            .path("id");
+
+    status(caller, id).statusCode(404);
+  }
+
+  @Test
+  void onlyAnActiveAdminDeviceAsks() {
+    var creator = TestClients.registerAdmin("pairing-status-admin");
+    String id = create(creator, "Asked about").statusCode(201).extract().path("id");
+    var ordinary = TestClients.register("ordinary-pairing-status-caller");
+
+    // Refused before the pairing is looked up: the same for a known and an unknown ID.
+    status(ordinary, id).statusCode(403).body("title", equalTo("Not an admin device"));
+    status(ordinary, UUID.randomUUID().toString())
+        .statusCode(403)
+        .body("title", equalTo("Not an admin device"));
+    given().get(PAIRINGS + "/" + id).then().statusCode(401);
+    asAdmin().get(PAIRINGS + "/" + id).then().statusCode(401);
+
+    setAdmin(creator, false);
+    status(creator, id).statusCode(403);
+    setAdmin(creator, true);
+    asAdmin().post(ADMIN + "/" + creator.id() + "/revoke").then().statusCode(200);
+    status(creator, id).statusCode(401);
+  }
+
+  private static ValidatableResponse status(Registered caller, String id) {
+    return asClient(caller.clientKey()).get(PAIRINGS + "/" + id).then();
+  }
+
+  private void expire(String code) throws SQLException {
+    try (var connection = dataSource.getConnection();
+        var statement =
+            connection.prepareStatement(
+                "UPDATE pairings SET created_at = created_at - interval '11 minutes',"
+                    + " expires_at = expires_at - interval '11 minutes' WHERE code_hash = ?")) {
+      statement.setBytes(1, ApiKeys.hash(code));
+      assertEquals(1, statement.executeUpdate());
+    }
   }
 
   private static ValidatableResponse create(Registered caller, String name) {

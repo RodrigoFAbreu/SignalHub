@@ -8,9 +8,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Persistence mapping of the {@code pairings} table: the hash of an unredeemed pairing code, never
- * the code, the name of the client it will register and whether it will be an admin, and the admin
- * device that created it, if one did. Never exposed through the HTTP API.
+ * Persistence mapping of the {@code pairings} table: the hash of a pairing code, never the code,
+ * the name of the client it registers and whether it is an admin, the admin device that created it,
+ * if one did, and, once it is redeemed, when and as which client. Never exposed through the HTTP
+ * API.
  */
 @Entity
 @Table(name = "pairings")
@@ -36,6 +37,13 @@ class PairingEntity {
   // Null when the operator created it with the admin token.
   @Column(name = "created_by", updatable = false)
   private UUID createdBy;
+
+  // Both null until the code is redeemed; then it never redeems again.
+  @Column(name = "redeemed_at")
+  private Instant redeemedAt;
+
+  @Column(name = "redeemed_by")
+  private UUID redeemedBy;
 
   protected PairingEntity() {}
 
@@ -75,5 +83,20 @@ class PairingEntity {
   /** The admin device that created this pairing; null if the operator did. */
   UUID createdBy() {
     return createdBy;
+  }
+
+  /** When the code was redeemed; null if it has not been. */
+  Instant redeemedAt() {
+    return redeemedAt;
+  }
+
+  /** The client the code registered; null if it has not been redeemed. */
+  UUID redeemedBy() {
+    return redeemedBy;
+  }
+
+  void redeem(UUID clientId, Instant at) {
+    this.redeemedBy = clientId;
+    this.redeemedAt = at;
   }
 }

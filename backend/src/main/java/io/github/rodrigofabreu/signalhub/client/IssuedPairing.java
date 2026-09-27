@@ -1,6 +1,7 @@
 package io.github.rodrigofabreu.signalhub.client;
 
 import java.time.Instant;
+import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 /** A new pairing: the only response that ever contains its code. */
@@ -11,6 +12,13 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
             + " to register itself. code is shown only in this response: SignalHub stores only its"
             + " hash.")
 public record IssuedPairing(
+    @Schema(
+            required = true,
+            description =
+                "The pairing's ID, to ask whether its code was used (PairingStatus). Not a"
+                    + " secret: it redeems nothing.",
+            examples = "01997d5e-8a3c-7b1e-9f2a-4c6d8e0f1a2b")
+        UUID id,
     @Schema(
             required = true,
             description = "The name the client gets when the code is redeemed.",
@@ -42,6 +50,14 @@ public record IssuedPairing(
   // The default record toString would print the code if this were ever logged.
   @Override
   public String toString() {
-    return "IssuedPairing[name=" + name + ", admin=" + admin + ", expiresAt=" + expiresAt + "]";
+    return "IssuedPairing[id="
+        + id
+        + ", name="
+        + name
+        + ", admin="
+        + admin
+        + ", expiresAt="
+        + expiresAt
+        + "]";
   }
 }
