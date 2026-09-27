@@ -149,6 +149,36 @@ void main() {
     expect(backend.requests.last.url.path, '/api/v1/client/devices/c-3/revoke');
   });
 
+  test('an admin device deletes a revoked device', () async {
+    backend
+      ..admin = true
+      ..addClient('c-2', 'Tablet')
+      ..addClient('c-3', 'Old phone', revoked: true);
+    final api = backend.api();
+
+    await api.deleteDevice('c-3');
+    expect(backend.requests.last.method, 'DELETE');
+    expect(backend.requests.last.url.path, '/api/v1/client/devices/c-3');
+    expect([for (final c in backend.otherClients) c['id']], ['c-2']);
+
+    await expectLater(
+      api.deleteDevice('c-2'),
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.statusCode, 'statusCode', 409)
+            .having(
+              (e) => e.message,
+              'message',
+              'The server answered 409: Client is not revoked',
+            ),
+      ),
+    );
+    await expectLater(
+      api.deleteDevice('c-3'),
+      throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 404)),
+    );
+  });
+
   test('device management refuses a device that is not an admin', () {
     expect(
       backend.api().listDevices(),

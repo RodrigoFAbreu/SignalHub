@@ -1426,6 +1426,36 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   for a stolen admin device), `docs/deployment.md`, `docs/development.md`;
   compatible (`feat`)
 
+### R42 - Deleting revoked devices in the app
+
+- on an admin device's device list (R37), a revoked device, an admin or
+  not, offers **Delete** in its menu, after a confirmation that it leaves
+  the list for good, that events and their read state stay and that it
+  cannot be undone; active devices have none, since they must be revoked
+  first. Revoked devices stay greyed out, by hand, since a disabled tile
+  would also ignore its menu
+- `DELETE /api/v1/client/devices/{id}` (R41): `204` removes the device
+  from the list; `409` says why and re-reads the list; `403` says "This
+  device is no longer an admin device" in place of the list, as R37's
+  changes do; a revoked key returns to setup
+- **decided: a server older than R41 is found by the first delete.** The
+  server does not say which endpoints it has, and on R41 an unknown ID
+  also answers `404`. So a `404` re-reads the list: a device no longer
+  listed was deleted meanwhile (by the operator or another admin device)
+  and is gone; one still listed means the server has no delete route, as
+  does a `405`. The app then says "This server cannot delete devices.
+  Update SignalHub, or delete it on the admin page." and stops offering
+  *Delete*; that try changed nothing. Probing ahead with a request of its
+  own was left out: none tells the two servers apart without the same
+  ambiguity
+- controller tests against the fake backend (deleting, a device deleted
+  meanwhile, an active device refused, an older server answering `404` and
+  `405`, lost rights, an unreachable server, a revoked key), widget tests
+  (only revoked devices offer it, confirming and cancelling, an older
+  server, lost rights), an API test (`204`, `409`, `404`);
+  `client/README.md`, `docs/architecture.md` (Client application,
+  Deleting a revoked client); no API change; compatible (`feat(client)`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1985,8 +2015,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 28    | R39 - Remove the /connect redirect                                                               | Increment (`chore`)                    | Done (see section 3)                                                             |
 | 29    | R40 - The device list scrolls to its last device                                                 | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 | 30    | R41 - Deleting revoked devices: the API and the admin page                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 31    | R42 - Deleting revoked devices in the app                                                        | Increment (`feat(client)`)             | Next                                                                             |
-| 32    | R43 - A used pairing code: the API and the admin page                                            | Increment (`feat`)                     | Blocked until R42 is merged                                                      |
+| 31    | R42 - Deleting revoked devices in the app                                                        | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 32    | R43 - A used pairing code: the API and the admin page                                            | Increment (`feat`)                     | Next                                                                             |
 | 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Blocked until R43 is merged                                                      |
 
 How an autonomous run uses it:
@@ -3152,7 +3182,7 @@ delete.
 
 ### R42 - Deleting revoked devices in the app
 
-Status: planned; next. Added by the maintainer
+Status: complete (see section 3). Added by the maintainer
 (2026-09-27).
 
 Scope:
@@ -3168,7 +3198,7 @@ Compatible (`feat(client)`): no API change.
 
 ### R43 - A used pairing code: the API and the admin page
 
-Status: planned; blocked until R42 is merged. Added by the maintainer
+Status: planned; next. Added by the maintainer
 (2026-09-27).
 
 Goal: whoever shows a pairing code learns when it has been used, and is
@@ -3329,9 +3359,9 @@ The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-af
 notice), R35 (the admin page), R36 (managing devices from an admin
 device: the API), R37 (managing devices in the app), R38 (pairing codes
 from an admin device), R39 (removing the /connect redirect), R40 (the
-device list scrolls to its last device) and R41 (deleting revoked devices:
-the API and the admin page) are done. **R42 (deleting revoked devices in
-the app) is next**, then R43 and R44 in that order, each after the
-previous one is merged.
+device list scrolls to its last device), R41 (deleting revoked devices:
+the API and the admin page) and R42 (deleting revoked devices in the app)
+are done. **R43 (a used pairing code: the API and the admin page) is
+next**, then R44, after R43 is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

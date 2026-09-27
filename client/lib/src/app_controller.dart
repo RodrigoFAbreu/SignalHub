@@ -152,6 +152,18 @@ class AppController extends ChangeNotifier {
   /// For the owner, when the server refuses device management.
   static const notAdminMessage = 'This device is no longer an admin device';
 
+  /// Whether the server cannot delete devices (released before that), so the
+  /// app stops offering it.
+  bool _deletingUnsupported = false;
+
+  /// Whether this installation may delete revoked devices.
+  bool get canDeleteDevices => canManageDevices && !_deletingUnsupported;
+
+  /// For the owner, when the server cannot delete devices.
+  static const deletingUnsupportedMessage =
+      'This server cannot delete devices. Update SignalHub, or delete it on '
+      'the admin page.';
+
   /// The pairing code this admin device created last, while _Connect a
   /// device_ shows it; `null` otherwise.
   DevicePairing? pairing;
@@ -552,19 +564,72 @@ class AppController extends ChangeNotifier {
       await _forgetRevokedKey();
       return null;
     } on ApiException catch (e) {
-      if (e.statusCode == 403) {
-        await _lostAdminRights(api);
-        // Unless the key turned out to be revoked too: setup says that.
-        return phase == ConnectionPhase.connected ? notAdminMessage : null;
-      }
-      // Usually a conflict: the operator or another admin device changed
-      // the device meanwhile, so show it as it is now.
-      if (e.statusCode != null) await loadDevices();
-      return e.message;
+      return _refusedChange(api, e);
     } finally {
       changingDeviceId = null;
       notifyListeners();
     }
+  }
+
+  /// Deletes the device with [id], which must be revoked; it leaves
+  /// [devices]. Returns an error message, or `null` on success.
+  Future<String?> deleteDevice(String id) async {
+    final api = _api;
+    if (api == null) return 'Not connected to a server';
+    changingDeviceId = id;
+    notifyListeners();
+    try {
+      await api.deleteDevice(id);
+      _dropDevice(id);
+      return null;
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return null;
+    } on ApiException catch (e) {
+      return switch (e.statusCode) {
+        404 => _deviceNotFound(id),
+        405 => _deletingIsUnsupported(),
+        _ => _refusedChange(api, e),
+      };
+    } finally {
+      changingDeviceId = null;
+      notifyListeners();
+    }
+  }
+
+  /// A `404` for a device the list showed: deleted meanwhile, by the
+  /// operator or another admin device, or a server released before deleting
+  /// devices, which has no such endpoint. Reading the list tells them apart.
+  Future<String?> _deviceNotFound(String id) async {
+    await loadDevices();
+    if (devicesError case final error?) return error;
+    if (lostAdminRights) {
+      return phase == ConnectionPhase.connected ? notAdminMessage : null;
+    }
+    final listed = devices?.any((d) => d.id == id) ?? false;
+    return listed ? _deletingIsUnsupported() : null;
+  }
+
+  String _deletingIsUnsupported() {
+    _deletingUnsupported = true;
+    return deletingUnsupportedMessage;
+  }
+
+  void _dropDevice(String id) {
+    devices = devices?.where((d) => d.id != id).toList(growable: false);
+  }
+
+  /// A device change the server refused.
+  Future<String?> _refusedChange(SignalHubApi api, ApiException e) async {
+    if (e.statusCode == 403) {
+      await _lostAdminRights(api);
+      // Unless the key turned out to be revoked too: setup says that.
+      return phase == ConnectionPhase.connected ? notAdminMessage : null;
+    }
+    // Usually a conflict: the operator or another admin device changed the
+    // device meanwhile, so show it as it is now.
+    if (e.statusCode != null) await loadDevices();
+    return e.message;
   }
 
   /// Creates a pairing code for a new device named [name], shown as
@@ -727,6 +792,7 @@ class AppController extends ChangeNotifier {
     devicesError = null;
     lostAdminRights = false;
     _devicesUnsupported = false;
+    _deletingUnsupported = false;
     changingDeviceId = null;
     pairing = null;
     creatingPairing = false;

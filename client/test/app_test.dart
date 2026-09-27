@@ -1038,10 +1038,15 @@ void main() {
     Finder inDevice(String id, Finder matching) =>
         find.descendant(of: find.byKey(Key('device-$id')), matching: matching);
 
-    Future<void> choose(WidgetTester tester, String id, String action) async {
+    Future<void> openActions(WidgetTester tester, String id) async {
       await tester.ensureVisible(find.byKey(Key('deviceActions-$id')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(Key('deviceActions-$id')));
       await tester.pumpAndSettle();
+    }
+
+    Future<void> choose(WidgetTester tester, String id, String action) async {
+      await openActions(tester, id);
       await tester.tap(find.byKey(Key(action)));
       await tester.pumpAndSettle();
     }
@@ -1086,11 +1091,82 @@ void main() {
       expect(inDevice(laptop, find.text('Admin device')), findsOneWidget);
       expect(inDevice(tablet, find.text('Tablet')), findsOneWidget);
       expect(inDevice('c-phone', find.text('Revoked')), findsOneWidget);
-      // Admins, this device included, and revoked devices offer nothing.
+      // Active admins, this device included, offer nothing.
       expect(find.byKey(const Key('deviceActions-$self')), findsNothing);
       expect(find.byKey(const Key('deviceActions-$laptop')), findsNothing);
+      expect(find.byKey(const Key('deviceActions-$tablet')), findsOneWidget);
+      expect(find.byKey(const Key('deviceActions-c-phone')), findsOneWidget);
+    });
+
+    testWidgets('only revoked devices offer to delete', (tester) async {
+      await openDevices(tester);
+
+      await openActions(tester, tablet);
+      expect(find.byKey(const Key('revoke')), findsOneWidget);
+      expect(find.byKey(const Key('delete')), findsNothing);
+      await tester.tapAt(Offset.zero);
+      await tester.pumpAndSettle();
+
+      await openActions(tester, 'c-phone');
+      expect(find.byKey(const Key('delete')), findsOneWidget);
+      expect(find.byKey(const Key('revoke')), findsNothing);
+      expect(find.byKey(const Key('makeAdmin')), findsNothing);
+    });
+
+    testWidgets('deletes a revoked device after a confirmation', (
+      tester,
+    ) async {
+      await openDevices(tester);
+
+      await choose(tester, 'c-phone', 'delete');
+      expect(find.text('Delete "Old phone"?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(backend.otherClients.map((c) => c['id']), contains('c-phone'));
+
+      await choose(tester, 'c-phone', 'delete');
+      await tester.tap(find.byKey(const Key('confirm')));
+      await settle(tester);
+
+      expect(
+        backend.otherClients.map((c) => c['id']),
+        isNot(contains('c-phone')),
+      );
+      expect(find.byKey(const Key('device-c-phone')), findsNothing);
+      expect(find.text('Old phone'), findsNothing);
+    });
+
+    testWidgets('a server older than deleting devices says so', (tester) async {
+      backend.noDeviceDeletion = 404;
+      await openDevices(tester);
+
+      await choose(tester, 'c-phone', 'delete');
+      await tester.tap(find.byKey(const Key('confirm')));
+      await settle(tester);
+
+      expect(
+        find.text(AppController.deletingUnsupportedMessage),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('device-c-phone')), findsOneWidget);
+      // Delete is not offered again; the other actions still are.
       expect(find.byKey(const Key('deviceActions-c-phone')), findsNothing);
       expect(find.byKey(const Key('deviceActions-$tablet')), findsOneWidget);
+    });
+
+    testWidgets('rights taken away before deleting are explained', (
+      tester,
+    ) async {
+      await openDevices(tester);
+      backend.admin = false;
+
+      await choose(tester, 'c-phone', 'delete');
+      await tester.tap(find.byKey(const Key('confirm')));
+      await settle(tester);
+
+      expect(backend.otherClients.map((c) => c['id']), contains('c-phone'));
+      expect(find.byKey(const Key('notAdmin')), findsOneWidget);
+      expect(find.text('Old phone'), findsNothing);
     });
 
     testWidgets('the last device scrolls clear of the navigation bar', (
@@ -1130,7 +1206,10 @@ void main() {
 
       expect(backend.otherClients.first['revokedAt'], isNotNull);
       expect(inDevice(tablet, find.text('Revoked')), findsOneWidget);
-      expect(find.byKey(const Key('deviceActions-$tablet')), findsNothing);
+      // Revoked, it can only be deleted.
+      await openActions(tester, tablet);
+      expect(find.byKey(const Key('delete')), findsOneWidget);
+      expect(find.byKey(const Key('revoke')), findsNothing);
     });
 
     testWidgets('makes a device an admin after a confirmation', (tester) async {

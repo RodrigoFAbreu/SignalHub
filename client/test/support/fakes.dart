@@ -54,17 +54,25 @@ class FakeBackend {
   /// after this one.
   final otherClients = <Map<String, Object?>>[];
 
-  void addClient(String id, String name, {bool admin = false}) =>
-      otherClients.add({
-        'id': id,
-        'name': name,
-        'admin': admin,
-        'createdAt': '2026-09-26T08:00:00Z',
-        'revokedAt': null,
-        'pushTarget': null,
-        'pushPreferences': defaultPushPreferences,
-        'pushStatus': null,
-      });
+  void addClient(
+    String id,
+    String name, {
+    bool admin = false,
+    bool revoked = false,
+  }) => otherClients.add({
+    'id': id,
+    'name': name,
+    'admin': admin,
+    'createdAt': '2026-09-26T08:00:00Z',
+    'revokedAt': revoked ? '2026-09-26T09:00:00Z' : null,
+    'pushTarget': null,
+    'pushPreferences': defaultPushPreferences,
+    'pushStatus': null,
+  });
+
+  /// How a server released before deleting devices answers a delete: `404`
+  /// (no such route) or `405`; `null` for a server that deletes them.
+  int? noDeviceDeletion;
 
   /// Whether the server lets an admin device create pairing codes; a server
   /// released before that answers `404`.
@@ -264,8 +272,8 @@ class FakeBackend {
     return _json(404, {'title': 'Not Found', 'status': 404});
   }
 
-  /// Device management: only an admin device's key is accepted, and nothing
-  /// can be done to an admin.
+  /// Device management: only an admin device's key is accepted, nothing can
+  /// be done to an active admin, and only revoked devices can be deleted.
   http.Response _devices(String method, String path) {
     if (admin != true) {
       return _json(403, {'title': 'Not an admin device', 'status': 403});
@@ -273,6 +281,24 @@ class FakeBackend {
     final all = [_client(), ...otherClients];
     if ('$method $path' == 'GET /api/v1/client/devices') {
       return _json(200, {'items': all});
+    }
+    final deleted = RegExp(r'^/api/v1/client/devices/([^/]+)$')
+        .firstMatch(path)
+        ?.group(1);
+    if (method == 'DELETE' && deleted != null) {
+      if (noDeviceDeletion case final status?) {
+        final title = status == 405 ? 'Method Not Allowed' : 'Not Found';
+        return _json(status, {'title': title, 'status': status});
+      }
+      final target = all.where((c) => c['id'] == deleted).firstOrNull;
+      if (target == null) {
+        return _json(404, {'title': 'Not found', 'status': 404});
+      }
+      if (target['revokedAt'] == null) {
+        return _json(409, {'title': 'Client is not revoked', 'status': 409});
+      }
+      otherClients.remove(target);
+      return http.Response('', 204);
     }
     final match = RegExp(r'^/api/v1/client/devices/([^/]+)/(admin|revoke)$')
         .firstMatch(path);

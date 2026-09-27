@@ -1270,6 +1270,116 @@ void main() {
       expect(app.devices, hasLength(3));
     });
 
+    group('deleting', () {
+      const oldPhone = 'c-old-phone';
+
+      setUp(() => backend.addClient(oldPhone, 'Old phone', revoked: true));
+
+      Future<AppController> withDevices() async {
+        final app = controller();
+        await app.connect(serverUrl, clientKey);
+        await app.loadDevices();
+        return app;
+      }
+
+      List<String> listed(AppController app) => [
+        for (final d in app.devices!) d.id,
+      ];
+
+      test('deletes a revoked device, which leaves the list', () async {
+        final app = await withDevices();
+        expect(app.canDeleteDevices, isTrue);
+
+        final error = await app.deleteDevice(oldPhone);
+
+        expect(error, isNull);
+        expect(
+          backend.otherClients.map((c) => c['id']),
+          isNot(contains(oldPhone)),
+        );
+        expect(listed(app), isNot(contains(oldPhone)));
+        expect(app.changingDeviceId, isNull);
+      });
+
+      test('a device deleted meanwhile leaves the list', () async {
+        final app = await withDevices();
+        // The operator deleted it on the admin page.
+        backend.otherClients.removeWhere((c) => c['id'] == oldPhone);
+
+        final error = await app.deleteDevice(oldPhone);
+
+        expect(error, isNull);
+        expect(listed(app), isNot(contains(oldPhone)));
+        expect(app.canDeleteDevices, isTrue);
+      });
+
+      test('an active device is refused and shown as it is', () async {
+        final app = await withDevices();
+        // The app offers no delete on an active device; the server refuses
+        // one anyway.
+        final error = await app.deleteDevice(tablet);
+
+        expect(error, 'The server answered 409: Client is not revoked');
+        expect(backend.otherClients.map((c) => c['id']), contains(tablet));
+        expect(listed(app), contains(tablet));
+        expect(app.canDeleteDevices, isTrue);
+      });
+
+      for (final status in [404, 405]) {
+        test(
+          'a server older than deleting ($status) stops offering it',
+          () async {
+            backend.noDeviceDeletion = status;
+            final app = await withDevices();
+
+            final error = await app.deleteDevice(oldPhone);
+
+            expect(error, AppController.deletingUnsupportedMessage);
+            expect(listed(app), contains(oldPhone));
+            expect(app.canDeleteDevices, isFalse);
+            // Managing devices otherwise goes on.
+            expect(app.canManageDevices, isTrue);
+            expect(await app.revokeDevice(tablet), isNull);
+          },
+        );
+      }
+
+      test('rights taken away meanwhile are reported', () async {
+        final app = await withDevices();
+        backend.admin = false;
+
+        final error = await app.deleteDevice(oldPhone);
+
+        expect(error, AppController.notAdminMessage);
+        expect(backend.otherClients.map((c) => c['id']), contains(oldPhone));
+        expect(app.lostAdminRights, isTrue);
+        expect(app.devices, isNull);
+        expect(app.canDeleteDevices, isFalse);
+      });
+
+      test('a failed delete is reported and changes nothing', () async {
+        final app = await withDevices();
+        backend.offline = true;
+
+        final error = await app.deleteDevice(oldPhone);
+
+        expect(error, 'Could not reach the server');
+        expect(listed(app), contains(oldPhone));
+        expect(app.canDeleteDevices, isTrue);
+      });
+
+      test('a revoked key while deleting returns to setup', () async {
+        final app = await withDevices();
+        backend.acceptedKey = null;
+
+        final error = await app.deleteDevice(oldPhone);
+
+        expect(error, isNull);
+        expect(app.phase, ConnectionPhase.disconnected);
+        expect(app.devices, isNull);
+      });
+    });
+
     test('a revoked key while managing devices returns to setup', () async {
       final app = controller();
       await app.connect(serverUrl, clientKey);
