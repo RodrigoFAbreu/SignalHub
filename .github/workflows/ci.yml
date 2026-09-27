@@ -272,15 +272,17 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
-          # The admin page and its QR library are served on the host; the old Connect page leads to it.
+          # The admin page and its QR library are served on the host; the old Connect page is gone.
           curl --fail --silent --show-error http://localhost:8080/admin/ | grep --quiet 'SignalHub admin'
           for asset in $(curl --fail --silent http://localhost:8080/admin/ \
               | grep --only-matching --extended-regexp '(src|href)="[^"]+"' | cut --delimiter '"' --fields 2); do
             case "$asset" in /*) url="http://localhost:8080$asset" ;; *) url="http://localhost:8080/admin/$asset" ;; esac
             curl --fail --silent --show-error --output /dev/null "$url"
           done
-          test "$(curl --silent --output /dev/null --write-out '%{http_code} %{redirect_url}' \
-            http://localhost:8080/connect/)" = '301 http://localhost:8080/admin/'
+          for path in /connect/ /connect; do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' "http://localhost:8080$path")
+            test "$status" = 404 || { echo "$path: expected 404, got $status"; exit 1; }
+          done
       - name: Other machines reach only the product API, over TLS through the proxy
         run: |
           docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt > "$RUNNER_TEMP/proxy-ca.crt"

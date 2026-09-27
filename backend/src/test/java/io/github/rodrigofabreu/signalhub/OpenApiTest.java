@@ -343,7 +343,7 @@ class OpenApiTest {
         .body(SCHEMAS + ".UpdateClientRequest.properties", hasKey("name"))
         .body(SCHEMAS + ".UpdateClientRequest.properties.admin.type", equalTo("boolean"))
         .body(SCHEMAS + ".UpdateClientRequest", not(hasKey("required")))
-        // The admin page and the old Connect page's redirect are not part of the API.
+        // Neither the admin page nor the old Connect page is part of the API.
         .body("paths", not(hasKey("/connect")));
   }
 
