@@ -385,7 +385,8 @@ doubt.
 | `/api/v1/admin/producers/...` | Producer management, with the admin token. See [Producers and API keys](#producers-and-api-keys). |
 | `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
 | `/api/v1/admin/pairings` | `POST`: create a pairing code for a new device, with the admin token. See [Pairing a device](#pairing-a-device). |
-| `/api/v1/pairing` | `POST`: a device redeems a pairing code and gets its client key. See [Pairing a device](#pairing-a-device). |
+| `/api/v1/pairing` | `POST`: a device redeems a pairing code and gets its client key; the owner's other devices get a push. See [Pairing a device](#pairing-a-device). |
+| `/connect/` | The Connect page: creates a pairing code with the admin token and shows it as a QR code to scan, copy or download. Not forwarded by the proxy. See [Pairing a device](#pairing-a-device). |
 | `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
@@ -535,7 +536,11 @@ this itself; see [Client](#client).
 
 Instead of handing a device its client key, the operator can create a
 one-time pairing code, valid for 10 minutes, and the device registers itself
-with it (see [Pairing](architecture.md#pairing)):
+with it (see [Pairing](architecture.md#pairing)). The
+[Connect page](architecture.md#the-connect-page) at
+`http://localhost:8080/connect/` does it in a browser: enter the admin token
+and a device name, and it shows the QR code with a countdown, and copies it
+as an image or a link, or downloads it. From a terminal:
 
 ```sh
 curl -s http://localhost:8080/api/v1/admin/pairings \
@@ -572,7 +577,9 @@ curl -s -X POST https://signalhub.example.com/api/v1/pairing \
   -H "Authorization: Bearer $PAIRING_CODE"
 ```
 
-A used, expired or unknown code gets `401`.
+A used, expired or unknown code gets `401`. Once a code is redeemed, every
+other client with a push target that has not paused pushes gets the
+[pairing notice](architecture.md#pairing-notice), "New device paired".
 
 ### Events API
 

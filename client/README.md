@@ -88,7 +88,10 @@ direction, from a release to a local build.
 
 **Pairing** is the quick way. On the server's host, the operator creates a
 one-time pairing code for the device, valid for 10 minutes, and shows its
-URI as a QR code
+URI as a QR code: in a browser on the
+[Connect page](../docs/architecture.md#the-connect-page)
+(`http://localhost:8080/connect/`, over SSH from another computer), which
+can also copy the code to send to someone, or in a terminal
 ([docs/development.md](../docs/development.md#pairing-a-device)):
 
 ```sh

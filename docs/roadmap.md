@@ -1157,6 +1157,38 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   OpenAPI document; `docs/architecture.md` (Push dispatch, Client API),
   `docs/development.md`; compatible (`feat`)
 
+### R34 - The Connect page and the pairing notice
+
+- `/connect/`: a static page on the backend's own port (never forwarded by
+  the proxy) that creates a pairing with the admin token typed into it,
+  kept only in the page's memory, and shows the URI as a QR code with a
+  countdown, blurred once expired; it copies the QR code as a PNG image or
+  the URI as text (with a selection fallback outside a secure context) and
+  downloads the image, so the operator can send a code to someone else;
+  without `SIGNALHUB_PUBLIC_URL` it says to set it
+- locked down by response headers on `/connect/*`: a
+  `Content-Security-Policy` allowing only the page's own scripts, styles
+  and requests, no framing, `no-store`, no referrer, `nosniff`
+- the QR code is drawn by qrcode-generator 1.4.4 (MIT), a WebJar pinned
+  in `pom.xml` and served from its jar: no CDN and no vendored copy
+- once a code is redeemed, a `ClientPaired` CDI event, fired after the
+  transaction commits, has the `push` package send "New device paired"
+  (the name, and data `notice: client-paired` and the client ID) to every
+  other client with a push target that has not paused pushes; sent once
+  on a thread of its own, without an outbox or retries, so pairing never
+  waits for it and a failed notice never fails a pairing; registering a
+  client with the management API sends none
+- tests: the page, its headers, its scripts resolving (a WebJar version
+  out of step with the page fails), no inline script; the notice with the
+  fake provider (sent with its text and data, not to paused or revoked
+  clients, muted categories and severity not applying, a failed send not
+  retried and not failing the pairing); the pairing tests wait for their
+  notices so other tests' push counts stay exact; the Compose smoke test
+  loads the page and its scripts on the host and gets `404` for them
+  through the proxy; `docs/architecture.md` (Pairing, The Connect page,
+  Pairing notice), `docs/deployment.md`, `docs/development.md`,
+  `client/README.md`; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1708,6 +1740,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 20    | R31 - Opening an event's link in the app                                                         | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 21    | R32 - Inbox filters and an unread-only view                                                      | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 22    | R33 - Each client's last push result in the management API                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 23    | R34 - The Connect page and the pairing notice                                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -1919,6 +1952,7 @@ G1 → G2 → R19 v1.0.0
   → R30 an event's link (API, SDK) → R31 opening it in the app
   → R32 inbox filters and unread-only
   → R33 each client's last push result
+  → R34 the Connect page and the pairing notice
 ```
 
 - **Release distribution and version identity come first** (R20 to R24).
@@ -1957,6 +1991,15 @@ G1 → G2 → R19 v1.0.0
   - each client's last push result (R33) last: "why did my phone not
     buzz?" is answered today by metrics and logs, from a terminal; a last
     result per client answers it from the management API.
+- **R34 was added by the maintainer on 2026-09-27**, after pairing a
+  phone: making a pairing code took a terminal on the host, and there was
+  no way to hand a code to someone else. The Connect
+  page does it in a browser, on the host only, like the management API it
+  calls; since a shared code gives a device to whoever holds it, the
+  owner's devices are told whenever one pairs. A public page with a login,
+  and approving new devices from a paired one, were considered and left
+  out: the first puts the admin credential on the internet, the second
+  still needs a first device paired another way.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -1986,6 +2029,7 @@ advance; they follow from the queue.
 | R31           | minor (`feat(client)`)                                                                                                                                | a new action in the app; no API change                                                                     |
 | R32           | minor (`feat`)                                                                                                                                        | a new optional listing filter and app screens; older servers ignore the parameter                          |
 | R33           | minor (`feat`)                                                                                                                                        | new response fields and a database migration that needs no operator action                                 |
+| R34           | minor (`feat`)                                                                                                                                        | a new page on the host and a new push; no API, schema or configuration change                              |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -2579,6 +2623,33 @@ Compatible (`feat`): new response fields only.
 Non-goals: showing it in the app (a later candidate), alerts on failures,
 per-attempt records, metrics beyond those of R15a.
 
+### R34 - The Connect page and the pairing notice
+
+Status: complete (see section 3). Added by the maintainer (2026-09-27).
+
+Goal: the operator makes a pairing code in a browser, and can send it to
+someone else, without weakening what the management API protects.
+
+Scope:
+
+- a page on the backend's own port, not forwarded by the proxy, that
+  creates a pairing with the admin token and shows it as a QR code until
+  it expires; it copies the QR code as an image or the pairing link as
+  text, and downloads the image
+- the admin token is typed into the page and never stored; the page runs
+  only its own scripts and cannot be framed or cached
+- a push to the owner's other devices when a device pairs, so a code that
+  leaked is noticed when it is used; best effort, never delaying or
+  failing a pairing
+- tests for the page, its headers and scripts, and the notice; the Compose
+  smoke test checks the page is on the host and not through the proxy;
+  docs for pairing, exposure and setup
+
+Compatible (`feat`): no API, schema or configuration change.
+
+Non-goals: a public page or a login, approving devices from a paired
+device, a web client, rate limiting (still deferred).
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -2687,8 +2758,8 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. R33 (each client's last push result in the
-management API) is done, and it was the last row: **the queue is empty.**
+(section 4) is authoritative. R34 (the Connect page and the pairing
+notice) is done, and it was the last row: **the queue is empty.**
 No increment is scheduled; what comes next is the maintainer's choice, for
 example from the [deferred candidates](#deferred-candidates), which an
 orchestrator never schedules by itself.
