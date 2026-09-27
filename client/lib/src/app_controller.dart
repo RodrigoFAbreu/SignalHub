@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'api/signalhub_api.dart';
 import 'build_identity.dart';
+import 'connection/pairing_uri.dart';
 import 'connection/server_credentials.dart';
 import 'models/client_registration.dart';
 import 'models/event.dart';
@@ -24,6 +25,12 @@ enum ConnectionPhase {
 
 typedef ApiFactory = SignalHubApi Function(ServerCredentials credentials);
 
+/// Redeems a pairing code at a server ([SignalHubApi.redeemPairing]).
+typedef PairingRedeemer = Future<PairedClient> Function(
+  String serverUrl,
+  String code,
+);
+
 /// Starts push with options a server served, or returns `null` when they do
 /// not work with this app.
 typedef ServedPushStarter = Future<PushService?> Function(PushConfig served);
@@ -37,6 +44,7 @@ class AppController extends ChangeNotifier {
   AppController({
     required this._store,
     required this._apiFactory,
+    required this._redeemPairing,
     PushService? push,
     ServedPushStarter? startServedPush,
     this.build = BuildIdentity.compiled,
@@ -50,6 +58,7 @@ class AppController extends ChangeNotifier {
 
   final CredentialsStore _store;
   final ApiFactory _apiFactory;
+  final PairingRedeemer _redeemPairing;
   PushService? _push;
   final ServedPushStarter? _startServedPush;
   StreamSubscription<PushNotice>? _notices;
@@ -144,17 +153,55 @@ class AppController extends ChangeNotifier {
       return e.message;
     }
     final api = _apiFactory(parsed);
+    final ClientRegistration accepted;
     try {
-      registration = await api.getClient();
+      accepted = await api.getClient();
     } on ApiException catch (e) {
       return e.message;
     }
-    await _store.save(parsed);
-    _open(parsed);
+    await _connected(parsed, accepted);
+    return null;
+  }
+
+  /// Registers this installation with a pairing code the owner scanned or
+  /// pasted ([PairingUri]), and connects with the client key it returns.
+  /// Returns an error message, or `null` on success.
+  Future<String?> pair(String pairingUri) async {
+    final PairingUri parsed;
+    try {
+      parsed = PairingUri.parse(pairingUri);
+    } on FormatException catch (e) {
+      return e.message;
+    }
+    final PairedClient paired;
+    final ServerCredentials credentials;
+    try {
+      paired = await _redeemPairing(parsed.serverUrl, parsed.code);
+      credentials = ServerCredentials.parse(parsed.serverUrl, paired.clientKey);
+    } on ApiException catch (e) {
+      // Name the server the code points to: it may not be reachable from
+      // this device.
+      return e.statusCode == null
+          ? '${e.message} (${parsed.serverUrl})'
+          : e.message;
+    } on FormatException {
+      return 'The server sent an unexpected answer';
+    }
+    await _connected(credentials, paired.registration);
+    return null;
+  }
+
+  /// Saves credentials the server has accepted and shows the inbox.
+  Future<void> _connected(
+    ServerCredentials accepted,
+    ClientRegistration client,
+  ) async {
+    registration = client;
+    await _store.save(accepted);
+    _open(accepted);
     error = null;
     _setPhase(ConnectionPhase.connected);
     await refresh(includeClient: false);
-    return null;
   }
 
   /// Re-reads the registration and the newest page of the inbox, and

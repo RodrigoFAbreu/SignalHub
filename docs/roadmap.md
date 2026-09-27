@@ -1021,6 +1021,30 @@ The following capabilities are already implemented and merged unless repository 
   the proxy in the Compose smoke test; registering a client with the
   management API and manual setup are unchanged; compatible (`feat`)
 
+### R29 - Pairing a device: the app
+
+- the setup screen offers pairing first: **Scan pairing code** opens the
+  camera (the permission is asked for then, and only then) and reads the
+  pairing URI's QR code; **Pairing link** takes a pasted URI; the server
+  address and client key stay below, under **Or set up by hand**
+- the app redeems the code at the URI's server (`POST /api/v1/pairing`),
+  keeps the returned key in secure storage as before and continues with push
+  registration and the inbox; the redemption answers the registration, so
+  the key is not checked again
+- its own messages for a QR code or text that is not a pairing URI, an
+  expired or used code, and an unreachable server (named, since the address
+  is the operator's `SIGNALHUB_PUBLIC_URL`)
+- scanning uses `mobile_scanner` (the most used, maintained Flutter barcode
+  scanner, on-device ML Kit and Vision, no network service), behind an
+  injected scanner so tests need no camera; `CAMERA` (not required as a
+  hardware feature) on Android, `NSCameraUsageDescription` on iOS
+- tests of the URI parser, the redemption against the fake backend, the
+  controller (pairing, used code, unreachable server, a paired device
+  revoked) and the setup screen (scanned, pasted, cancelled, rejected,
+  another QR code); `client/README.md` and `docs/deployment.md` describe
+  pairing first and manual setup second; no API change; compatible
+  (`feat(client)`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1567,7 +1591,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 15 | R26 - PostgreSQL 18 (decision D3) | Increment (`!`) | Done (see section 3) |
 | 16 | R27 - Inbox and event-screen polish from the device review | Increment (`fix(client)`) | Done (see section 3) |
 | 17 | R28 - Pairing a device: the API | Increment (`feat`) | Done (see section 3) |
-| 18 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Next |
+| 18 | R29 - Pairing a device: the app | Increment (`feat(client)`) | Done (see section 3) |
 
 How an autonomous run uses it:
 
@@ -2260,7 +2284,7 @@ Compatible (`feat`).
 
 ### R29 - Pairing a device: the app
 
-Status: next. The API it uses is described in
+Status: complete (see section 3). The API it uses is described in
 `docs/architecture.md#pairing` (R28).
 
 Scope:
@@ -2387,8 +2411,10 @@ Material roadmap changes require a normal reviewed PR and must be visible in rep
 Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
-(section 4) is authoritative. R28 (pairing a device: the API) is done, so
-the expected next item is **R29 - Pairing a device: the app** (see
-[section 5](#5-after-v100)).
+(section 4) is authoritative. R29 (pairing a device: the app), its last
+row, is done, so the queue is empty: there is no next item until the
+maintainer adds one (for example from the
+[deferred candidates](#deferred-candidates), which an orchestrator never
+schedules by itself).
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

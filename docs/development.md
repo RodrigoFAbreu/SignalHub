@@ -546,9 +546,10 @@ Debian and Ubuntu):
 qrencode -t ansiutf8 "$URI"
 ```
 
-The device redeems the code once, with no body, through the proxy like any
-client request, and gets its client and key as registering a client returns
-them:
+The app redeems it when the owner scans the QR code or pastes the URI (see
+[client/README.md](../client/README.md#set-it-up)). Any other client
+redeems the code once, with no body, through the proxy like any client
+request, and gets its client and key as registering a client returns them:
 
 ```sh
 curl -s -X POST https://signalhub.example.com/api/v1/pairing \

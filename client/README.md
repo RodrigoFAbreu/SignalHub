@@ -1,7 +1,8 @@
 # SignalHub client
 
 The SignalHub app for Android and iOS, built with Flutter from one codebase.
-It connects to the owner's SignalHub server with a client key, registers for
+It sets itself up by scanning a pairing code the operator made (or with a
+server address and client key typed in), registers for
 push notifications, and shows the inbox: every event, newest first, and each
 event's details, also opened by tapping its notification. Unread events are
 marked and counted; opening one marks it read on every client of the owner,
@@ -19,13 +20,13 @@ commands that CI runs.
 | `lib/main.dart` | Wiring: starts push with built-in options, or hands the controller the start from served ones; creates the controller, runs the app. |
 | `lib/src/api/` | `SignalHubApi`, the client side of the backend's HTTP API. |
 | `lib/src/models/` | Events, the client registration and the served push options, read from API JSON. |
-| `lib/src/connection/` | Server address and client key, kept in secure storage. |
+| `lib/src/connection/` | Server address and client key, kept in secure storage; the pairing URI. |
 | `lib/src/push/push_service.dart` | `PushService`, the provider-neutral push port, and `PushNotice`. |
 | `lib/src/push/push_registration.dart` | Keeps the server's push target in step with the provider's token. |
 | `lib/src/push/firebase_push_service.dart` | The Firebase Cloud Messaging adapter: the only Dart code that knows Firebase. |
 | `lib/src/build_identity.dart` | Which SignalHub build the app is: release version and commit, from build-time defines. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
-| `lib/src/ui/` | The setup, inbox, event, device and notifications screens. |
+| `lib/src/ui/` | The setup, pairing scanner, inbox, event, device and notifications screens. |
 | `android/`, `ios/` | Platform projects: identifiers, permissions, push capability. |
 | `icon/` | The app icon (`icon.svg`) and `render.sh`, which renders its PNGs for both platforms. |
 | `test/` | Unit and widget tests against a fake backend and a fake push service. |
@@ -57,7 +58,7 @@ need the owner's Apple team (see [Signing](#signing)).
    which the release notes name.
 2. Install it: `adb install SignalHub-$version.apk` from a computer, or
    open the file on the phone and allow installing from that source.
-3. Open it and set it up with a client key, as in [Run it](#run-it). The
+3. Open it and set it up, as in [Set it up](#set-it-up). The
    *This device* screen says "SignalHub X.Y.Z" and the release's commit.
 
 **Updating** is installing the next release's APK the same way: Android
@@ -71,10 +72,38 @@ of other releases within the
 **Replacing a locally built app, once.** An app you built yourself is
 signed with your machine's debug key, so Android refuses to update it with
 the release's APK (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`). Uninstall it,
-install the release's APK and set it up again with a client key: the old
-key was in the uninstalled app's storage, so register a new client (and
-revoke the old one) or reuse a key you kept. The same happens in the other
+install the release's APK and set it up again: the old key was in the
+uninstalled app's storage, so pair it again (and revoke the old client) or
+reuse a key you kept. The same happens in the other
 direction, from a release to a local build.
+
+## Set it up
+
+**Pairing** is the quick way. On the server's host, the operator creates a
+one-time pairing code for the device, valid for 10 minutes, and shows its
+URI as a QR code
+([docs/development.md](../docs/development.md#pairing-a-device)):
+
+```sh
+uri=$(curl -s http://localhost:8080/api/v1/admin/pairings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name": "Pixel 8"}' | jq -r .uri)
+qrencode -t ansiutf8 "$uri"
+```
+
+In the app, tap **Scan pairing code** and point the camera at it (Android
+and iOS ask for the camera then, and only then), or paste the URI
+(`signalhub://pair?…`) under **Pairing link** and tap **Pair**. The app
+registers itself as a new client with its own key, which the operator can
+list and revoke like any other, and sets up push. An expired or used code
+says so: create a new one. The URI names the server by its
+`SIGNALHUB_PUBLIC_URL`; if the app cannot reach that address, it says so
+and names it. Without `SIGNALHUB_PUBLIC_URL` a pairing has no URI: set it,
+or set the app up by hand.
+
+**By hand**, under **Or set up by hand**: enter the server address and a
+client key the operator registered for this device
+(`POST /api/v1/admin/clients`, see [Run it](#run-it)).
 
 ## Run it
 
@@ -91,8 +120,10 @@ Without Firebase options, built in or served by the server (see
 [Push notifications](#push-notifications)), the app runs without push and
 says so. To connect
 it, start the backend (for example `./mvnw quarkus:dev` with an admin token,
-see [docs/development.md](../docs/development.md#dev-mode)), register a
-client for this installation and enter its key in the app:
+see [docs/development.md](../docs/development.md#dev-mode)) and pair the app
+(see [Set it up](#set-it-up); with `SIGNALHUB_PUBLIC_URL` set to the address
+below), or register a client for this installation and enter its key in the
+app:
 
 ```sh
 curl -s http://localhost:8080/api/v1/admin/clients \

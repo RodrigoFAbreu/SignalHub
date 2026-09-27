@@ -77,6 +77,29 @@ operator on the host ──http://localhost:8080──▶ backend (management AP
    curl https://signalhub.example.com/api/v1/events   # 401: the API answers, over TLS
    ```
 
+6. Set up each phone. Install the app (see
+   [client/README.md](../client/README.md#install-a-release)), then pair
+   it: on the host, create a pairing code for the phone and show it as a QR
+   code, and scan it in the app's **Scan pairing code**, within 10 minutes
+   (see [Pairing a device](development.md#pairing-a-device)):
+
+   ```sh
+   ADMIN_TOKEN=$(sed -n 's/^SIGNALHUB_ADMIN_TOKEN=//p' .env)
+   uri=$(curl -s http://localhost:8080/api/v1/admin/pairings \
+     -H "Authorization: Bearer $ADMIN_TOKEN" \
+     -H 'Content-Type: application/json' \
+     -d '{"name": "Pixel 8"}' | jq -r .uri)
+   qrencode -t ansiutf8 "$uri"
+   ```
+
+   The phone becomes a client of its own, listed and revoked through the
+   management API. The URI names `https://` and `SIGNALHUB_DOMAIN`, or
+   `SIGNALHUB_PUBLIC_URL` if set; the app says so if it cannot reach it.
+   Setting a phone up by hand still works: register a client
+   (`POST /api/v1/admin/clients`, see
+   [development.md](development.md#clients)) and enter the server address
+   and its client key under **Or set up by hand**.
+
 All three services restart automatically (`restart: unless-stopped`),
 also after the host reboots, as long as the Docker service starts at boot
 (the default for the Docker packages).

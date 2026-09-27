@@ -26,6 +26,32 @@ void main() {
     expect(request.headers['Accept'], 'application/json');
   });
 
+  test('redeems a pairing code for a client and its key', () async {
+    backend
+      ..acceptedKey = null
+      ..pairingCodes.add(pairingCode);
+
+    final paired = await backend.redeemPairing(serverUrl, pairingCode);
+
+    expect(paired.clientKey, pairedClientKey);
+    expect(paired.registration.name, 'Pixel 8');
+    final request = backend.requests.single;
+    expect(request.method, 'POST');
+    expect(request.url.toString(), '$serverUrl/api/v1/pairing');
+    expect(request.headers['Authorization'], 'Bearer $pairingCode');
+    expect(request.body, isEmpty);
+  });
+
+  test('a used or unknown pairing code is rejected as such', () async {
+    backend.pairingCodes.add(pairingCode);
+    await backend.redeemPairing(serverUrl, pairingCode);
+
+    expect(
+      () => backend.redeemPairing(serverUrl, pairingCode),
+      throwsA(isA<PairingRejectedException>()),
+    );
+  });
+
   test('keeps a base path, for servers behind a reverse proxy', () async {
     await backend.api('https://example.org/signalhub/').getClient();
 
