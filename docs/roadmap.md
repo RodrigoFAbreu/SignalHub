@@ -1741,6 +1741,10 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 21    | R32 - Inbox filters and an unread-only view                                                      | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 22    | R33 - Each client's last push result in the management API                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 23    | R34 - The Connect page and the pairing notice                                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 24    | R35 - The admin page: every device, admin rights, renaming                                       | Increment (`feat`)                     | Next                                                                             |
+| 25    | R36 - Managing devices from an admin device: the API                                             | Increment (`feat`)                     | Blocked until R35 is merged                                                      |
+| 26    | R37 - Managing devices in the app                                                                | Increment (`feat(client)`)             | Blocked until R36 is merged                                                      |
+| 27    | R38 - Pairing codes from an admin device                                                         | Increment (`feat`)                     | Blocked until R37 is merged                                                      |
 
 How an autonomous run uses it:
 
@@ -1953,6 +1957,8 @@ G1 → G2 → R19 v1.0.0
   → R32 inbox filters and unread-only
   → R33 each client's last push result
   → R34 the Connect page and the pairing notice
+  → R35 the admin page → R36 device management API for admin devices
+  → R37 device management in the app → R38 pairing codes from an admin device
 ```
 
 - **Release distribution and version identity come first** (R20 to R24).
@@ -2000,6 +2006,24 @@ G1 → G2 → R19 v1.0.0
   and approving new devices from a paired one, were considered and left
   out: the first puts the admin credential on the internet, the second
   still needs a first device paired another way.
+- **R35 to R38 were added by the maintainer on 2026-09-27**, after R34
+  (the Connect page) was built: the owner wants trusted devices of
+  their own to manage the others from the app, and one page on the host to
+  manage every device. The maintainer's answers, recorded here so no
+  increment has to ask again:
+  - the Connect page becomes an **admin page** on the host (R35): every
+    device, renaming, making a device an admin and taking admin rights
+    away, revoking, and adding devices, an admin or not. It is the only
+    place where admin rights are taken away.
+  - an **admin device** can see every device, make another device an
+    admin, and revoke devices that are not admins (R36, R37). It can do
+    nothing to another admin: no demoting and no revoking, so a stolen
+    admin phone cannot lock the owner out of their other admin devices.
+  - **pairing codes from an admin device** (R38) are wanted, as a later
+    improvement in a release of their own, not with R35 to R37.
+  - the API (R36) comes before the app (R37), as R28 and R29 were split,
+    so each release is complete and the app never calls an API that does
+    not exist yet.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -2030,6 +2054,10 @@ advance; they follow from the queue.
 | R32           | minor (`feat`)                                                                                                                                        | a new optional listing filter and app screens; older servers ignore the parameter                          |
 | R33           | minor (`feat`)                                                                                                                                        | new response fields and a database migration that needs no operator action                                 |
 | R34           | minor (`feat`)                                                                                                                                        | a new page on the host and a new push; no API, schema or configuration change                              |
+| R35           | minor (`feat`)                                                                                                                                        | a new page on the host, new optional fields, a new management endpoint and a migration with no operator action |
+| R36           | minor (`feat`)                                                                                                                                        | new client API endpoints, for admin clients only                                                           |
+| R37           | minor (`feat(client)`)                                                                                                                                | a new screen in the app for admin devices; no API change                                                   |
+| R38           | minor (`feat`)                                                                                                                                        | a new client API endpoint and app screen; pairing itself is unchanged                                      |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -2650,6 +2678,126 @@ Compatible (`feat`): no API, schema or configuration change.
 Non-goals: a public page or a login, approving devices from a paired
 device, a web client, rate limiting (still deferred).
 
+### R35 - The admin page: every device, admin rights, renaming
+
+Status: planned; next. Added by the maintainer (2026-09-27), after R34
+(the Connect page and the pairing notice).
+
+Goal: one page on the host where the operator sees every device and
+manages it, and the only place where a device's admin rights are taken
+away.
+
+Scope:
+
+- R34's Connect page becomes the **admin page**, on the backend's own port
+  and never forwarded by the proxy, like the management API it calls;
+  whether `/connect/` redirects to the new path or goes is the
+  increment's to decide and document
+- after the admin token, as in R34: every client, revoked or not, with its
+  name, whether it is an admin, when it was created or revoked, whether it
+  has a push target, and its last push results (R33)
+- per device: **rename** it, so the owner can tell whose or what each
+  device is; **make it an admin** or **take admin rights away**; **revoke**
+  it, admins included, after a confirmation
+- **add a device**: R34's pairing code, QR code, copy and download, with a
+  choice to pair it as an admin
+- the API behind it: an `admin` flag on clients and pairings (a Flyway
+  migration; existing clients are not admins, so no operator action),
+  returned with every client, including a client's own registration, so an
+  app can tell it is an admin; an optional `admin` when registering a
+  client or creating a pairing; a management endpoint that renames a
+  client or sets its admin flag; a revoked client does not change (the
+  increment picks the status and documents it)
+- every change logged at `INFO` with client IDs only, as registering and
+  revoking are; the pairing notice (R34) says when the new device is an
+  admin
+- tests against real PostgreSQL (the migration, the flag on every
+  response, renaming, granting and taking admin rights, a revoked client,
+  pairing as an admin), the OpenAPI document, the page and its headers,
+  the Compose smoke test (the page on the host, `404` through the proxy);
+  `docs/architecture.md` (Clients, Pairing, the page),
+  `docs/deployment.md`, `docs/development.md`
+
+Compatible (`feat`): new optional request fields, new response fields, a
+new endpoint and a migration that needs no operator action.
+
+Non-goals: anything in the app (R36, R37); a public page or a login other
+than the admin token.
+
+### R36 - Managing devices from an admin device: the API
+
+Status: planned; blocked until R35 is merged. Added by the maintainer
+(2026-09-27).
+
+Goal: a device the owner made an admin can manage the others through the
+client API, with limits that keep a stolen admin device from taking over.
+
+Scope:
+
+- client API endpoints that answer only an **admin client's** key, and
+  refuse every other client key the same way (the increment picks the
+  status and documents it): list every device (as the admin page shows
+  them, never a push token or key), **make a device an admin**, and
+  **revoke a device that is not an admin**
+- an admin device can do nothing to another admin, itself included: it
+  cannot take admin rights away or revoke one; only the admin page (the
+  admin token, R35) can
+- under `/api/v1/client`, so the proxy forwards them like the rest of the
+  client API; every change logged at `INFO` with client IDs only
+- the owner's devices get a push, as R34's pairing notice, when a device is
+  made an admin or revoked from a device, naming the device that did it
+- tests against real PostgreSQL for every combination (an ordinary client,
+  an admin, a revoked admin; the target an ordinary client, an admin,
+  itself, revoked, unknown), the notices with the fake provider, the
+  OpenAPI document; `docs/architecture.md` (Client API, and Security
+  limitations: what a stolen admin key can do and how the operator
+  recovers)
+
+Compatible (`feat`): new endpoints; nothing existing changes.
+
+Non-goals: renaming from a device (the admin page only), taking admin
+rights away or revoking an admin from a device, the app (R37).
+
+### R37 - Managing devices in the app
+
+Status: planned; blocked until R36 is merged. Added by the maintainer
+(2026-09-27).
+
+Scope:
+
+- the app reads from its registration whether it is an admin; an admin
+  device gets device management, as a tab of its own or from the _This
+  device_ screen (the increment decides and says why); other devices see
+  nothing new
+- every device with its name, whether it is an admin, and which one is
+  this device; **make an admin** and **revoke** (after a confirmation) on
+  devices that are not admins, and neither on admins
+- clear messages when this device lost its admin rights meanwhile, and
+  nothing shown with a server older than R36
+- controller and widget tests against the fake server; `client/README.md`
+
+Compatible (`feat(client)`): no API change.
+
+### R38 - Pairing codes from an admin device
+
+Status: planned; blocked until R37 is merged. Added by the maintainer
+(2026-09-27) as a later improvement, deliberately not released with R35 to
+R37.
+
+Scope:
+
+- an admin device creates a pairing code through the client API, as the
+  admin page does; whether it may pair an admin directly is the
+  increment's to decide (making a device an admin afterwards, R36, exists
+  either way)
+- in the app, _Connect a device_: the QR code with its countdown, and the
+  pairing link to copy or share, as on the admin page
+- the pairing notice (R34) names the device that created the code
+- tests for the endpoint (admin only, as R36), the notice and the app
+  screen; `docs/architecture.md` (Pairing), `client/README.md`
+
+Compatible (`feat`): a new endpoint and app screen; redeeming is unchanged.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -2759,9 +2907,7 @@ Determine this from repository state rather than trusting this section blindly.
 
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
 (section 4) is authoritative. R34 (the Connect page and the pairing
-notice) is done, and it was the last row: **the queue is empty.**
-No increment is scheduled; what comes next is the maintainer's choice, for
-example from the [deferred candidates](#deferred-candidates), which an
-orchestrator never schedules by itself.
+notice) is done. **R35 (the admin page) is next**, then R36, R37 and R38
+in that order, each after the previous one is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
