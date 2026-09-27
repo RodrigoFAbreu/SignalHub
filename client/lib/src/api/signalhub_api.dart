@@ -173,6 +173,15 @@ class SignalHubApi {
     ManagedDevice.fromJson,
   );
 
+  /// `POST /api/v1/client/pairings`: a one-time pairing code for a new
+  /// device named [name], never an admin. Only an admin device's key is
+  /// accepted: any other gets `403`, and a server released before pairing
+  /// from a device `404`.
+  Future<DevicePairing> createPairing(String name) async => _read(
+    await _send('POST', 'api/v1/client/pairings', body: {'name': name}),
+    DevicePairing.fromJson,
+  );
+
   /// `GET /api/v1/events`: one page of events matching [filter], newest
   /// first. Pass the previous page's [EventPage.nextCursor] as [cursor], with
   /// the same filter, for the next one.

@@ -9,6 +9,7 @@ import 'package:signalhub_client/src/build_identity.dart';
 import 'package:signalhub_client/src/connection/pairing_uri.dart';
 import 'package:signalhub_client/src/push/push_registration.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
+import 'package:signalhub_client/src/ui/connect_device_screen.dart';
 
 import 'support/fakes.dart';
 
@@ -1033,6 +1034,7 @@ void main() {
 
       expect(find.text('Devices'), findsNothing);
       expect(find.text('Tablet'), findsNothing);
+      expect(find.byKey(const Key('connectDevice')), findsNothing);
       expect(
         backend.requests.where((r) => r.url.path.contains('/devices')),
         isEmpty,
@@ -1133,6 +1135,91 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Tablet'), findsNothing);
+    });
+
+    Future<void> createPairing(WidgetTester tester, String name) async {
+      await tester.tap(find.byKey(const Key('connectDevice')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('pairingName')), name);
+      await tester.tap(find.byKey(const Key('createPairing')));
+      await settle(tester);
+    }
+
+    Future<void> goBack(WidgetTester tester) async {
+      await tester.tap(find.byType(BackButton));
+      await settle(tester);
+    }
+
+    testWidgets('an admin device connects a device with a QR code', (
+      tester,
+    ) async {
+      backend.pairingExpiresAt = DateTime.now().add(
+        const Duration(minutes: 10),
+      );
+      await openDevices(tester);
+
+      await createPairing(tester, 'New tablet');
+
+      expect(backend.devicePairingNames, ['New tablet']);
+      expect(
+        tester.widget<PairingQr>(find.byType(PairingQr)).data,
+        controller.pairingLink,
+      );
+      expect(find.textContaining('It works once.'), findsOneWidget);
+      expect(find.byKey(const Key('copyLink')), findsOneWidget);
+
+      // Back on the devices, the code is forgotten and the list re-read.
+      final listings = backend.requests
+          .where((r) => r.url.path == '/api/v1/client/devices')
+          .length;
+      await goBack(tester);
+      expect(controller.pairing, isNull);
+      expect(
+        backend.requests
+            .where((r) => r.url.path == '/api/v1/client/devices')
+            .length,
+        listings + 1,
+      );
+    });
+
+    testWidgets('a server older than pairing from a device says so', (
+      tester,
+    ) async {
+      backend.devicePairings = false;
+      await openDevices(tester);
+
+      await createPairing(tester, 'New tablet');
+
+      expect(
+        find.text(AppController.pairingUnsupportedMessage),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('createPairing')))
+            .onPressed,
+        isNull,
+      );
+      await goBack(tester);
+      // Device management stays; connecting a device is no longer offered.
+      expect(find.byKey(const Key('connectDevice')), findsNothing);
+      expect(inDevice(tablet, find.text('Tablet')), findsOneWidget);
+    });
+
+    testWidgets('rights taken away before creating a code are explained', (
+      tester,
+    ) async {
+      await openDevices(tester);
+      backend.admin = false;
+
+      await createPairing(tester, 'New tablet');
+
+      expect(find.text(AppController.notAdminMessage), findsOneWidget);
+      expect(find.byType(PairingQr), findsNothing);
+      expect(backend.devicePairingNames, isEmpty);
+      await goBack(tester);
+      expect(find.byKey(const Key('notAdmin')), findsOneWidget);
+      expect(find.byKey(const Key('connectDevice')), findsNothing);
     });
   });
 }

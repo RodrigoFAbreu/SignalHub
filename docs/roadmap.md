@@ -1315,6 +1315,51 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   and model tests; `client/README.md`, `docs/architecture.md` (Client
   application); no API change; compatible (`feat(client)`)
 
+### R38 - Pairing codes from an admin device
+
+- `POST /api/v1/client/pairings` (`{"name": ...}`), with a client key,
+  under `/api/v1/client` so the proxy forwards it; `201` with the same
+  `Pairing` as `POST /api/v1/admin/pairings`, redeemed at the unchanged
+  `POST /api/v1/pairing`
+- admin-only exactly as R36: every other client key gets `403 Not an admin
+  device`, a missing, unknown or revoked key (a revoked admin included) and
+  the admin token `401`; the caller's row is locked while the pairing is
+  created
+- **decided: an admin device never pairs an admin device.** The body has
+  only `name` (`admin`, either value, is `400`). A pairing code is the
+  bearer secret most likely to leak (it is sent by link or shown as a QR
+  code), so a code from a device only ever gives a device that reads
+  events; making it an admin is R36's separate, notified step. It also
+  keeps a stolen admin device from quietly minting admin devices, in line
+  with R36's rule that a stolen admin device must not be able to take over
+- the pairing records the device that created it (`pairings.created_by`,
+  `V14__add_pairing_created_by.sql`, nullable, so existing pairings and the
+  operator's need no action); a code whose device was revoked or lost its
+  admin rights before redemption gets `401` and is deleted, so revoking a
+  stolen admin device also stops its codes
+- logged at `INFO` with IDs only (`Client <caller> created pairing <id>,
+  expires at <time>`); the pairing notice names the creating device ("…
+  "Anna's phone" created its pairing code. If this was not you, revoke both
+  on the admin page.", data `byClientId`) and goes to it too; unchanged
+  wording for the operator's codes
+- in the app, _Connect a device_ above the device list of an admin device:
+  a name, then the pairing URI as a QR code (drawn by the app with the
+  pure-Dart `qr` package), a countdown that hides the code once expired,
+  and the link with **Copy link** (copying lets the owner paste it into any
+  messenger without a share plugin); without a public address the app
+  builds the URI from the address it reaches the server at; `403` says the
+  device is no longer an admin, `404` (a server older than this) says
+  pairing from a device is not supported there and stops offering it
+- tests against real PostgreSQL (an ordinary client, an admin, a revoked
+  admin, lost rights, validation, the code stopping after revocation or
+  lost rights, the creator recorded), the notice with the fake provider,
+  the schema, the OpenAPI document; the Compose smoke test creates and
+  redeems a code from an admin device through the proxy and gets `403` for
+  an ordinary one; controller, widget, API and model tests against the fake
+  backend (an older server, lost rights, the countdown, copying);
+  `docs/architecture.md` (Pairing, Pairing notice, Client API, Security
+  limitations, Client application), `client/README.md`; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -1870,7 +1915,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 24    | R35 - The admin page: every device, admin rights, renaming                                       | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 25    | R36 - Managing devices from an admin device: the API                                             | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 26    | R37 - Managing devices in the app                                                                | Increment (`feat(client)`)             | Done (see section 3)                                                             |
-| 27    | R38 - Pairing codes from an admin device                                                         | Increment (`feat`)                     | Next                                                                             |
+| 27    | R38 - Pairing codes from an admin device                                                         | Increment (`feat`)                     | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -2904,8 +2949,8 @@ Compatible (`feat(client)`): no API change.
 
 ### R38 - Pairing codes from an admin device
 
-Status: planned; next. Added by the maintainer (2026-09-27) as a later
-improvement, deliberately not released with R35 to R37.
+Status: complete (see section 3). Added by the maintainer (2026-09-27) as
+a later improvement, deliberately not released with R35 to R37.
 
 Scope:
 
@@ -3031,7 +3076,10 @@ Determine this from repository state rather than trusting this section blindly.
 The queue in [Remaining work to v1.0.0 and after](#remaining-work-to-v100-and-after)
 (section 4) is authoritative. R34 (the Connect page and the pairing
 notice), R35 (the admin page), R36 (managing devices from an admin
-device: the API) and R37 (managing devices in the app) are done. **R38
-(pairing codes from an admin device) is next.**
+device: the API), R37 (managing devices in the app) and R38 (pairing codes
+from an admin device) are done. **The queue is empty: nothing further is
+scheduled.** A new item comes only from the maintainer, or from a
+[deferred candidate](#deferred-candidates) the maintainer adds to the
+queue.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

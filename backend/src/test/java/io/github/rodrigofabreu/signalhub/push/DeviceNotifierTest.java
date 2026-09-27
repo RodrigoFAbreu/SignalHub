@@ -20,8 +20,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * The pushes the owner's devices get when a device pairs, or is made an admin or revoked from an
- * admin device, with the fake provider.
+ * The pushes the owner's devices get when a device pairs (with a code from the operator or from an
+ * admin device), or is made an admin or revoked from an admin device, with the fake provider.
  */
 @QuarkusTest
 class DeviceNotifierTest {
@@ -67,6 +67,40 @@ class DeviceNotifierTest {
             + " not pair it, revoke it.",
         message.body());
     assertEquals(Map.of("notice", "client-paired", "clientId", paired.toString()), message.data());
+  }
+
+  @Test
+  void theNoticeNamesTheAdminDeviceThatCreatedTheCode() throws Exception {
+    var phone = clientWithTarget("{}");
+    var admin = adminWithTarget("Anna's phone");
+
+    String code =
+        asClient(admin.key())
+            .contentType(ContentType.JSON)
+            .body(Map.of("name", "Borrowed tablet"))
+            .post(CLIENT + "/pairings")
+            .then()
+            .statusCode(201)
+            .extract()
+            .path("code");
+    var paired = redeem(code);
+    notifier.awaitSent(Duration.ofSeconds(10));
+
+    var expected =
+        new PushMessage(
+            "New device paired",
+            "\"Borrowed tablet\" can now read your SignalHub events. \"Anna's phone\" created its"
+                + " pairing code. If this was not you, revoke both on the admin page.",
+            Map.of(
+                "notice",
+                "client-paired",
+                "clientId",
+                paired.toString(),
+                "byClientId",
+                admin.id().toString()));
+    assertEquals(List.of(expected), sentTo(phone));
+    // The device that created the code is told too: its key may be in someone else's hands.
+    assertEquals(List.of(expected), sentTo(admin.token()));
   }
 
   @Test
@@ -242,6 +276,11 @@ class DeviceNotifierTest {
             .statusCode(201)
             .extract()
             .path("code");
+    return redeem(code);
+  }
+
+  /** Redeems a pairing code, as the app does, and returns the new client's ID. */
+  private static UUID redeem(String code) {
     String id =
         given()
             .header("Authorization", "Bearer " + code)

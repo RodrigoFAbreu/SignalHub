@@ -371,7 +371,7 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Authorization: Bearer $client_key" http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
-      - name: A device pairs through the proxy with a code the operator made on the host, and an admin device revokes it
+      - name: A device pairs through the proxy with a code the operator made on the host, and an admin device pairs another and revokes it
         run: |
           pairing=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
@@ -420,6 +420,22 @@ jobs:
             https://localhost/api/v1/client/devices \
             | jq --exit-status --arg id "$paired_id" \
                 '.items | map(select(.id == $id)) | .[0].name == "ci-paired-phone"'
+          # An admin device creates pairing codes through the proxy too; no other device can.
+          status=$(devices --output /dev/null --write-out '%{http_code}' --request POST \
+            --header "Authorization: Bearer $client_key" --header 'Content-Type: application/json' \
+            --data '{"name": "x"}' https://localhost/api/v1/client/pairings)
+          test "$status" = 403 || { echo "expected 403, got $status"; exit 1; }
+          device_pairing=$(devices --fail --show-error --request POST \
+            --header "Authorization: Bearer $admin_key" --header 'Content-Type: application/json' \
+            --data '{"name": "ci-device-paired"}' https://localhost/api/v1/client/pairings)
+          device_code=$(jq --raw-output .code <<<"$device_pairing")
+          echo "::add-mask::$device_code"
+          jq --exit-status '.admin == false
+              and .uri == "signalhub://pair?server=https%3A%2F%2Flocalhost&code=" + .code' \
+            <<<"$device_pairing" > /dev/null
+          devices --fail --show-error --request POST \
+            --header "Authorization: Bearer $device_code" https://localhost/api/v1/pairing \
+            | jq --exit-status '.client.name == "ci-device-paired" and .client.admin == false'
           devices --fail --show-error --request POST --header "Authorization: Bearer $admin_key" \
             "https://localhost/api/v1/client/devices/$paired_id/revoke" \
             | jq --exit-status '.revokedAt != null'

@@ -145,7 +145,7 @@ public class DeviceResource {
     };
   }
 
-  private static WebApplicationException refusal(ClientService.Refusal refusal) {
+  static WebApplicationException refusal(ClientService.Refusal refusal) {
     return switch (refusal) {
       // Revoked between authentication and the change: answer as if the key had been rejected.
       case CALLER_REVOKED -> new NotAuthorizedException(BearerToken.unauthorized());

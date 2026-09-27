@@ -33,7 +33,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
     type = SecuritySchemeType.HTTP,
     scheme = "bearer",
     bearerFormat = "shpc1_<secret>",
-    description = "A one-time pairing code, created by the operator.")
+    description = "A one-time pairing code, created by the operator or an admin device.")
 @Produces(MediaType.APPLICATION_JSON)
 public class PairingResource {
 
@@ -55,7 +55,7 @@ public class PairingResource {
           "Registers the calling device as a new client, named as the pairing says, and issues"
               + " its client key, shown only once. The code works once, before it expires. The"
               + " request has no body. The owner's other devices get a push saying a device was"
-              + " paired.")
+              + " paired, naming the admin device that created the code, if one did.")
   @APIResponse(
       responseCode = "201",
       description = "Client created. The Location header points to its own registration.",
@@ -63,20 +63,20 @@ public class PairingResource {
   @APIResponse(
       responseCode = "401",
       description =
-          "Missing, malformed, unknown, used or expired pairing code. The response does not say"
-              + " which.",
+          "Missing, malformed, unknown, used or expired pairing code, or one created by an admin"
+              + " device that has since been revoked or is no longer an admin. The response does"
+              + " not say which.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public Response redeem(
       @Parameter(hidden = true) @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
-    var issued =
+    var redeemed =
         BearerToken.from(authorization)
             .flatMap(pairings::redeem)
             .orElseThrow(() -> new NotAuthorizedException(BearerToken.unauthorized()));
     // Fired after redeem's transaction committed, so the client it names exists.
-    paired.fire(
-        new ClientPaired(issued.client().id(), issued.client().name(), issued.client().admin()));
+    paired.fire(redeemed.paired());
     return Response.created(UriBuilder.fromResource(ClientResource.class).build())
-        .entity(issued)
+        .entity(redeemed.issued())
         .build();
   }
 }

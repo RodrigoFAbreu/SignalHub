@@ -26,3 +26,4 @@ creates or alters tables.
 | `V11__add_event_link.sql` | `events.link`: an optional URL the owner can open from the event |
 | `V12__add_client_push_results.sql` | Each client's last successful and last failed push on `clients`, for the management API |
 | `V13__add_client_admin.sql` | `clients.admin` and `pairings.admin`: whether a client is an admin device, and whether a pairing makes one |
+| `V14__add_pairing_created_by.sql` | `pairings.created_by`: the admin device that created a pairing, if one did |

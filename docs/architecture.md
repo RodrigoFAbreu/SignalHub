@@ -622,16 +622,18 @@ Every product API endpoint requires a credential. This version does not yet:
 unlocked) can do what an [admin device](#device-management-from-an-admin-device)
 can, through the proxy, until the operator acts: read every event, list every
 device (names, push providers and push results, never keys or push tokens),
-make other devices admins, and revoke devices that are not admins. It cannot
-revoke an admin or take admin rights away, rename a device, create pairing
-codes, publish, or reach the management API, so the owner's admin devices
-keep working and the operator keeps control. Every change it makes is
-logged and pushes a notice to the owner's devices naming it. To recover, on
-the [admin page](#the-admin-page) (or the management API) with the admin
-token: revoke the stolen device, take admin rights away from, or revoke, any
-device it made an admin, and pair again any device it revoked (a revoked
-client cannot be restored). Keep few admin devices: each is a key that can
-do this.
+make other devices admins, revoke devices that are not admins, and create
+pairing codes for new devices that are not admins. It cannot revoke an admin
+or take admin rights away, rename a device, pair an admin device, publish,
+or reach the management API, so the owner's admin devices keep working and
+the operator keeps control. Every change it makes, and every device paired
+with its codes, is logged and pushes a notice to the owner's devices naming
+it. To recover, on the [admin page](#the-admin-page) (or the management API)
+with the admin token: revoke the stolen device (its unused pairing codes
+stop working with it), revoke any device paired with its codes, take admin
+rights away from, or revoke, any device it made an admin, and pair again any
+device it revoked (a revoked client cannot be restored). Keep few admin
+devices: each is a key that can do this.
 
 ## Clients
 
@@ -683,8 +685,10 @@ own registration (push target and push preferences) under `/api/v1/client`.
 It cannot rename itself or take its own admin rights away. It cannot publish,
 manage producers, or see push tokens of other clients. Only an
 [admin device](#admin-devices)'s key may list the other clients, make one an
-admin and revoke one that is not an admin (see
-[Device management from an admin device](#device-management-from-an-admin-device)).
+admin, revoke one that is not an admin (see
+[Device management from an admin device](#device-management-from-an-admin-device))
+and create pairing codes (see
+[Pairing from an admin device](#pairing-from-an-admin-device)).
 
 ### Admin devices
 
@@ -701,8 +705,10 @@ it is one.
   [admin page](#the-admin-page). An admin device can also make another
   device an admin, but only the operator can take admin rights away; no
   other client key can change it.
-- **It lets the device manage the others,** within limits: see
-  [Device management from an admin device](#device-management-from-an-admin-device).
+- **It lets the device manage the others,** within limits, and pair new
+  devices that are not admins: see
+  [Device management from an admin device](#device-management-from-an-admin-device)
+  and [Pairing from an admin device](#pairing-from-an-admin-device).
   Otherwise an admin device reads events and keeps its own registration
   exactly like any other client.
 - **Existing clients are not admins.** `V13__add_client_admin.sql` adds the
@@ -723,6 +729,10 @@ admin token nor the host:
 | `GET /api/v1/client/devices` | Every client, revoked or not, oldest first, as `{"items": [...]}`: exactly what `GET /api/v1/admin/clients` returns (schema `ManagedClient`, with `pushStatus`), never a key or a push token. |
 | `POST /api/v1/client/devices/{id}/admin` | Makes the client an admin device. `200` with the client; `200` and no change if it already is one (the caller included); `409 Client is revoked` for a revoked client; `404` for an unknown ID. |
 | `POST /api/v1/client/devices/{id}/revoke` | Revokes a client that is not an admin and removes its push target, as the operator's revoke does. `200` with the client; `200` and no change if it is already revoked; `409 Client is an admin device` for an admin, the caller included; `404` for an unknown ID. |
+
+An admin device also creates pairing codes, with `POST
+/api/v1/client/pairings` under the same rules: see
+[Pairing from an admin device](#pairing-from-an-admin-device).
 
 Neither `POST` has a body. The limits keep a stolen admin device from taking
 over:
@@ -792,9 +802,10 @@ the admin token on the device nor typing a client key:
 
 1. The operator creates a **pairing** for a client name with the admin token
    (`POST /api/v1/admin/pairings`, `{"name": "Pixel 8"}`, and `"admin": true`
-   to pair an [admin device](#admin-devices)). The response has a
-   one-time **pairing code**, when it expires, and a **pairing URI** to show
-   as a QR code (for example with `qrencode`, see
+   to pair an [admin device](#admin-devices)), or an admin device does
+   ([Pairing from an admin device](#pairing-from-an-admin-device)). The
+   response has a one-time **pairing code**, when it expires, and a
+   **pairing URI** to show as a QR code (for example with `qrencode`, see
    [development.md](development.md#pairing-a-device)).
 2. The device redeems the code once, before it expires:
    `POST /api/v1/pairing` with `Authorization: Bearer <code>` and no body.
@@ -834,13 +845,56 @@ signalhub://pair?server=https%3A%2F%2Fsignalhub.example.com&code=shpc1_Zt1vQ3x9r
   credentials, query or fragment, or startup stops; a trailing slash is
   dropped.
 - **Reachable.** `/api/v1/pairing` is outside `/api/v1/admin/`, so the Compose
-  proxy forwards it; creating pairings is management and stays on the host.
+  proxy forwards it; creating pairings with the admin token is management and
+  stays on the host, and an admin device creates them through the proxy
+  ([Pairing from an admin device](#pairing-from-an-admin-device)).
 - **Nothing provider-specific.** A pairing holds only a client name and
   whether it is an admin device; push is
   set up afterwards with the client key, as for any client.
 - **The owner is told.** Once a code is redeemed, the owner's devices get a
   push (see [Pairing notice](#pairing-notice)), so a code that leaked is
   noticed when it is used.
+
+#### Pairing from an admin device
+
+An [admin device](#admin-devices) creates pairing codes with its own client
+key, so the owner can add a device from the app, away from the host:
+
+| Method and path | Result |
+|---|---|
+| `POST /api/v1/client/pairings` | Creates a pairing for a new client (`{"name": "Pixel 8"}`), exactly like the operator's: `201` with `{"name", "admin", "code", "expiresAt", "uri"}`, `admin` always `false`. The code redeems at `POST /api/v1/pairing` like any other. |
+
+- **Admin only, as device management.** Every other client key gets `403 Not
+  an admin device`; a missing, unknown or revoked key is `401`, and so is the
+  admin token, which has `POST /api/v1/admin/pairings`. The caller's row is
+  locked while the pairing is created, as for
+  [device management](#device-management-from-an-admin-device). The body is
+  validated first (`400` for a blank or long name, as when registering).
+- **Never an admin device.** The body has only `name`; `admin`, `true` or
+  `false`, is an unknown property and `400`. A pairing code is a bearer
+  secret handed over by link or QR code, so it is the part most likely to
+  leak; a code from a device therefore only ever gives a device that reads
+  events. Making the new device an admin is a separate step, from an admin
+  device or the admin page, that pushes its own notice. This also keeps a
+  stolen admin device from quietly minting further admin devices: it can
+  still make an existing device an admin, but every such change names it.
+- **Only while its device stays an admin.** The pairing records the device
+  that created it (`pairings.created_by`, added by
+  `V14__add_pairing_created_by.sql`; empty for pairings created with the
+  admin token, so upgrading needs no operator action). If that device is
+  revoked or is no longer an admin when the code is redeemed, the code gets
+  the usual `401` and is deleted: revoking a stolen admin device also stops
+  the codes it handed out. Its row is locked while the code is redeemed, so
+  the operator's change applies before the redemption or after it.
+- **Logged** at `INFO` with IDs only: `Client <caller> created pairing <id>,
+  expires at <time>`, then `Redeemed pairing <id> as client <new client>` as
+  for every pairing. A refused request logs nothing.
+- **The owner's devices are told** who created the code when it is redeemed,
+  the creating device included (see [Pairing notice](#pairing-notice)).
+- **The URI** is built from `SIGNALHUB_PUBLIC_URL`, as for the operator's
+  pairings. Without it, `uri` is `null`, and the app builds the same URI from
+  the address it reaches the server at, which is where the new device should
+  go too.
 
 ### The admin page
 
@@ -909,6 +963,16 @@ New admin device paired
 ```
 
 with the data `{"notice": "client-paired", "clientId": "<the new client>"}`.
+When the code was created [from an admin device](#pairing-from-an-admin-device),
+the notice names that device too, and goes to it as well, since its key may
+be in someone else's hands:
+
+```
+New device paired
+"Pixel 8" can now read your SignalHub events. "Anna's phone" created its pairing code. If this was not you, revoke both on the admin page.
+```
+
+with `byClientId` (the device that created the code) added to the data.
 An app shows it like any push; it has no `eventId`, so tapping it opens the
 app. The client's other [push preferences](#push-preferences) (minimum
 severity, muted categories and producers) are about events and do not apply.
@@ -994,6 +1058,7 @@ suppressed push is simply not sent to that client.
 | `POST /api/v1/admin/clients/{id}/revoke` | admin token | Revokes the client and removes its push target. Idempotent. |
 | `POST /api/v1/admin/pairings` | admin token | Creates a pairing for a new client (`{"name": ..., "admin": ...}`, `admin` optional). `201` with `{"name", "admin", "code", "expiresAt", "uri"}`; see [Pairing](#pairing). |
 | `POST /api/v1/pairing` | pairing code | Redeems the code: registers the client. `201` with the client and `clientKey`, `Location` `/api/v1/client`. |
+| `POST /api/v1/client/pairings` | admin device's client key | Creates a pairing for a new client that is not an admin (`{"name": ...}`). `201` as `POST /api/v1/admin/pairings`; `403` for any other client. See [Pairing from an admin device](#pairing-from-an-admin-device). |
 | `GET /api/v1/client` | client key | The calling client's registration, including whether it is an admin device. |
 | `PUT /api/v1/client/push-target` | client key | Sets the push target (`{"provider", "token"}`). `200` with the client. |
 | `DELETE /api/v1/client/push-target` | client key | Removes the push target. Idempotent. `200` with the client. |
@@ -1449,8 +1514,25 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   device is no longer an admin device" in place of the list and the app
   stops offering it. Devices that are not admins, and servers without
   admin devices (no `admin` field) or without the device endpoints (`404`
-  for the listing), show nothing new. Renaming, taking admin rights away
-  and pairing stay on the [admin page](#the-admin-page).
+  for the listing), show nothing new. Renaming and taking admin rights away
+  stay on the [admin page](#the-admin-page).
+- **Connecting a device.** Above the list, an admin device offers *Connect
+  a device*: it asks for the new device's name, creates a pairing code with
+  `POST /api/v1/client/pairings`
+  ([Pairing from an admin device](#pairing-from-an-admin-device)) and shows
+  it as the admin page does: the pairing URI as a QR code, a countdown to
+  its expiry ("Expires in 9:59. It works once."), which hides the code once
+  it has expired, and the URI as text with *Copy link*, to send to whoever
+  sets up the new device. It never pairs an admin device; the new device
+  can be made one from the list once it has paired. The QR code is drawn by
+  the app itself with the pure-Dart [`qr`](https://pub.dev/packages/qr)
+  package, black on white with a quiet zone whatever the theme. When the
+  server has no public address (`uri` is `null`), the app builds the same
+  URI from the address it reaches the server at. The code is kept in memory
+  only while the screen shows it, and the device list is read again when
+  the screen closes. A `403` says "This device is no longer an admin
+  device" as for the list; a server without the endpoint (`404`) says it
+  cannot create pairing codes from a device, and the app stops offering it.
 - **Events.** The app maps the API's events to a typed model. A category or
   severity added in a later backend release maps to *unknown* rather than
   failing, so older apps keep working (see

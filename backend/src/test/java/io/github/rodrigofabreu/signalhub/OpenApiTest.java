@@ -413,4 +413,27 @@ class OpenApiTest {
         .body("paths.'/api/v1/pairing'.post", not(hasKey("parameters")))
         .body("paths.'/api/v1/pairing'.post", not(hasKey("requestBody")));
   }
+
+  @Test
+  void describesPairingFromAnAdminDevice() {
+    var create = "paths.'/api/v1/client/pairings'.post";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(create + ".security", equalTo(List.of(Map.of("clientKey", List.of()))))
+        .body(create + ".tags", equalTo(List.of("Device management")))
+        .body(
+            create + ".requestBody.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/CreateDevicePairingRequest"))
+        .body(
+            create + ".responses.'201'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/Pairing"))
+        .body(create + ".responses.keySet()", hasItems("201", "400", "401", "403"))
+        .body(SCHEMAS + ".CreateDevicePairingRequest.required", equalTo(List.of("name")))
+        // An admin device pairs only devices that are not admins.
+        .body(SCHEMAS + ".CreateDevicePairingRequest.properties", not(hasKey("admin")));
+  }
 }

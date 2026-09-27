@@ -152,6 +152,35 @@ class AppController extends ChangeNotifier {
   /// For the owner, when the server refuses device management.
   static const notAdminMessage = 'This device is no longer an admin device';
 
+  /// The pairing code this admin device created last, while _Connect a
+  /// device_ shows it; `null` otherwise.
+  DevicePairing? pairing;
+
+  /// Whether a pairing code is being created.
+  bool creatingPairing = false;
+
+  /// Whether the server cannot create pairing codes for a device (released
+  /// before them), so the app stops offering it.
+  bool _pairingUnsupported = false;
+
+  /// Whether this installation may create pairing codes for new devices.
+  bool get canCreatePairings => canManageDevices && !_pairingUnsupported;
+
+  /// For the owner, when the server has no pairing codes for devices.
+  static const pairingUnsupportedMessage =
+      'This server cannot create pairing codes from a device. Update '
+      'SignalHub, or create the code on the admin page.';
+
+  /// The link a new device opens or scans to pair: the server's own pairing
+  /// URI, or, when it has no public address configured, one for the address
+  /// this device reaches it at.
+  String? get pairingLink {
+    final pairing = this.pairing;
+    final credentials = this.credentials;
+    if (pairing == null || credentials == null) return null;
+    return pairing.uri ?? PairingUri.format(credentials.baseUrl, pairing.code);
+  }
+
   /// Whether the server has events older than [events].
   bool get hasMore => _nextCursor != null;
 
@@ -538,6 +567,43 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  /// Creates a pairing code for a new device named [name], shown as
+  /// [pairing]. Returns an error message, or `null` on success.
+  Future<String?> createPairing(String name) async {
+    final api = _api;
+    if (api == null) return 'Not connected to a server';
+    creatingPairing = true;
+    notifyListeners();
+    try {
+      pairing = await api.createPairing(name);
+      return null;
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return null;
+    } on ApiException catch (e) {
+      switch (e.statusCode) {
+        case 403:
+          await _lostAdminRights(api);
+          return phase == ConnectionPhase.connected ? notAdminMessage : null;
+        case 404:
+          _pairingUnsupported = true;
+          return pairingUnsupportedMessage;
+        default:
+          return e.message;
+      }
+    } finally {
+      creatingPairing = false;
+      notifyListeners();
+    }
+  }
+
+  /// Forgets the pairing code shown, so it is not kept in memory longer than
+  /// it is on screen.
+  void clearPairing() {
+    pairing = null;
+    notifyListeners();
+  }
+
   /// The server refused device management: shows why, and re-reads the
   /// registration so the app stops offering it.
   Future<void> _lostAdminRights(SignalHubApi api) async {
@@ -662,6 +728,9 @@ class AppController extends ChangeNotifier {
     lostAdminRights = false;
     _devicesUnsupported = false;
     changingDeviceId = null;
+    pairing = null;
+    creatingPairing = false;
+    _pairingUnsupported = false;
     _eventToOpen = null;
     pushStatus = _initialPushStatus;
     error = reason;

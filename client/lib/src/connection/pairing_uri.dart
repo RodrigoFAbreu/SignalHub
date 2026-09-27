@@ -23,6 +23,15 @@ class PairingUri {
     return PairingUri._(serverUrl, code);
   }
 
+  /// The pairing URI of [code] for the server at [serverUrl], as the backend
+  /// makes it: for a server that has no public address configured, whose
+  /// address this device already knows.
+  static String format(String serverUrl, String code) => Uri(
+    scheme: 'signalhub',
+    host: 'pair',
+    queryParameters: {'server': serverUrl, 'code': code},
+  ).toString();
+
   static const codePrefix = 'shpc1_';
 
   static const invalid =

@@ -66,6 +66,20 @@ class FakeBackend {
         'pushStatus': null,
       });
 
+  /// Whether the server lets an admin device create pairing codes; a server
+  /// released before that answers `404`.
+  bool devicePairings = true;
+
+  /// The public address the server builds pairing URIs from; `null` when the
+  /// operator configured none, so pairings have no URI.
+  String? publicUrl = serverUrl;
+
+  /// When pairing codes created from a device expire.
+  DateTime pairingExpiresAt = DateTime.utc(2026, 9, 27, 12, 10);
+
+  /// The names of the devices pairing codes were created for from a device.
+  final devicePairingNames = <String>[];
+
   /// The push client options the server serves; `null` when the operator
   /// configured none.
   Map<String, Object?>? pushConfig;
@@ -175,6 +189,10 @@ class FakeBackend {
     if (path.startsWith('/api/v1/client/devices') && deviceEndpoints) {
       return _devices(request.method, path);
     }
+    if ('${request.method} $path' == 'POST /api/v1/client/pairings' &&
+        devicePairings) {
+      return _createPairing(request);
+    }
     final route = '${request.method} $path';
     switch (route) {
       case 'GET /api/v1/events/unread-count':
@@ -278,6 +296,34 @@ class FakeBackend {
       if (other) target['revokedAt'] ??= '2026-09-27T09:00:00Z';
     }
     return _json(200, target);
+  }
+
+  /// A pairing code from an admin device, for a device that is never an
+  /// admin; it redeems like one from the operator.
+  http.Response _createPairing(http.Request request) {
+    if (admin != true) {
+      return _json(403, {'title': 'Not an admin device', 'status': 403});
+    }
+    final name = (jsonDecode(request.body) as Map<String, Object?>)['name'];
+    if (name is! String || name.trim().isEmpty) {
+      return _json(400, {'title': 'Bad Request', 'status': 400});
+    }
+    final code = 'shpc1_fromDevice${devicePairingNames.length}xxxxxxx';
+    devicePairingNames.add(name);
+    pairingCodes.add(code);
+    return _json(201, {
+      'name': name,
+      'admin': false,
+      'code': code,
+      'expiresAt': pairingExpiresAt.toIso8601String(),
+      'uri': publicUrl == null
+          ? null
+          : Uri(
+              scheme: 'signalhub',
+              host: 'pair',
+              queryParameters: {'server': publicUrl, 'code': code},
+            ).toString(),
+    });
   }
 
   /// The listing's filters: values of one parameter are alternatives, and

@@ -44,8 +44,9 @@ redeeming a one-time pairing code from `/api/v1/admin/pairings` at
 rename it, make it an admin device or not, or revoke it, with a push to the
 owner's devices when a device pairs, and an admin device can list every
 device, make one an admin or revoke one that is not an admin through
-`/api/v1/client/devices`, with a push naming it) with per-client push
-preferences (pause, minimum severity, muted categories and producers) and
+`/api/v1/client/devices`, with a push naming it, and create pairing codes
+for devices that are not admins at `/api/v1/client/pairings`) with
+per-client push preferences (pause, minimum severity, muted categories and producers) and
 each client's last push results in the management API, and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging
 provider enabled by a service account key file (and the app's push options
@@ -67,7 +68,9 @@ event inbox with its filters (unread only, producer, category, severity)
 and event details with opening an event's link, read state,
 push preferences, and its build
 and commit on the *This device* screen, where an admin device also lists
-every device to make one an admin or revoke one that is not an admin; every release attaches it as an
+every device to make one an admin or revoke one that is not an admin,
+and connects a new device with a pairing code shown as a QR code with its
+countdown and a link to copy; every release attaches it as an
 Android APK signed with SignalHub's release key), and the
 Python producer package and `signalhub` command in `sdk/python/` (its wheel
 attached to every release, reporting that release), and
