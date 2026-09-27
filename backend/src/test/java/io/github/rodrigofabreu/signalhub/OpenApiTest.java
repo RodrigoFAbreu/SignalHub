@@ -348,6 +348,40 @@ class OpenApiTest {
   }
 
   @Test
+  void describesDeviceManagementFromAnAdminDevice() {
+    var devices = "paths.'/api/v1/client/devices'.get";
+    var makeAdmin = "paths.'/api/v1/client/devices/{id}/admin'.post";
+    var revoke = "paths.'/api/v1/client/devices/{id}/revoke'.post";
+    var clientKey = List.of(Map.of("clientKey", List.of()));
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(devices + ".security", equalTo(clientKey))
+        .body(
+            devices + ".responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/ClientList"))
+        .body(devices + ".responses", hasKey("401"))
+        .body(devices + ".responses", hasKey("403"))
+        .body(makeAdmin + ".security", equalTo(clientKey))
+        .body(
+            makeAdmin + ".responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/ManagedClient"))
+        .body(makeAdmin + ".responses.keySet()", hasItems("200", "401", "403", "404", "409"))
+        .body(makeAdmin, not(hasKey("requestBody")))
+        .body(revoke + ".security", equalTo(clientKey))
+        .body(
+            revoke + ".responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/ManagedClient"))
+        .body(revoke + ".responses.keySet()", hasItems("200", "401", "403", "404", "409"))
+        .body(revoke, not(hasKey("requestBody")))
+        // Renaming and taking admin rights away stay with the admin token.
+        .body("paths.'/api/v1/client/devices/{id}'", equalTo(null));
+  }
+
+  @Test
   void describesPairing() {
     given()
         .queryParam("format", "json")

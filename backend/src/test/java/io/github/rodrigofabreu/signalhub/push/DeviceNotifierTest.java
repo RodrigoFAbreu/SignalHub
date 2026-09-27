@@ -4,6 +4,7 @@ import static io.github.rodrigofabreu.signalhub.TestClients.CLIENT;
 import static io.github.rodrigofabreu.signalhub.TestClients.asClient;
 import static io.github.rodrigofabreu.signalhub.TestProducers.asAdmin;
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,11 +19,14 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** The push the owner's devices get when a device pairs, with the fake provider. */
+/**
+ * The pushes the owner's devices get when a device pairs, or is made an admin or revoked from an
+ * admin device, with the fake provider.
+ */
 @QuarkusTest
-class PairingNotifierTest {
+class DeviceNotifierTest {
 
-  @Inject PairingNotifier notifier;
+  @Inject DeviceNotifier notifier;
   @Inject FakePushProvider fake;
 
   @BeforeEach
@@ -104,6 +108,123 @@ class PairingNotifierTest {
     notifier.awaitSent(Duration.ofSeconds(10));
 
     assertTrue(sentTo(token).isEmpty());
+  }
+
+  @Test
+  void theOwnersDevicesAreToldWhenADeviceMakesAnotherAnAdmin() throws Exception {
+    var phone = clientWithTarget("{}");
+    var admin = adminWithTarget("Anna's phone");
+    var target = TestClients.register("Tablet");
+
+    asClient(admin.key())
+        .post(CLIENT + "/devices/" + target.id() + "/admin")
+        .then()
+        .statusCode(200);
+    notifier.awaitSent(Duration.ofSeconds(10));
+
+    var expected =
+        new PushMessage(
+            "Device made an admin",
+            "\"Anna's phone\" made \"Tablet\" an admin device. If this was not you, revoke both"
+                + " on the admin page.",
+            Map.of(
+                "notice",
+                "client-made-admin",
+                "clientId",
+                target.id().toString(),
+                "byClientId",
+                admin.id().toString()));
+    assertEquals(List.of(expected), sentTo(phone));
+    // The device that did it is told too: its key may be in someone else's hands.
+    assertEquals(List.of(expected), sentTo(admin.token()));
+  }
+
+  @Test
+  void theOwnersDevicesAreToldWhenADeviceRevokesAnother() throws Exception {
+    var phone = clientWithTarget("{}");
+    var admin = adminWithTarget("Anna's phone");
+    var target = TestClients.register("Old tablet");
+    var targetToken = "notice-" + UUID.randomUUID();
+    setTarget(target.clientKey(), targetToken);
+
+    asClient(admin.key())
+        .post(CLIENT + "/devices/" + target.id() + "/revoke")
+        .then()
+        .statusCode(200);
+    notifier.awaitSent(Duration.ofSeconds(10));
+
+    var expected =
+        new PushMessage(
+            "Device revoked",
+            "\"Anna's phone\" revoked \"Old tablet\". If this was not you, revoke \"Anna's"
+                + " phone\" on the admin page.",
+            Map.of(
+                "notice",
+                "client-revoked",
+                "clientId",
+                target.id().toString(),
+                "byClientId",
+                admin.id().toString()));
+    assertEquals(List.of(expected), sentTo(phone));
+    assertEquals(List.of(expected), sentTo(admin.token()));
+    // Revoking removed its push target, so the revoked device is not told.
+    assertTrue(sentTo(targetToken).isEmpty());
+  }
+
+  @Test
+  void nothingIsSentWhenADeviceChangesNothingOrIsRefused() throws Exception {
+    var phone = clientWithTarget("{}");
+    var admin = adminWithTarget("Idle admin");
+    var otherAdmin = TestClients.registerAdmin("Other admin");
+    var gone = TestClients.register("Gone");
+    asAdmin().post(TestClients.ADMIN + "/" + gone.id() + "/revoke").then().statusCode(200);
+    var ordinary = TestClients.register("Ordinary");
+
+    asClient(admin.key())
+        .post(CLIENT + "/devices/" + otherAdmin.id() + "/admin")
+        .then()
+        .statusCode(200);
+    asClient(admin.key()).post(CLIENT + "/devices/" + gone.id() + "/revoke").then().statusCode(200);
+    asClient(admin.key())
+        .post(CLIENT + "/devices/" + otherAdmin.id() + "/revoke")
+        .then()
+        .statusCode(409);
+    asClient(ordinary.clientKey())
+        .post(CLIENT + "/devices/" + gone.id() + "/admin")
+        .then()
+        .statusCode(403);
+    notifier.awaitSent(Duration.ofSeconds(10));
+
+    assertTrue(sentTo(phone).isEmpty());
+    assertTrue(sentTo(admin.token()).isEmpty());
+  }
+
+  @Test
+  void aFailedNoticeDoesNotFailTheChange() throws Exception {
+    var phone = clientWithTarget("{}");
+    var admin = adminWithTarget("Admin");
+    var target = TestClients.register("Laptop");
+    fake.answer(
+        (token, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "provider down"));
+
+    asClient(admin.key())
+        .post(CLIENT + "/devices/" + target.id() + "/admin")
+        .then()
+        .statusCode(200)
+        .body("admin", equalTo(true));
+    notifier.awaitSent(Duration.ofSeconds(10));
+
+    assertEquals(1, sentTo(phone).size());
+  }
+
+  /** An admin device with a push target. */
+  private record Admin(UUID id, String key, String token) {}
+
+  private static Admin adminWithTarget(String name) {
+    var admin = TestClients.registerAdmin(name);
+    var token = "notice-" + UUID.randomUUID();
+    setTarget(admin.clientKey(), token);
+    return new Admin(admin.id(), admin.clientKey(), token);
   }
 
   /** Pairs a device through the API, as the app does, and returns its client ID. */

@@ -10,6 +10,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import org.hibernate.id.uuid.UuidVersion7Strategy;
 import org.jboss.logging.Logger;
 
@@ -134,6 +135,124 @@ public class ClientService {
     record Updated(ManagedClientResponse client) implements Update {}
 
     record Revoked() implements Update {}
+  }
+
+  /**
+   * Every client, as {@link #list()}, if the caller is an active admin device; otherwise why not.
+   * Nothing changes, so the caller is not locked.
+   */
+  @Transactional
+  DeviceList listFor(UUID callerId) {
+    var caller = clients.findByIdOptional(callerId).orElseThrow();
+    if (caller.revoked()) {
+      return new DeviceList.Refused(Refusal.CALLER_REVOKED);
+    }
+    if (!caller.admin()) {
+      return new DeviceList.Refused(Refusal.NOT_AN_ADMIN);
+    }
+    return new DeviceList.Listed(list());
+  }
+
+  /**
+   * An admin device makes another device an admin. Making an admin an admin changes nothing; a
+   * revoked device cannot be made one.
+   */
+  @Transactional
+  DeviceChange makeAdminBy(UUID callerId, UUID id) {
+    return changeBy(
+        callerId,
+        id,
+        client -> {
+          if (client.revoked()) {
+            return new DeviceChange.Refused(Refusal.CLIENT_REVOKED);
+          }
+          if (client.admin()) {
+            return done(client, false);
+          }
+          client.setAdmin(true);
+          LOG.infof("Client %s made client %s an admin device", callerId, id);
+          return done(client, true);
+        });
+  }
+
+  /**
+   * An admin device revokes a device that is not an admin. Revoking a revoked device changes
+   * nothing; an admin, the caller included, can be revoked only with the admin token.
+   */
+  @Transactional
+  DeviceChange revokeBy(UUID callerId, UUID id) {
+    return changeBy(
+        callerId,
+        id,
+        client -> {
+          if (client.revoked()) {
+            return done(client, false);
+          }
+          if (client.admin()) {
+            return new DeviceChange.Refused(Refusal.CLIENT_IS_ADMIN);
+          }
+          client.revoke(now());
+          LOG.infof("Client %s revoked client %s", callerId, id);
+          return done(client, true);
+        });
+  }
+
+  /**
+   * Checks that the caller is an active admin device before looking at the target, so a client that
+   * is not one learns nothing about the others. Locks both rows, in a fixed order so two admin
+   * devices acting on each other cannot deadlock, and holds the caller's lock so an operator
+   * revoking it or taking its rights away meanwhile is applied before this change or after it.
+   */
+  private DeviceChange changeBy(
+      UUID callerId, UUID id, Function<ClientEntity, DeviceChange> change) {
+    ClientEntity caller;
+    Optional<ClientEntity> target;
+    if (callerId.equals(id)) {
+      caller = clients.findForUpdate(callerId).orElseThrow();
+      target = Optional.of(caller);
+    } else if (callerId.compareTo(id) < 0) {
+      caller = clients.findForUpdate(callerId).orElseThrow();
+      target = clients.findForUpdate(id);
+    } else {
+      target = clients.findForUpdate(id);
+      caller = clients.findForUpdate(callerId).orElseThrow();
+    }
+    if (caller.revoked()) {
+      return new DeviceChange.Refused(Refusal.CALLER_REVOKED);
+    }
+    if (!caller.admin()) {
+      return new DeviceChange.Refused(Refusal.NOT_AN_ADMIN);
+    }
+    return target.map(change).orElse(new DeviceChange.Refused(Refusal.UNKNOWN_CLIENT));
+  }
+
+  private DeviceChange done(ClientEntity client, boolean changed) {
+    return new DeviceChange.Done(
+        toManagedResponse(client, clients.pendingRetries(client.id())), changed);
+  }
+
+  /** Why a device's request to manage the others was refused. */
+  enum Refusal {
+    /** The caller was revoked after it authenticated. */
+    CALLER_REVOKED,
+    NOT_AN_ADMIN,
+    UNKNOWN_CLIENT,
+    CLIENT_REVOKED,
+    CLIENT_IS_ADMIN
+  }
+
+  /** What {@link #listFor} found. */
+  sealed interface DeviceList {
+    record Listed(List<ManagedClientResponse> clients) implements DeviceList {}
+
+    record Refused(Refusal refusal) implements DeviceList {}
+  }
+
+  /** What a device's change did; {@code changed} is false if the client already was as asked. */
+  sealed interface DeviceChange {
+    record Done(ManagedClientResponse client, boolean changed) implements DeviceChange {}
+
+    record Refused(Refusal refusal) implements DeviceChange {}
   }
 
   /**

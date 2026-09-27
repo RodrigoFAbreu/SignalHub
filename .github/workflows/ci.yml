@@ -371,7 +371,7 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Authorization: Bearer $client_key" http://localhost:8080/api/v1/events)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
-      - name: A device pairs through the proxy with a code the operator made on the host
+      - name: A device pairs through the proxy with a code the operator made on the host, and an admin device revokes it
         run: |
           pairing=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
@@ -402,6 +402,29 @@ jobs:
             | jq --exit-status '.name == "ci-paired-phone" and .revokedAt == null'
           # The code works once.
           status=$(redeem --output /dev/null --write-out '%{http_code}')
+          test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+          paired_id=$(jq --raw-output .client.id <<<"$paired")
+          devices() {
+            curl --silent --cacert "$RUNNER_TEMP/proxy-ca.crt" "$@"
+          }
+          # Device management answers only an admin device's key, through the proxy too.
+          status=$(devices --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $client_key" https://localhost/api/v1/client/devices)
+          test "$status" = 403 || { echo "expected 403, got $status"; exit 1; }
+          admin_key=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" --header 'Content-Type: application/json' \
+            --data '{"name": "ci-admin-device", "admin": true}' \
+            http://localhost:8080/api/v1/admin/clients | jq --raw-output .clientKey)
+          echo "::add-mask::$admin_key"
+          devices --fail --show-error --header "Authorization: Bearer $admin_key" \
+            https://localhost/api/v1/client/devices \
+            | jq --exit-status --arg id "$paired_id" \
+                '.items | map(select(.id == $id)) | .[0].name == "ci-paired-phone"'
+          devices --fail --show-error --request POST --header "Authorization: Bearer $admin_key" \
+            "https://localhost/api/v1/client/devices/$paired_id/revoke" \
+            | jq --exit-status '.revokedAt != null'
+          status=$(devices --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $client_key" https://localhost/api/v1/client)
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
       - uses: actions/setup-python@v7
         with:

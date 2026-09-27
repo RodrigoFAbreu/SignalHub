@@ -21,7 +21,7 @@ import io.agroal.api.AgroalDataSource;
 import io.github.rodrigofabreu.signalhub.TestClients;
 import io.github.rodrigofabreu.signalhub.TestProducers;
 import io.github.rodrigofabreu.signalhub.producer.ApiKeys;
-import io.github.rodrigofabreu.signalhub.push.PairingNotifier;
+import io.github.rodrigofabreu.signalhub.push.DeviceNotifier;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
@@ -48,7 +48,7 @@ class PairingApiTest {
   static final String PAIRING = "/api/v1/pairing";
 
   @Inject AgroalDataSource dataSource;
-  @Inject PairingNotifier notifier;
+  @Inject DeviceNotifier notifier;
 
   // Each redemption pushes a notice to the clients other tests gave push targets; it must be sent
   // before those tests count their pushes.

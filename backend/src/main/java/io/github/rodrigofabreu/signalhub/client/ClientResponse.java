@@ -16,8 +16,8 @@ public record ClientResponse(
     @Schema(
             required = true,
             description =
-                "Whether the client is one of the owner's admin devices. Only the operator sets"
-                    + " it, with the admin token.")
+                "Whether the client is one of the owner's admin devices. The operator sets it"
+                    + " with the admin token; an admin device can also make another one an admin.")
         boolean admin,
     @Schema(required = true, examples = "2026-09-25T12:00:00.123456Z") Instant createdAt,
     @Schema(
