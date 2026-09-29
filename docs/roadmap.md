@@ -2413,6 +2413,9 @@ G1 → G2 → R19 v1.0.0
     or otherwise distinct, with the same three settings of its own (R46).
     It is chosen from the generic `severity` only, never from the
     producer or the event's text.
+  - by default a critical alert **sounds when the phone is on silent**
+    but **not during do-not-disturb**; both are settings the owner can
+    turn on or off (R46).
   - the general alert comes first: the critical alert reuses its sounds,
     settings screen and mechanism.
 - Notification grouping on the device was considered with them and left
@@ -3434,22 +3437,39 @@ Scope, the Android app:
 - chosen from the push's generic `severity` only (already in the push
   data), never from the producer, the category or the text; a severity
   the app does not know uses the general alert
-- stored on the device like R45's settings; do-not-disturb and silent
-  mode still apply, as in R45
+- two more switches, for critical events only:
+  - **Sound when the phone is on silent**, **on** by default: a critical
+    alert plays its sound and vibration even when the phone's ringer is
+    on silent or vibrate
+  - **Sound during Do Not Disturb**, **off** by default: when off, a
+    critical alert follows do-not-disturb like any notification; when
+    on, it breaks through. Android lets an app through do-not-disturb
+    only once the owner grants it Do Not Disturb access; the app says so
+    and opens the system screen to grant it, and until access is given
+    the switch stays off
+  - with R45's mechanism, the increment decides how (for example
+    playing the alert on the alarm stream, and reading the phone's
+    current do-not-disturb state before playing) and documents it
+- the general alert (R45) is unchanged: it always follows silent mode
+  and do-not-disturb
+- stored on the device like R45's settings
 - the same kinds of tests as R45 (a critical and a normal push with the
-  switch on and off, an unknown severity), and a device-review check;
-  `client/README.md`
+  switch on and off, an unknown severity; silent mode and do-not-disturb
+  with each switch on and off, and do-not-disturb access not granted),
+  and device-review checks; `client/README.md`
 
 Compatible (`feat(client)`): no API change beyond R45's.
 
-Non-goals: breaking through do-not-disturb or silent mode (a decision
-for the maintainer, not assumed here); a separate alert for `HIGH` or any
-other severity, category or producer (see
-[Deferred candidates](#deferred-candidates)).
+Non-goals: sounding the general alert (R45) through silent mode or
+do-not-disturb; a separate alert for `HIGH` or any other severity,
+category or producer (see [Deferred candidates](#deferred-candidates)).
 
 Exit criteria: on the owner's phone, with the switch on, a `CRITICAL`
 push plays its own sound, volume and vibration and a `NORMAL` push plays
-the general alert; with the switch off, both play the general alert.
+the general alert; with the switch off, both play the general alert. With
+the default settings, a `CRITICAL` push sounds with the phone on silent
+and stays quiet during do-not-disturb, and a `NORMAL` push is silent in
+both; turning each switch around reverses its case.
 
 ### Already in place (not scheduled again)
 
