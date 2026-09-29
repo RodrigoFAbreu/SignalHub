@@ -2,6 +2,8 @@
   "sound": "signal",
   "volume": 80,
   "vibration": "medium",
+  "pattern": "standard",
+  "length": "short",
   "resource": "signalhub_signal",
   "gain": 0.8,
   "timings": [
@@ -33,6 +35,8 @@
     "sound": "urgent",
     "volume": 100,
     "vibration": "strong",
+    "pattern": "rapid",
+    "length": "long",
     "onSilent": true,
     "duringDoNotDisturb": false
   },
@@ -40,6 +44,8 @@
     "sound": "signal",
     "volume": 80,
     "vibration": "medium",
+    "pattern": "standard",
+    "length": "short",
     "resource": "signalhub_signal",
     "gain": 0.8,
     "timings": [

@@ -11,6 +11,8 @@ void main() {
         'sound': 'signal',
         'volume': 80,
         'vibration': 'medium',
+        'pattern': 'standard',
+        'length': 'short',
         'resource': 'signalhub_signal',
         'gain': 0.8,
         'timings': [0, 90, 90, 90, 90, 260],
@@ -101,6 +103,178 @@ void main() {
       ]);
     });
 
+    group('the pattern and length', () {
+      List<int> timings(AlertPattern pattern, AlertLength length) =>
+          AlertSettings.defaults
+                  .copyWith(pattern: pattern, length: length)
+                  .toPlatform()['timings']!
+              as List<int>;
+      int lasts(Object? timings) =>
+          (timings! as List<int>).fold(0, (sum, t) => sum + t);
+
+      test('by default are the vibration SignalHub always had', () {
+        expect(AlertSettings.defaults.pattern, AlertPattern.standard);
+        expect(AlertSettings.defaults.length, AlertLength.short);
+        expect(timings(AlertPattern.standard, AlertLength.short), [
+          0,
+          90,
+          90,
+          90,
+          90,
+          260,
+        ]);
+      });
+
+      test('each pattern is its own, and none a single buzz', () {
+        final shapes = {
+          for (final p in AlertPattern.values)
+            timings(p, AlertLength.medium).join(','),
+        };
+
+        expect(shapes, hasLength(AlertPattern.values.length));
+        expect(timings(AlertPattern.heartbeat, AlertLength.short), [
+          0,
+          80,
+          120,
+          200,
+        ]);
+        expect(timings(AlertPattern.rapid, AlertLength.short), [
+          0,
+          60,
+          60,
+          60,
+          60,
+          60,
+          60,
+          60,
+          60,
+          60,
+        ]);
+        for (final p in AlertPattern.values) {
+          if (p == AlertPattern.steady) continue;
+          expect(
+            timings(p, AlertLength.short).length,
+            greaterThan(2),
+            reason: p.name,
+          );
+        }
+      });
+
+      test('a longer length repeats the pattern, after its pause', () {
+        expect(timings(AlertPattern.standard, AlertLength.medium), [
+          0,
+          90,
+          90,
+          90,
+          90,
+          260,
+          400,
+          90,
+          90,
+          90,
+          90,
+          260,
+        ]);
+        expect(timings(AlertPattern.heartbeat, AlertLength.medium), [
+          0,
+          80,
+          120,
+          200,
+          600,
+          80,
+          120,
+          200,
+          600,
+          80,
+          120,
+          200,
+        ]);
+      });
+
+      test('the steady pattern is one buzz as long as the length', () {
+        for (final (length, ms) in [
+          (AlertLength.short, 600),
+          (AlertLength.medium, 2000),
+          (AlertLength.long, 5000),
+        ]) {
+          expect(timings(AlertPattern.steady, length), [0, ms]);
+        }
+      });
+
+      test('each length lasts about as long as it says', () {
+        for (final p in AlertPattern.values) {
+          final short = lasts(timings(p, AlertLength.short));
+          final medium = lasts(timings(p, AlertLength.medium));
+          final long = lasts(timings(p, AlertLength.long));
+
+          expect(short, inInclusiveRange(400, 700), reason: p.name);
+          expect(medium, inInclusiveRange(1600, 2500), reason: p.name);
+          expect(long, inInclusiveRange(4500, 5500), reason: p.name);
+        }
+      });
+
+      test('every step works with every pattern and length, and none lasts '
+          'longer than 10 s, with amplitude control or without', () {
+        for (final p in AlertPattern.values) {
+          for (final l in AlertLength.values) {
+            final base = AlertSettings.defaults.copyWith(pattern: p, length: l);
+            final medium = base.toPlatform();
+            for (final (step, amplitude) in [
+              (AlertVibration.light, 70),
+              (AlertVibration.medium, 160),
+              (AlertVibration.strong, 255),
+            ]) {
+              final platform = base.copyWith(vibration: step).toPlatform();
+              final reason = '${p.name} ${l.name} ${step.name}';
+
+              expect(platform['timings'], medium['timings'], reason: reason);
+              expect((platform['amplitudes']! as List).toSet(), {
+                0,
+                amplitude,
+              }, reason: reason);
+              expect(
+                lasts(platform['timings']),
+                lessThanOrEqualTo(AlertSettings.longestVibration),
+                reason: reason,
+              );
+              expect(
+                lasts(platform['fallbackTimings']),
+                lessThanOrEqualTo(AlertSettings.longestVibration),
+                reason: reason,
+              );
+            }
+            // Without amplitude control a stronger step buzzes longer, at
+            // every length.
+            int fallback(AlertVibration v) => lasts(
+              base.copyWith(vibration: v).toPlatform()['fallbackTimings'],
+            );
+            expect(
+              fallback(AlertVibration.light),
+              lessThan(fallback(AlertVibration.medium)),
+            );
+            expect(
+              fallback(AlertVibration.medium),
+              lessThan(fallback(AlertVibration.strong)),
+            );
+          }
+        }
+      });
+
+      test('no vibration is nothing, whatever the pattern and length', () {
+        final off = AlertSettings.defaults
+            .copyWith(
+              vibration: AlertVibration.off,
+              pattern: AlertPattern.rapid,
+              length: AlertLength.long,
+            )
+            .toPlatform();
+
+        expect(off['timings'], isEmpty);
+        expect(off['pattern'], 'rapid');
+        expect(off['length'], 'long');
+      });
+    });
+
     test('no vibration is an empty pattern', () {
       final off = AlertSettings.defaults
           .copyWith(vibration: AlertVibration.off)
@@ -127,6 +301,8 @@ void main() {
         sound: AlertSound.glass,
         volume: 30,
         vibration: AlertVibration.strong,
+        pattern: AlertPattern.heartbeat,
+        length: AlertLength.medium,
       );
 
       expect(
@@ -149,11 +325,35 @@ void main() {
 
     test('values this version does not know are the defaults', () {
       final read = AlertSettings.fromStored(
-        jsonEncode({'sound': 'siren', 'volume': 'loud', 'vibration': 'max'}),
+        jsonEncode({
+          'sound': 'siren',
+          'volume': 'loud',
+          'vibration': 'max',
+          'pattern': 'morse',
+          'length': 'forever',
+        }),
       );
 
       expect(read, AlertSettings.defaults);
       expect(AlertSettings.fromStored('{}'), AlertSettings.defaults);
+    });
+
+    test('saved before patterns and lengths, keep the rest and start with '
+        'the defaults', () {
+      final read = AlertSettings.fromStored(
+        jsonEncode({'sound': 'glass', 'volume': 30, 'vibration': 'strong'}),
+      );
+
+      expect(
+        read,
+        const AlertSettings(
+          sound: AlertSound.glass,
+          volume: 30,
+          vibration: AlertVibration.strong,
+          pattern: AlertPattern.standard,
+          length: AlertLength.short,
+        ),
+      );
     });
   });
 
@@ -174,7 +374,8 @@ void main() {
       });
     });
 
-    test('by default their own alert is more urgent, louder, stronger', () {
+    test('by default their own alert is more urgent, louder, stronger, '
+        'longer', () {
       const own = CriticalAlertSettings.defaults;
 
       expect(own.different, isFalse);
@@ -184,6 +385,8 @@ void main() {
         own.alert.vibration.index,
         greaterThan(AlertSettings.defaults.vibration.index),
       );
+      expect(own.alert.pattern, AlertPattern.rapid);
+      expect(own.alert.length, AlertLength.long);
     });
 
     test('with a different alert, play their own', () {
@@ -240,6 +443,8 @@ void main() {
           sound: AlertSound.glass,
           volume: 60,
           vibration: AlertVibration.off,
+          pattern: AlertPattern.steady,
+          length: AlertLength.medium,
         ),
         onSilent: false,
         duringDoNotDisturb: true,
@@ -269,12 +474,43 @@ void main() {
             'sound': 'siren',
             'volume': 'loud',
             'vibration': 'max',
+            'pattern': 'morse',
+            'length': 'forever',
             'onSilent': 1,
           },
         }),
       );
 
       expect(read, CriticalAlertSettings.defaults);
+    });
+
+    test('saved before patterns and lengths, keep the rest and start with '
+        'the critical defaults', () {
+      final read = CriticalAlertSettings.fromStored(
+        jsonEncode({
+          'critical': {
+            'different': true,
+            'sound': 'glass',
+            'volume': 60,
+            'vibration': 'light',
+            'onSilent': false,
+            'duringDoNotDisturb': false,
+          },
+        }),
+      );
+
+      expect(read!.different, isTrue);
+      expect(read.onSilent, isFalse);
+      expect(
+        read.alert,
+        const AlertSettings(
+          sound: AlertSound.glass,
+          volume: 60,
+          vibration: AlertVibration.light,
+          pattern: AlertPattern.rapid,
+          length: AlertLength.long,
+        ),
+      );
     });
   });
 }

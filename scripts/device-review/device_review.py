@@ -57,6 +57,9 @@ CRITICAL_SWITCH = "Different alert for critical events"
 # The sound critical events play once they have an alert of their own, by
 # default (client/lib/src/alert/alert_settings.dart).
 CRITICAL_SOUND = "urgent"
+# And the vibration's pattern and length they play, by the names the alert
+# log uses.
+CRITICAL_VIBRATION = "rapid long"
 MARK_READ = "Mark as read"
 MARK_UNREAD = "Mark as unread"
 EVENT_SCREEN_TITLE = "Event"
@@ -757,6 +760,13 @@ def played_sound(message: str, kind: str = "Alert") -> str:
     return sound.group(1) if sound else "none"
 
 
+def played_vibration(message: str) -> str:
+    """The vibration's pattern and length an alert message names, such as
+    `standard short`, or `unknown` from an app that logs neither."""
+    shape = re.search(r"\bpattern=(\w+) length=(\w+)", message)
+    return f"{shape.group(1)} {shape.group(2)}" if shape else "unknown"
+
+
 def check_alert_played(review: Review) -> str:
     first = played_sound(alert_push(review, "alert"))
     other = "beacon" if first != "beacon" else "pulse"
@@ -802,28 +812,33 @@ def toggle_critical_alert(review: Review) -> None:
 
 
 def check_alert_critical(review: Review) -> str:
-    general = played_sound(alert_push(review, "normal", "NORMAL"))
+    first = alert_push(review, "normal", "NORMAL")
+    general, shape = played_sound(first), played_vibration(first)
     critical = alert_push(review, "critical", "CRITICAL")
-    if played_sound(critical, "Critical alert") != general:
+    if (
+        played_sound(critical, "Critical alert") != general
+        or played_vibration(critical) != shape
+    ):
         raise CheckFailed(f"with the switch off, a critical push: {critical}")
     toggle_critical_alert(review)
     try:
-        own = played_sound(
-            alert_push(review, "critical, own alert", "CRITICAL"), "Critical alert"
-        )
-        normal = played_sound(
-            alert_push(review, "normal, own critical alert", "NORMAL")
-        )
+        own_alert = alert_push(review, "critical, own alert", "CRITICAL")
+        own = played_sound(own_alert, "Critical alert")
+        normal_alert = alert_push(review, "normal, own critical alert", "NORMAL")
+        normal = played_sound(normal_alert)
     finally:
         toggle_critical_alert(review)
         review.device.home()
     if own != CRITICAL_SOUND:
         raise CheckFailed(f"with the switch on, a critical push played {own}")
-    if normal != general:
-        raise CheckFailed(f"with the switch on, a normal push played {normal}")
+    if played_vibration(own_alert) != CRITICAL_VIBRATION:
+        raise CheckFailed(f"with the switch on, a critical push: {own_alert}")
+    if normal != general or played_vibration(normal_alert) != shape:
+        raise CheckFailed(f"with the switch on, a normal push: {normal_alert}")
     return (
-        f"switch off: both played {general}; switch on: critical {own}, normal "
-        f"{general} (switched off again)"
+        f"switch off: both played {general} ({shape}); switch on: critical "
+        f"{own} ({CRITICAL_VIBRATION}), normal {general} ({shape}) (switched "
+        "off again)"
     )
 
 

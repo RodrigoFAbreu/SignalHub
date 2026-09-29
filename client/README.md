@@ -39,7 +39,7 @@ commands that CI runs.
 | `lib/src/push/push_registration.dart` | Keeps the server's push target in step with the provider's token. |
 | `lib/src/push/firebase_push_service.dart` | The Firebase Cloud Messaging adapter: the only Dart code that knows Firebase. |
 | `lib/src/build_identity.dart` | Which SignalHub build the app is: release version and commit, from build-time defines. |
-| `lib/src/alert/` | The alert settings (sound, volume, vibration, and critical events' own), what the platform is given for them, their controller, and `AlertPlatform`, the port to the Android code that stores and plays them. |
+| `lib/src/alert/` | The alert settings (sound, volume, vibration with its pattern and length, and critical events' own), what the platform is given for them, their controller, and `AlertPlatform`, the port to the Android code that stores and plays them. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
 | `lib/src/ui/` | The setup, pairing scanner, inbox (with its filter sheet), event, device (with the device list of an admin device), *Connect a device* (a pairing code as a QR code, drawn with the pure-Dart `qr` package) and notifications screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
 | `android/`, `ios/` | Platform projects: identifiers, permissions, push capability, the browsers an event's link may open in (Android `<queries>`). |
@@ -274,10 +274,23 @@ sounds and vibrates as set in *Notifications → Alert*, on this device only:
   again.
 - **Volume**: from 10 % to 100 % of the phone's notification volume
   (80 % by default), played when the slider is let go.
-- **Vibration**: *Off*, *Light*, *Medium* (the default) or *Strong*, in
-  SignalHub's own pattern of two short buzzes and a long one. Phones that
-  can vibrate at different strengths vibrate softer or harder; others
-  buzz shorter or longer.
+- **Vibration**: *Off*, *Light*, *Medium* (the default) or *Strong*.
+  Phones that can vibrate at different strengths vibrate softer or harder;
+  others buzz shorter or longer. Choosing one vibrates it.
+- **Pattern**: SignalHub's own rhythm of buzzes: *Short, short, long* (the
+  default, two short buzzes and a long one), *Steady* (one long buzz),
+  *Heartbeat* (a short and a longer buzz, then a pause) or *Rapid pulse*
+  (quick even buzzes). Choosing one vibrates it; its vibrate button
+  vibrates it again, at the chosen length.
+- **Length**: *Short* (about 0.6 s, the default), *Medium* (about 2 s) or
+  *Long* (about 5 s), by repeating the pattern; a steady buzz lasts that
+  long. Choosing one vibrates it. On a phone without amplitude control a
+  *Strong* vibration's buzzes are longer, so it lasts up to about 8.5 s,
+  never more than 10 s.
+
+Pattern and length apply at every strength and are greyed while the
+vibration is *Off*. Opening the notification or the app stops a vibration
+still going.
 
 Each change is saved on the phone at once and applies to the next push;
 the server never sees it. The settings survive app updates, and stay when
@@ -317,8 +330,9 @@ the same screen:
 
 - **Different alert for critical events**, off by default. Off, critical
   pushes play the general alert above. On, they play their own **Sound**,
-  **Volume** and **Vibration**, chosen as the general ones (the same sounds
-  and steps), by default *Urgent* at 100 % with a strong vibration. Every
+  **Volume**, **Vibration**, **Pattern** and **Length**, chosen as the
+  general ones (the same sounds, steps, patterns and lengths), by default
+  *Urgent* at 100 % with a strong, long *Rapid pulse* vibration. Every
   other severity keeps the general alert, and so does a severity this app
   does not know. Turned off, the critical alert's own settings are kept for
   the next time.
@@ -342,6 +356,12 @@ push. Turning SignalHub's notifications or the *Events* category off or to
 
 After updating from a release without critical alerts, a critical push
 plays the general alert, as before, until the app is opened once.
+
+After updating from a release without vibration patterns and lengths, every
+other setting is kept, and the pattern and length start at their defaults:
+the general alert vibrates as before, and a critical push with a different
+alert takes its new default (a long *Rapid pulse*) once the app is opened
+once; until then it vibrates as before.
 
 ## Build identity
 

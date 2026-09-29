@@ -42,7 +42,9 @@ class Alert(
             return Alert(
                 description = "sound=${alert.optString("sound", "none")} " +
                     "volume=${alert.optInt("volume")}% " +
-                    "vibration=${alert.optString("vibration")}",
+                    "vibration=${alert.optString("vibration")} " +
+                    "pattern=${alert.optString("pattern")} " +
+                    "length=${alert.optString("length")}",
                 resource = if (alert.isNull("resource")) null else alert.getString("resource"),
                 gain = alert.getDouble("gain").toFloat().coerceIn(0f, 1f),
                 timings = longs(alert.getJSONArray("timings")),
@@ -198,14 +200,25 @@ object AlertPlayer {
         }
     }
 
-    private fun vibrate(context: Context, alert: Alert, asAlarm: Boolean): Boolean {
-        if (alert.timings.isEmpty()) return false
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    /**
+     * Stops the alert's vibration, which may last seconds: the owner opened
+     * the notification or the app, so it has done its job.
+     */
+    fun stopVibration(context: Context) {
+        vibrator(context).cancel()
+    }
+
+    private fun vibrator(context: Context): Vibrator =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             context.getSystemService(VibratorManager::class.java).defaultVibrator
         } else {
             @Suppress("DEPRECATION")
             context.getSystemService(Vibrator::class.java)
         }
+
+    private fun vibrate(context: Context, alert: Alert, asAlarm: Boolean): Boolean {
+        if (alert.timings.isEmpty()) return false
+        val vibrator = vibrator(context)
         if (!vibrator.hasVibrator()) return false
         val attributes = attributes(
             if (asAlarm) AudioAttributes.USAGE_ALARM else AudioAttributes.USAGE_NOTIFICATION,

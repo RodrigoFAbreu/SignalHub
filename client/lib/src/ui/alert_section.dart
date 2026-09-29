@@ -4,9 +4,9 @@ import '../alert/alert_controller.dart';
 import '../alert/alert_settings.dart';
 
 /// The _Alert_ settings: SignalHub's own sound, its volume and its
-/// vibration, for pushes the system shows while the app is in the
-/// background or closed, and how critical pushes alert. Each change is saved
-/// on this device at once and previewed.
+/// vibration (its strength, pattern and length), for pushes the system
+/// shows while the app is in the background or closed, and how critical
+/// pushes alert. Each change is saved on this device at once and previewed.
 class AlertSection extends StatefulWidget {
   const AlertSection({super.key, required this.controller});
 
@@ -71,6 +71,7 @@ class _AlertSectionState extends State<AlertSection> {
             settings: _controller.settings,
             defaultSound: AlertSettings.defaults.sound,
             playTooltip: (sound) => 'Play ${sound.label}',
+            vibrateTooltip: (pattern) => 'Vibrate ${pattern.label}',
             change: (next) => _tell(_controller.change(next)),
             preview: (alert) => _tell(_controller.preview(alert)),
           ),
@@ -81,7 +82,9 @@ class _AlertSectionState extends State<AlertSection> {
           SwitchListTile(
             key: const Key('criticalDifferent'),
             title: const Text('Different alert for critical events'),
-            subtitle: const Text('Their own sound, volume and vibration'),
+            subtitle: const Text(
+              'Their own sound, volume, vibration, pattern and length',
+            ),
             value: critical.different,
             onChanged: (on) => changeCritical(critical.copyWith(different: on)),
           ),
@@ -91,6 +94,8 @@ class _AlertSectionState extends State<AlertSection> {
               settings: critical.alert,
               defaultSound: CriticalAlertSettings.defaults.alert.sound,
               playTooltip: (sound) => 'Play ${sound.label} for critical events',
+              vibrateTooltip: (pattern) =>
+                  'Vibrate ${pattern.label} for critical events',
               change: (next) => changeCritical(critical.copyWith(alert: next)),
               preview: (alert) => _tell(_controller.previewCritical(alert)),
             ),
@@ -123,13 +128,15 @@ class _AlertSectionState extends State<AlertSection> {
   );
 }
 
-/// One alert's sound, volume and vibration.
+/// One alert's sound, volume and vibration: its strength, pattern and
+/// length.
 class _AlertChoices extends StatefulWidget {
   const _AlertChoices({
     required this.keyPrefix,
     required this.settings,
     required this.defaultSound,
     required this.playTooltip,
+    required this.vibrateTooltip,
     required this.change,
     required this.preview,
   });
@@ -139,6 +146,7 @@ class _AlertChoices extends StatefulWidget {
   final AlertSettings settings;
   final AlertSound? defaultSound;
   final String Function(AlertSound) playTooltip;
+  final String Function(AlertPattern) vibrateTooltip;
   final void Function(AlertSettings) change;
   final void Function(AlertSettings) preview;
 
@@ -236,8 +244,63 @@ class _AlertChoicesState extends State<_AlertChoices> {
                 widget.change(settings.copyWith(vibration: selected.single)),
           ),
         ),
+        ..._vibrationShape(settings),
       ],
     );
+  }
+
+  /// The vibration's pattern and length, previewed as they are chosen, and
+  /// greyed while it is off.
+  List<Widget> _vibrationShape(AlertSettings settings) {
+    final prefix = widget.keyPrefix;
+    final vibrates = settings.vibration != AlertVibration.off;
+    return [
+      const _Label('Pattern'),
+      RadioGroup<AlertPattern>(
+        groupValue: settings.pattern,
+        onChanged: (pattern) =>
+            widget.change(settings.copyWith(pattern: pattern)),
+        child: Column(
+          children: [
+            for (final pattern in AlertPattern.values)
+              RadioListTile<AlertPattern>(
+                key: Key('${prefix}Pattern-${pattern.name}'),
+                value: pattern,
+                enabled: vibrates,
+                title: Text(pattern.label),
+                secondary: IconButton(
+                  key: Key('${prefix}Vibrate-${pattern.name}'),
+                  tooltip: widget.vibrateTooltip(pattern),
+                  icon: const Icon(Icons.vibration),
+                  onPressed: vibrates
+                      ? () => widget.preview(
+                          settings.copyWith(
+                            sound: () => null,
+                            pattern: pattern,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+          ],
+        ),
+      ),
+      const _Label('Length'),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: SegmentedButton<AlertLength>(
+          key: Key('${prefix}Length'),
+          showSelectedIcon: false,
+          segments: [
+            for (final l in AlertLength.values)
+              ButtonSegment(value: l, label: Text(l.label), enabled: vibrates),
+          ],
+          selected: {settings.length},
+          onSelectionChanged: (selected) =>
+              widget.change(settings.copyWith(length: selected.single)),
+        ),
+      ),
+    ];
   }
 }
 

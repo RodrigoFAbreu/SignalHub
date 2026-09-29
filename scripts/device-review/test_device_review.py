@@ -213,22 +213,31 @@ class AlertLogTest(unittest.TestCase):
             [
                 (
                     "Alert played (sound on, vibration on): "
-                    "sound=beacon volume=80% vibration=medium"
+                    "sound=beacon volume=80% vibration=medium "
+                    "pattern=standard length=short"
                 ),
                 "Alert not played (the app is in the foreground)",
                 (
                     "Alert not played (do not disturb): "
-                    "sound=signal volume=80% vibration=medium"
+                    "sound=signal volume=80% vibration=medium "
+                    "pattern=standard length=short"
                 ),
                 (
                     "Critical alert played (sound on, vibration on, as an alarm): "
-                    "sound=urgent volume=100% vibration=strong"
+                    "sound=urgent volume=100% vibration=strong "
+                    "pattern=rapid length=long"
                 ),
             ],
         )
 
     def test_nothing_logged(self):
         self.assertEqual(alert_messages("--------- beginning of main\n"), [])
+
+
+# What the app logs for the general alert and a critical push's own, at
+# their defaults.
+GENERAL = "sound=signal volume=80% vibration=medium pattern=standard length=short"
+OWN = "sound=urgent volume=100% vibration=strong pattern=rapid length=long"
 
 
 class AlertCheckTest(unittest.TestCase):
@@ -307,10 +316,10 @@ class AlertCheckTest(unittest.TestCase):
     def test_critical_pushes_play_their_own_alert_once_switched_on(self):
         review, steps = self.review(
             [
-                "Alert played (sound on, vibration on): sound=signal volume=80%",
-                "Critical alert played (sound on, vibration on): sound=signal",
-                "Critical alert played (sound on, vibration on): sound=urgent",
-                "Alert played (sound on, vibration on): sound=signal volume=80%",
+                f"Alert played (sound on, vibration on): {GENERAL}",
+                f"Critical alert played (sound on, vibration on): {GENERAL}",
+                f"Critical alert played (sound on, vibration on): {OWN}",
+                f"Alert played (sound on, vibration on): {GENERAL}",
             ]
         )
         detail = check_alert_critical(review)
@@ -319,13 +328,45 @@ class AlertCheckTest(unittest.TestCase):
         self.assertEqual(steps.count(switch), 2)
         self.assertEqual(steps[2], switch)
         self.assertEqual(steps[-1], switch)
-        self.assertIn("critical urgent", detail)
+        self.assertIn("critical urgent (rapid long)", detail)
+        self.assertIn("normal signal (standard short)", detail)
+
+    def test_a_critical_push_with_the_general_sound_but_not_its_vibration_fails(
+        self,
+    ):
+        review, _ = self.review(
+            [
+                f"Alert played (sound on, vibration on): {GENERAL}",
+                (
+                    "Critical alert played (sound on, vibration on): sound=signal "
+                    "volume=80% vibration=medium pattern=rapid length=long"
+                ),
+            ]
+        )
+        with self.assertRaisesRegex(CheckFailed, "switch off"):
+            check_alert_critical(review)
+
+    def test_a_critical_alert_of_its_own_with_another_vibration_fails(self):
+        review, steps = self.review(
+            [
+                f"Alert played (sound on, vibration on): {GENERAL}",
+                f"Critical alert played (sound on, vibration on): {GENERAL}",
+                (
+                    "Critical alert played (sound on, vibration on): sound=urgent "
+                    "volume=100% vibration=strong pattern=standard length=short"
+                ),
+                f"Alert played (sound on, vibration on): {GENERAL}",
+            ]
+        )
+        with self.assertRaisesRegex(CheckFailed, "switch on, a critical push"):
+            check_alert_critical(review)
+        self.assertEqual(steps[-1], "tap Different alert for critical events")
 
     def test_a_critical_push_with_the_switch_off_plays_the_general_alert(self):
         review, steps = self.review(
             [
-                "Alert played (sound on, vibration on): sound=signal volume=80%",
-                "Critical alert played (sound on, vibration on): sound=urgent",
+                f"Alert played (sound on, vibration on): {GENERAL}",
+                f"Critical alert played (sound on, vibration on): {OWN}",
             ]
         )
         with self.assertRaisesRegex(CheckFailed, "switch off"):
@@ -335,10 +376,10 @@ class AlertCheckTest(unittest.TestCase):
     def test_the_switch_is_turned_off_again_when_the_check_fails(self):
         review, steps = self.review(
             [
-                "Alert played (sound on, vibration on): sound=signal volume=80%",
-                "Critical alert played (sound on, vibration on): sound=signal",
-                "Critical alert played (sound on, vibration on): sound=signal",
-                "Alert played (sound on, vibration on): sound=signal volume=80%",
+                f"Alert played (sound on, vibration on): {GENERAL}",
+                f"Critical alert played (sound on, vibration on): {GENERAL}",
+                f"Critical alert played (sound on, vibration on): {GENERAL}",
+                f"Alert played (sound on, vibration on): {GENERAL}",
             ]
         )
         with self.assertRaisesRegex(CheckFailed, "played signal"):
