@@ -337,8 +337,10 @@ class AlertCheckTest(unittest.TestCase):
         review, _ = self.review(
             [
                 f"Alert played (sound on, vibration on): {GENERAL}",
-                "Critical alert played (sound on, vibration on): sound=signal "
-                "volume=80% vibration=medium pattern=rapid length=long",
+                (
+                    "Critical alert played (sound on, vibration on): sound=signal "
+                    "volume=80% vibration=medium pattern=rapid length=long"
+                ),
             ]
         )
         with self.assertRaisesRegex(CheckFailed, "switch off"):
@@ -349,8 +351,10 @@ class AlertCheckTest(unittest.TestCase):
             [
                 f"Alert played (sound on, vibration on): {GENERAL}",
                 f"Critical alert played (sound on, vibration on): {GENERAL}",
-                "Critical alert played (sound on, vibration on): sound=urgent "
-                "volume=100% vibration=strong pattern=standard length=short",
+                (
+                    "Critical alert played (sound on, vibration on): sound=urgent "
+                    "volume=100% vibration=strong pattern=standard length=short"
+                ),
                 f"Alert played (sound on, vibration on): {GENERAL}",
             ]
         )
