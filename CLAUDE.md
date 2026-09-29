@@ -70,7 +70,9 @@ key, push registration and reception, with
 the server's push options when the build has none, the
 event inbox with its filters (unread only, producer, category, severity)
 and event details with opening an event's link, read state,
-push preferences, and its build
+push preferences, SignalHub's own alert on Android (bundled sounds or
+none, volume and vibration, set in the app, stored on the device), and its
+build
 and commit on the *This device* screen, where an admin device also lists
 every device to make one an admin, revoke one that is not an admin or
 delete a revoked one, and connects a new device with a pairing code shown as a QR code with its

@@ -120,6 +120,8 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze
       - run: shellcheck icon/render.sh
+      # The committed alert sounds are what their generator makes.
+      - run: python3 sounds/generate.py --check
       - run: flutter test
       # The release's app build and its checks (scripts/release/app_files.py),
       # signed with a throwaway key made here, so the release build cannot

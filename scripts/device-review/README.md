@@ -3,7 +3,7 @@
 `device_review.py` drives the functional review of the SignalHub Android app
 on a real phone over `adb`: it publishes events as a producer, and checks
 what the phone and the server show, from start-up to pushes, read state,
-push preferences and recovery from a stopped backend. It is review tooling
+push preferences, the app's own alert and recovery from a stopped backend. It is review tooling
 for the maintainer, never part of the product, and it is not run in CI: CI
 runs only its unit tests (see [Tests](#tests)).
 
@@ -90,9 +90,11 @@ it. Titles of the events they publish start with `Device review:`.
 | `connected-start` | Force-stops and starts the app; it must open on the inbox, not the setup screen, with the server's unread count on its badge. | Stops the app. |
 | `device-push-on` | Opens *This device*; it must say *Push notifications are on*. | Nothing. |
 | `server-push-target` | Reads the client with the admin token; its push target must be `fcm`. | Nothing. |
-| `events-channel` | The app's `events` notification channel must be at high importance (4) or more. | Nothing. |
+| `events-channel` | The app's `signalhub_events` notification channel must be at high importance (4) or more, with no sound and no vibration of its own (the app plays its alert). | Nothing. |
 | `foreground-push` | Publishes with the app in front; the event must appear in the inbox, with no system notification. | Publishes 1 event. |
-| `background-push` | Goes home and publishes; the notification must be in the `events` channel, and tapping it in the shade must open the event and mark it read on the server. | Publishes 1 event, marks it read. |
+| `background-push` | Goes home and publishes; the notification must be in the `signalhub_events` channel, and tapping it in the shade must open the event and mark it read on the server. | Publishes 1 event, marks it read. |
+| `alert-played` | Goes home and publishes; the app must log that it played its alert (`SignalHubAlert` in `logcat`) with the chosen sound. Then chooses another sound on the *Notifications* screen (which previews it), publishes again, and the app must play that one; the first sound is chosen again afterwards, even when the check fails. **What only the owner can judge:** see [Alert, by ear and by hand](#alert-by-ear-and-by-hand). | Publishes 2 events; plays the alert and two previews; restores the sound. |
+| `alert-quiet` | Posts a notification as another app (`cmd notification post`, the shell's): the app must log no alert. Then **turns do-not-disturb on** (`cmd notification set_dnd priority`) and publishes with the app in the background: the app must log that it did not play its alert because of do-not-disturb. Do-not-disturb is turned off even when the check fails. | Posts a shell notification (dismiss it by hand); toggles do-not-disturb; publishes 1 event. |
 | `refresh-on-return` | Goes home, publishes, and returns; the inbox must show the event without a pull to refresh. | Publishes 1 event (`LOW`). |
 | `killed-app-push` | Kills the app in the background (`am kill`, as the system would), publishes; the notification must arrive and tapping it must cold-start the app on the event. | Kills the app, publishes 1 event, marks it read. |
 | `force-stop-reregisters` | Force-stops and starts the app; the server's push target must be set again (a newer `updatedAt`). | Stops the app. |
@@ -110,9 +112,36 @@ The screen's texts the script looks for (*Show menu*, *This device*,
 *Mark as read*, and so on) come from `client/lib/src/ui/`. If the app's
 wording changes, update the constants at the top of the script.
 
+## Alert, by ear and by hand
+
+The `alert-played` and `alert-quiet` checks read what the app says it did;
+whether it sounds and feels right needs the owner. With the release APK
+installed over the previous release (so the settings and the channel change
+as an update makes them), check by hand:
+
+1. After the update, before opening the app, a push plays the *Signal*
+   sound with a medium vibration of two short buzzes and a long one, and
+   *Settings → Apps → SignalHub → Notifications* shows the *Events*
+   category, with no sound of its own.
+2. On *Notifications → Alert*, each sound plays when chosen or with its
+   play button; *None* plays nothing and turns the volume off.
+3. With the app in the background, and again after swiping it away, a push
+   plays the chosen sound at the chosen volume: 10 % is clearly quieter
+   than 100 %, and both follow the phone's notification volume.
+4. *Light*, *Medium* and *Strong* vibrate noticeably differently (in
+   strength, or on a phone without amplitude control in length), and *Off*
+   does not vibrate.
+5. Changing a setting changes the next push; a push while the app is open
+   plays nothing and shows in the inbox.
+6. On silent mode a push is silent and does not vibrate; on vibrate it
+   only vibrates; during Do Not Disturb it neither sounds nor vibrates; with
+   the *Events* category set to *Silent* in the phone's settings, no alert.
+7. Another app's notification still sounds as before, never like
+   SignalHub's.
+
 ## Published events
 
-Every run publishes about 15 events as the review's producer, and they stay
+Every run publishes about 18 events as the review's producer, and they stay
 in the inbox of every client. On a local stack, delete them afterwards with
 the producer's name, as described in
 [Clearing local test data](../../docs/development.md#clearing-local-test-data).

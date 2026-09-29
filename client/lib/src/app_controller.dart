@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'alert/alert_controller.dart';
+import 'alert/alert_platform.dart';
 import 'api/signalhub_api.dart';
 import 'build_identity.dart';
 import 'connection/pairing_uri.dart';
@@ -41,7 +43,9 @@ typedef ServedPushStarter = Future<PushService?> Function(PushConfig served);
 class AppController extends ChangeNotifier {
   /// [push] is the push service the build set up with its own options.
   /// Without one, [startServedPush] sets push up with the options the server
-  /// serves; the build's own options take precedence.
+  /// serves; the build's own options take precedence. [alertPlatform] plays
+  /// SignalHub's own alert; without one (iOS, tests) there are no alert
+  /// settings.
   AppController({
     required this._store,
     required this._apiFactory,
@@ -49,7 +53,9 @@ class AppController extends ChangeNotifier {
     PushService? push,
     ServedPushStarter? startServedPush,
     this.build = BuildIdentity.compiled,
+    AlertPlatform? alertPlatform,
   }) : _push = push,
+       alert = alertPlatform == null ? null : AlertController(alertPlatform),
        _startServedPush = push == null ? startServedPush : null {
     _notices = push?.notices.listen(_onNotice);
   }
@@ -70,6 +76,11 @@ class AppController extends ChangeNotifier {
 
   /// Which SignalHub build this app is.
   final BuildIdentity build;
+
+  /// This installation's alert settings, which belong to the device and not
+  /// to the server connection; `null` where the platform plays no alert of
+  /// SignalHub's own.
+  final AlertController? alert;
 
   SignalHubApi? _api;
   PushRegistration? _pushRegistration;
@@ -219,6 +230,7 @@ class AppController extends ChangeNotifier {
 
   /// Loads saved credentials and, if there are any, connects.
   Future<void> start() async {
+    await alert?.load();
     final saved = await _store.load();
     if (saved == null) {
       _eventToOpen = null;
@@ -883,6 +895,7 @@ class AppController extends ChangeNotifier {
   void dispose() {
     unawaited(_notices?.cancel());
     unawaited(_pushRegistration?.dispose());
+    alert?.dispose();
     super.dispose();
   }
 }

@@ -14,7 +14,9 @@ while the app runs and are not remembered after a restart.
 An event with a link offers *Open link* on its screen, which opens it in the
 system browser (or the app the phone assigns to the address); the link is
 never opened from the inbox or the notification, only from the event.
-The *Notifications* screen chooses which events are pushed to this device.
+The *Notifications* screen sets how pushes sound and vibrate on Android,
+with SignalHub's own sounds (see [Alert](#alert)), and chooses which events
+are pushed to this device.
 On an [admin device](../docs/architecture.md#admin-devices), the *This
 device* screen also lists every device of the owner, with *Make an admin*
 and *Revoke* on those that are not admins, and *Delete* on revoked ones (see
@@ -36,9 +38,12 @@ commands that CI runs.
 | `lib/src/push/push_registration.dart` | Keeps the server's push target in step with the provider's token. |
 | `lib/src/push/firebase_push_service.dart` | The Firebase Cloud Messaging adapter: the only Dart code that knows Firebase. |
 | `lib/src/build_identity.dart` | Which SignalHub build the app is: release version and commit, from build-time defines. |
+| `lib/src/alert/` | The alert settings (sound, volume, vibration), what the platform is given for them, their controller, and `AlertPlatform`, the port to the Android code that stores and plays them. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
 | `lib/src/ui/` | The setup, pairing scanner, inbox (with its filter sheet), event, device (with the device list of an admin device), *Connect a device* (a pairing code as a QR code, drawn with the pure-Dart `qr` package) and notifications screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
 | `android/`, `ios/` | Platform projects: identifiers, permissions, push capability, the browsers an event's link may open in (Android `<queries>`). |
+| `android/app/src/main/kotlin/` | `SignalHubApplication` (the *Events* channel), `PushAlertReceiver` and `AlertPlayer` (the alert), `MainActivity` (the alert settings' method channel). |
+| `sounds/` | The alert sounds' generator, `generate.py`, and their source and licence; the sounds are in `android/app/src/main/res/raw/`. |
 | `icon/` | The app icon (`icon.svg`) and `render.sh`, which renders its PNGs for both platforms. |
 | `test/` | Unit and widget tests against a fake backend and a fake push service. |
 
@@ -251,11 +256,55 @@ Either way, the options are those of your own Firebase project:
 After setup the home screen says *Push notifications are on*, and the
 client's registration (`GET /api/v1/admin/clients/{id}`) shows push target
 provider `fcm`. Publish an event and it arrives as a notification; on
-Android it pops up, and *Settings → Apps → SignalHub → Notifications →
-Events* changes how. While the app is in the foreground, pushes appear in
+Android it pops up with SignalHub's own alert (see [Alert](#alert)), and
+*Settings → Apps → SignalHub → Notifications → Events* changes how. While the app is in the foreground, pushes appear in
 its list instead of as a system notification; pushes that arrived in the
 background are in the list when you return to the app. Pushes are delivered
 at least once; the app lists each event once.
+
+## Alert
+
+On Android, a push shown while the app is in the background or closed
+sounds and vibrates as set in *Notifications → Alert*, on this device only:
+
+- **Sound**: *Signal* (the default), *Beacon*, *Pulse* or *Glass*,
+  SignalHub's own sounds (see [sounds/](sounds/README.md) for their source
+  and licence), or *None*. Choosing one plays it; its play button plays it
+  again.
+- **Volume**: from 10 % to 100 % of the phone's notification volume
+  (80 % by default), played when the slider is let go.
+- **Vibration**: *Off*, *Light*, *Medium* (the default) or *Strong*, in
+  SignalHub's own pattern of two short buzzes and a long one. Phones that
+  can vibrate at different strengths vibrate softer or harder; others
+  buzz shorter or longer.
+
+Each change is saved on the phone at once and applies to the next push;
+the server never sees it. The settings survive app updates, and stay when
+the device disconnects. A push while the app is open plays nothing: it
+appears in the inbox.
+
+The phone still decides: during Do Not Disturb the alert neither sounds
+nor vibrates, on silent mode likewise, on vibrate it only vibrates, and it
+follows the phone's notification volume and vibration settings. Turning the
+*Events* category off or to *Silent* in *Settings → Apps → SignalHub →
+Notifications* silences it too. Another app's notifications are never
+affected.
+
+How it works: Android fixes a notification channel's sound and vibration
+when the channel is created, and has no volume per channel, so the
+*Events* channel makes no sound and does not vibrate, and the app plays the
+alert itself when a push arrives (`PushAlertReceiver`, `AlertPlayer`); see
+[docs/architecture.md](../docs/architecture.md#client-application).
+
+**Updating from an earlier release** replaces the app's notification
+channel once: the old *Events* channel (`events`) is deleted and a new
+*Events* channel (`signalhub_events`) takes its place, still popping up.
+Any changes you made to the old channel in the phone's settings (its
+sound, vibration or importance) are not carried over; set them again on
+the new one if you still want them. The system settings may mention a
+deleted category.
+
+iOS is not covered: iOS plays the system's default sound, as before.
 
 ## Build identity
 

@@ -881,6 +881,7 @@ flutter pub get --enforce-lockfile            # exactly the locked dependencies
 dart format --output=none --set-exit-if-changed .   # formatting check (`dart format .` fixes)
 flutter analyze                               # static analysis (lints in analysis_options.yaml)
 shellcheck icon/render.sh                     # the app icon's render script (see client/README.md)
+python3 sounds/generate.py --check            # the alert sounds are what their generator makes (client/sounds/)
 flutter test                                  # unit and widget tests
 flutter build apk --debug                     # Android build (CI builds the release APK instead, below)
 flutter build ios --debug --no-codesign       # iOS build (macOS only)
@@ -902,7 +903,13 @@ read state (the API calls, the unread count, marking read on opening,
 marking unread, marking all read up to the newest event shown, and their
 failures), and push preferences (saving each change, what the server
 stored, muted producers without inbox events, failures, a server without
-them). Builds without Firebase options run without push.
+them), and the alert settings against `FakeAlertPlatform`, which stands in
+for the Android side (what is given to the platform for each sound, volume
+and vibration step, and the bundled defaults; saving, restoring after a
+restart, previews, a phone keeping them quiet, failures). Builds without
+Firebase options run without push. The Android code that plays the alert
+is compiled by the release APK build and checked on a phone by the device
+review.
 
 ### Device review
 
@@ -910,7 +917,9 @@ A functional review of the app on a real Android phone is scripted in
 [`scripts/device-review/`](../scripts/device-review/README.md): over `adb`,
 against the local Compose stack with FCM, it publishes events and checks
 start-up, pushes in the foreground, the background and to a killed app,
-read state, push preferences, idempotent publishing, a stopped and a
+read state, push preferences, the app's own alert (played with the chosen
+sound, and quiet for other apps and during do-not-disturb), idempotent
+publishing, a stopped and a
 restarted backend, a phone that was offline, and the backend log. It never
 touches the screen unless SignalHub (or the notification shade it opened)
 is in front. It is run by hand, with a debug build set up with a client
@@ -1004,6 +1013,7 @@ flutter pub get --enforce-lockfile
 dart format --output=none --set-exit-if-changed .
 flutter analyze
 shellcheck icon/render.sh
+python3 sounds/generate.py --check
 flutter test
 # The release's APK and its checks, as CI does (needs the Android SDK and a
 # key in ANDROID_RELEASE_KEYSTORE and the other variables of app_files.py;

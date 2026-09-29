@@ -12,7 +12,11 @@ from device_review import (
     Node,
     Review,
     Server,
+    alert_messages,
+    channel_fields,
     channel_importance,
+    check_alert_played,
+    check_alert_quiet,
     check_popup_over_other_app,
     check_push_preferences,
     find_node,
@@ -163,6 +167,17 @@ class NotificationTest(unittest.TestCase):
         )
         self.assertEqual(channel_importance(dump, "com.android.systemui", "events"), 2)
 
+    def test_channel_fields(self):
+        fields = channel_fields(
+            sample("notification.txt"), APP_PACKAGE, "signalhub_events"
+        )
+        self.assertEqual(fields["mImportance"], "4")
+        self.assertEqual(fields["mSound"], "null")
+        self.assertEqual(fields["mVibrationEnabled"], "false")
+        old = channel_fields(sample("notification.txt"), APP_PACKAGE, "events")
+        self.assertEqual(old["mSound"], "content://settings/system/notification_sound")
+        self.assertNotIn("mVibrationEnabled", old)
+
     def test_missing_channel(self):
         dump = sample("notification.txt")
         self.assertIsNone(channel_importance(dump, APP_PACKAGE, "other"))
@@ -187,6 +202,93 @@ class NotificationTest(unittest.TestCase):
         self.assertEqual(
             posted_notifications("Current Notification Manager state:\n"), []
         )
+
+
+class AlertLogTest(unittest.TestCase):
+    def test_push_alerts_not_previews(self):
+        self.assertEqual(
+            alert_messages(sample("logcat-alert.txt")),
+            [
+                "Alert played (sound on, vibration on): "
+                "sound=beacon volume=80% vibration=medium",
+                "Alert not played (the app is in the foreground)",
+                "Alert not played (do not disturb): "
+                "sound=signal volume=80% vibration=medium",
+            ],
+        )
+
+    def test_nothing_logged(self):
+        self.assertEqual(alert_messages("--------- beginning of main\n"), [])
+
+
+class AlertCheckTest(unittest.TestCase):
+    def review(self, logged: list[str]) -> tuple[Review, list[str]]:
+        """A review whose app logs `logged`, one message per push."""
+        steps: list[str] = []
+        device, server = mock.Mock(), mock.Mock()
+        messages: list[str] = []
+        pending = list(logged)
+
+        def publish(title, **_):
+            steps.append(f"publish {title}")
+            messages.append(pending.pop(0))
+
+        server.publish.side_effect = publish
+        device.alert_messages.side_effect = lambda: list(messages)
+        device.wait_for_alert.side_effect = lambda seen: messages[seen]
+        device.tap_label.side_effect = lambda label, **_: steps.append(label)
+        device.shell.side_effect = lambda command: steps.append(command)
+        review = Review(fake_config(), device, server)
+        review.title = lambda what: what
+        review.inbox = lambda: None
+        review.open_menu_item = lambda item: None
+        return review, steps
+
+    def test_a_new_sound_is_the_next_and_the_first_is_restored(self):
+        review, steps = self.review(
+            [
+                "Alert played (sound on, vibration on): sound=signal volume=80%",
+                "Alert played (sound on, vibration on): sound=beacon volume=80%",
+            ]
+        )
+        detail = check_alert_played(review)
+        self.assertEqual(
+            steps,
+            ["publish alert", "Beacon", "publish changed alert", "Signal (default)"],
+        )
+        self.assertIn("README.md", detail)
+
+    def test_the_old_sound_again_fails_and_is_restored(self):
+        review, steps = self.review(
+            [
+                "Alert played (sound on, vibration on): sound=beacon volume=80%",
+                "Alert played (sound on, vibration on): sound=beacon volume=80%",
+            ]
+        )
+        with self.assertRaisesRegex(CheckFailed, "not pulse"):
+            check_alert_played(review)
+        self.assertEqual(steps[-1], "Beacon")
+
+    def test_an_alert_not_played_fails(self):
+        review, _ = self.review(["Alert not played (silent mode): sound=signal"])
+        with self.assertRaisesRegex(CheckFailed, "silent mode"):
+            check_alert_played(review)
+
+    def test_quiet_during_do_not_disturb_which_is_turned_off_again(self):
+        review, steps = self.review(["Alert not played (do not disturb): sound=x"])
+        with mock.patch("time.sleep"):
+            check_alert_quiet(review)
+        self.assertTrue(steps[0].startswith("cmd notification post"))
+        self.assertEqual(steps[-1], "cmd notification set_dnd off")
+
+    def test_an_alert_during_do_not_disturb_fails(self):
+        review, steps = self.review(["Alert played (sound on, vibration on): x"])
+        with (
+            mock.patch("time.sleep"),
+            self.assertRaisesRegex(CheckFailed, "during do-not-disturb"),
+        ):
+            check_alert_quiet(review)
+        self.assertEqual(steps[-1], "cmd notification set_dnd off")
 
 
 class UiTest(unittest.TestCase):

@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'src/alert/alert_platform.dart';
 import 'src/api/signalhub_api.dart';
 import 'src/app.dart';
 import 'src/app_controller.dart';
@@ -20,6 +22,10 @@ Future<void> main() async {
         SignalHubApi.redeemPairing(httpClient, serverUrl, code),
     push: push,
     startServedPush: FirebasePushService.startServed,
+    // Only the Android app plays an alert of its own (client/README.md).
+    alertPlatform: defaultTargetPlatform == TargetPlatform.android
+        ? MethodChannelAlertPlatform()
+        : null,
   );
   runApp(SignalHubApp(controller: controller));
   unawaited(controller.start());
