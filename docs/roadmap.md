@@ -1585,6 +1585,56 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   that review. `client/README.md`, `docs/architecture.md` (Client
   application), `docs/development.md`; compatible (`feat(client)`)
 
+### R46 - A separate alert for critical events
+
+- **decided: chosen by the push data's `severity` alone.**
+  `PushAlertReceiver` plays the critical alert for `CRITICAL` and the
+  general alert for any other severity or one it does not know; the
+  producer, category and text are never read. No backend change
+- **decided: the silent and do-not-disturb switches apply to every
+  critical push**, with or without a different alert, since the
+  maintainer's defaults (a critical push sounds on silent, not during
+  do-not-disturb) hold with the different alert off, its default. With it
+  off, a critical push plays the general sound, volume and vibration
+- **decided: the mapping stays in Dart.** Next to the general alert
+  (R45's form, unchanged), the app stores `critical` (the settings, read
+  back) and `criticalAlert` (what a critical push plays: the general alert
+  or its own, and `onSilent` and `duringDoNotDisturb`); the bundled
+  defaults gained both, still held equal to the Dart defaults by a test. A
+  general alert saved by R45 is kept, and the critical defaults are saved
+  next to it when the app is next opened; until then a critical push plays
+  the general alert
+- **decided: the alarm stream when breaking through.** `AlertPlayer` reads
+  the interruption filter and the ringer mode before playing: through
+  silent or vibrate only with `onSilent`, through do-not-disturb only with
+  `duringDoNotDisturb` and Do Not Disturb access
+  (`ACCESS_NOTIFICATION_POLICY`, granted on the system screen the app
+  opens; the switch stays off without it, and shows off once it is taken
+  away). Breaking through, it plays on the alarm stream and vibrates as an
+  alarm, at the alarm volume; total silence keeps it quiet. The app never
+  changes the phone's ringer or do-not-disturb
+- one more original sound, *Urgent* (two bursts of three harsh notes),
+  from `client/sounds/generate.py`, the critical alert's default with 100 %
+  and a strong vibration; available to the general alert too
+- _Notifications → Alert → Critical events_: **Different alert for
+  critical events** (its own sound, volume and vibration, as the general
+  alert's, kept while off), **Sound when the phone is on silent**, **Sound
+  during Do Not Disturb**
+- mapping tests (a critical and every other push with the switch on and
+  off, each switch, stored and unknown values, the bundled defaults),
+  controller tests (previews on silent and during do-not-disturb with each
+  switch on and off, access not given, given later, taken away; R45's
+  settings upgraded) and widget tests against the fake server and
+  `FakeAlertPlatform`, which now keeps previews quiet as `AlertPlayer`
+  does; the choice by severity and the Android playing rules are checked
+  by the device review: `alert-critical` (the general alert with the
+  switch off, their own with it on, a normal push unchanged) and
+  `alert-critical-quiet` (on silent only the critical push plays, as an
+  alarm; quiet during do-not-disturb by default), and the owner's by-ear
+  list. The exit criteria need the owner's phone and are left to that
+  review. `client/README.md`, `docs/architecture.md` (Client application),
+  `docs/development.md`; compatible (`feat(client)`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2148,7 +2198,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 32    | R43 - A used pairing code: the API and the admin page                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 34    | R45 - SignalHub's own alert: sounds, volume and vibration set in the app                         | Increment (`feat(client)`)             | Done (see section 3)                                                             |
-| 35    | R46 - A separate alert for critical events                                                       | Increment (`feat(client)`)             | Next                                                                             |
+| 35    | R46 - A separate alert for critical events                                                       | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -3471,9 +3521,10 @@ notification from another app does not use them.
 
 ### R46 - A separate alert for critical events
 
-Status: planned; next. Added by the maintainer (2026-09-29). R45's
-mechanism is the one to extend: the app plays the alert itself
-(`AlertPlayer`), and a push's `severity` is in the data its receiver gets.
+Status: complete (see section 3). Added by the maintainer (2026-09-29).
+The owner's check on a real phone is listed in the device review
+(`scripts/device-review/README.md`, "Alert, by ear and by hand", items 8
+to 11).
 
 Goal: a `CRITICAL` event is unmistakable, louder or otherwise different
 from every other SignalHub push.
@@ -3641,10 +3692,10 @@ from an admin device), R39 (removing the /connect redirect), R40 (the
 device list scrolls to its last device), R41 (deleting revoked devices:
 the API and the admin page), R42 (deleting revoked devices in the app),
 R43 (a used pairing code: the API and the admin page), R44 (a used
-pairing code in the app) and R45 (SignalHub's own alert, set in the app)
-are done. **Next: R46 (a separate alert for critical events), added by
-the maintainer on 2026-09-29.** Nothing is scheduled after it. New work starts only when the maintainer adds it
-to the queue; the [deferred candidates](#deferred-candidates) are not
-started without that.
+pairing code in the app), R45 (SignalHub's own alert, set in the app) and
+R46 (a separate alert for critical events) are done. **The queue is
+empty: nothing further is scheduled.** New work starts only when the
+maintainer adds it to the queue; the [deferred candidates](#deferred-candidates)
+are not started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

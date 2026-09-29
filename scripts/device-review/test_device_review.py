@@ -15,6 +15,8 @@ from device_review import (
     alert_messages,
     channel_fields,
     channel_importance,
+    check_alert_critical,
+    check_alert_critical_quiet,
     check_alert_played,
     check_alert_quiet,
     check_popup_over_other_app,
@@ -218,6 +220,10 @@ class AlertLogTest(unittest.TestCase):
                     "Alert not played (do not disturb): "
                     "sound=signal volume=80% vibration=medium"
                 ),
+                (
+                    "Critical alert played (sound on, vibration on, as an alarm): "
+                    "sound=urgent volume=100% vibration=strong"
+                ),
             ],
         )
 
@@ -228,20 +234,24 @@ class AlertLogTest(unittest.TestCase):
 class AlertCheckTest(unittest.TestCase):
     def review(self, logged: list[str]) -> tuple[Review, list[str]]:
         """A review whose app logs `logged`, one message per push."""
+        self.severities: list[str] = []
         steps: list[str] = []
         device, server = mock.Mock(), mock.Mock()
         messages: list[str] = []
         pending = list(logged)
 
-        def publish(title, **_):
+        def publish(title, severity="HIGH", **_):
             steps.append(f"publish {title}")
+            self.severities.append(severity)
             messages.append(pending.pop(0))
 
         server.publish.side_effect = publish
         device.alert_messages.side_effect = lambda: list(messages)
         device.wait_for_alert.side_effect = lambda seen: messages[seen]
         device.tap_label.side_effect = lambda label, **_: steps.append(label)
-        device.shell.side_effect = lambda command: steps.append(command)
+        device.shell.side_effect = lambda command, **_: steps.append(command)
+        device.scroll_to.side_effect = lambda label: label
+        device.tap.side_effect = lambda node: steps.append(f"tap {node}")
         review = Review(fake_config(), device, server)
         review.title = lambda what: what
         review.inbox = lambda: None
@@ -293,6 +303,93 @@ class AlertCheckTest(unittest.TestCase):
         ):
             check_alert_quiet(review)
         self.assertEqual(steps[-1], "cmd notification set_dnd off")
+
+    def test_critical_pushes_play_their_own_alert_once_switched_on(self):
+        review, steps = self.review(
+            [
+                "Alert played (sound on, vibration on): sound=signal volume=80%",
+                "Critical alert played (sound on, vibration on): sound=signal",
+                "Critical alert played (sound on, vibration on): sound=urgent",
+                "Alert played (sound on, vibration on): sound=signal volume=80%",
+            ]
+        )
+        detail = check_alert_critical(review)
+        self.assertEqual(self.severities, ["NORMAL", "CRITICAL", "CRITICAL", "NORMAL"])
+        switch = "tap Different alert for critical events"
+        self.assertEqual(steps.count(switch), 2)
+        self.assertEqual(steps[2], switch)
+        self.assertEqual(steps[-1], switch)
+        self.assertIn("critical urgent", detail)
+
+    def test_a_critical_push_with_the_switch_off_plays_the_general_alert(self):
+        review, steps = self.review(
+            [
+                "Alert played (sound on, vibration on): sound=signal volume=80%",
+                "Critical alert played (sound on, vibration on): sound=urgent",
+            ]
+        )
+        with self.assertRaisesRegex(CheckFailed, "switch off"):
+            check_alert_critical(review)
+        self.assertNotIn("tap Different alert for critical events", steps)
+
+    def test_the_switch_is_turned_off_again_when_the_check_fails(self):
+        review, steps = self.review(
+            [
+                "Alert played (sound on, vibration on): sound=signal volume=80%",
+                "Critical alert played (sound on, vibration on): sound=signal",
+                "Critical alert played (sound on, vibration on): sound=signal",
+                "Alert played (sound on, vibration on): sound=signal volume=80%",
+            ]
+        )
+        with self.assertRaisesRegex(CheckFailed, "played signal"):
+            check_alert_critical(review)
+        self.assertEqual(steps[-1], "tap Different alert for critical events")
+
+    def test_on_silent_only_critical_pushes_play_and_none_during_dnd(self):
+        review, steps = self.review(
+            [
+                "Alert not played (silent mode): sound=signal",
+                "Critical alert played (sound on, vibration on, as an alarm): x",
+                "Critical alert not played (do not disturb): x",
+            ]
+        )
+        check_alert_critical_quiet(review)
+        self.assertEqual(self.severities, ["NORMAL", "CRITICAL", "CRITICAL"])
+        self.assertEqual(steps[0], "cmd audio set-ringer-mode SILENT")
+        self.assertIn("cmd audio set-ringer-mode NORMAL", steps)
+        self.assertEqual(steps[-1], "cmd notification set_dnd off")
+
+    def test_a_critical_push_quiet_on_silent_fails_and_the_ringer_is_restored(self):
+        review, steps = self.review(
+            [
+                "Alert not played (silent mode): sound=signal",
+                "Critical alert not played (silent mode): x",
+            ]
+        )
+        with self.assertRaisesRegex(CheckFailed, "critical push"):
+            check_alert_critical_quiet(review)
+        self.assertEqual(steps[-1], "cmd audio set-ringer-mode NORMAL")
+
+    def test_a_critical_alert_during_dnd_fails(self):
+        review, steps = self.review(
+            [
+                "Alert not played (silent mode): sound=signal",
+                "Critical alert played (sound on, vibration on, as an alarm): x",
+                "Critical alert played (sound on, vibration on, as an alarm): x",
+            ]
+        )
+        with self.assertRaisesRegex(CheckFailed, "during do-not-disturb"):
+            check_alert_critical_quiet(review)
+        self.assertEqual(steps[-1], "cmd notification set_dnd off")
+
+    def test_a_phone_that_cannot_set_its_ringer_says_so(self):
+        review, steps = self.review([])
+        review.device.shell.side_effect = lambda command, **_: (
+            steps.append(command) or "Unknown command: set-ringer-mode"
+        )
+        with self.assertRaisesRegex(CheckFailed, "by hand"):
+            check_alert_critical_quiet(review)
+        self.assertEqual(steps[-1], "cmd audio set-ringer-mode NORMAL")
 
 
 class UiTest(unittest.TestCase):
@@ -496,7 +593,9 @@ class PopupTest(unittest.TestCase):
     def run_check(self, differences: list[int]) -> list[str]:
         steps: list[str] = []
         device, server = mock.Mock(), mock.Mock()
-        device.shell.side_effect = lambda command: steps.append(command)
+        device.shell.side_effect = lambda command, **_: steps.append(command)
+        device.scroll_to.side_effect = lambda label: label
+        device.tap.side_effect = lambda node: steps.append(f"tap {node}")
         device.screenshot.side_effect = lambda name: steps.append(name)
         device.screen_size.return_value = (1080, 2340)
         review = Review(fake_config(), device, server)

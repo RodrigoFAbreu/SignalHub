@@ -26,7 +26,7 @@ void main() {
 
       expect(
         jsonDecode(bundled.readAsStringSync()),
-        AlertSettings.defaults.toPlatform(),
+        platformAlerts(AlertSettings.defaults, CriticalAlertSettings.defaults),
       );
     });
 
@@ -154,6 +154,127 @@ void main() {
 
       expect(read, AlertSettings.defaults);
       expect(AlertSettings.fromStored('{}'), AlertSettings.defaults);
+    });
+  });
+
+  group('critical pushes', () {
+    const general = AlertSettings(
+      sound: AlertSound.beacon,
+      volume: 50,
+      vibration: AlertVibration.light,
+    );
+    Map<String, Object?> stored(CriticalAlertSettings critical) =>
+        platformAlerts(general, critical);
+
+    test('by default: the general alert, sounding on silent only', () {
+      expect(CriticalAlertSettings.defaults.toPlatform(general), {
+        ...general.toPlatform(),
+        'onSilent': true,
+        'duringDoNotDisturb': false,
+      });
+    });
+
+    test('by default their own alert is more urgent, louder, stronger', () {
+      const own = CriticalAlertSettings.defaults;
+
+      expect(own.different, isFalse);
+      expect(own.alert.sound, AlertSound.urgent);
+      expect(own.alert.volume, greaterThan(AlertSettings.defaults.volume));
+      expect(
+        own.alert.vibration.index,
+        greaterThan(AlertSettings.defaults.vibration.index),
+      );
+    });
+
+    test('with a different alert, play their own', () {
+      final critical = CriticalAlertSettings.defaults.copyWith(different: true);
+
+      expect(critical.toPlatform(general), {
+        ...critical.alert.toPlatform(),
+        'onSilent': true,
+        'duringDoNotDisturb': false,
+      });
+      expect(critical.toPlatform(general)['resource'], 'signalhub_urgent');
+      expect(critical.toPlatform(general)['gain'], 1.0);
+      expect(critical.toPlatform(general)['amplitudes'], contains(255));
+    });
+
+    test('each switch is given as it is set', () {
+      for (final onSilent in [false, true]) {
+        for (final duringDoNotDisturb in [false, true]) {
+          final alert = CriticalAlertSettings.defaults
+              .copyWith(
+                onSilent: onSilent,
+                duringDoNotDisturb: duringDoNotDisturb,
+              )
+              .toPlatform(general);
+
+          expect(alert['onSilent'], onSilent);
+          expect(alert['duringDoNotDisturb'], duringDoNotDisturb);
+        }
+      }
+    });
+
+    test('every other push plays the general alert, never on silent', () {
+      final alerts = stored(
+        CriticalAlertSettings.defaults.copyWith(
+          different: true,
+          duringDoNotDisturb: true,
+        ),
+      );
+
+      expect(
+        {...alerts}
+          ..remove('critical')
+          ..remove('criticalAlert'),
+        {...general.toPlatform()},
+      );
+      expect(alerts, isNot(contains('onSilent')));
+      expect(alerts, isNot(contains('duringDoNotDisturb')));
+    });
+
+    test('are read back, their own alert kept while not used', () {
+      const critical = CriticalAlertSettings(
+        different: false,
+        alert: AlertSettings(
+          sound: AlertSound.glass,
+          volume: 60,
+          vibration: AlertVibration.off,
+        ),
+        onSilent: false,
+        duringDoNotDisturb: true,
+      );
+
+      expect(
+        CriticalAlertSettings.fromStored(jsonEncode(stored(critical))),
+        critical,
+      );
+      expect(AlertSettings.fromStored(jsonEncode(stored(critical))), general);
+    });
+
+    test('none next to a general alert saved before them', () {
+      expect(
+        CriticalAlertSettings.fromStored(jsonEncode(general.toPlatform())),
+        isNull,
+      );
+      expect(CriticalAlertSettings.fromStored(null), isNull);
+      expect(CriticalAlertSettings.fromStored('not json'), isNull);
+    });
+
+    test('values this version does not know are the defaults', () {
+      final read = CriticalAlertSettings.fromStored(
+        jsonEncode({
+          'critical': {
+            'different': 'yes',
+            'sound': 'siren',
+            'volume': 'loud',
+            'vibration': 'max',
+            'onSilent': 1,
+          },
+        }),
+      );
+
+      expect(read, CriticalAlertSettings.defaults);
     });
   });
 }

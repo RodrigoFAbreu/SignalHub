@@ -3,3 +3,4 @@
 09-29 16:02:40.118 21877 21877 I SignalHubAlert: Alert played (sound on, vibration on): sound=beacon volume=80% vibration=medium
 09-29 16:03:05.730 21877 21877 I SignalHubAlert: Alert not played (the app is in the foreground)
 09-29 16:04:52.061 21877 21877 I SignalHubAlert: Alert not played (do not disturb): sound=signal volume=80% vibration=medium
+09-29 16:06:13.520 21877 21877 I SignalHubAlert: Critical alert played (sound on, vibration on, as an alarm): sound=urgent volume=100% vibration=strong

@@ -1543,6 +1543,30 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   that. The push payload is unchanged: pushes stay generic notification
   messages, so older apps and any server version work as before. iOS plays
   the system's default sound, as before.
+- **Critical alert.** A push whose data has the generic `severity`
+  `CRITICAL` can alert apart from every other, chosen by that field alone,
+  never by the producer, category or text; any other severity, or one the
+  app does not know, plays the general alert. The owner turns on a
+  different alert for critical events, with its own sound, volume and
+  vibration (by default *Urgent*, SignalHub's one urgent sound, at 100 %,
+  strong); off, they play the general alert. Two more settings apply to
+  critical pushes only: sounding when the ringer is on silent or vibrate (on
+  by default) and during do-not-disturb (off by default). The Dart side
+  stores, next to the general alert, what a critical push plays: the
+  general alert or its own, and both switches. Before playing, the Android
+  side reads the phone's do-not-disturb state (its interruption filter) and
+  ringer mode: a critical push sounds through silent or vibrate only with
+  its switch on, and through do-not-disturb only with its switch on **and**
+  the app's Do Not Disturb access (`ACCESS_NOTIFICATION_POLICY`, which the
+  owner grants on the system screen the app opens; without it the switch
+  stays off). When it sounds through either, it plays on the alarm stream
+  and vibrates as an alarm, which neither the ringer nor a do-not-disturb
+  letting alarms through (Android's default) mutes; its volume is then
+  relative to the alarm volume. A do-not-disturb that silences alarms too
+  (total silence) keeps it quiet. The app never changes the phone's ringer
+  or do-not-disturb. The general alert is unchanged: it always follows
+  silent mode and do-not-disturb. The push payload is unchanged, since
+  `severity` was already in its data.
 - **Inbox.** The home screen lists events, newest first, from
   `GET /api/v1/events`, 30 per page. The next page is read with the previous
   page's `nextCursor` when the owner scrolls near the end; a pull to refresh

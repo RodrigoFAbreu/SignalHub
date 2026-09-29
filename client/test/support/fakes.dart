@@ -531,14 +531,25 @@ class InMemoryCredentialsStore implements CredentialsStore {
 }
 
 /// The Android side of the alert: stores what the app saves, as the device
-/// would across restarts, and records what it is asked to preview.
+/// would across restarts, records what it is asked to preview, and keeps a
+/// preview quiet as `AlertPlayer.kt` does in the phone's state set here.
 class FakeAlertPlatform implements AlertPlatform {
   String? stored;
   final saved = <Map<String, Object?>>[];
   final previewed = <Map<String, Object?>>[];
 
-  /// Whether a preview plays; `false` as on a phone in silent mode.
+  /// Whether a preview may play at all; `false` keeps every one quiet.
   bool plays = true;
+
+  /// The phone's ringer on silent (or vibrate) and its do-not-disturb.
+  bool silent = false;
+  bool doNotDisturb = false;
+
+  /// Whether the owner gave SignalHub Do Not Disturb access.
+  bool access = false;
+
+  /// How often the app opened the system screen to give that access.
+  int accessOpened = 0;
 
   /// Whether saving fails, as a platform error would.
   bool failsToSave = false;
@@ -556,6 +567,16 @@ class FakeAlertPlatform implements AlertPlatform {
   @override
   Future<bool> preview(Map<String, Object?> alert) async {
     previewed.add(alert);
+    if (doNotDisturb && !(alert['duringDoNotDisturb'] == true && access)) {
+      return false;
+    }
+    if (silent && alert['onSilent'] != true) return false;
     return plays;
   }
+
+  @override
+  Future<bool> doNotDisturbAccess() async => access;
+
+  @override
+  Future<void> openDoNotDisturbAccess() async => accessOpened++;
 }

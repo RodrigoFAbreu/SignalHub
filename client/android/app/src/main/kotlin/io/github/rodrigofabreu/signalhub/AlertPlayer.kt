@@ -19,8 +19,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * What to play for a push, as the app's alert settings give it
- * (AlertSettings.toPlatform in lib/src/alert/alert_settings.dart). The
- * settings themselves are worked out in Dart; this only plays them.
+ * (AlertSettings.toPlatform in lib/src/alert/alert_settings.dart, and
+ * CriticalAlertSettings.toPlatform for a critical push's). The settings
+ * themselves are worked out in Dart; this only plays them. [onSilent] and
+ * [duringDoNotDisturb], a critical push's only, let it sound when the
+ * ringer is on silent or vibrate, and during do-not-disturb.
  */
 class Alert(
     val description: String,
@@ -29,10 +32,13 @@ class Alert(
     val timings: LongArray,
     val amplitudes: IntArray,
     val fallbackTimings: LongArray,
+    val onSilent: Boolean,
+    val duringDoNotDisturb: Boolean,
 ) {
     companion object {
-        fun parse(json: String): Alert {
-            val alert = JSONObject(json)
+        fun parse(json: String): Alert = parse(JSONObject(json))
+
+        fun parse(alert: JSONObject): Alert {
             return Alert(
                 description = "sound=${alert.optString("sound", "none")} " +
                     "volume=${alert.optInt("volume")}% " +
@@ -44,6 +50,8 @@ class Alert(
                     alert.getJSONArray("amplitudes").getInt(it)
                 },
                 fallbackTimings = longs(alert.getJSONArray("fallbackTimings")),
+                onSilent = alert.optBoolean("onSilent", false),
+                duringDoNotDisturb = alert.optBoolean("duringDoNotDisturb", false),
             )
         }
 
@@ -52,11 +60,17 @@ class Alert(
 }
 
 /**
- * Stores the alert on the device and plays it: the sound on the
+ * Stores the alerts on the device and plays them: the sound on the
  * notification stream, so the phone's notification volume scales it, and
  * the vibration as a notification's, so the phone's vibration settings
- * apply. It never plays through do-not-disturb, and follows the ringer:
- * nothing on silent, only the vibration on vibrate.
+ * apply. The general alert never plays through do-not-disturb, and follows
+ * the ringer: nothing on silent, only the vibration on vibrate.
+ *
+ * A critical push's alert may sound on silent or vibrate ([Alert.onSilent])
+ * and during do-not-disturb ([Alert.duringDoNotDisturb], only while the
+ * owner gives the app Do Not Disturb access). When it does, it plays as an
+ * alarm, on the alarm stream at the phone's alarm volume, which neither the
+ * ringer nor do-not-disturb's default of letting alarms through mutes.
  */
 object AlertPlayer {
     const val TAG = "SignalHubAlert"
@@ -64,8 +78,11 @@ object AlertPlayer {
     private const val KEY = "alert"
     private const val LONGEST_SOUND_MS = 5000L
 
-    private val attributes: AudioAttributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+    /** The push data's generic severity whose alert is its own. */
+    private const val CRITICAL = "CRITICAL"
+
+    private fun attributes(usage: Int): AudioAttributes = AudioAttributes.Builder()
+        .setUsage(usage)
         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
         .build()
 
@@ -74,16 +91,33 @@ object AlertPlayer {
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).getString(KEY, null)
 
     fun save(context: Context, json: String) {
-        Alert.parse(json)
+        val alerts = JSONObject(json)
+        Alert.parse(alerts)
+        alerts.optJSONObject("criticalAlert")?.let { Alert.parse(it) }
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit().putString(KEY, json).apply()
     }
 
-    /** The saved alert, or the defaults the app would save. */
-    fun stored(context: Context): Alert = Alert.parse(
-        load(context) ?: context.resources.openRawResource(R.raw.signalhub_alert_defaults)
-            .bufferedReader().use { it.readText() },
-    )
+    /**
+     * What a push of [severity] plays, and what to log it as: a critical
+     * push's alert (platformAlerts in alert_settings.dart), or the general
+     * alert for any other severity, one this app does not know, or none;
+     * the saved alerts, or the defaults the app would save.
+     */
+    fun forPush(context: Context, severity: String?): Pair<String, Alert> {
+        val alerts = JSONObject(
+            load(context) ?: context.resources.openRawResource(R.raw.signalhub_alert_defaults)
+                .bufferedReader().use { it.readText() },
+        )
+        // Saved by a release without critical alerts: until the app is
+        // opened and saves them, a critical push plays the general alert.
+        val critical = if (severity == CRITICAL) alerts.optJSONObject("criticalAlert") else null
+        return if (critical != null) {
+            "Critical alert" to Alert.parse(critical)
+        } else {
+            "Alert" to Alert.parse(alerts)
+        }
+    }
 
     /**
      * Plays [alert] unless the phone keeps it quiet, and logs it as [kind]
@@ -93,38 +127,44 @@ object AlertPlayer {
     fun play(context: Context, alert: Alert, kind: String, done: () -> Unit = {}): Boolean {
         val finished = AtomicBoolean(false)
         val finish = { if (finished.compareAndSet(false, true)) done() }
-        val quiet = quietReason(context)
+        val notifications = context.getSystemService(NotificationManager::class.java)
+        val filter = notifications.currentInterruptionFilter
+        val doNotDisturb = filter != NotificationManager.INTERRUPTION_FILTER_ALL &&
+            filter != NotificationManager.INTERRUPTION_FILTER_UNKNOWN
+        val ringer = context.getSystemService(AudioManager::class.java).ringerMode
+        val normal = ringer == AudioManager.RINGER_MODE_NORMAL
+        val quiet = when {
+            doNotDisturb && !alert.duringDoNotDisturb -> "do not disturb"
+            doNotDisturb && !notifications.isNotificationPolicyAccessGranted ->
+                "do not disturb, no Do Not Disturb access"
+            // Total silence mutes alarms too.
+            filter == NotificationManager.INTERRUPTION_FILTER_NONE ->
+                "do not disturb, total silence"
+            ringer == AudioManager.RINGER_MODE_SILENT && !alert.onSilent -> "silent mode"
+            else -> null
+        }
         if (quiet != null) {
             Log.i(TAG, "$kind not played ($quiet): ${alert.description}")
             finish()
             return false
         }
-        val ringer = context.getSystemService(AudioManager::class.java).ringerMode
-        val sound = ringer == AudioManager.RINGER_MODE_NORMAL && playSound(context, alert, finish)
-        val vibration = vibrate(context, alert)
+        // Past the ringer or do-not-disturb, it plays as an alarm, which
+        // they do not mute; otherwise as the notification it is.
+        val asAlarm = doNotDisturb || (!normal && alert.onSilent)
+        val usage = if (asAlarm) AudioAttributes.USAGE_ALARM else AudioAttributes.USAGE_NOTIFICATION
+        val sound = (normal || alert.onSilent) && playSound(context, alert, usage, finish)
+        val vibration = vibrate(context, alert, asAlarm)
         if (!sound) finish()
         Log.i(
             TAG,
             "$kind played (sound ${if (sound) "on" else "off"}, " +
-                "vibration ${if (vibration) "on" else "off"}): ${alert.description}",
+                "vibration ${if (vibration) "on" else "off"}" +
+                "${if (asAlarm) ", as an alarm" else ""}): ${alert.description}",
         )
         return sound || vibration
     }
 
-    /** Why the phone keeps every alert quiet now, or null. */
-    private fun quietReason(context: Context): String? {
-        val notifications = context.getSystemService(NotificationManager::class.java)
-        val filter = notifications.currentInterruptionFilter
-        if (filter != NotificationManager.INTERRUPTION_FILTER_ALL &&
-            filter != NotificationManager.INTERRUPTION_FILTER_UNKNOWN
-        ) {
-            return "do not disturb"
-        }
-        val ringer = context.getSystemService(AudioManager::class.java).ringerMode
-        return if (ringer == AudioManager.RINGER_MODE_SILENT) "silent mode" else null
-    }
-
-    private fun playSound(context: Context, alert: Alert, finish: () -> Unit): Boolean {
+    private fun playSound(context: Context, alert: Alert, usage: Int, finish: () -> Unit): Boolean {
         val resource = alert.resource ?: return false
         // Sounds are named by the app's settings; keep.xml keeps them.
         @Suppress("DiscouragedApi")
@@ -137,7 +177,7 @@ object AlertPlayer {
             finish()
         }
         return try {
-            player.setAudioAttributes(attributes)
+            player.setAudioAttributes(attributes(usage))
             context.resources.openRawResourceFd(id).use {
                 player.setDataSource(it.fileDescriptor, it.startOffset, it.length)
             }
@@ -158,7 +198,7 @@ object AlertPlayer {
         }
     }
 
-    private fun vibrate(context: Context, alert: Alert): Boolean {
+    private fun vibrate(context: Context, alert: Alert, asAlarm: Boolean): Boolean {
         if (alert.timings.isEmpty()) return false
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             context.getSystemService(VibratorManager::class.java).defaultVibrator
@@ -167,6 +207,9 @@ object AlertPlayer {
             context.getSystemService(Vibrator::class.java)
         }
         if (!vibrator.hasVibrator()) return false
+        val attributes = attributes(
+            if (asAlarm) AudioAttributes.USAGE_ALARM else AudioAttributes.USAGE_NOTIFICATION,
+        )
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             @Suppress("DEPRECATION")
             vibrator.vibrate(alert.fallbackTimings, -1, attributes)
@@ -181,7 +224,9 @@ object AlertPlayer {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             vibrator.vibrate(
                 effect,
-                VibrationAttributes.createForUsage(VibrationAttributes.USAGE_NOTIFICATION),
+                VibrationAttributes.createForUsage(
+                    if (asAlarm) VibrationAttributes.USAGE_ALARM else VibrationAttributes.USAGE_NOTIFICATION,
+                ),
             )
         } else {
             @Suppress("DEPRECATION")

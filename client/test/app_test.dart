@@ -901,6 +901,125 @@ void main() {
     });
 
     AlertSettings stored() => AlertSettings.fromStored(alerts.stored)!;
+    CriticalAlertSettings storedCritical() =>
+        CriticalAlertSettings.fromStored(alerts.stored)!;
+    bool switchValue(WidgetTester tester, String key) =>
+        tester.widget<SwitchListTile>(find.byKey(Key(key))).value;
+
+    Future<void> tapCritical(WidgetTester tester, String key) async {
+      final target = find.byKey(Key(key));
+      await tester.ensureVisible(target);
+      await tester.pumpAndSettle();
+      await tapAndSave(tester, target);
+    }
+
+    testWidgets('critical events: by default the general alert, sounding on '
+        'silent only', (tester) async {
+      await connect(tester);
+      await openNotifications(tester);
+
+      expect(find.text('Critical events'), findsOneWidget);
+      expect(switchValue(tester, 'criticalDifferent'), isFalse);
+      expect(find.byKey(const Key('criticalSound-urgent')), findsNothing);
+      expect(switchValue(tester, 'criticalOnSilent'), isTrue);
+      expect(switchValue(tester, 'criticalDuringDoNotDisturb'), isFalse);
+      expect(storedCritical(), CriticalAlertSettings.defaults);
+    });
+
+    testWidgets('critical events get a different alert of their own', (
+      tester,
+    ) async {
+      await connect(tester);
+      await openNotifications(tester);
+
+      await tapCritical(tester, 'criticalDifferent');
+      expect(storedCritical().different, isTrue);
+      expect(find.text('Urgent (default)'), findsOneWidget);
+      expect(alerts.previewed, isEmpty);
+
+      await tapCritical(tester, 'criticalSound-glass');
+      expect(storedCritical().alert.sound, AlertSound.glass);
+      expect(alerts.previewed.last['resource'], 'signalhub_glass');
+      expect(alerts.previewed.last['onSilent'], isTrue);
+
+      await tapCritical(tester, 'criticalPlay-pulse');
+      expect(alerts.previewed.last['resource'], 'signalhub_pulse');
+      expect(storedCritical().alert.sound, AlertSound.glass);
+
+      final light = find.descendant(
+        of: find.byKey(const Key('criticalVibration')),
+        matching: find.text('Light'),
+      );
+      await tester.ensureVisible(light);
+      await tapAndSave(tester, light);
+      expect(storedCritical().alert.vibration, AlertVibration.light);
+
+      // Every other push keeps the general alert.
+      expect(stored(), AlertSettings.defaults);
+      expect(alerts.saved.last['resource'], 'signalhub_signal');
+      expect(
+        (alerts.saved.last['criticalAlert']! as Map)['resource'],
+        'signalhub_glass',
+      );
+
+      await tapCritical(tester, 'criticalDifferent');
+      expect(find.byKey(const Key('criticalSound-glass')), findsNothing);
+      expect(
+        (alerts.saved.last['criticalAlert']! as Map)['resource'],
+        'signalhub_signal',
+      );
+      // Kept for when the switch is on again.
+      expect(storedCritical().alert.sound, AlertSound.glass);
+    });
+
+    testWidgets('critical events stay quiet on silent once switched off', (
+      tester,
+    ) async {
+      await connect(tester);
+      await openNotifications(tester);
+
+      await tapCritical(tester, 'criticalOnSilent');
+
+      expect(switchValue(tester, 'criticalOnSilent'), isFalse);
+      expect(storedCritical().onSilent, isFalse);
+      expect((alerts.saved.last['criticalAlert']! as Map)['onSilent'], isFalse);
+    });
+
+    testWidgets('sounding during Do Not Disturb asks for the access first', (
+      tester,
+    ) async {
+      await connect(tester);
+      await openNotifications(tester);
+      expect(find.textContaining('Needs Do Not Disturb access'), findsOne);
+
+      await tapCritical(tester, 'criticalDuringDoNotDisturb');
+
+      expect(alerts.accessOpened, 1);
+      expect(
+        find.textContaining('Allow SignalHub in Do Not Disturb'),
+        findsOne,
+      );
+      expect(switchValue(tester, 'criticalDuringDoNotDisturb'), isFalse);
+      expect(storedCritical().duringDoNotDisturb, isFalse);
+
+      // The owner gives it in the phone's settings and comes back.
+      alerts.access = true;
+      tester.binding
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+        ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await settle(tester);
+      expect(
+        find.text('Critical events sound and vibrate during Do Not Disturb'),
+        findsOne,
+      );
+      expect(switchValue(tester, 'criticalDuringDoNotDisturb'), isFalse);
+
+      await tapCritical(tester, 'criticalDuringDoNotDisturb');
+
+      expect(switchValue(tester, 'criticalDuringDoNotDisturb'), isTrue);
+      expect(storedCritical().duringDoNotDisturb, isTrue);
+      expect(alerts.accessOpened, 1);
+    });
 
     testWidgets('sets the sound, volume and vibration, each previewed', (
       tester,
@@ -960,11 +1079,17 @@ void main() {
 
     testWidgets('the saved settings are shown after a restart', (tester) async {
       alerts.stored = jsonEncode(
-        const AlertSettings(
-          sound: AlertSound.pulse,
-          volume: 30,
-          vibration: AlertVibration.off,
-        ).toPlatform(),
+        platformAlerts(
+          const AlertSettings(
+            sound: AlertSound.pulse,
+            volume: 30,
+            vibration: AlertVibration.off,
+          ),
+          CriticalAlertSettings.defaults.copyWith(
+            different: true,
+            onSilent: false,
+          ),
+        ),
       );
       await connect(tester);
       await openNotifications(tester);
@@ -986,6 +1111,12 @@ void main() {
         find.byKey(const Key('alertVibration')),
       );
       expect(vibration.selected, {AlertVibration.off});
+      expect(
+        tester.widget<Slider>(find.byKey(const Key('criticalVolume'))).value,
+        100,
+      );
+      expect(switchValue(tester, 'criticalDifferent'), isTrue);
+      expect(switchValue(tester, 'criticalOnSilent'), isFalse);
       expect(alerts.saved, isEmpty);
     });
 

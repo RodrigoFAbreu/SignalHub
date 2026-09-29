@@ -9,6 +9,7 @@ arrives in the background (see [the client README](../README.md#alert)).
 | Beacon | `android/app/src/main/res/raw/signalhub_beacon.wav` | Three plucked notes rising through a major chord, 0.8 s |
 | Pulse | `android/app/src/main/res/raw/signalhub_pulse.wav` | Two short, bright blips with a slight warble, 0.4 s |
 | Glass | `android/app/src/main/res/raw/signalhub_glass.wav` | One glassy strike with inharmonic partials, 1.1 s |
+| Urgent (the default for critical events) | `android/app/src/main/res/raw/signalhub_urgent.wav` | Two bursts of three fast, harsh notes jumping a major third up and down, 1.2 s |
 
 **Source:** original works made for SignalHub. `generate.py` synthesises
 every sample from sine waves; no recording, sample library or sound of

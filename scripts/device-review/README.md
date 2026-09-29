@@ -95,6 +95,8 @@ it. Titles of the events they publish start with `Device review:`.
 | `background-push` | Goes home and publishes; the notification must be in the `signalhub_events` channel, and tapping it in the shade must open the event and mark it read on the server. | Publishes 1 event, marks it read. |
 | `alert-played` | Goes home and publishes; the app must log that it played its alert (`SignalHubAlert` in `logcat`) with the chosen sound. Then chooses another sound on the *Notifications* screen (which previews it), publishes again, and the app must play that one; the first sound is chosen again afterwards, even when the check fails. **What only the owner can judge:** see [Alert, by ear and by hand](#alert-by-ear-and-by-hand). | Publishes 2 events; plays the alert and two previews; restores the sound. |
 | `alert-quiet` | Posts a notification as another app (`cmd notification post`, the shell's): the app must log no alert. Then **turns do-not-disturb on** (`cmd notification set_dnd priority`) and publishes with the app in the background: the app must log that it did not play its alert because of do-not-disturb. Do-not-disturb is turned off even when the check fails. | Posts a shell notification (dismiss it by hand); toggles do-not-disturb; publishes 1 event. |
+| `alert-critical` | Needs the critical settings at their defaults (no different alert, *Urgent* as its own sound) and a general sound other than *Urgent*. Publishes a `NORMAL` and a `CRITICAL` event with the app in the background: the critical push must log `Critical alert played` with the normal push's sound. Then turns **Different alert for critical events** on (on the *Notifications* screen, scrolling to it), publishes a `CRITICAL` event, which must play *Urgent*, and a `NORMAL` one, which must play the general sound. The switch is turned off again, even when the check fails. | Publishes 4 events; plays the alerts; toggles the switch and restores it. |
+| `alert-critical-quiet` | Needs the critical settings at their defaults. **Sets the ringer to silent** (`cmd audio set-ringer-mode SILENT`, which not every Android version has: the check then fails saying so, and silent mode is left to the list below) and publishes a `NORMAL` event, which must not play (`silent mode`), and a `CRITICAL` one, which must play as an alarm (**it sounds, at the alarm volume**). Sets the ringer back to normal, then **turns do-not-disturb on** and publishes a `CRITICAL` event, which must not play (`do not disturb`). The ringer is set to normal and do-not-disturb turned off even when the check fails. | Sets the ringer to silent, then normal (not to what it was); toggles do-not-disturb; publishes 3 events; sounds one critical alert. |
 | `refresh-on-return` | Goes home, publishes, and returns; the inbox must show the event without a pull to refresh. | Publishes 1 event (`LOW`). |
 | `killed-app-push` | Kills the app in the background (`am kill`, as the system would), publishes; the notification must arrive and tapping it must cold-start the app on the event. | Kills the app, publishes 1 event, marks it read. |
 | `force-stop-reregisters` | Force-stops and starts the app; the server's push target must be set again (a newer `updatedAt`). | Stops the app. |
@@ -114,7 +116,8 @@ wording changes, update the constants at the top of the script.
 
 ## Alert, by ear and by hand
 
-The `alert-played` and `alert-quiet` checks read what the app says it did;
+The `alert-played`, `alert-quiet`, `alert-critical` and
+`alert-critical-quiet` checks read what the app says it did;
 whether it sounds and feels right needs the owner. With the release APK
 installed over the previous release (so the settings and the channel change
 as an update makes them), check by hand:
@@ -139,9 +142,34 @@ as an update makes them), check by hand:
 7. Another app's notification still sounds as before, never like
    SignalHub's.
 
+Critical events (publish them with `severity` `CRITICAL`, the others with
+`NORMAL`, the app in the background) need the owner's phone too:
+
+8. With the default settings (**Different alert for critical events**
+   off), a `CRITICAL` and a `NORMAL` push play the same general alert.
+9. With the switch on, a `CRITICAL` push plays its own sound, volume and
+   vibration (by default *Urgent*, at 100 %, strong), clearly more urgent
+   than the general alert, and a `NORMAL` push still plays the general
+   alert; the critical sounds, volume slider and vibration play when
+   chosen, as the general ones do. Off again, both play the general alert,
+   and the critical settings chosen are still there when it is turned on.
+10. With the default settings, on silent and on vibrate, a `CRITICAL` push
+    sounds (at the phone's alarm volume) and vibrates, and a `NORMAL` push
+    is silent (only vibrating on vibrate). With **Sound when the phone is
+    on silent** off, the `CRITICAL` push is like the `NORMAL` one.
+11. With the default settings, during Do Not Disturb, neither a
+    `CRITICAL` nor a `NORMAL` push sounds or vibrates. Turning **Sound
+    during Do Not Disturb** on without Do Not Disturb access opens the
+    system screen that gives it and leaves the switch off; once SignalHub
+    is allowed there and the app is back in front, the switch turns on, and
+    a `CRITICAL` push then sounds and vibrates during Do Not Disturb (one
+    that lets alarms through, Android's default) while a `NORMAL` one stays
+    quiet. Taking the access away again turns the switch off and keeps
+    critical pushes quiet during Do Not Disturb.
+
 ## Published events
 
-Every run publishes about 18 events as the review's producer, and they stay
+Every run publishes about 25 events as the review's producer, and they stay
 in the inbox of every client. On a local stack, delete them afterwards with
 the producer's name, as described in
 [Clearing local test data](../../docs/development.md#clearing-local-test-data).

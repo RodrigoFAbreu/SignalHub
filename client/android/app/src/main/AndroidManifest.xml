@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- Vibrates SignalHub's own alert (PushAlertReceiver). -->
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Lists SignalHub under Do Not Disturb access, which the owner may give
+         so that critical events sound during do-not-disturb. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
     <!-- Scans a pairing code; asked for only when the owner opens the scanner. -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
