@@ -2096,6 +2096,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 31    | R42 - Deleting revoked devices in the app                                                        | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 32    | R43 - A used pairing code: the API and the admin page                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 34    | R45 - A SignalHub sound and vibration for pushes                                                 | Increment (`feat(client)`)             | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -2314,6 +2315,7 @@ G1 → G2 → R19 v1.0.0
   → R40 the device list's last device → R41 deleting revoked devices (API,
     admin page) → R42 deleting them in the app → R43 a used pairing code
     (API, admin page) → R44 a used pairing code in the app
+  → R45 a SignalHub sound and vibration for pushes
 ```
 
 - **Release distribution and version identity come first** (R20 to R24).
@@ -2396,6 +2398,12 @@ G1 → G2 → R19 v1.0.0
     app's _Connect a device_ does the same (R44).
   - the API comes before the app in both pairs, as R36 and R37 were split,
     so the app never calls an API that does not exist yet.
+- **R45 was added by the maintainer on 2026-09-29**, once producers of
+  their own (the workflow lanes) started pushing to the owner's phone:
+  a SignalHub push must be recognisable without looking at the screen,
+  by a sound and a vibration of its own, told apart from every other
+  app's notifications. One sound and one vibration for all of SignalHub's
+  pushes; telling severities apart by ear is left deferred.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -2434,6 +2442,7 @@ advance; they follow from the queue.
 | R40           | patch (`fix(client)`)                                                                                                                                 | a correction to an existing screen                                                                         |
 | R41, R43      | minor (`feat`)                                                                                                                                        | new endpoints and page actions; a migration, if any, needs no operator action                              |
 | R42, R44      | minor (`feat(client)`)                                                                                                                                | new actions in existing app screens; no API change                                                         |
+| R45           | minor (`feat(client)`)                                                                                                                                | a new notification channel on Android, replacing the old one once; no API change                           |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -3325,6 +3334,53 @@ Scope:
 
 Compatible (`feat(client)`): no API change.
 
+### R45 - A SignalHub sound and vibration for pushes
+
+Status: planned; next. Added by the maintainer (2026-09-29).
+
+Goal: the owner tells a SignalHub push from any other app's notification
+by ear and by feel, without looking at the phone.
+
+Scope, the Android app only:
+
+- a notification sound of SignalHub's own, short and distinct from
+  Android's and Samsung's defaults, bundled with the app (for example in
+  `res/raw`); its source and licence are recorded next to it, as the
+  icon's are (`client/icon/`): an original or public-domain (CC0) sound,
+  never one taken from another product
+- a vibration pattern of SignalHub's own, distinct from the phone's
+  default single buzz (the increment picks it, short enough to be polite)
+- both are set on the channel pushes are shown in (R18o). Android fixes a
+  channel's sound and vibration when it is first created, and never
+  changes them for an app afterwards, so the app creates a new channel
+  (a new ID, still named _Events_, still high importance so pushes keep
+  popping up), points Firebase's default channel at it
+  (`AndroidManifest.xml`), and deletes the old `events` channel. The owner's
+  own settings for the old channel are not carried over; `client/README.md`
+  and the release notes say so
+- the owner can still change the sound or vibration, or silence them, in
+  Android's settings for the channel, as for any app; the app never
+  overrides the owner's choice once the new channel exists
+- a push while the app is open is unchanged (the in-app notice)
+- a test that the channel is created with the bundled sound and the
+  pattern, where the platform code can be tested, and otherwise a check
+  in the device review (`scripts/device-review/`); `client/README.md`
+  (notifications)
+
+Compatible (`feat(client)`): no API, backend or push payload change; a
+server of any version works with it.
+
+Non-goals: a sound or vibration per severity, category or producer (see
+[Deferred candidates](#deferred-candidates)); a sound chooser inside the
+app (Android's channel settings already are one); iOS, where a custom
+sound must be named in the push payload and iOS builds are not
+distributed (the Deferred candidates' iOS row).
+
+Exit criteria: on the owner's phone, with the release APK installed over
+the previous one, a push that arrives while the app is in the background
+or closed plays SignalHub's sound and vibrates with its pattern, and a
+notification from another app does not.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -3352,6 +3408,7 @@ itself.
 | Full-text search                                                                                          | No need shown; R5 ruled it out as premature                                                                                           | Filters prove insufficient. PostgreSQL's own search, no search engine.                                                |
 | Unread navigation, grouping in the inbox, further bulk actions, archive or clear                          | _Mark all as read_ and retention cover today's use                                                                                    | Usage evidence from the owner.                                                                                        |
 | Quiet hours or schedule-based suppression                                                                 | Pause and the phone's own do-not-disturb and channel settings cover it (R12a found it unjustified)                                    | A need the phone cannot meet, such as suppression by severity at night. Never a rules engine.                         |
+| A sound or vibration per severity                                                                         | One SignalHub sound and vibration (R45) tells SignalHub apart; this needs a channel per severity                                      | The owner needs to tell a `CRITICAL` push from a `LOW` one by ear. Chosen from the generic severity only.             |
 | Notification grouping on the device                                                                       | Event volume is low, and Android already bundles an app's notifications once several arrive; considered with R30 to R33 and left here | Bursts of pushes that Android's own bundling does not make readable, seen on a device.                                |
 | Rate limiting and brute-force resistance                                                                  | Keys and pairing codes make guessing infeasible; the management API is not forwarded (`docs/architecture.md#security-limitations`)    | Abusive or heavy traffic seen in logs or metrics; the proxy is the first place to limit.                              |
 | Key expiry, key scopes, a separate management port                                                        | One owner; rotation and revocation exist; the documented mitigations hold                                                             | A producer that must be restricted, or managing from another host.                                                    |
@@ -3440,9 +3497,10 @@ from an admin device), R39 (removing the /connect redirect), R40 (the
 device list scrolls to its last device), R41 (deleting revoked devices:
 the API and the admin page), R42 (deleting revoked devices in the app),
 R43 (a used pairing code: the API and the admin page) and R44 (a used
-pairing code in the app) are done. **The queue is empty: nothing further
-is scheduled.** New work starts only when the maintainer adds it to the
-queue; the [deferred candidates](#deferred-candidates) are not started
-without that.
+pairing code in the app) are done. **Next: R45 (a SignalHub sound and
+vibration for pushes), added by the maintainer on 2026-09-29.** Nothing
+is scheduled after it. New work starts only when the maintainer adds it
+to the queue; the [deferred candidates](#deferred-candidates) are not
+started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
