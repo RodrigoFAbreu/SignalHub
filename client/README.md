@@ -14,12 +14,12 @@ while the app runs and are not remembered after a restart.
 An event with a link offers *Open link* on its screen, which opens it in the
 system browser (or the app the phone assigns to the address); the link is
 never opened from the inbox or the notification, only from the event.
-The *Notifications* screen sets how pushes sound and vibrate on Android,
+The gear icon on the inbox opens [Settings](#settings): whether and which
+events are pushed to this device, how pushes sound and vibrate on Android,
 with SignalHub's own sounds and a separate alert for critical events (see
-[Alert](#alert)), and chooses which events
-are pushed to this device.
-On an [admin device](../docs/architecture.md#admin-devices), the *This
-device* screen also lists every device of the owner, with *Make an admin*
+[Alert](#alert)), and this device, from which it is disconnected.
+On an [admin device](../docs/architecture.md#admin-devices), its *Devices*
+row opens every device of the owner, with *Make an admin*
 and *Revoke* on those that are not admins, and *Delete* on revoked ones (see
 [Manage devices](#manage-devices)).
 See
@@ -40,8 +40,9 @@ commands that CI runs.
 | `lib/src/push/firebase_push_service.dart` | The Firebase Cloud Messaging adapter: the only Dart code that knows Firebase. |
 | `lib/src/build_identity.dart` | Which SignalHub build the app is: release version and commit, from build-time defines. |
 | `lib/src/alert/` | The alert settings (sound, volume, vibration with its pattern and length, and critical events' own), what the platform is given for them, their controller, and `AlertPlatform`, the port to the Android code that stores and plays them. |
+| `lib/src/settings/` | The groups of the Settings screen, and which of them are open, kept in secure storage. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
-| `lib/src/ui/` | The setup, pairing scanner, inbox (with its filter sheet), event, device (with the device list of an admin device), *Connect a device* (a pairing code as a QR code, drawn with the pure-Dart `qr` package) and notifications screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
+| `lib/src/ui/` | The setup, pairing scanner, inbox (with its filter sheet), event, Settings (with its push filters and alert sections), devices (for an admin device) and *Connect a device* (a pairing code as a QR code, drawn with the pure-Dart `qr` package) screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
 | `android/`, `ios/` | Platform projects: identifiers, permissions, push capability, the browsers an event's link may open in (Android `<queries>`). |
 | `android/app/src/main/kotlin/` | `SignalHubApplication` (the *Events* channel), `PushAlertReceiver` and `AlertPlayer` (the alert), `MainActivity` (the alert settings' method channel, and Do Not Disturb access). |
 | `sounds/` | The alert sounds' generator, `generate.py`, and their source and licence; the sounds are in `android/app/src/main/res/raw/`. |
@@ -76,7 +77,7 @@ need the owner's Apple team (see [Signing](#signing)).
 2. Install it: `adb install SignalHub-$version.apk` from a computer, or
    open the file on the phone and allow installing from that source.
 3. Open it and set it up, as in [Set it up](#set-it-up). The
-   *This device* screen says "SignalHub X.Y.Z" and the release's commit.
+   *This device* group of Settings says "SignalHub X.Y.Z" and the release's commit.
 
 **Updating** is installing the next release's APK the same way: Android
 keeps the app's data, and the client key with it, because every release is
@@ -159,14 +160,54 @@ The server address is `http://10.0.2.2:8080` from the Android emulator and
 Android debug builds and, on iOS, to local addresses; anything reachable from
 elsewhere needs HTTPS through a reverse proxy.
 
+## Settings
+
+The gear icon in the inbox's top bar opens **Settings**. At the top, always
+shown, the **Push notifications** switch pauses or resumes pushes to this
+device (events are kept in the inbox either way). Below it, the settings
+sit in groups that fold; folded, each header sums up the group's values in
+one line, such as *Normal and up · Info, Completed muted · all producers*
+or *Signal · 80 % · Medium · Short, short, long · Short*. Tap a header to
+unfold or fold it:
+
+- **Push filters**: the minimum severity, and the categories and producers
+  pushed, saved on the server at every change. A producer is listed once
+  its events are in the inbox; a muted one stays listed to unmute it.
+- **Alert**: the general alert's sound, volume, vibration, pattern and
+  length, with their previews (see [Alert](#alert)).
+- **Critical alert**: whether critical events get an alert of their own,
+  its sound, volume, vibration, pattern and length, and whether they sound
+  on silent and during Do Not Disturb (see [Critical events](#critical-events)).
+- **This device**: its name and server, its push status, its build (see
+  [Build identity](#build-identity)), and **Disconnect this device**,
+  which asks first. Disconnecting removes this device's push target and
+  forgets the server and the client key; the alert settings and the open
+  groups stay on the device.
+
+Groups start folded; those left open are open again the next time,
+across restarts, kept on the device only. While push is off, *Push
+filters*, *Alert* and *Critical alert* are greyed, saying they apply once
+push notifications are on; they can still be changed. With a server
+released before push preferences, there is no switch and *Push filters*
+says the server does not support them. Where the app plays no alert of its
+own (iOS), there are no alert groups. On an admin device, a **Devices** row
+below the groups opens the owner's devices (see [Manage devices](#manage-devices)).
+Pull down to read the registration, the push status and the devices again.
+
+Updating from a release with the *Notifications* and *This device* screens
+keeps every setting: the push preferences stay on the server and the alert
+settings on the device, as before.
+
 ## Manage devices
 
 A device the operator made an admin device, on the
 [admin page](../docs/architecture.md#the-admin-page) or when pairing it,
-manages the owner's other devices from the app. Its *This device* screen
-(from the inbox menu) has a **Devices** section below the build: every
-device, active ones first, marked *This device*, *Admin device* or
-*Revoked*. Pull down to read it again.
+manages the owner's other devices from the app. Its Settings screen (the
+gear icon on the inbox) has a **Devices** row below the groups, which says
+how many devices and admins there are (such as *7 devices · 2 admins*) and
+opens the *Devices* screen: every device, active ones first, marked *This
+device*, *Admin device* or *Revoked*. Pull down to read it again. A device
+that is not an admin has no *Devices* row.
 
 - **Make an admin** and **Revoke** are in the menu of each device that is
   neither an admin nor revoked, and each asks for a confirmation first.
@@ -254,7 +295,8 @@ Either way, the options are those of your own Firebase project:
      --dart-define=SIGNALHUB_REVISION="$(git rev-parse HEAD)"
    ```
 
-After setup the home screen says *Push notifications are on*, and the
+After setup the *This device* group of Settings says *Push notifications
+are on*, and the
 client's registration (`GET /api/v1/admin/clients/{id}`) shows push target
 provider `fcm`. Publish an event and it arrives as a notification; on
 Android it pops up with SignalHub's own alert (see [Alert](#alert)), and
@@ -266,7 +308,8 @@ at least once; the app lists each event once.
 ## Alert
 
 On Android, a push shown while the app is in the background or closed
-sounds and vibrates as set in *Notifications → Alert*, on this device only:
+sounds and vibrates as set in the *Alert* group of Settings, on this
+device only:
 
 - **Sound**: *Signal* (the default), *Beacon*, *Pulse*, *Glass* or
   *Urgent*, SignalHub's own sounds (see [sounds/](sounds/README.md) for their source
@@ -325,8 +368,8 @@ critical events too.
 ### Critical events
 
 A push of an event with `CRITICAL` severity, whatever its producer,
-category or text, can alert differently, set under *Critical events* on
-the same screen:
+category or text, can alert differently, set in the *Critical alert*
+group of Settings:
 
 - **Different alert for critical events**, off by default. Off, critical
   pushes play the general alert above. On, they play their own **Sound**,
@@ -365,8 +408,8 @@ once; until then it vibrates as before.
 
 ## Build identity
 
-The *This device* screen (from the inbox menu) says which build the app is,
-in two lines: the release and the exact source.
+The *This device* group of Settings says which build the app is, in two
+lines: the release and the exact source.
 
 | Build | Shows |
 |---|---|

@@ -42,11 +42,17 @@ SHADE_WINDOWS = frozenset({"NotificationShade", "StatusBar"})
 # The texts the app shows, from client/lib/src (a reference for finding
 # elements on the screen, not a contract).
 PUSH_ON = "Push notifications are on"
-MENU = "Show menu"
-DEVICE_ITEM = "This device"
-NOTIFICATIONS_ITEM = "Notifications"
+# The inbox's gear icon, which opens the Settings screen.
+SETTINGS = "Settings"
 PUSH_SWITCH = "Push notifications"
-# The sounds on the Notifications screen, by the name the alert log uses.
+# The folding groups of the Settings screen: each header's title, and a text
+# the group's first rows show once it is open (a header's summary never
+# shows it on a line of its own).
+PUSH_FILTERS_GROUP = "Push filters"
+ALERT_GROUP = ("Alert", "How pushes sound and vibrate")
+CRITICAL_GROUP = ("Critical alert", "Pushes of events with critical severity")
+DEVICE_GROUP = ("This device", PUSH_ON)
+# The sounds in the Alert group, by the name the alert log uses.
 SOUND_LABELS = {
     "signal": "Signal (default)",
     "beacon": "Beacon",
@@ -148,7 +154,7 @@ def channel_importance(
 def alert_messages(logcat: str) -> list[str]:
     """What the app logged about its alert for pushes, critical or not,
     oldest first, from
-    `logcat`; not its previews on the Notifications screen."""
+    `logcat`; not its previews in Settings."""
     return re.findall(rf"\b{ALERT_TAG}\s*: ((?:Critical a|A)lert .*\S)", logcat)
 
 
@@ -228,6 +234,15 @@ def find_node(nodes: list[Node], label: str, exact: bool = False) -> Node | None
     for node in nodes:
         lines = node.label.split("\n")
         if (label in lines) if exact else (label in node.label):
+            return node
+    return None
+
+
+def group_row(nodes: list[Node], header: Node, label: str) -> Node | None:
+    """The first node below a folding group's header that shows `label`,
+    which the group's first rows show only while it is open."""
+    for node in nodes:
+        if node.bounds[1] >= header.bounds[3] and label in node.label:
             return node
     return None
 
@@ -426,11 +441,11 @@ class Device:
     def tap_label(self, label: str, timeout: float = 20.0, exact: bool = False) -> None:
         self.tap(self.wait_for(label, timeout, exact))
 
-    def scroll_to(self, label: str, swipes: int = 6) -> Node:
+    def scroll_to(self, label: str, swipes: int = 6, exact: bool = False) -> Node:
         """The element showing `label`, scrolling the screen up until it
         shows."""
         for _ in range(swipes):
-            node = find_node(self.nodes(), label)
+            node = find_node(self.nodes(), label, exact)
             if node is not None:
                 return node
             self.guard()
@@ -439,6 +454,20 @@ class Device:
             self.shell(f"input swipe {x} {height * 3 // 4} {x} {height // 4} 400")
             time.sleep(1)
         raise CheckFailed(f"{label!r} not on the screen after {swipes} swipes")
+
+    def scroll_to_upper_half(self, label: str, exact: bool = False) -> Node:
+        """The element showing `label`, scrolled into the upper half of the
+        screen as far as the list goes, so what follows it shows too."""
+        node = self.scroll_to(label, exact=exact)
+        width, height = self.screen_size()
+        y = node.center[1]
+        if y <= height // 2:
+            return node
+        self.guard()
+        x = width // 2
+        self.shell(f"input swipe {x} {y} {x} {height // 4} 400")
+        time.sleep(1)
+        return self.wait_for(label, exact=exact)
 
     def notifications(self) -> list[PostedNotification]:
         return posted_notifications(self.shell("dumpsys notification --noredact"))
@@ -691,10 +720,28 @@ class Review:
                 self.device.start_app()
         raise CheckFailed("the inbox is not on the screen")
 
-    def open_menu_item(self, item: str) -> None:
+    def open_settings(self) -> None:
+        """The Settings screen, from the inbox's gear icon."""
         self.inbox()
-        self.device.tap_label(MENU)
-        self.device.tap_label(item, exact=True)
+        self.device.tap_label(SETTINGS, exact=True)
+        self.device.wait_for(PUSH_FILTERS_GROUP, exact=True)
+
+    def open_group(self, group: tuple[str, str]) -> Node:
+        """Opens Settings with `group` unfolded, whether the app left it open
+        or folded; its row showing the group's first text."""
+        title, first = group
+        self.open_settings()
+        header = self.device.scroll_to_upper_half(title, exact=True)
+        row = group_row(self.device.nodes(), header, first)
+        if row is not None:
+            return row
+        self.device.tap(header)
+        deadline = time.monotonic() + 10
+        while (row := group_row(self.device.nodes(), header, first)) is None:
+            if time.monotonic() > deadline:
+                raise CheckFailed(f"{first!r} not shown below {title!r}")
+            time.sleep(1)
+        return row
 
 
 def check_connected_start(review: Review) -> str:
@@ -713,8 +760,7 @@ def check_connected_start(review: Review) -> str:
 
 
 def check_device_push_on(review: Review) -> str:
-    review.open_menu_item(DEVICE_ITEM)
-    review.device.wait_for(PUSH_ON)
+    review.open_group(DEVICE_GROUP)
     review.device.back()
     return PUSH_ON
 
@@ -767,17 +813,20 @@ def played_vibration(message: str) -> str:
     return f"{shape.group(1)} {shape.group(2)}" if shape else "unknown"
 
 
+def choose_sound(review: Review, sound: str) -> None:
+    review.open_group(ALERT_GROUP)
+    review.device.tap(review.device.scroll_to(SOUND_LABELS[sound], exact=True))
+
+
 def check_alert_played(review: Review) -> str:
     first = played_sound(alert_push(review, "alert"))
     other = "beacon" if first != "beacon" else "pulse"
-    review.open_menu_item(NOTIFICATIONS_ITEM)
-    review.device.tap_label(SOUND_LABELS[other], exact=True)
+    choose_sound(review, other)
     try:
         changed = played_sound(alert_push(review, "changed alert"))
     finally:
         if first in SOUND_LABELS:
-            review.open_menu_item(NOTIFICATIONS_ITEM)
-            review.device.tap_label(SOUND_LABELS[first], exact=True)
+            choose_sound(review, first)
             review.device.home()
     if changed != other:
         raise CheckFailed(f"the next push played {changed}, not {other}")
@@ -807,7 +856,7 @@ def check_alert_quiet(review: Review) -> str:
 
 
 def toggle_critical_alert(review: Review) -> None:
-    review.open_menu_item(NOTIFICATIONS_ITEM)
+    review.open_group(CRITICAL_GROUP)
     review.device.tap(review.device.scroll_to(CRITICAL_SWITCH))
 
 
@@ -993,7 +1042,7 @@ def check_push_preferences(review: Review) -> str:
     device, server = review.device, review.server
     saved = server.own_registration()["pushPreferences"]
     try:
-        review.open_menu_item(NOTIFICATIONS_ITEM)
+        review.open_settings()
         device.tap_label(PUSH_SWITCH, exact=True)
         time.sleep(2)
         if server.own_registration()["pushPreferences"]["enabled"]:

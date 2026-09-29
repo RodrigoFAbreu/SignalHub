@@ -9,6 +9,7 @@ import 'package:signalhub_client/src/api/signalhub_api.dart';
 import 'package:signalhub_client/src/connection/server_credentials.dart';
 import 'package:signalhub_client/src/models/push_config.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
+import 'package:signalhub_client/src/settings/settings_groups.dart';
 
 const serverUrl = 'https://signalhub.test';
 const clientKey = 'shck1_01a0da2c1f3e7a518d0c6b1f2e3d4c5b_secret';
@@ -528,6 +529,27 @@ class InMemoryCredentialsStore implements CredentialsStore {
 
   @override
   Future<void> clear() async => saved = null;
+}
+
+/// The open groups of the Settings screen, kept as the device would across
+/// restarts.
+class InMemoryOpenGroupsStore implements OpenGroupsStore {
+  Set<SettingsGroup> saved = {};
+
+  /// Whether reading or saving fails, as a platform error would.
+  bool fails = false;
+
+  @override
+  Future<Set<SettingsGroup>> load() async {
+    if (fails) throw PlatformException(code: 'error');
+    return {...saved};
+  }
+
+  @override
+  Future<void> save(Set<SettingsGroup> open) async {
+    if (fails) throw PlatformException(code: 'error');
+    saved = {...open};
+  }
 }
 
 /// The Android side of the alert: stores what the app saves, as the device

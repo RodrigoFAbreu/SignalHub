@@ -4,19 +4,33 @@ import '../app_controller.dart';
 import '../models/client_registration.dart';
 import 'connect_device_screen.dart';
 
-/// This installation: its registration, server, push status and build. On
-/// an admin device, also the owner's devices, to connect a new one, make one
-/// an admin, revoke one that is not an admin or delete one that is revoked.
-class DeviceScreen extends StatefulWidget {
-  const DeviceScreen({super.key, required this.controller});
+/// The owner's devices, for an admin device, opened from Settings: to
+/// connect a new one, make one an admin, revoke one that is not an admin or
+/// delete one that is revoked.
+class DevicesScreen extends StatefulWidget {
+  const DevicesScreen({super.key, required this.controller});
 
   final AppController controller;
 
+  /// One line for the row that opens this screen, such as _7 devices · 2
+  /// admins_; `null` until the devices are read.
+  static String? summary(AppController controller) {
+    if (controller.lostAdminRights) return AppController.notAdminMessage;
+    if (controller.devicesError case final error?) return error;
+    final devices = controller.devices;
+    if (devices == null) return null;
+    final admins = devices.where((d) => d.admin && !d.isRevoked).length;
+    return '${_count(devices.length, 'device')} · ${_count(admins, 'admin')}';
+  }
+
+  static String _count(int n, String noun) =>
+      n == 1 ? '1 $noun' : '$n ${noun}s';
+
   @override
-  State<DeviceScreen> createState() => _DeviceScreenState();
+  State<DevicesScreen> createState() => _DevicesScreenState();
 }
 
-class _DeviceScreenState extends State<DeviceScreen> {
+class _DevicesScreenState extends State<DevicesScreen> {
   AppController get _controller => widget.controller;
 
   @override
@@ -35,7 +49,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('This device')),
+    appBar: AppBar(title: const Text('Devices')),
     body: ListenableBuilder(
       listenable: _controller,
       builder: (context, _) => RefreshIndicator(
@@ -45,33 +59,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
           // Explicit padding drops the system insets a list pads by default:
           // without them, its end is hidden under the navigation bar.
           padding: const EdgeInsets.all(16) + MediaQuery.paddingOf(context),
-          children: [
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.phone_android),
-                title: Text(_controller.registration?.name ?? 'This device'),
-                subtitle: _controller.credentials == null
-                    ? null
-                    : Text(_controller.credentials!.baseUrl),
-              ),
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.notifications_outlined),
-                title: Text(_controller.pushStatus.description),
-              ),
-            ),
-            Card(
-              child: ListTile(
-                key: const Key('build'),
-                leading: const Icon(Icons.info_outline),
-                title: Text(_controller.build.versionLine),
-                subtitle: Text(_controller.build.commitLine),
-              ),
-            ),
-            if (_controller.lostAdminRights || _controller.canManageDevices)
-              _DevicesSection(controller: _controller),
-          ],
+          children: [_DevicesSection(controller: _controller)],
         ),
       ),
     ),
@@ -88,20 +76,10 @@ class _DevicesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final devices = controller.devices;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Text(
-            'Devices',
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: theme.colorScheme.primary,
-            ),
-          ),
-        ),
         if (controller.lostAdminRights)
           const Card(
             key: Key('notAdmin'),

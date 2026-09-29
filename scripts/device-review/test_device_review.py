@@ -6,6 +6,8 @@ from unittest import mock
 import device_review
 from device_review import (
     APP_PACKAGE,
+    DEVICE_GROUP,
+    PUSH_ON,
     CheckFailed,
     Device,
     GuardError,
@@ -23,6 +25,7 @@ from device_review import (
     check_push_preferences,
     find_node,
     focused_window,
+    group_row,
     keyguard_showing,
     log_problems,
     may_touch,
@@ -111,7 +114,7 @@ class FakeDevice(Device):
 
 
 class GuardTest(unittest.TestCase):
-    node = Node("", "Show menu", (932, 147, 1058, 273), False, APP_PACKAGE)
+    node = Node("", "Settings", (932, 147, 1058, 273), False, APP_PACKAGE)
 
     def test_taps_signalhub(self):
         device = FakeDevice("window-app.txt")
@@ -259,12 +262,12 @@ class AlertCheckTest(unittest.TestCase):
         device.wait_for_alert.side_effect = lambda seen: messages[seen]
         device.tap_label.side_effect = lambda label, **_: steps.append(label)
         device.shell.side_effect = lambda command, **_: steps.append(command)
-        device.scroll_to.side_effect = lambda label: label
+        device.scroll_to.side_effect = lambda label, **_: label
         device.tap.side_effect = lambda node: steps.append(f"tap {node}")
         review = Review(fake_config(), device, server)
         review.title = lambda what: what
         review.inbox = lambda: None
-        review.open_menu_item = lambda item: None
+        review.open_group = lambda group: steps.append(f"open {group[0]}")
         return review, steps
 
     def test_a_new_sound_is_the_next_and_the_first_is_restored(self):
@@ -277,7 +280,14 @@ class AlertCheckTest(unittest.TestCase):
         detail = check_alert_played(review)
         self.assertEqual(
             steps,
-            ["publish alert", "Beacon", "publish changed alert", "Signal (default)"],
+            [
+                "publish alert",
+                "open Alert",
+                "tap Beacon",
+                "publish changed alert",
+                "open Alert",
+                "tap Signal (default)",
+            ],
         )
         self.assertIn("README.md", detail)
 
@@ -290,7 +300,7 @@ class AlertCheckTest(unittest.TestCase):
         )
         with self.assertRaisesRegex(CheckFailed, "not pulse"):
             check_alert_played(review)
-        self.assertEqual(steps[-1], "Beacon")
+        self.assertEqual(steps[-1], "tap Beacon")
 
     def test_an_alert_not_played_fails(self):
         review, _ = self.review(["Alert not played (silent mode): sound=signal"])
@@ -326,7 +336,7 @@ class AlertCheckTest(unittest.TestCase):
         self.assertEqual(self.severities, ["NORMAL", "CRITICAL", "CRITICAL", "NORMAL"])
         switch = "tap Different alert for critical events"
         self.assertEqual(steps.count(switch), 2)
-        self.assertEqual(steps[2], switch)
+        self.assertEqual(steps[2:4], ["open Critical alert", switch])
         self.assertEqual(steps[-1], switch)
         self.assertIn("critical urgent (rapid long)", detail)
         self.assertIn("normal signal (standard short)", detail)
@@ -433,13 +443,68 @@ class AlertCheckTest(unittest.TestCase):
         self.assertEqual(steps[-1], "cmd audio set-ringer-mode NORMAL")
 
 
+def row(label: str, top: int) -> Node:
+    return Node(label, "", (0, top, 1080, top + 150), False, APP_PACKAGE)
+
+
+class SettingsGroupTest(unittest.TestCase):
+    header = row("This device\nPixel 8 · Push notifications are on", 900)
+
+    def review(self, screens: list[list[Node]]) -> tuple[Review, mock.Mock]:
+        """A review whose Settings screen shows `screens` in turn, each dump
+        the next until the last."""
+        device = mock.Mock()
+        device.scroll_to_upper_half.return_value = self.header
+        device.nodes.side_effect = lambda: (
+            screens.pop(0) if len(screens) > 1 else screens[0]
+        )
+        review = Review(fake_config(), device, mock.Mock())
+        review.open_settings = lambda: None
+        return review, device
+
+    def test_a_row_below_the_header(self):
+        nodes = [self.header, row("Push notifications are on", 1050)]
+        self.assertEqual(group_row(nodes, self.header, PUSH_ON).bounds[1], 1050)
+
+    def test_the_header_summary_is_not_a_row(self):
+        self.assertIsNone(group_row([self.header], self.header, PUSH_ON))
+
+    def test_rows_above_the_header_are_not_its_group(self):
+        nodes = [row("Push notifications are on", 100), self.header]
+        self.assertIsNone(group_row(nodes, self.header, PUSH_ON))
+
+    def test_an_open_group_is_left_open(self):
+        review, device = self.review(
+            [[self.header, row("Push notifications are on", 1050)]]
+        )
+        review.open_group(DEVICE_GROUP)
+        device.tap.assert_not_called()
+
+    def test_a_folded_group_is_opened(self):
+        review, device = self.review(
+            [[self.header], [self.header, row("Push notifications are on", 1050)]]
+        )
+        found = review.open_group(DEVICE_GROUP)
+        device.tap.assert_called_once_with(self.header)
+        self.assertEqual(found.text, "Push notifications are on")
+
+    def test_a_group_that_does_not_open_fails(self):
+        review, _ = self.review([[self.header]])
+        with (
+            mock.patch("time.sleep"),
+            mock.patch("time.monotonic", side_effect=[0, 5, 11]),
+            self.assertRaisesRegex(CheckFailed, "not shown below"),
+        ):
+            review.open_group(DEVICE_GROUP)
+
+
 class UiTest(unittest.TestCase):
     def test_nodes_after_the_dump_status_line(self):
         nodes = ui_nodes(sample("inbox.xml"))
         self.assertEqual(len(nodes), 5)
-        menu = find_node(nodes, "Show menu", exact=True)
-        self.assertEqual(menu.bounds, (932, 147, 1058, 273))
-        self.assertEqual(menu.center, (995, 210))
+        settings = find_node(nodes, "Settings", exact=True)
+        self.assertEqual(settings.bounds, (932, 147, 1058, 273))
+        self.assertEqual(settings.center, (995, 210))
 
     def test_find_node(self):
         nodes = ui_nodes(sample("inbox.xml"))
@@ -610,7 +675,7 @@ class PushPreferencesTest(unittest.TestCase):
         )
         review = Review(fake_config(), device, server)
         review.title = lambda what: what
-        review.open_menu_item = lambda item: None
+        review.open_settings = lambda: None
         self.addCleanup(lambda: self.assertEqual(steps[-1], "restore"))
         with mock.patch("time.sleep", side_effect=lambda _: steps.append("wait")):
             check_push_preferences(review)

@@ -3,80 +3,102 @@ import 'package:flutter/material.dart';
 import '../alert/alert_controller.dart';
 import '../alert/alert_settings.dart';
 
+/// Says what the owner is to know about an alert setting that was not
+/// saved, or a preview the phone kept quiet.
+Future<void> _tell(BuildContext context, Future<String?> action) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final message = await action;
+  if (message != null) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
 /// The _Alert_ settings: SignalHub's own sound, its volume and its
 /// vibration (its strength, pattern and length), for pushes the system
-/// shows while the app is in the background or closed, and how critical
-/// pushes alert. Each change is saved on this device at once and previewed.
-class AlertSection extends StatefulWidget {
-  const AlertSection({super.key, required this.controller});
+/// shows while the app is in the background or closed. Each change is
+/// saved on this device at once and previewed.
+class GeneralAlertSection extends StatelessWidget {
+  const GeneralAlertSection({super.key, required this.controller});
 
   final AlertController controller;
 
+  /// One line for the folded group, such as _Signal · 80 % · Medium ·
+  /// Short, short, long · Short_.
+  static String summary(AlertSettings alert) => [
+    alert.sound?.label ?? 'No sound',
+    if (alert.sound != null) '${alert.volume} %',
+    if (alert.vibration == AlertVibration.off)
+      'No vibration'
+    else ...[
+      alert.vibration.label,
+      alert.pattern.label,
+      alert.length.label,
+    ],
+  ].join(' · ');
+
   @override
-  State<AlertSection> createState() => _AlertSectionState();
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller,
+    builder: (context, _) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const ListTile(
+          subtitle: Text(
+            'How pushes sound and vibrate while SignalHub is in the '
+            'background or closed, on this device. The phone\'s silent '
+            'mode, Do Not Disturb and notification settings still apply, '
+            'except as set for critical events.',
+          ),
+        ),
+        _AlertChoices(
+          keyPrefix: 'alert',
+          settings: controller.settings,
+          defaultSound: AlertSettings.defaults.sound,
+          playTooltip: (sound) => 'Play ${sound.label}',
+          vibrateTooltip: (pattern) => 'Vibrate ${pattern.label}',
+          change: (next) => _tell(context, controller.change(next)),
+          preview: (alert) => _tell(context, controller.preview(alert)),
+        ),
+      ],
+    ),
+  );
 }
 
-class _AlertSectionState extends State<AlertSection> {
-  late final AppLifecycleListener _lifecycle;
+/// The _Critical alert_ settings: whether pushes of critical events play an
+/// alert of their own, and whether they sound on silent and during Do Not
+/// Disturb. Saved on this device at every change.
+class CriticalAlertSection extends StatelessWidget {
+  const CriticalAlertSection({super.key, required this.controller});
 
-  AlertController get _controller => widget.controller;
+  final AlertController controller;
 
-  @override
-  void initState() {
-    super.initState();
-    // Do Not Disturb access is given in the phone's settings, which the
-    // owner comes back from.
-    _lifecycle = AppLifecycleListener(
-      onResume: _controller.refreshDoNotDisturbAccess,
-    );
-  }
-
-  @override
-  void dispose() {
-    _lifecycle.dispose();
-    super.dispose();
-  }
-
-  Future<void> _tell(Future<String?> action) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final message = await action;
-    if (message != null) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(message)));
-    }
+  /// One line for the folded group, such as _Same as Alert · sounds on
+  /// silent_.
+  static String summary(AlertController controller) {
+    final critical = controller.critical;
+    return [
+      if (critical.different)
+        GeneralAlertSection.summary(critical.alert)
+      else
+        'Same as Alert',
+      if (critical.onSilent) 'sounds on silent',
+      if (controller.criticalDuringDoNotDisturb) 'sounds during Do Not Disturb',
+    ].join(' · ');
   }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _controller,
+    listenable: controller,
     builder: (context, _) {
-      final critical = _controller.critical;
+      final critical = controller.critical;
       void changeCritical(CriticalAlertSettings next) =>
-          _tell(_controller.changeCritical(next));
+          _tell(context, controller.changeCritical(next));
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const ListTile(
-            title: Text('Alert'),
-            subtitle: Text(
-              'How pushes sound and vibrate while SignalHub is in the '
-              'background or closed, on this device. The phone\'s silent '
-              'mode, Do Not Disturb and notification settings still apply, '
-              'except as set for critical events below.',
-            ),
-          ),
-          _AlertChoices(
-            keyPrefix: 'alert',
-            settings: _controller.settings,
-            defaultSound: AlertSettings.defaults.sound,
-            playTooltip: (sound) => 'Play ${sound.label}',
-            vibrateTooltip: (pattern) => 'Vibrate ${pattern.label}',
-            change: (next) => _tell(_controller.change(next)),
-            preview: (alert) => _tell(_controller.preview(alert)),
-          ),
-          const ListTile(
-            title: Text('Critical events'),
             subtitle: Text('Pushes of events with critical severity.'),
           ),
           SwitchListTile(
@@ -97,7 +119,8 @@ class _AlertSectionState extends State<AlertSection> {
               vibrateTooltip: (pattern) =>
                   'Vibrate ${pattern.label} for critical events',
               change: (next) => changeCritical(critical.copyWith(alert: next)),
-              preview: (alert) => _tell(_controller.previewCritical(alert)),
+              preview: (alert) =>
+                  _tell(context, controller.previewCritical(alert)),
             ),
           SwitchListTile(
             key: const Key('criticalOnSilent'),
@@ -113,12 +136,12 @@ class _AlertSectionState extends State<AlertSection> {
             key: const Key('criticalDuringDoNotDisturb'),
             title: const Text('Sound during Do Not Disturb'),
             subtitle: Text(
-              _controller.doNotDisturbAccess
+              controller.doNotDisturbAccess
                   ? 'Critical events sound and vibrate during Do Not Disturb'
                   : 'Needs Do Not Disturb access for SignalHub, which '
                         'turning this on asks for',
             ),
-            value: _controller.criticalDuringDoNotDisturb,
+            value: controller.criticalDuringDoNotDisturb,
             onChanged: (on) =>
                 changeCritical(critical.copyWith(duringDoNotDisturb: on)),
           ),

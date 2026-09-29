@@ -1676,6 +1676,48 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   that review. `client/README.md`, `docs/architecture.md` (Client
   application), `docs/development.md`; compatible (`feat(client)`)
 
+### R48 - One Settings screen, in folding groups
+
+- one **Settings** screen replaces _Notifications_ and _This device_,
+  opened by a **gear icon** in the inbox's top bar, which replaces the
+  inbox's menu (left with nothing else once _Disconnect this device_
+  moved)
+- at the top, always shown, the **Push notifications** switch; below it,
+  **folding groups** (`ExpansionTile`) in this order, each header summing
+  up its values in one line while folded: **Push filters** (_Normal and
+  up · Completed, Info muted · nas muted_), **Alert** (_Signal · 80 % ·
+  Medium · Short, short, long · Short_), **Critical alert** (_Same as
+  Alert · sounds on silent_) and **This device** (its name and push
+  status); every setting inside works, is stored and is previewed as
+  before, and nothing moved to or from the API
+- **decided: the open groups are kept in the platform's secure storage**
+  (`SecureOpenGroupsStore`, the one store the app already had), not in a
+  new dependency; nothing in them is secret. They belong to the device,
+  like the alert, and stay when it disconnects; a store that fails leaves
+  the groups folded and still working
+- while push is paused, Push filters, Alert and Critical alert are greyed,
+  with _Applies once push notifications are on_ in their headers, and
+  still change
+- _This device_ holds the name and server, push status, build, and
+  **Disconnect this device**, which now asks for a confirmation first and
+  returns to setup
+- on an admin device, a **Devices** row (_7 devices · 2 admins_) opens
+  device management and _Connect a device_ on a screen of their own,
+  unchanged (`DevicesScreen`)
+- the device review follows the screen: the gear icon's _Settings_, the
+  group titles, and a group unfolded only when its first rows are not
+  already shown below its header (the app remembers open groups); its
+  README, unit tests and sample updated
+- widget tests (the gear icon, each group folded and unfolded, summaries
+  for the defaults and for changed values, a summary following a change,
+  the open groups kept and read at start, a failing store, greyed groups
+  while push is off, the Devices row only on an admin device, disconnecting
+  after a confirmation), summary unit tests and controller tests; the
+  existing tests reach their settings through the new screen. The exit
+  criteria need the owner's phone and are left to the next device review.
+  `client/README.md` (a new _Settings_ section), `docs/architecture.md`
+  (Client application), `docs/development.md`; compatible (`feat(client)`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2241,7 +2283,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 34    | R45 - SignalHub's own alert: sounds, volume and vibration set in the app                         | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 35    | R46 - A separate alert for critical events                                                       | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 36    | R47 - The alert's vibration pattern and length, set in the app                                   | Increment (`feat(client)`)             | Done (see section 3)                                                             |
-| 37    | R48 - One Settings screen, in folding groups                                                     | Increment (`feat(client)`)             | Next                                                                             |
+| 37    | R48 - One Settings screen, in folding groups                                                     | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -3712,7 +3754,9 @@ general alert's vibration as it was.
 
 ### R48 - One Settings screen, in folding groups
 
-Status: planned; next. Added by the maintainer (2026-09-29).
+Status: complete (see section 3). Added by the maintainer (2026-09-29).
+The exit criteria need the owner's phone and are left to the next device
+review (`scripts/device-review/`), which follows the new screen.
 
 Goal: the app's settings are easy to find and take little space; the
 owner sees what each group is set to without opening it.
@@ -3881,7 +3925,9 @@ the API and the admin page), R42 (deleting revoked devices in the app),
 R43 (a used pairing code: the API and the admin page), R44 (a used
 pairing code in the app), R45 (SignalHub's own alert, set in the app), R46
 (a separate alert for critical events) and R47 (the alert's vibration
-pattern and length, set in the app) are done. **R48 (one Settings
-screen, in folding groups) is next**.
+pattern and length, set in the app) and R48 (one Settings screen, in
+folding groups) are done. **The queue is empty: nothing further is
+scheduled.** A new item is added only by the maintainer, as a queue row;
+the deferred candidates of section 5 stay unscheduled until then.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

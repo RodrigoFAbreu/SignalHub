@@ -14,6 +14,7 @@ import 'models/inbox_filter.dart';
 import 'models/push_config.dart';
 import 'push/push_registration.dart';
 import 'push/push_service.dart';
+import 'settings/settings_groups.dart';
 
 enum ConnectionPhase {
   /// Reading saved credentials.
@@ -45,7 +46,8 @@ class AppController extends ChangeNotifier {
   /// Without one, [startServedPush] sets push up with the options the server
   /// serves; the build's own options take precedence. [alertPlatform] plays
   /// SignalHub's own alert; without one (iOS, tests) there are no alert
-  /// settings.
+  /// settings. [openGroups] keeps which groups of the Settings screen are
+  /// open; without one, they are kept only while the app runs.
   AppController({
     required this._store,
     required this._apiFactory,
@@ -54,7 +56,9 @@ class AppController extends ChangeNotifier {
     ServedPushStarter? startServedPush,
     this.build = BuildIdentity.compiled,
     AlertPlatform? alertPlatform,
+    OpenGroupsStore? openGroups,
   }) : _push = push,
+       _openGroupsStore = openGroups,
        alert = alertPlatform == null ? null : AlertController(alertPlatform),
        _startServedPush = push == null ? startServedPush : null {
     _notices = push?.notices.listen(_onNotice);
@@ -68,6 +72,7 @@ class AppController extends ChangeNotifier {
   final PairingRedeemer _redeemPairing;
   PushService? _push;
   final ServedPushStarter? _startServedPush;
+  final OpenGroupsStore? _openGroupsStore;
   StreamSubscription<PushNotice>? _notices;
 
   /// The served options push was set up with; `null` until then.
@@ -81,6 +86,10 @@ class AppController extends ChangeNotifier {
   /// to the server connection; `null` where the platform plays no alert of
   /// SignalHub's own.
   final AlertController? alert;
+
+  /// The groups of the Settings screen the owner left open; they belong to
+  /// the device, like [alert], and stay when it disconnects.
+  Set<SettingsGroup> openSettingsGroups = {};
 
   SignalHubApi? _api;
   PushRegistration? _pushRegistration;
@@ -231,6 +240,7 @@ class AppController extends ChangeNotifier {
   /// Loads saved credentials and, if there are any, connects.
   Future<void> start() async {
     await alert?.load();
+    await _loadOpenSettingsGroups();
     final saved = await _store.load();
     if (saved == null) {
       _eventToOpen = null;
@@ -240,6 +250,32 @@ class AppController extends ChangeNotifier {
     _open(saved);
     _setPhase(ConnectionPhase.connected);
     await refresh();
+  }
+
+  Future<void> _loadOpenSettingsGroups() async {
+    try {
+      openSettingsGroups = await _openGroupsStore?.load() ?? {};
+    } on Exception catch (e) {
+      debugPrint('Open settings groups not read: ${e.runtimeType}');
+    }
+  }
+
+  /// Notes that the owner opened or folded [group], for the next time the
+  /// Settings screen opens. Not being saved changes nothing else.
+  Future<void> setSettingsGroupOpen(
+    SettingsGroup group, {
+    required bool open,
+  }) async {
+    openSettingsGroups = {
+      for (final g in openSettingsGroups)
+        if (g != group) g,
+      if (open) group,
+    };
+    try {
+      await _openGroupsStore?.save(openSettingsGroups);
+    } on Exception catch (e) {
+      debugPrint('Open settings groups not saved: ${e.runtimeType}');
+    }
   }
 
   /// Connects to a server with a client key typed by the owner. Saves them

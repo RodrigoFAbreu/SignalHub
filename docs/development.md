@@ -116,8 +116,8 @@ On every push to `main`:
    Android app, `SignalHub-X.Y.Z.apk`, from the commit: a release-mode APK
    with `versionName` `X.Y.Z`, a `versionCode` derived from the version
    (below), the version and commit compiled in for the *This device*
-   screen, and no Firebase options (the app reads its server's). It is
-   signed with SignalHub's release key, which the job rebuilds from the
+   group of Settings, and no Firebase options (the app reads its
+   server's). It is signed with SignalHub's release key, which the job rebuilds from the
    repository's secrets (below) in a directory it removes at its end. The
    script then checks the APK: package, `versionName`, `versionCode`, not
    debuggable, the commit in the compiled code, a valid v2 or v3 signature
@@ -898,7 +898,11 @@ permission, token refresh, pushes and returning to the foreground
 re-reading the inbox, paging and its
 failures, opening a tapped notification's event, disconnect), the Firebase
 options from build-time values, and the screens in widget tests (inbox,
-paging while scrolling, event details, opening from a notification) and
+paging while scrolling, event details, opening from a notification, the
+Settings screen: the gear icon, each group folded and unfolded, their
+summaries, the groups left open kept on the device, greyed groups while
+push is off, the Devices row only on an admin device, disconnecting after
+a confirmation) and
 read state (the API calls, the unread count, marking read on opening,
 marking unread, marking all read up to the newest event shown, and their
 failures), and push preferences (saving each change, what the server
