@@ -1635,6 +1635,47 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   review. `client/README.md`, `docs/architecture.md` (Client application),
   `docs/development.md`; compatible (`feat(client)`)
 
+### R47 - The alert's vibration pattern and length, set in the app
+
+- four patterns, `AlertPattern`: _Short, short, long_ (R45's 90, 90, 90,
+  90, 260 ms, the general alert's default), _Steady_ (one buzz), _Heartbeat_
+  (80 ms on, 120 off, 200 on) and _Rapid pulse_ (five 60 ms buzzes 60 ms
+  apart); three lengths, `AlertLength`: _Short_ (about 0.6 s, the
+  default), _Medium_ (about 2 s) and _Long_ (about 5 s)
+- **decided: a length repeats the whole pattern** as often as comes
+  nearest it, at least once, with the pattern's own pause between repeats
+  (400, 600 and 120 ms; _Steady_ has none and runs on as one buzz of the
+  length). So the default pattern and length give exactly R45's vibration.
+  The intensity steps work on the result as in R45: the same amplitudes,
+  or without amplitude control each buzz half, as long or 1.7 times as
+  long; the longest (a strong steady long buzz without amplitude control)
+  is 8.5 s, and a test holds every combination within 10 s
+- the critical alert's own defaults: _Rapid pulse_, _Long_
+- **decided: the mapping stays in Dart.** `toPlatform` and the stored
+  critical settings gained `pattern` and `length`; the bundled defaults
+  too, still held equal to the Dart defaults. Settings saved by R46 are
+  read with the pattern and length at their defaults, and **whatever was
+  stored is saved again when it differs from what this version stores**,
+  so a critical alert of its own takes its new default once the app is
+  opened; the general alert's timings are unchanged
+- _Notifications → Alert_: **Pattern** (each with a button that vibrates
+  it at the chosen length) and **Length** below **Vibration**, for the
+  general alert and the critical alert's own; greyed while the vibration
+  is off. A change of step, pattern or length previews the vibration alone
+- opening the app, or a notification, cancels the app's vibration still
+  going (`MainActivity.onResume`); the phone's silent mode,
+  do-not-disturb and channel settings apply exactly as in R45 and R46
+- mapping tests (each pattern and length, every step with each, the
+  10 s bound, stored and unknown values, settings saved before them),
+  controller tests (previews, R46's settings upgraded) and widget tests
+  against the fake server and `FakeAlertPlatform`; `AlertPlayer` logs the
+  pattern and length, and the device review's `alert-critical` also
+  requires the critical alert's own to be the long rapid pulse and the
+  others the general alert's; the owner's by-hand list gained what only
+  they can feel. The exit criteria need the owner's phone and are left to
+  that review. `client/README.md`, `docs/architecture.md` (Client
+  application), `docs/development.md`; compatible (`feat(client)`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2199,8 +2240,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 34    | R45 - SignalHub's own alert: sounds, volume and vibration set in the app                         | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 35    | R46 - A separate alert for critical events                                                       | Increment (`feat(client)`)             | Done (see section 3)                                                             |
-| 36    | R47 - The alert's vibration pattern and length, set in the app                                   | Increment (`feat(client)`)             | Next                                                                             |
-| 37    | R48 - One Settings screen, in folding groups                                                     | Increment (`feat(client)`)             | Blocked until R47 is merged                                                      |
+| 36    | R47 - The alert's vibration pattern and length, set in the app                                   | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 37    | R48 - One Settings screen, in folding groups                                                     | Increment (`feat(client)`)             | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3611,8 +3652,10 @@ both; turning each switch around reverses its case.
 
 ### R47 - The alert's vibration pattern and length, set in the app
 
-Status: planned; next. Added by the maintainer (2026-09-29), after
-trying R45 and R46 on the phone.
+Status: complete (see section 3). Added by the maintainer (2026-09-29),
+after trying R45 and R46 on the phone. The owner's check on a real phone
+is listed in the device review (`scripts/device-review/README.md`,
+"Alert, by ear and by hand", items 12 to 15).
 
 Goal: a SignalHub push is felt, not only heard. SignalHub's vibration
 (R45), two short buzzes and a longer one of about 0.6 s, is easy to miss
@@ -3669,8 +3712,7 @@ general alert's vibration as it was.
 
 ### R48 - One Settings screen, in folding groups
 
-Status: planned; blocked until R47 is merged. Added by the maintainer
-(2026-09-29).
+Status: planned; next. Added by the maintainer (2026-09-29).
 
 Goal: the app's settings are easy to find and take little space; the
 owner sees what each group is set to without opening it.
@@ -3837,9 +3879,9 @@ from an admin device), R39 (removing the /connect redirect), R40 (the
 device list scrolls to its last device), R41 (deleting revoked devices:
 the API and the admin page), R42 (deleting revoked devices in the app),
 R43 (a used pairing code: the API and the admin page), R44 (a used
-pairing code in the app), R45 (SignalHub's own alert, set in the app) and
-R46 (a separate alert for critical events) are done. **R47 (the alert's
-vibration pattern and length, set in the app) is next**, then R48 (one
-Settings screen, in folding groups) once R47 is merged.
+pairing code in the app), R45 (SignalHub's own alert, set in the app), R46
+(a separate alert for critical events) and R47 (the alert's vibration
+pattern and length, set in the app) are done. **R48 (one Settings
+screen, in folding groups) is next**.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

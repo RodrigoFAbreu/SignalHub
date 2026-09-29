@@ -65,6 +65,34 @@ void main() {
     ]);
   });
 
+  test('keeps settings saved before patterns and lengths, and saves them '
+      'again with the new settings at their defaults', () async {
+    // As a version without patterns and lengths saved them.
+    Map<String, Object?> older(Map<String, Object?> alert) => {...alert}
+      ..remove('pattern')
+      ..remove('length');
+    final saved = platformAlerts(chosen, critical);
+    platform.stored = jsonEncode({
+      ...older(saved),
+      'critical': older(saved['critical']! as Map<String, Object?>),
+      'criticalAlert': older(saved['criticalAlert']! as Map<String, Object?>),
+    });
+
+    await alert.load();
+
+    expect(alert.settings, chosen);
+    expect(alert.settings.pattern, AlertPattern.standard);
+    final withDefaults = critical.copyWith(
+      alert: critical.alert.copyWith(
+        pattern: AlertPattern.rapid,
+        length: AlertLength.long,
+      ),
+    );
+    expect(alert.critical, withDefaults);
+    // A critical push now plays the new default pattern and length.
+    expect(platform.saved, [platformAlerts(chosen, withDefaults)]);
+  });
+
   test('a change is saved at once and survives a restart', () async {
     await alert.load();
 
@@ -116,6 +144,44 @@ void main() {
           .copyWith(sound: () => null, vibration: AlertVibration.strong)
           .toPlatform(),
     });
+  });
+
+  test('a new pattern or length is previewed without sound', () async {
+    await alert.load();
+
+    await alert.change(
+      AlertSettings.defaults.copyWith(pattern: AlertPattern.heartbeat),
+    );
+    await alert.change(alert.settings.copyWith(length: AlertLength.long));
+
+    expect(platform.previewed, [
+      AlertSettings.defaults
+          .copyWith(sound: () => null, pattern: AlertPattern.heartbeat)
+          .toPlatform(),
+      AlertSettings.defaults
+          .copyWith(
+            sound: () => null,
+            pattern: AlertPattern.heartbeat,
+            length: AlertLength.long,
+          )
+          .toPlatform(),
+    ]);
+    expect(platform.saved.last['pattern'], 'heartbeat');
+    expect(platform.saved.last['length'], 'long');
+  });
+
+  test('a pattern or length chosen while the vibration is off plays '
+      'nothing', () async {
+    await alert.load();
+    await alert.change(
+      AlertSettings.defaults.copyWith(vibration: AlertVibration.off),
+    );
+    platform.previewed.clear();
+
+    await alert.change(alert.settings.copyWith(pattern: AlertPattern.steady));
+
+    expect(platform.previewed, isEmpty);
+    expect(alert.settings.pattern, AlertPattern.steady);
   });
 
   test('choosing no sound plays nothing', () async {
@@ -210,7 +276,27 @@ void main() {
           ),
         );
 
-        expect(platform.previewed, hasLength(2));
+        await alert.changeCritical(
+          alert.critical.copyWith(
+            alert: alert.critical.alert.copyWith(
+              pattern: AlertPattern.heartbeat,
+            ),
+          ),
+        );
+
+        expect(platform.previewed, hasLength(3));
+        expect(platform.previewed.last, {
+          ...CriticalAlertSettings.defaults.alert
+              .copyWith(
+                sound: () => null,
+                vibration: AlertVibration.light,
+                pattern: AlertPattern.heartbeat,
+              )
+              .toPlatform(),
+          'onSilent': true,
+          'duringDoNotDisturb': false,
+        });
+        platform.previewed.removeLast();
         expect(platform.previewed.first, {
           ...CriticalAlertSettings.defaults.alert
               .copyWith(

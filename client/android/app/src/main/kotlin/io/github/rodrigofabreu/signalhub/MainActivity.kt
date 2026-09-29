@@ -43,6 +43,12 @@ class MainActivity : FlutterActivity() {
             }
     }
 
+    // Opening the app, or a notification, which opens it, ends a long alert.
+    override fun onResume() {
+        super.onResume()
+        AlertPlayer.stopVibration(this)
+    }
+
     private companion object {
         const val ALERT_CHANNEL = "io.github.rodrigofabreu.signalhub/alert"
     }

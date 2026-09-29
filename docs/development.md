@@ -905,11 +905,12 @@ failures), and push preferences (saving each change, what the server
 stored, muted producers without inbox events, failures, a server without
 them), and the alert settings against `FakeAlertPlatform`, which stands in
 for the Android side (what is given to the platform for each sound, volume
-and vibration step, and the bundled defaults; saving, restoring after a
+and vibration step, pattern and length, and the bundled defaults; saving, restoring after a
 restart, previews, a phone keeping them quiet, failures), and the critical events'
 settings (what a critical push plays with the switch on and off, both
 switches, reading them back, the defaults next to a general alert saved
-before them; previews on silent and during do-not-disturb with each switch
+before them, and a pattern and length at their defaults next to settings
+saved before them; previews on silent and during do-not-disturb with each switch
 on and off, and do-not-disturb access not given, given later or taken
 away). Builds without
 Firebase options run without push. The Android code that plays the alert

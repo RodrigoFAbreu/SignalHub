@@ -1054,6 +1054,114 @@ void main() {
       );
     });
 
+    testWidgets('sets the vibration\'s pattern and length, each previewed', (
+      tester,
+    ) async {
+      await connect(tester);
+      await openNotifications(tester);
+
+      final heartbeat = find.byKey(const Key('alertPattern-heartbeat'));
+      await tester.ensureVisible(heartbeat);
+      await tester.pumpAndSettle();
+      await tapAndSave(tester, heartbeat);
+      expect(stored().pattern, AlertPattern.heartbeat);
+      expect(alerts.previewed.last['resource'], isNull);
+      expect(alerts.previewed.last['timings'], [0, 80, 120, 200]);
+
+      final long = find.descendant(
+        of: find.byKey(const Key('alertLength')),
+        matching: find.text('Long'),
+      );
+      await tester.ensureVisible(long);
+      await tester.pumpAndSettle();
+      await tapAndSave(tester, long);
+      expect(stored().length, AlertLength.long);
+      expect(alerts.previewed.last['pattern'], 'heartbeat');
+      expect(alerts.previewed.last['length'], 'long');
+      expect(alerts.saved.last['timings'], hasLength(24));
+
+      // A pattern felt again without choosing it, at the chosen length.
+      await tapAndSave(tester, find.byTooltip('Vibrate Rapid pulse'));
+      expect(alerts.previewed.last['pattern'], 'rapid');
+      expect(alerts.previewed.last['length'], 'long');
+      expect(stored().pattern, AlertPattern.heartbeat);
+
+      // The intensity still applies to the chosen pattern and length.
+      await tapAndSave(tester, find.text('Strong'));
+      expect(stored().pattern, AlertPattern.heartbeat);
+      expect(alerts.previewed.last['amplitudes'], contains(255));
+      expect(alerts.previewed.last['length'], 'long');
+    });
+
+    testWidgets('the pattern and length are greyed while the vibration is '
+        'off', (tester) async {
+      await connect(tester);
+      await openNotifications(tester);
+
+      final off = find.descendant(
+        of: find.byKey(const Key('alertVibration')),
+        matching: find.text('Off'),
+      );
+      await tapAndSave(tester, off);
+
+      final pattern = tester.widget<RadioListTile<AlertPattern>>(
+        find.byKey(const Key('alertPattern-steady')),
+      );
+      expect(pattern.enabled, isFalse);
+      final length = tester.widget<SegmentedButton<AlertLength>>(
+        find.byKey(const Key('alertLength')),
+      );
+      expect(length.segments.every((s) => !s.enabled), isTrue);
+    });
+
+    testWidgets('critical events get a pattern and length of their own', (
+      tester,
+    ) async {
+      await connect(tester);
+      await openNotifications(tester);
+      expect(find.byKey(const Key('criticalPattern-rapid')), findsNothing);
+
+      await tapCritical(tester, 'criticalDifferent');
+      final rapid = tester.widget<RadioListTile<AlertPattern>>(
+        find.byKey(const Key('criticalPattern-rapid')),
+      );
+      expect(
+        RadioGroup.maybeOf<AlertPattern>(
+          tester.element(find.byKey(const Key('criticalPattern-rapid'))),
+        )?.groupValue,
+        rapid.value,
+      );
+      expect(
+        tester
+            .widget<SegmentedButton<AlertLength>>(
+              find.byKey(const Key('criticalLength')),
+            )
+            .selected,
+        {AlertLength.long},
+      );
+
+      await tapCritical(tester, 'criticalPattern-steady');
+      expect(storedCritical().alert.pattern, AlertPattern.steady);
+      expect(alerts.previewed.last['timings'], [0, 5000]);
+      expect(alerts.previewed.last['onSilent'], isTrue);
+
+      final medium = find.descendant(
+        of: find.byKey(const Key('criticalLength')),
+        matching: find.text('Medium'),
+      );
+      await tester.ensureVisible(medium);
+      await tapAndSave(tester, medium);
+      expect(storedCritical().alert.length, AlertLength.medium);
+      expect((alerts.saved.last['criticalAlert']! as Map)['timings'], [
+        0,
+        2000,
+      ]);
+
+      // Every other push keeps the general alert's.
+      expect(stored(), AlertSettings.defaults);
+      expect(alerts.saved.last['timings'], [0, 90, 90, 90, 90, 260]);
+    });
+
     testWidgets('a sound is played again without choosing it', (tester) async {
       await connect(tester);
       await openNotifications(tester);
@@ -1084,6 +1192,8 @@ void main() {
             sound: AlertSound.pulse,
             volume: 30,
             vibration: AlertVibration.off,
+            pattern: AlertPattern.heartbeat,
+            length: AlertLength.medium,
           ),
           CriticalAlertSettings.defaults.copyWith(
             different: true,
@@ -1111,6 +1221,14 @@ void main() {
         find.byKey(const Key('alertVibration')),
       );
       expect(vibration.selected, {AlertVibration.off});
+      expect(
+        tester
+            .widget<SegmentedButton<AlertLength>>(
+              find.byKey(const Key('alertLength')),
+            )
+            .selected,
+        {AlertLength.medium},
+      );
       expect(
         tester.widget<Slider>(find.byKey(const Key('criticalVolume'))).value,
         100,

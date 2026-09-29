@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import 'alert_platform.dart';
@@ -32,7 +34,10 @@ class AlertController extends ChangeNotifier {
   /// Reads the saved settings. With none saved yet (a new installation, or
   /// one updated from a version without them), saves the defaults, so the
   /// platform plays them from the first push; likewise the critical
-  /// settings next to a general alert saved by a version without them.
+  /// settings next to a general alert saved by a version without them, and
+  /// any setting a version saved without it, such as the vibration's
+  /// pattern and length: whatever was saved is saved again as this version
+  /// plays it.
   Future<void> load() async {
     try {
       final stored = await _platform.load();
@@ -41,9 +46,8 @@ class AlertController extends ChangeNotifier {
       if (general != null) settings = general;
       if (critical != null) this.critical = critical;
       if (general != null || critical != null) notifyListeners();
-      if (general == null || critical == null) {
-        await _platform.save(platformAlerts(settings, this.critical));
-      }
+      final alerts = platformAlerts(settings, this.critical);
+      if (stored != jsonEncode(alerts)) await _platform.save(alerts);
     } on Exception catch (e) {
       debugPrint('Alert settings not read: ${e.runtimeType}');
     }
@@ -140,12 +144,15 @@ class AlertController extends ChangeNotifier {
         'again';
   }
 
-  /// The alert to preview for a change: the new vibration alone, or the
-  /// sound at its volume alone.
+  /// The alert to preview for a change: the new vibration (its step,
+  /// pattern or length) alone, or the sound at its volume alone.
   static AlertSettings _changedPart(
     AlertSettings previous,
     AlertSettings next,
-  ) => next.vibration != previous.vibration
+  ) =>
+      next.vibration != previous.vibration ||
+          next.pattern != previous.pattern ||
+          next.length != previous.length
       ? next.copyWith(sound: () => null)
       : next.copyWith(vibration: AlertVibration.off);
 

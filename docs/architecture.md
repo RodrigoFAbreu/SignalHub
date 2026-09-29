@@ -1524,8 +1524,10 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   returns to the foreground.
 - **Alert.** On Android a SignalHub push sounds and vibrates as the
   owner set it in the app (*Notifications → Alert*): one of SignalHub's own
-  bundled sounds or none, its volume, and SignalHub's own vibration pattern
-  off, light, medium or strong. Android fixes a channel's sound and
+  bundled sounds or none, its volume, and SignalHub's own vibration, off,
+  light, medium or strong, in one of SignalHub's patterns and at one of
+  three lengths (about 0.6, 2 or 5 s, by repeating the pattern, never over
+  10 s). Android fixes a channel's sound and
   vibration when the channel is created and gives a channel no volume, so
   the *Events* channel has neither, and the app plays the alert itself: a
   broadcast receiver of the app gets every FCM message next to Firebase's
@@ -1538,9 +1540,12 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   off or to silent. The settings are stored on the device (in the app's
   Android preferences, kept across updates), never on the server; the
   Dart code works out what to play from them (the sound's resource, a gain,
-  the vibration's timings and amplitudes, and longer buzzes for phones
-  without amplitude control) and the Android side only stores and plays
-  that. The push payload is unchanged: pushes stay generic notification
+  the vibration's timings and amplitudes, the pattern repeated to its
+  length, and longer buzzes for phones without amplitude control) and the
+  Android side only stores and plays that. Settings saved by an earlier
+  version are read with what they lack at its defaults and saved again as
+  this version plays them. Opening the app, or a notification, stops the
+  app's vibration still going. The push payload is unchanged: pushes stay generic notification
   messages, so older apps and any server version work as before. iOS plays
   the system's default sound, as before.
 - **Critical alert.** A push whose data has the generic `severity`
@@ -1549,7 +1554,7 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   app does not know, plays the general alert. The owner turns on a
   different alert for critical events, with its own sound, volume and
   vibration (by default *Urgent*, SignalHub's one urgent sound, at 100 %,
-  strong); off, they play the general alert. Two more settings apply to
+  strong, a rapid pulse, long); off, they play the general alert. Two more settings apply to
   critical pushes only: sounding when the ringer is on silent or vibrate (on
   by default) and during do-not-disturb (off by default). The Dart side
   stores, next to the general alert, what a critical push plays: the
