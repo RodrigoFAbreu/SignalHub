@@ -1512,8 +1512,9 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   Android) and never logged.
 - **Reception.** In the background, the operating system shows the
   notification from the push's title and body. On Android it is in the app's
-  *Events* notification channel, at high importance so that it pops up; the
-  owner can change that channel in the system settings. In the foreground,
+  *Events* notification channel (`signalhub_events`), at high importance so
+  that it pops up; the owner can change that channel in the system
+  settings. In the foreground,
   and when a notification opens the app, the push becomes a `PushNotice` and
   the app re-reads the inbox from the server: a push is a signal to look, so
   a push delivered twice (delivery is at least once) changes nothing.
@@ -1521,6 +1522,27 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   including the notification that started the app. Pushes shown in the
   background never reach the app, so it also re-reads the inbox whenever it
   returns to the foreground.
+- **Alert.** On Android a SignalHub push sounds and vibrates as the
+  owner set it in the app (*Notifications → Alert*): one of SignalHub's own
+  bundled sounds or none, its volume, and SignalHub's own vibration pattern
+  off, light, medium or strong. Android fixes a channel's sound and
+  vibration when the channel is created and gives a channel no volume, so
+  the *Events* channel has neither, and the app plays the alert itself: a
+  broadcast receiver of the app gets every FCM message next to Firebase's
+  own, and for one Firebase shows as a notification (the app not in the
+  foreground) it plays the stored sound on the notification stream at the
+  chosen volume, relative to the phone's notification volume, and vibrates
+  as a notification. It never overrides the phone: nothing during
+  do-not-disturb, nothing on silent, only the vibration on vibrate, and
+  nothing when the owner turned SignalHub's notifications or the channel
+  off or to silent. The settings are stored on the device (in the app's
+  Android preferences, kept across updates), never on the server; the
+  Dart code works out what to play from them (the sound's resource, a gain,
+  the vibration's timings and amplitudes, and longer buzzes for phones
+  without amplitude control) and the Android side only stores and plays
+  that. The push payload is unchanged: pushes stay generic notification
+  messages, so older apps and any server version work as before. iOS plays
+  the system's default sound, as before.
 - **Inbox.** The home screen lists events, newest first, from
   `GET /api/v1/events`, 30 per page. The next page is read with the previous
   page's `nextCursor` when the owner scrolls near the end; a pull to refresh

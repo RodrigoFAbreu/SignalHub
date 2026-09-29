@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The notification channel of pushes: MainActivity creates it, and
-         Firebase shows background pushes in it (AndroidManifest.xml). -->
-    <string name="events_channel_id" translatable="false">events</string>
+    <!-- The notification channel of pushes: SignalHubApplication creates it,
+         and Firebase shows background pushes in it (AndroidManifest.xml).
+         Silent, since the app plays its own alert; it replaced the channel
+         "events", which sounded the phone's default. -->
+    <string name="events_channel_id" translatable="false">signalhub_events</string>
     <string name="events_channel_name">Events</string>
     <string name="events_channel_description">Events pushed by your SignalHub server</string>
 </resources>

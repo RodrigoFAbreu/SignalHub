@@ -1534,6 +1534,57 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `client/README.md`, `docs/architecture.md` (Client application); no API
   change; compatible (`feat(client)`)
 
+### R45 - SignalHub's own alert: sounds, volume and vibration set in the app
+
+- **decided: a silent channel, and the app plays the alert itself.**
+  Android fixes a channel's sound and vibration at creation and has no
+  volume per channel, so the app's new *Events* channel
+  (`signalhub_events`, high importance, so pushes still pop up) has no
+  sound and no vibration, and a broadcast receiver of the app
+  (`PushAlertReceiver`), next to Firebase's own, plays the alert for every
+  FCM message Firebase shows as a notification (not while the app is in
+  the foreground, as Firebase decides it: the in-app notice is kept). The
+  channel is created by the app's `Application`, so a push after an update,
+  before the app is opened, never falls into Firebase's fallback channel.
+  **No backend change**: pushes stay generic notification messages, so
+  older apps and any server version behave as before
+- replacing the channel is done once: the old `events` channel is deleted,
+  and the owner's own settings for it are not carried over
+  (`client/README.md`, "Alert", and the release notes say so)
+- four original sounds (*Signal*, the default, *Beacon*, *Pulse*,
+  *Glass*), synthesised from sine waves by `client/sounds/generate.py`
+  and committed as WAV raw resources, with their source and licence in
+  `client/sounds/README.md`; CI checks that the committed files are what
+  the generator makes. SignalHub's vibration pattern: two short buzzes
+  and a long one
+- _Notifications → Alert_: **Sound** (the four or none, played when
+  chosen and with a play button), **Volume** (10 % to 100 % of the phone's
+  notification volume, in steps of 10, played when the slider is let go)
+  and **Vibration** (off, light, medium, strong: amplitude 70, 160 or 255,
+  or on a phone without amplitude control buzzes of half, full or 1.7
+  times the length). Stored in the app's Android preferences, never on
+  the server; kept across updates and when the device disconnects
+- **decided: the mapping lives in Dart, the Android side only stores and
+  plays it.** `AlertSettings.toPlatform` gives the sound's resource, a
+  gain and both vibration forms; the defaults the receiver plays before the
+  app saved any are bundled as `signalhub_alert_defaults.json`, which a
+  test holds equal to the Dart defaults
+- the phone is never overridden: nothing during do-not-disturb or on
+  silent, only the vibration on vibrate, nothing with SignalHub's
+  notifications or the channel turned off or to silent; the sound plays on
+  the notification stream and the vibration as a notification's. Previews
+  follow the same rules and say when the phone keeps them quiet
+- unit tests for the mapping and the stored form, controller tests
+  (defaults saved on first start, restored, saved, previewed, a quiet
+  phone, failures) and widget tests against the fake server and a fake
+  platform; device-review checks `alert-played` (a background push plays
+  the chosen sound; a new sound is the next push's) and `alert-quiet` (no
+  alert for another app's notification, none during do-not-disturb), the
+  channel check now also requiring a silent channel, and the owner's
+  by-ear list. The exit criteria need the owner's phone and are left to
+  that review. `client/README.md`, `docs/architecture.md` (Client
+  application), `docs/development.md`; compatible (`feat(client)`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2096,8 +2147,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 31    | R42 - Deleting revoked devices in the app                                                        | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 32    | R43 - A used pairing code: the API and the admin page                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Done (see section 3)                                                             |
-| 34    | R45 - SignalHub's own alert: sounds, volume and vibration set in the app                         | Increment (`feat(client)`)             | Next                                                                             |
-| 35    | R46 - A separate alert for critical events                                                       | Increment (`feat(client)`)             | Blocked until R45 is merged                                                      |
+| 34    | R45 - SignalHub's own alert: sounds, volume and vibration set in the app                         | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 35    | R46 - A separate alert for critical events                                                       | Increment (`feat(client)`)             | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3350,7 +3401,9 @@ Compatible (`feat(client)`): no API change.
 
 ### R45 - SignalHub's own alert: sounds, volume and vibration set in the app
 
-Status: planned; next. Added by the maintainer (2026-09-29).
+Status: complete (see section 3). Added by the maintainer (2026-09-29).
+The owner's check on a real phone is listed in the device review
+(`scripts/device-review/README.md`, "Alert, by ear and by hand").
 
 Goal: the owner tells a SignalHub push from any other app's notification
 by ear and by feel, without looking at the phone, and sets how it sounds
@@ -3418,8 +3471,9 @@ notification from another app does not use them.
 
 ### R46 - A separate alert for critical events
 
-Status: planned; blocked until R45 is merged. Added by the maintainer
-(2026-09-29).
+Status: planned; next. Added by the maintainer (2026-09-29). R45's
+mechanism is the one to extend: the app plays the alert itself
+(`AlertPlayer`), and a push's `severity` is in the data its receiver gets.
 
 Goal: a `CRITICAL` event is unmistakable, louder or otherwise different
 from every other SignalHub push.
@@ -3586,10 +3640,10 @@ device: the API), R37 (managing devices in the app), R38 (pairing codes
 from an admin device), R39 (removing the /connect redirect), R40 (the
 device list scrolls to its last device), R41 (deleting revoked devices:
 the API and the admin page), R42 (deleting revoked devices in the app),
-R43 (a used pairing code: the API and the admin page) and R44 (a used
-pairing code in the app) are done. **Next: R45 (SignalHub's own alert,
-set in the app), then R46 (a separate alert for critical events), added
-by the maintainer on 2026-09-29.** Nothing is scheduled after them. New work starts only when the maintainer adds it
+R43 (a used pairing code: the API and the admin page), R44 (a used
+pairing code in the app) and R45 (SignalHub's own alert, set in the app)
+are done. **Next: R46 (a separate alert for critical events), added by
+the maintainer on 2026-09-29.** Nothing is scheduled after it. New work starts only when the maintainer adds it
 to the queue; the [deferred candidates](#deferred-candidates) are not
 started without that.
 

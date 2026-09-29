@@ -32,7 +32,10 @@ from xml.etree import ElementTree
 
 APP_PACKAGE = "io.github.rodrigofabreu.signalhub"
 APP_ACTIVITY = f"{APP_PACKAGE}/.MainActivity"
-EVENTS_CHANNEL = "events"
+EVENTS_CHANNEL = "signalhub_events"
+# The app's log tag for its alert (client/android, AlertPlayer.kt).
+ALERT_TAG = "SignalHubAlert"
+ALERT_WAIT = 15.0
 IMPORTANCE_HIGH = 4
 # The windows the system shade has had across Android versions.
 SHADE_WINDOWS = frozenset({"NotificationShade", "StatusBar"})
@@ -43,6 +46,13 @@ MENU = "Show menu"
 DEVICE_ITEM = "This device"
 NOTIFICATIONS_ITEM = "Notifications"
 PUSH_SWITCH = "Push notifications"
+# The sounds on the Notifications screen, by the name the alert log uses.
+SOUND_LABELS = {
+    "signal": "Signal (default)",
+    "beacon": "Beacon",
+    "pulse": "Pulse",
+    "glass": "Glass",
+}
 MARK_READ = "Mark as read"
 MARK_UNREAD = "Mark as unread"
 EVENT_SCREEN_TITLE = "Event"
@@ -100,11 +110,12 @@ def may_touch(window: str | None, allow_shade: bool, locked: bool = False) -> bo
     return allow_shade and window in SHADE_WINDOWS
 
 
-def channel_importance(
+def channel_fields(
     dumpsys_notification: str, package: str, channel: str
-) -> int | None:
-    """The importance of one app's notification channel, from
-    `dumpsys notification`; None if the app has no such channel."""
+) -> dict[str, str] | None:
+    """The fields of one app's notification channel (mImportance, mSound and
+    so on), from `dumpsys notification`; None if the app has no such
+    channel."""
     in_app = False
     for line in dumpsys_notification.splitlines():
         settings = re.search(r"AppSettings: (\S+) \(", line)
@@ -112,9 +123,25 @@ def channel_importance(
             in_app = settings.group(1) == package
             continue
         if in_app and f"mId='{channel}'" in line:
-            importance = re.search(r"mImportance=(-?\d+)", line)
-            return int(importance.group(1)) if importance else None
+            return dict(re.findall(r"(m[A-Z]\w*)=([^,}]*)", line))
     return None
+
+
+def channel_importance(
+    dumpsys_notification: str, package: str, channel: str
+) -> int | None:
+    """The importance of one app's notification channel, from
+    `dumpsys notification`; None if the app has no such channel."""
+    fields = channel_fields(dumpsys_notification, package, channel)
+    if fields is None or not re.fullmatch(r"-?\d+", fields.get("mImportance", "")):
+        return None
+    return int(fields["mImportance"])
+
+
+def alert_messages(logcat: str) -> list[str]:
+    """What the app logged about its alert for pushes, oldest first, from
+    `logcat`; not its previews on the Notifications screen."""
+    return re.findall(rf"\b{ALERT_TAG}\s*: (Alert .*\S)", logcat)
 
 
 @dataclass(frozen=True)
@@ -401,6 +428,20 @@ class Device:
             if n.package == APP_PACKAGE and n.title == title
         ]
 
+    def alert_messages(self) -> list[str]:
+        return alert_messages(self.adb("logcat", "-d", "-s", f"{ALERT_TAG}:I"))
+
+    def wait_for_alert(self, seen: int, timeout: float = ALERT_WAIT) -> str:
+        """The first alert message after the first `seen` ones."""
+        deadline = time.monotonic() + timeout
+        while True:
+            messages = self.alert_messages()
+            if len(messages) > seen:
+                return messages[seen]
+            if time.monotonic() > deadline:
+                raise CheckFailed("the app logged nothing about its alert")
+            time.sleep(1)
+
     def wait_for_notification(
         self, title: str, timeout: float = PUSH_WAIT
     ) -> PostedNotification:
@@ -668,7 +709,72 @@ def check_events_channel(review: Review) -> str:
     importance = channel_importance(dump, APP_PACKAGE, EVENTS_CHANNEL)
     if importance is None or importance < IMPORTANCE_HIGH:
         raise CheckFailed(f"the {EVENTS_CHANNEL} channel's importance is {importance}")
-    return f"importance {importance}"
+    fields = channel_fields(dump, APP_PACKAGE, EVENTS_CHANNEL) or {}
+    # The app plays its own alert, so the channel itself must be silent.
+    if fields.get("mSound") != "null" or fields.get("mVibrationEnabled") == "true":
+        raise CheckFailed(
+            f"the {EVENTS_CHANNEL} channel has sound {fields.get('mSound')} "
+            f"and vibration {fields.get('mVibrationEnabled')}"
+        )
+    return f"importance {importance}, no sound or vibration of its own"
+
+
+def alert_push(review: Review, what: str) -> str:
+    """Publishes with the app in the background; what the app logged about
+    its alert for the push."""
+    review.inbox()
+    review.device.home()
+    seen = len(review.device.alert_messages())
+    title = review.title(what)
+    review.server.publish(title)
+    review.device.wait_for_notification(title)
+    return review.device.wait_for_alert(seen)
+
+
+def played_sound(message: str) -> str:
+    if not message.startswith("Alert played"):
+        raise CheckFailed(f"the app logged: {message}")
+    sound = re.search(r"\bsound=(\w+)", message)
+    return sound.group(1) if sound else "none"
+
+
+def check_alert_played(review: Review) -> str:
+    first = played_sound(alert_push(review, "alert"))
+    other = "beacon" if first != "beacon" else "pulse"
+    review.open_menu_item(NOTIFICATIONS_ITEM)
+    review.device.tap_label(SOUND_LABELS[other], exact=True)
+    try:
+        changed = played_sound(alert_push(review, "changed alert"))
+    finally:
+        if first in SOUND_LABELS:
+            review.open_menu_item(NOTIFICATIONS_ITEM)
+            review.device.tap_label(SOUND_LABELS[first], exact=True)
+            review.device.home()
+    if changed != other:
+        raise CheckFailed(f"the next push played {changed}, not {other}")
+    return (
+        f"played {first}, then {other} once chosen (restored); by ear and by "
+        "hand, check the owner's criteria in README.md"
+    )
+
+
+def check_alert_quiet(review: Review) -> str:
+    device = review.device
+    review.inbox()
+    device.home()
+    seen = len(device.alert_messages())
+    device.shell("cmd notification post -t 'Device review' device-review 'Another app'")
+    time.sleep(5)
+    if len(device.alert_messages()) > seen:
+        raise CheckFailed("another app's notification played SignalHub's alert")
+    try:
+        device.shell("cmd notification set_dnd priority")
+        message = alert_push(review, "do not disturb")
+    finally:
+        device.shell("cmd notification set_dnd off")
+    if not message.startswith("Alert not played (do not disturb)"):
+        raise CheckFailed(f"during do-not-disturb the app logged: {message}")
+    return "nothing for another app's notification; quiet during do-not-disturb"
 
 
 def check_foreground_push(review: Review) -> str:
@@ -967,7 +1073,7 @@ CHECKS = [
     Check(
         "events-channel",
         check_events_channel,
-        "the Events channel is at high importance",
+        "the Events channel is at high importance and silent",
     ),
     Check(
         "foreground-push",
@@ -978,6 +1084,16 @@ CHECKS = [
         "background-push",
         check_background_push,
         "a background push in Events; tapping opens and marks read",
+    ),
+    Check(
+        "alert-played",
+        check_alert_played,
+        "a background push plays the alert; a new sound is the next (restored)",
+    ),
+    Check(
+        "alert-quiet",
+        check_alert_quiet,
+        "no alert for another app, none during do-not-disturb (toggles DND)",
     ),
     Check(
         "refresh-on-return",

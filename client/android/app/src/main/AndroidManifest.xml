@@ -3,15 +3,18 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Shows push notifications on Android 13 and later. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Vibrates SignalHub's own alert (PushAlertReceiver). -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- Scans a pairing code; asked for only when the owner opens the scanner. -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
         android:label="SignalHub"
-        android:name="${applicationName}"
+        android:name=".SignalHubApplication"
         android:icon="@mipmap/ic_launcher">
-        <!-- Firebase shows background pushes in this channel (MainActivity
-             creates it) instead of its fallback channel. -->
+        <!-- Firebase shows background pushes in this channel
+             (SignalHubApplication creates it) instead of its fallback
+             channel. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="@string/events_channel_id" />
@@ -37,6 +40,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Plays SignalHub's own alert for pushes Firebase shows; only FCM
+             may send it messages, as to Firebase's own receivers. -->
+        <receiver
+            android:name=".PushAlertReceiver"
+            android:exported="true"
+            android:permission="com.google.android.c2dm.permission.SEND">
+            <intent-filter>
+                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+            </intent-filter>
+        </receiver>
         <!-- Pushes shown by Firebase while the app is in the background. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"

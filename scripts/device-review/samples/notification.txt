@@ -27,3 +27,4 @@ Current Notification Manager state:
     AppSettings: io.github.rodrigofabreu.signalhub (10234) importance=DEFAULT userLockedFields=0
       NotificationChannel{mId='fcm_fallback_notification_channel', mName=Miscellaneous, mDescription=, mImportance=3, mBypassDnd=false, mLockscreenVisibility=-1000, mSound=content://settings/system/notification_sound}
       NotificationChannel{mId='events', mName=Events, mDescription=hasDescription , mImportance=4, mBypassDnd=false, mLockscreenVisibility=-1000, mSound=content://settings/system/notification_sound}
+      NotificationChannel{mId='signalhub_events', mName=Events, mDescription=hasDescription , mImportance=4, mBypassDnd=false, mLockscreenVisibility=-1000, mSound=null, mLights=false, mLightColor=0, mVibration=null, mUserLockedFields=0, mFgServiceShown=false, mVibrationEnabled=false, mShowBadge=true, mDeleted=false}

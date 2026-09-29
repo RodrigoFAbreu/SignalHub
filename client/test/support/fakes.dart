@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:signalhub_client/src/alert/alert_platform.dart';
 import 'package:signalhub_client/src/api/signalhub_api.dart';
 import 'package:signalhub_client/src/connection/server_credentials.dart';
 import 'package:signalhub_client/src/models/push_config.dart';
@@ -526,4 +528,34 @@ class InMemoryCredentialsStore implements CredentialsStore {
 
   @override
   Future<void> clear() async => saved = null;
+}
+
+/// The Android side of the alert: stores what the app saves, as the device
+/// would across restarts, and records what it is asked to preview.
+class FakeAlertPlatform implements AlertPlatform {
+  String? stored;
+  final saved = <Map<String, Object?>>[];
+  final previewed = <Map<String, Object?>>[];
+
+  /// Whether a preview plays; `false` as on a phone in silent mode.
+  bool plays = true;
+
+  /// Whether saving fails, as a platform error would.
+  bool failsToSave = false;
+
+  @override
+  Future<String?> load() async => stored;
+
+  @override
+  Future<void> save(Map<String, Object?> alert) async {
+    if (failsToSave) throw PlatformException(code: 'error');
+    saved.add(alert);
+    stored = jsonEncode(alert);
+  }
+
+  @override
+  Future<bool> preview(Map<String, Object?> alert) async {
+    previewed.add(alert);
+    return plays;
+  }
 }

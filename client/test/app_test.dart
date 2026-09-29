@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:signalhub_client/src/alert/alert_settings.dart';
 import 'package:signalhub_client/src/api/signalhub_api.dart';
 import 'package:signalhub_client/src/app.dart';
 import 'package:signalhub_client/src/app_controller.dart';
@@ -879,6 +881,161 @@ void main() {
       find.textContaining('does not support push preferences'),
       findsOneWidget,
     );
+  });
+
+  group('alert', () {
+    late FakeAlertPlatform alerts;
+
+    setUp(() {
+      alerts = FakeAlertPlatform();
+      // A notice stream is listened to once, so a push service of its own.
+      push = FakePushService();
+      controller = AppController(
+        store: InMemoryCredentialsStore(),
+        apiFactory: (credentials) =>
+            backend.api(credentials.baseUrl, credentials.clientKey),
+        redeemPairing: backend.redeemPairing,
+        push: push,
+        alertPlatform: alerts,
+      );
+    });
+
+    AlertSettings stored() => AlertSettings.fromStored(alerts.stored)!;
+
+    testWidgets('sets the sound, volume and vibration, each previewed', (
+      tester,
+    ) async {
+      await connect(tester);
+      await openNotifications(tester);
+
+      expect(find.text('Alert'), findsOneWidget);
+      expect(find.text('Signal (default)'), findsOneWidget);
+
+      await tapAndSave(tester, find.byKey(const Key('alertSound-beacon')));
+      expect(stored().sound, AlertSound.beacon);
+      expect(alerts.previewed.last['resource'], 'signalhub_beacon');
+      expect(alerts.previewed.last['timings'], isEmpty);
+
+      // The slider runs from 10 % at its left end to 100 % at its right.
+      final slider = find.byKey(const Key('alertVolume'));
+      await tester.drag(slider, Offset(-tester.getSize(slider).width, 0));
+      await settle(tester);
+      expect(stored().volume, AlertSettings.minVolume);
+      expect(alerts.previewed.last['gain'], 0.1);
+
+      await tapAndSave(tester, find.text('Strong'));
+      expect(stored().vibration, AlertVibration.strong);
+      expect(alerts.previewed.last['resource'], isNull);
+      expect(alerts.previewed.last['amplitudes'], contains(255));
+
+      // Nothing of it reaches the server.
+      expect(
+        backend.requests.where((r) => r.url.path.contains('alert')),
+        isEmpty,
+      );
+    });
+
+    testWidgets('a sound is played again without choosing it', (tester) async {
+      await connect(tester);
+      await openNotifications(tester);
+
+      await tapAndSave(tester, find.byTooltip('Play Glass'));
+
+      expect(alerts.previewed.single['resource'], 'signalhub_glass');
+      expect(stored().sound, AlertSound.signal);
+    });
+
+    testWidgets('no sound turns the volume off', (tester) async {
+      await connect(tester);
+      await openNotifications(tester);
+
+      await tapAndSave(tester, find.byKey(const Key('alertSound-none')));
+
+      expect(stored().sound, isNull);
+      final slider = tester.widget<Slider>(
+        find.byKey(const Key('alertVolume')),
+      );
+      expect(slider.onChanged, isNull);
+    });
+
+    testWidgets('the saved settings are shown after a restart', (tester) async {
+      alerts.stored = jsonEncode(
+        const AlertSettings(
+          sound: AlertSound.pulse,
+          volume: 30,
+          vibration: AlertVibration.off,
+        ).toPlatform(),
+      );
+      await connect(tester);
+      await openNotifications(tester);
+
+      final pulse = tester.widget<RadioListTile<String>>(
+        find.byKey(const Key('alertSound-pulse')),
+      );
+      expect(
+        RadioGroup.maybeOf<String>(
+          tester.element(find.byKey(const Key('alertSound-pulse'))),
+        )?.groupValue,
+        pulse.value,
+      );
+      expect(
+        tester.widget<Slider>(find.byKey(const Key('alertVolume'))).value,
+        30,
+      );
+      final vibration = tester.widget<SegmentedButton<AlertVibration>>(
+        find.byKey(const Key('alertVibration')),
+      );
+      expect(vibration.selected, {AlertVibration.off});
+      expect(alerts.saved, isEmpty);
+    });
+
+    testWidgets('says when the phone keeps a preview quiet', (tester) async {
+      alerts.plays = false;
+      await connect(tester);
+      await openNotifications(tester);
+
+      await tapAndSave(tester, find.byKey(const Key('alertSound-glass')));
+
+      expect(find.textContaining('Silent mode or Do Not Disturb'), findsOne);
+      expect(stored().sound, AlertSound.glass);
+    });
+
+    testWidgets('is set on a server without push preferences', (tester) async {
+      backend.pushPreferences = null;
+      await connect(tester);
+      await openNotifications(tester);
+
+      expect(find.text('Alert'), findsOneWidget);
+      expect(
+        find.textContaining('does not support push preferences'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('stays when the device disconnects', (tester) async {
+      await connect(tester);
+      await openNotifications(tester);
+      await tapAndSave(tester, find.byKey(const Key('alertSound-pulse')));
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(PopupMenuButton<void>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('disconnect')));
+      await settle(tester);
+
+      expect(stored().sound, AlertSound.pulse);
+    });
+  });
+
+  testWidgets('without an alert platform there are no alert settings', (
+    tester,
+  ) async {
+    await connect(tester);
+    await openNotifications(tester);
+
+    expect(find.text('Alert'), findsNothing);
+    expect(find.byKey(const Key('pushEnabled')), findsOneWidget);
   });
 
   group('inbox filters', () {

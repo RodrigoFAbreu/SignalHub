@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import '../app_controller.dart';
 import '../models/client_registration.dart';
 import '../models/event.dart';
+import 'alert_section.dart';
 import 'event_style.dart';
 
-/// Which events are pushed to this installation: pause, minimum severity,
-/// and muted categories and producers. Every change is saved on the server
-/// at once. Events are kept in the inbox whatever is chosen here.
+/// How pushes alert on this device (its _Alert_ settings, kept on the
+/// device) and which events are pushed to this installation: pause, minimum
+/// severity, and muted categories and producers, saved on the server. Every
+/// change is saved at once. Events are kept in the inbox whatever is chosen
+/// here.
 class PushPreferencesScreen extends StatelessWidget {
   const PushPreferencesScreen({super.key, required this.controller});
 
@@ -33,21 +36,30 @@ class PushPreferencesScreen extends StatelessWidget {
     body: ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
+        final alert = controller.alert;
         final preferences = controller.registration?.pushPreferences;
-        if (preferences == null) {
-          return const Padding(
-            padding: EdgeInsets.all(32),
-            child: Text(
-              'This server does not support push preferences. Update it to '
-              'choose which events are pushed to this device.',
-            ),
-          );
-        }
-        return _Form(
-          preferences: preferences,
-          enabled: !controller.savingPushPreferences,
-          producers: controller.inboxProducers,
-          save: (changed) => _save(context, changed),
+        return ListView(
+          children: [
+            if (alert != null) ...[
+              AlertSection(controller: alert),
+              const Divider(height: 32),
+            ],
+            if (preferences == null)
+              const Padding(
+                padding: EdgeInsets.all(32),
+                child: Text(
+                  'This server does not support push preferences. Update it '
+                  'to choose which events are pushed to this device.',
+                ),
+              )
+            else
+              ..._Form(
+                preferences: preferences,
+                enabled: !controller.savingPushPreferences,
+                producers: controller.inboxProducers,
+                save: (changed) => _save(context, changed),
+              ).rows(),
+          ],
         );
       },
     ),
@@ -62,7 +74,7 @@ class PushPreferencesScreen extends StatelessWidget {
   }
 }
 
-class _Form extends StatelessWidget {
+class _Form {
   const _Form({
     required this.preferences,
     required this.enabled,
@@ -75,8 +87,7 @@ class _Form extends StatelessWidget {
   final List<EventProducer> producers;
   final void Function(PushPreferences) save;
 
-  @override
-  Widget build(BuildContext context) {
+  List<Widget> rows() {
     final p = preferences;
     final severity = EventSeverity.parse(p.minimumSeverity);
     // Muted producers that have no event in the inbox are still listed, by
@@ -87,85 +98,83 @@ class _Form extends StatelessWidget {
       for (final id in p.mutedProducerIds)
         if (!named.contains(id)) (id, id),
     ];
-    return ListView(
-      children: [
+    return [
+      SwitchListTile(
+        key: const Key('pushEnabled'),
+        title: const Text('Push notifications'),
+        subtitle: Text(
+          p.enabled
+              ? 'For this device only. Events are always kept in the inbox.'
+              : 'Paused. Events are still kept in the inbox.',
+        ),
+        value: p.enabled,
+        onChanged: enabled ? (on) => save(p.copyWith(enabled: on)) : null,
+      ),
+      const _Heading('Minimum severity'),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: SegmentedButton<EventSeverity>(
+          key: const Key('minimumSeverity'),
+          showSelectedIcon: false,
+          emptySelectionAllowed: true,
+          segments: [
+            for (final s in PushPreferencesScreen._severities)
+              ButtonSegment(value: s, label: Text(s.label)),
+          ],
+          selected: {if (severity != EventSeverity.unknown) severity},
+          onSelectionChanged: enabled
+              ? (selected) {
+                  if (selected.isEmpty) return;
+                  save(p.copyWith(minimumSeverity: selected.single.wireName));
+                }
+              : null,
+        ),
+      ),
+      const _Heading('Categories'),
+      for (final category in PushPreferencesScreen._categories)
         SwitchListTile(
-          key: const Key('pushEnabled'),
-          title: const Text('Push notifications'),
-          subtitle: Text(
-            p.enabled
-                ? 'For this device only. Events are always kept in the inbox.'
-                : 'Paused. Events are still kept in the inbox.',
-          ),
-          value: p.enabled,
-          onChanged: enabled ? (on) => save(p.copyWith(enabled: on)) : null,
+          key: Key('category-${category.wireName}'),
+          secondary: Icon(category.icon),
+          title: Text(category.label),
+          value: !p.mutedCategories.contains(category.wireName),
+          onChanged: enabled
+              ? (on) => save(
+                  p.copyWith(
+                    mutedCategories: _toggle(
+                      p.mutedCategories,
+                      category.wireName,
+                      muted: !on,
+                    ),
+                  ),
+                )
+              : null,
         ),
-        const _Heading('Minimum severity'),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: SegmentedButton<EventSeverity>(
-            key: const Key('minimumSeverity'),
-            showSelectedIcon: false,
-            emptySelectionAllowed: true,
-            segments: [
-              for (final s in PushPreferencesScreen._severities)
-                ButtonSegment(value: s, label: Text(s.label)),
-            ],
-            selected: {if (severity != EventSeverity.unknown) severity},
-            onSelectionChanged: enabled
-                ? (selected) {
-                    if (selected.isEmpty) return;
-                    save(p.copyWith(minimumSeverity: selected.single.wireName));
-                  }
-                : null,
+      const _Heading('Producers'),
+      if (producerRows.isEmpty)
+        const ListTile(
+          title: Text(
+            'Producers appear here once their events are in the '
+            'inbox.',
           ),
         ),
-        const _Heading('Categories'),
-        for (final category in PushPreferencesScreen._categories)
-          SwitchListTile(
-            key: Key('category-${category.wireName}'),
-            secondary: Icon(category.icon),
-            title: Text(category.label),
-            value: !p.mutedCategories.contains(category.wireName),
-            onChanged: enabled
-                ? (on) => save(
-                    p.copyWith(
-                      mutedCategories: _toggle(
-                        p.mutedCategories,
-                        category.wireName,
-                        muted: !on,
-                      ),
+      for (final (id, name) in producerRows)
+        SwitchListTile(
+          key: Key('producer-$id'),
+          title: Text(name),
+          value: !p.mutedProducerIds.contains(id),
+          onChanged: enabled
+              ? (on) => save(
+                  p.copyWith(
+                    mutedProducerIds: _toggle(
+                      p.mutedProducerIds,
+                      id,
+                      muted: !on,
                     ),
-                  )
-                : null,
-          ),
-        const _Heading('Producers'),
-        if (producerRows.isEmpty)
-          const ListTile(
-            title: Text(
-              'Producers appear here once their events are in the '
-              'inbox.',
-            ),
-          ),
-        for (final (id, name) in producerRows)
-          SwitchListTile(
-            key: Key('producer-$id'),
-            title: Text(name),
-            value: !p.mutedProducerIds.contains(id),
-            onChanged: enabled
-                ? (on) => save(
-                    p.copyWith(
-                      mutedProducerIds: _toggle(
-                        p.mutedProducerIds,
-                        id,
-                        muted: !on,
-                      ),
-                    ),
-                  )
-                : null,
-          ),
-      ],
-    );
+                  ),
+                )
+              : null,
+        ),
+    ];
   }
 
   /// [values] without [value], or with it once when [muted].
