@@ -2284,6 +2284,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 35    | R46 - A separate alert for critical events                                                       | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 36    | R47 - The alert's vibration pattern and length, set in the app                                   | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 37    | R48 - One Settings screen, in folding groups                                                     | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 38    | R49 - The pending Dependabot updates                                                             | Increment (`build`)                    | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -2633,6 +2634,12 @@ G1 → G2 → R19 v1.0.0
     save little; it is reconsidered only if the folded screen still
     proves hard to use
   - after R47, so it arranges R47's new vibration settings too
+- **R49 was added by the maintainer on 2026-09-29**: three Dependabot
+  pull requests (the Maven compiler and Surefire plugins, and
+  `actions/setup-java` 5 to 6) had waited since 2026-09-25, behind the
+  queue. They land together in one pull request and one release, rather
+  than three, each checked for breaking changes; the Dependabot pull
+  requests are then closed as superseded.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -2674,6 +2681,7 @@ advance; they follow from the queue.
 | R45, R46      | minor (`feat(client)`)                                                                                                                                | new app settings; if a push payload change is needed, older apps keep working                              |
 | R47           | minor (`feat(client)`)                                                                                                                                | new app settings; no API change                                                                            |
 | R48           | minor (`feat(client)`)                                                                                                                                | a reorganized app screen; no API change                                                                    |
+| R49           | patch (`build`)                                                                                                                                       | build and CI tool versions; nothing a user, producer or operator sees                                      |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -3807,6 +3815,48 @@ with every group folded and its summary correct; each group unfolds to
 its settings, which work as before; Devices opens device management on
 an admin device; Disconnect works from _This device_.
 
+### R49 - The pending Dependabot updates
+
+Status: planned; next. Added by the maintainer (2026-09-29).
+
+Goal: the dependency updates Dependabot proposed are applied, verified
+and released, and no Dependabot pull request is left waiting.
+
+Scope:
+
+- the updates of the Dependabot pull requests open when this increment
+  starts, applied together on one branch from the latest `main`. On
+  2026-09-29 they were:
+  - #6: `org.apache.maven.plugins:maven-compiler-plugin` 3.15.0 to 3.16.0
+    (`backend/pom.xml`)
+  - #8: `org.apache.maven.plugins:maven-surefire-plugin` 3.5.6 to 3.6.0
+    (`backend/pom.xml`)
+  - #9: `actions/setup-java` 5 to 6, in every workflow that uses it
+    (`ci.yml`, `release.yml`)
+- for each, the upstream release notes read for breaking changes that
+  touch SignalHub (the Java 25 build with `-Xlint:all` and SpotBugs, the
+  test run against real PostgreSQL, the release workflow's Android build),
+  with any needed adjustment made in the same pull request and noted in
+  its description; an update that cannot be taken safely is left out and
+  the reason recorded, never forced
+- the full validation: `./mvnw verify`, and CI green on every job,
+  including the release-image and upgrade jobs; a check that fails for a
+  reason outside the change (a registry or network hiccup) is re-run, not
+  worked around
+- once merged, each Dependabot pull request it covers is closed with a
+  comment naming the pull request that superseded it, if Dependabot has
+  not closed it already
+- a Dependabot pull request opened meanwhile is included if it is of the
+  same kind (build and CI tooling) and its CI is green; one that changes
+  runtime dependencies of the backend, the app or the SDK is left for its
+  own increment
+
+Compatible (`build`, patch): build and CI tool versions only; nothing a
+user, producer or operator sees changes.
+
+Non-goals: changing Dependabot's configuration or schedule; updating
+dependencies Dependabot has not proposed; runtime dependency upgrades.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -3926,8 +3976,6 @@ R43 (a used pairing code: the API and the admin page), R44 (a used
 pairing code in the app), R45 (SignalHub's own alert, set in the app), R46
 (a separate alert for critical events) and R47 (the alert's vibration
 pattern and length, set in the app) and R48 (one Settings screen, in
-folding groups) are done. **The queue is empty: nothing further is
-scheduled.** A new item is added only by the maintainer, as a queue row;
-the deferred candidates of section 5 stay unscheduled until then.
+folding groups) are done. **R49 (the pending Dependabot updates) is next.**
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
