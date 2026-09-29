@@ -2199,6 +2199,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 33    | R44 - A used pairing code in the app                                                             | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 34    | R45 - SignalHub's own alert: sounds, volume and vibration set in the app                         | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 35    | R46 - A separate alert for critical events                                                       | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 36    | R47 - The alert's vibration pattern and length, set in the app                                   | Increment (`feat(client)`)             | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -2519,6 +2520,13 @@ G1 → G2 → R19 v1.0.0
     turn on or off (R46).
   - the general alert comes first: the critical alert reuses its sounds,
     settings screen and mechanism.
+- **R47 was added by the maintainer on 2026-09-29**, after trying R45
+  and R46 on the phone: SignalHub's vibration, two short buzzes and a
+  longer one of about 0.6 s, is easy to miss without the sound. The
+  owner chooses the vibration's **pattern** and **length** in the app, for
+  the general alert and the critical alert each, as they choose the
+  sound; it still never overrides the phone's silent mode, do-not-disturb
+  or channel settings.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -2558,6 +2566,7 @@ advance; they follow from the queue.
 | R41, R43      | minor (`feat`)                                                                                                                                        | new endpoints and page actions; a migration, if any, needs no operator action                              |
 | R42, R44      | minor (`feat(client)`)                                                                                                                                | new actions in existing app screens; no API change                                                         |
 | R45, R46      | minor (`feat(client)`)                                                                                                                                | new app settings; if a push payload change is needed, older apps keep working                              |
+| R47           | minor (`feat(client)`)                                                                                                                                | new app settings; no API change                                                                            |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -3576,6 +3585,64 @@ the default settings, a `CRITICAL` push sounds with the phone on silent
 and stays quiet during do-not-disturb, and a `NORMAL` push is silent in
 both; turning each switch around reverses its case.
 
+### R47 - The alert's vibration pattern and length, set in the app
+
+Status: planned; next. Added by the maintainer (2026-09-29), after
+trying R45 and R46 on the phone.
+
+Goal: a SignalHub push is felt, not only heard. SignalHub's vibration
+(R45), two short buzzes and a longer one of about 0.6 s, is easy to miss
+without the sound; the owner chooses a pattern and a length that they
+notice.
+
+Scope, the Android app:
+
+- in the _Alert_ settings (R45), next to **Vibration** (its intensity),
+  two more settings, for the general alert and, when **Different alert
+  for critical events** (R46) is on, for the critical alert each:
+  - **Pattern**: three or four vibration patterns of SignalHub's own,
+    clearly different from each other and from the phone's single buzz,
+    for example today's (the default for the general alert, so nothing
+    changes until the owner chooses), a steady long buzz, a heartbeat
+    and a rapid pulse; each with a preview
+  - **Length**: how long the vibration lasts, at least three steps (for
+    example short, about 0.6 s as today; medium, about 2 s; long, about
+    5 s), by repeating the pattern, never longer than about 10 s; with a
+    preview
+- the critical alert's defaults are more noticeable than the general
+  alert's (for example the rapid pulse, long); the general alert's
+  defaults keep today's vibration
+- the intensity steps (R45) keep working with every pattern and length;
+  on a phone without amplitude control the steps still change the
+  buzzes' length, as R45 decided, and the length setting still applies
+- stored on the device like R45's and R46's settings, surviving app
+  updates; settings saved by R46 are kept, and the new settings start at
+  their defaults
+- the alert still never overrides the phone: silent mode, vibrate,
+  do-not-disturb and the channel's settings apply exactly as in R45 and
+  R46 (a critical alert vibrates through silent or do-not-disturb only
+  when its R46 switch says so); opening the notification or the app
+  stops a long vibration
+- the same kinds of tests as R45 and R46 (the mapping from settings to
+  the platform's timings and amplitudes, controller and widget tests
+  against the fake server and `FakeAlertPlatform`), the device review's
+  alert checks extended to the chosen pattern and length where `adb` can
+  see them, and the by-hand list for what only the owner can feel;
+  `client/README.md` (Alert)
+
+Compatible (`feat(client)`): no API change.
+
+Non-goals: patterns drawn or recorded by the owner; a vibration per
+category, producer or other severity (see
+[Deferred candidates](#deferred-candidates)); a vibration that repeats
+until the notification is opened; iOS.
+
+Exit criteria: on the owner's phone, with the release APK installed over
+the previous one, each pattern and length feels as chosen, in the
+previews and on a push with the app in the background or closed, for the
+general alert and the critical alert each; the defaults leave the
+general alert's vibration as it was.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -3693,9 +3760,7 @@ device list scrolls to its last device), R41 (deleting revoked devices:
 the API and the admin page), R42 (deleting revoked devices in the app),
 R43 (a used pairing code: the API and the admin page), R44 (a used
 pairing code in the app), R45 (SignalHub's own alert, set in the app) and
-R46 (a separate alert for critical events) are done. **The queue is
-empty: nothing further is scheduled.** New work starts only when the
-maintainer adds it to the queue; the [deferred candidates](#deferred-candidates)
-are not started without that.
+R46 (a separate alert for critical events) are done. **R47 (the alert's
+vibration pattern and length, set in the app) is next.**
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
