@@ -1718,6 +1718,34 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `client/README.md` (a new _Settings_ section), `docs/architecture.md`
   (Client application), `docs/development.md`; compatible (`feat(client)`)
 
+### R49 - The pending Dependabot updates
+
+- all three Dependabot updates open on 2026-09-29 applied together, and
+  no other Dependabot pull request had opened meanwhile:
+  - #6: `maven-compiler-plugin` 3.15.0 to 3.16.0 (`backend/pom.xml`)
+  - #8: `maven-surefire-plugin` 3.5.6 to 3.6.0 (`backend/pom.xml`); its
+    one red check, _Backend container (upgrade from v0.13.0)_, was Docker
+    Hub resetting the connection while authorizing, not the update
+  - #9: `actions/setup-java` 5 to 6 in `ci.yml` (the backend and client
+    jobs) and `release.yml` (the Android build)
+- **none left out, and no adjustment needed**: the release notes break
+  nothing SignalHub uses. The compiler plugin changes incremental
+  recompilation (it now also recompiles when dependencies change), not
+  `-Xlint:all`, `-Werror` or annotation processing; Surefire 3.6.0 adds
+  JUnit Platform features and fixes, and reports `@AfterAll` failures as
+  errors again, which fails a build only on a real test failure;
+  setup-java 6 runs on Node 24 (as `actions/checkout@v7` already does on
+  the same hosted runners), drops only the legacy AdoptOpenJDK
+  distributions (SignalHub uses Temurin) and caches the Maven wrapper's
+  distribution apart from the dependencies; every input SignalHub passes
+  (`distribution`, `java-version`, `cache`, `cache-dependency-path`) is
+  unchanged
+- validated by `./mvnw verify` (Java 25, tests against PostgreSQL through
+  Dev Services, Spotless, SpotBugs) and CI on every job, including the
+  release-image, upgrade and Android jobs; the Dependabot pull requests
+  are closed as superseded after it merges. Dependabot's configuration is
+  unchanged; compatible (`build`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2284,7 +2312,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 35    | R46 - A separate alert for critical events                                                       | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 36    | R47 - The alert's vibration pattern and length, set in the app                                   | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 37    | R48 - One Settings screen, in folding groups                                                     | Increment (`feat(client)`)             | Done (see section 3)                                                             |
-| 38    | R49 - The pending Dependabot updates                                                             | Increment (`build`)                    | Next                                                                             |
+| 38    | R49 - The pending Dependabot updates                                                             | Increment (`build`)                    | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -3817,7 +3845,7 @@ an admin device; Disconnect works from _This device_.
 
 ### R49 - The pending Dependabot updates
 
-Status: planned; next. Added by the maintainer (2026-09-29).
+Status: complete (see section 3). Added by the maintainer (2026-09-29).
 
 Goal: the dependency updates Dependabot proposed are applied, verified
 and released, and no Dependabot pull request is left waiting.
@@ -3974,8 +4002,11 @@ device list scrolls to its last device), R41 (deleting revoked devices:
 the API and the admin page), R42 (deleting revoked devices in the app),
 R43 (a used pairing code: the API and the admin page), R44 (a used
 pairing code in the app), R45 (SignalHub's own alert, set in the app), R46
-(a separate alert for critical events) and R47 (the alert's vibration
-pattern and length, set in the app) and R48 (one Settings screen, in
-folding groups) are done. **R49 (the pending Dependabot updates) is next.**
+(a separate alert for critical events), R47 (the alert's vibration
+pattern and length, set in the app), R48 (one Settings screen, in
+folding groups) and R49 (the pending Dependabot updates) are done. **The
+queue is empty: nothing further is scheduled.** A new item is added only by
+the maintainer, in a reviewed pull request; the deferred candidates of
+section 5 are not started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
