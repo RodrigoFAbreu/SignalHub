@@ -2313,6 +2313,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 36    | R47 - The alert's vibration pattern and length, set in the app                                   | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 37    | R48 - One Settings screen, in folding groups                                                     | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 38    | R49 - The pending Dependabot updates                                                             | Increment (`build`)                    | Done (see section 3)                                                             |
+| 39    | R50 - Sound on silent and during do-not-disturb for every push; the critical alert inside Alert  | Increment (`feat(client)`)             | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -2668,6 +2669,19 @@ G1 → G2 → R19 v1.0.0
   queue. They land together in one pull request and one release, rather
   than three, each checked for breaking changes; the Dependabot pull
   requests are then closed as superseded.
+- **R50 was added by the maintainer on 2026-09-30**, after trying R48's
+  Settings screen. The maintainer's answers, recorded here so no
+  increment has to ask again:
+  - sounding through silent mode is wanted for normal pushes too, as a
+    **global** setting of _Alert_, reversing R45's and R46's rule that
+    the general alert always follows silent mode. It is a three-way
+    choice, _Off_, _Critical only_, _All pushes_ (chosen over a plain
+    switch, which would lose "only critical pushes sound on silent"),
+    and do-not-disturb gets the same three-way choice
+  - the critical alert's settings move **inside Alert**, as a sub-group
+    under **Different alert for critical events** that is folded, greyed
+    and cannot be opened while that switch is off (a fold inside a fold
+    is accepted here: one sub-group, tied to the switch above it)
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -2710,6 +2724,7 @@ advance; they follow from the queue.
 | R47           | minor (`feat(client)`)                                                                                                                                | new app settings; no API change                                                                            |
 | R48           | minor (`feat(client)`)                                                                                                                                | a reorganized app screen; no API change                                                                    |
 | R49           | patch (`build`)                                                                                                                                       | build and CI tool versions; nothing a user, producer or operator sees                                      |
+| R50           | minor (`feat(client)`)                                                                                                                                | new app choices and a reorganized settings group; no API change                                            |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -3885,6 +3900,77 @@ user, producer or operator sees changes.
 Non-goals: changing Dependabot's configuration or schedule; updating
 dependencies Dependabot has not proposed; runtime dependency upgrades.
 
+### R50 - Sound on silent and during do-not-disturb for every push, and the critical alert inside Alert
+
+Status: planned; next. Added by the maintainer (2026-09-30), after
+trying R48's Settings screen on the phone.
+
+Goal: whether SignalHub sounds through silent mode or do-not-disturb is
+one clear, global choice in _Alert_, available for every push and not
+only critical ones; and the critical alert's own settings sit inside
+_Alert_, usable only when they apply.
+
+Scope, the app:
+
+- in the **Alert** group (R48), two global choices, each with three
+  options, replacing R46's two critical-only switches:
+  - **Sound when the phone is on silent**: _Off_, _Critical only_, _All
+    pushes_
+  - **Sound during Do Not Disturb**: _Off_, _Critical only_, _All
+    pushes_
+  - _Critical only_ applies to `CRITICAL` pushes whether or not
+    **Different alert for critical events** is on, as R46's switches
+    did; _All pushes_ applies to every SignalHub push. A push that
+    sounds through silent or do-not-disturb plays as R46's critical alert
+    does there (on the alarm stream, following the alarm volume)
+  - defaults: silent _Critical only_, do-not-disturb _Off_, as R46's
+    defaults. The owner's R46 settings carry over: a switch that was on
+    becomes _Critical only_, one that was off becomes _Off_
+  - any option other than _Off_ for do-not-disturb needs the app's Do
+    Not Disturb access, exactly as R46's switch: the app says so and
+    opens the system screen, and the choice stays _Off_ until access is
+    given
+- this reverses R45's and R46's decision that the general alert always
+  follows silent mode and do-not-disturb: the owner can now choose _All
+  pushes_. The defaults keep today's behaviour, so nothing changes until
+  the owner chooses
+- the **Critical alert** group moves **inside Alert**, below the general
+  alert's settings and the two choices above:
+  - the **Different alert for critical events** switch, then a
+    **Critical alert** sub-group with the critical alert's own sound,
+    volume, vibration, pattern and length (R46, R47)
+  - while the switch is off, the sub-group is folded, greyed and cannot
+    be opened; critical pushes use the general alert
+  - while the switch is on, it folds and unfolds like R48's groups, with
+    its one-line summary, and the app remembers whether it was left open
+- R48's separate top-level _Critical alert_ group goes; the _Alert_
+  group's summary also names the silent and do-not-disturb choices when
+  they are not _Off_ (for example _Signal · 80 % · Medium · sounds on
+  silent: critical_)
+- the general alert and every other setting keep their behaviour and
+  storage; the alert still never changes the ringer or do-not-disturb
+- tests: the mapping from the two choices to what the platform plays (a
+  normal and a critical push, with the phone on silent, on vibrate and in
+  do-not-disturb, for each option, with and without the different
+  critical alert, and do-not-disturb access not granted), the carry-over
+  from R46's switches, controller and widget tests for the choices and
+  the nested sub-group (disabled and greyed while the switch is off,
+  unfolding while it is on, remembered); the device review's alert
+  checks and labels follow the new screen in the same change;
+  `client/README.md` (Alert, Settings)
+
+Compatible (`feat(client)`): no API change.
+
+Non-goals: a sound-on-silent or do-not-disturb choice per category,
+producer or other severity; changing the ringer or do-not-disturb from
+the app; iOS.
+
+Exit criteria: on the owner's phone, with the phone on silent, a normal
+push sounds only with _All pushes_ and a critical push with _Critical
+only_ or _All pushes_; the same for do-not-disturb once access is given;
+the Critical alert sub-group cannot be opened while **Different alert
+for critical events** is off and opens once it is on.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -4004,9 +4090,6 @@ R43 (a used pairing code: the API and the admin page), R44 (a used
 pairing code in the app), R45 (SignalHub's own alert, set in the app), R46
 (a separate alert for critical events), R47 (the alert's vibration
 pattern and length, set in the app), R48 (one Settings screen, in
-folding groups) and R49 (the pending Dependabot updates) are done. **The
-queue is empty: nothing further is scheduled.** A new item is added only by
-the maintainer, in a reviewed pull request; the deferred candidates of
-section 5 are not started without that.
+folding groups) and R49 (the pending Dependabot updates) are done. **R50 (sound on silent and during do-not-disturb for every push; the critical alert inside Alert) is next.**
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
