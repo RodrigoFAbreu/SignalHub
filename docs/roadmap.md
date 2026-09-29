@@ -2200,6 +2200,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 34    | R45 - SignalHub's own alert: sounds, volume and vibration set in the app                         | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 35    | R46 - A separate alert for critical events                                                       | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 36    | R47 - The alert's vibration pattern and length, set in the app                                   | Increment (`feat(client)`)             | Next                                                                             |
+| 37    | R48 - One Settings screen, in folding groups                                                     | Increment (`feat(client)`)             | Blocked until R47 is merged                                                      |
 
 How an autonomous run uses it:
 
@@ -2527,6 +2528,28 @@ G1 → G2 → R19 v1.0.0
   the general alert and the critical alert each, as they choose the
   sound; it still never overrides the phone's silent mode, do-not-disturb
   or channel settings.
+- **R48 was added by the maintainer on 2026-09-29**: the _Notifications_
+  and _This device_ screens grew with R35 to R47 and are cluttered. The
+  maintainer's answers, recorded here so no increment has to ask again:
+  - one **Settings** screen replaces both, opened from a gear icon on the
+    inbox; its settings sit in **folding groups** that show a one-line
+    summary of their values when folded (chosen over plain folds, which
+    hide the values, and over one sub-screen per group, which costs a
+    tap for every change)
+  - **Push filters** come first, then **Alert**, **Critical alert** and
+    **This device**; the _Push notifications_ switch stays above them,
+    always visible. "Push filters", not "Filters", so it is not confused
+    with the inbox's _Filter_, which only changes what the inbox shows
+  - device management (every device, _Connect a device_) stays **on its
+    own screen**, reached from a row in Settings on an admin device: a
+    long list with actions per device reads better on a screen of its own
+  - _Disconnect this device_ moves from the inbox's menu into the _This
+    device_ group
+  - **no search for now**: with a handful of groups whose headers name
+    their contents and whose summaries show their values, search would
+    save little; it is reconsidered only if the folded screen still
+    proves hard to use
+  - after R47, so it arranges R47's new vibration settings too
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -2567,6 +2590,7 @@ advance; they follow from the queue.
 | R42, R44      | minor (`feat(client)`)                                                                                                                                | new actions in existing app screens; no API change                                                         |
 | R45, R46      | minor (`feat(client)`)                                                                                                                                | new app settings; if a push payload change is needed, older apps keep working                              |
 | R47           | minor (`feat(client)`)                                                                                                                                | new app settings; no API change                                                                            |
+| R48           | minor (`feat(client)`)                                                                                                                                | a reorganized app screen; no API change                                                                    |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -3643,6 +3667,60 @@ previews and on a push with the app in the background or closed, for the
 general alert and the critical alert each; the defaults leave the
 general alert's vibration as it was.
 
+### R48 - One Settings screen, in folding groups
+
+Status: planned; blocked until R47 is merged. Added by the maintainer
+(2026-09-29).
+
+Goal: the app's settings are easy to find and take little space; the
+owner sees what each group is set to without opening it.
+
+Scope, the app:
+
+- one **Settings** screen replaces _Notifications_ and _This device_; the
+  inbox's menu, left with nothing else, becomes a **gear icon** in the
+  inbox's top bar that opens it
+- at the top, always visible, the **Push notifications** switch
+- below it, **folding groups**, in this order, each with a header that,
+  folded, shows a one-line summary of its current values (for example
+  _Normal and up · Info, Completed muted · all producers_, _Signal · 80 %
+  · Medium_):
+  - **Push filters**: minimum severity, categories, producers
+  - **Alert**: sound, volume, vibration and R47's pattern and length,
+    with their previews
+  - **Critical alert**: R46's switch and its own sound, volume, vibration,
+    pattern and length, and the silent and do-not-disturb switches
+  - **This device**: its name and server, push status, version and
+    commit, and **Disconnect this device** (with its confirmation), moved
+    from the inbox's menu
+- on an admin device, a **Devices** row in Settings (with a summary such
+  as _7 devices · 2 admins_) opens device management (R37, R42) and
+  _Connect a device_ (R38, R44) on a screen of their own, as today
+- groups start folded; the app remembers, on the device, which groups
+  the owner left open
+- while push is off, Push filters, Alert and Critical alert are shown
+  greyed with a line saying they apply once push is on, and can still be
+  changed
+- every setting keeps its behaviour, storage and previews: nothing moves
+  to or from the API, and no stored setting is lost
+- the device review (`scripts/device-review/`) follows the new screen and
+  labels in the same change, so the next review still runs
+- widget tests: each group folded and unfolded, its summary for
+  representative values, the remembered open groups, greyed groups while
+  push is off, the Devices row only on an admin device, Disconnect from
+  Settings, the gear icon; `client/README.md`
+
+Compatible (`feat(client)`): no API change.
+
+Non-goals: a search of the settings (reconsidered only if the folded
+screen still proves hard to use); new settings; changes to device
+management itself; the inbox's _Filter_.
+
+Exit criteria: on the owner's phone, Settings opens from the gear icon
+with every group folded and its summary correct; each group unfolds to
+its settings, which work as before; Devices opens device management on
+an admin device; Disconnect works from _This device_.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -3761,6 +3839,7 @@ the API and the admin page), R42 (deleting revoked devices in the app),
 R43 (a used pairing code: the API and the admin page), R44 (a used
 pairing code in the app), R45 (SignalHub's own alert, set in the app) and
 R46 (a separate alert for critical events) are done. **R47 (the alert's
-vibration pattern and length, set in the app) is next.**
+vibration pattern and length, set in the app) is next**, then R48 (one
+Settings screen, in folding groups) once R47 is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
