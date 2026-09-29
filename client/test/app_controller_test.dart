@@ -10,6 +10,7 @@ import 'package:signalhub_client/src/models/event.dart';
 import 'package:signalhub_client/src/models/inbox_filter.dart';
 import 'package:signalhub_client/src/push/push_registration.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
+import 'package:signalhub_client/src/settings/settings_groups.dart';
 
 import 'support/fakes.dart';
 
@@ -1605,5 +1606,60 @@ void main() {
         expect(backend.pairingStatusRequests, 1);
       });
     }
+  });
+  group('open settings groups', () {
+    late InMemoryOpenGroupsStore openGroups;
+
+    AppController withOpenGroups() => AppController(
+      store: store,
+      apiFactory: (credentials) =>
+          backend.api(credentials.baseUrl, credentials.clientKey),
+      redeemPairing: backend.redeemPairing,
+      push: push,
+      openGroups: openGroups,
+    );
+
+    setUp(() => openGroups = InMemoryOpenGroupsStore());
+
+    test('are saved on the device as they open and fold', () async {
+      final app = withOpenGroups();
+      await app.start();
+
+      await app.setSettingsGroupOpen(SettingsGroup.alert, open: true);
+      await app.setSettingsGroupOpen(SettingsGroup.device, open: true);
+      await app.setSettingsGroupOpen(SettingsGroup.alert, open: false);
+
+      expect(app.openSettingsGroups, {SettingsGroup.device});
+      expect(openGroups.saved, {SettingsGroup.device});
+    });
+
+    test('are read at start and kept when the device disconnects', () async {
+      openGroups.saved = {SettingsGroup.critical};
+      final app = withOpenGroups();
+
+      await app.start();
+      expect(app.openSettingsGroups, {SettingsGroup.critical});
+      await app.connect(serverUrl, clientKey);
+      await app.disconnect();
+
+      expect(app.openSettingsGroups, {SettingsGroup.critical});
+      expect(openGroups.saved, {SettingsGroup.critical});
+    });
+
+    test(
+      'that cannot be read or saved start folded and still change',
+      () async {
+        openGroups
+          ..saved = {SettingsGroup.critical}
+          ..fails = true;
+        final app = withOpenGroups();
+
+        await app.start();
+        expect(app.openSettingsGroups, isEmpty);
+        await app.setSettingsGroupOpen(SettingsGroup.alert, open: true);
+
+        expect(app.openSettingsGroups, {SettingsGroup.alert});
+      },
+    );
   });
 }

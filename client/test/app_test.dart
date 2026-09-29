@@ -12,7 +12,8 @@ import 'package:signalhub_client/src/connection/pairing_uri.dart';
 import 'package:signalhub_client/src/push/push_registration.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
 import 'package:signalhub_client/src/ui/connect_device_screen.dart';
-import 'package:signalhub_client/src/ui/device_screen.dart';
+import 'package:signalhub_client/src/settings/settings_groups.dart';
+import 'package:signalhub_client/src/ui/devices_screen.dart';
 import 'package:signalhub_client/src/ui/event_screen.dart';
 
 import 'support/fakes.dart';
@@ -192,11 +193,23 @@ void main() {
     expect(find.text(PushStatus.failed.description), findsOneWidget);
   });
 
+  Future<void> openSettings(WidgetTester tester) async {
+    await tester.tap(find.byKey(const Key('settings')));
+    await tester.pumpAndSettle();
+  }
+
+  /// Opens or folds [group] of the Settings screen by its header.
+  Future<void> toggleGroup(WidgetTester tester, SettingsGroup group) async {
+    final header = find.byKey(Key('summary-${group.name}'));
+    await tester.ensureVisible(header);
+    await tester.pumpAndSettle();
+    await tester.tap(header);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> openDevice(WidgetTester tester) async {
-    await tester.tap(find.byType(PopupMenuButton<void>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('device')));
-    await tester.pumpAndSettle();
+    await openSettings(tester);
+    await toggleGroup(tester, SettingsGroup.device);
   }
 
   AppController controllerOf(BuildIdentity build) => AppController(
@@ -774,29 +787,43 @@ void main() {
     expect(find.byKey(const Key('retryEvent')), findsOneWidget);
   });
 
-  testWidgets('disconnecting returns to setup', (tester) async {
+  testWidgets('disconnecting from Settings returns to setup after a '
+      'confirmation', (tester) async {
     await connect(tester);
+    await openDevice(tester);
 
-    await tester.tap(find.byType(PopupMenuButton<void>));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('disconnect')));
-    await tester.runAsync(pumpEventQueue);
     await tester.pumpAndSettle();
+    expect(find.text('Disconnect this device?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await settle(tester);
+    expect(find.text('Settings'), findsOneWidget);
+    expect(backend.pushTarget, isNotNull);
+
+    await tester.tap(find.byKey(const Key('disconnect')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm')));
+    await settle(tester);
 
     expect(find.byKey(const Key('connect')), findsOneWidget);
+    expect(find.text('Settings'), findsNothing);
     expect(backend.pushTarget, isNull);
   });
 
+  /// Opens Settings with the push filters and, where there are alert
+  /// settings, both alert groups unfolded.
   Future<void> openNotifications(WidgetTester tester) async {
     // Tall enough to build every row of the list.
     tester.view
-      ..physicalSize = const Size(800, 2000)
+      ..physicalSize = const Size(800, 6000)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.tap(find.byType(PopupMenuButton<void>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('notifications')));
-    await tester.pumpAndSettle();
+    await openSettings(tester);
+    if (controller.alert != null) {
+      await toggleGroup(tester, SettingsGroup.critical);
+      await toggleGroup(tester, SettingsGroup.alert);
+    }
+    await toggleGroup(tester, SettingsGroup.pushFilters);
   }
 
   Future<void> tapAndSave(WidgetTester tester, Finder finder) async {
@@ -918,7 +945,7 @@ void main() {
       await connect(tester);
       await openNotifications(tester);
 
-      expect(find.text('Critical events'), findsOneWidget);
+      expect(find.text('Critical alert'), findsOneWidget);
       expect(switchValue(tester, 'criticalDifferent'), isFalse);
       expect(find.byKey(const Key('criticalSound-urgent')), findsNothing);
       expect(switchValue(tester, 'criticalOnSilent'), isTrue);
@@ -1265,12 +1292,11 @@ void main() {
       await connect(tester);
       await openNotifications(tester);
       await tapAndSave(tester, find.byKey(const Key('alertSound-pulse')));
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+      await toggleGroup(tester, SettingsGroup.device);
 
-      await tester.tap(find.byType(PopupMenuButton<void>));
-      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('disconnect')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirm')));
       await settle(tester);
 
       expect(stored().sound, AlertSound.pulse);
@@ -1422,6 +1448,288 @@ void main() {
     });
   });
 
+  group('settings', () {
+    late FakeAlertPlatform alerts;
+    late InMemoryOpenGroupsStore openGroups;
+
+    setUp(() {
+      alerts = FakeAlertPlatform();
+      openGroups = InMemoryOpenGroupsStore();
+      push = FakePushService();
+      controller = AppController(
+        store: InMemoryCredentialsStore(),
+        apiFactory: (credentials) =>
+            backend.api(credentials.baseUrl, credentials.clientKey),
+        redeemPairing: backend.redeemPairing,
+        push: push,
+        alertPlatform: alerts,
+        openGroups: openGroups,
+      );
+    });
+
+    String summary(WidgetTester tester, SettingsGroup group) =>
+        tester.widget<Text>(find.byKey(Key('summary-${group.name}'))).data!;
+
+    /// A setting of each group, shown only while the group is open.
+    const insideGroup = {
+      SettingsGroup.pushFilters: Key('minimumSeverity'),
+      SettingsGroup.alert: Key('alertSound-signal'),
+      SettingsGroup.critical: Key('criticalDifferent'),
+      SettingsGroup.device: Key('disconnect'),
+    };
+
+    void expectOpen(Set<SettingsGroup> open) {
+      for (final MapEntry(key: group, value: key) in insideGroup.entries) {
+        expect(
+          find.byKey(key),
+          open.contains(group) ? findsOneWidget : findsNothing,
+          reason: group.name,
+        );
+      }
+    }
+
+    void useTallView(WidgetTester tester) {
+      tester.view
+        ..physicalSize = const Size(800, 6000)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('the gear icon opens Settings with every group folded', (
+      tester,
+    ) async {
+      await connect(tester);
+
+      expect(find.byType(PopupMenuButton<void>), findsNothing);
+      expect(find.byTooltip('Settings'), findsOneWidget);
+      await openSettings(tester);
+
+      expect(find.text('Settings'), findsOneWidget);
+      expect(find.byKey(const Key('pushEnabled')), findsOneWidget);
+      for (final title in [
+        'Push filters',
+        'Alert',
+        'Critical alert',
+        'This device',
+      ]) {
+        expect(find.text(title), findsOneWidget);
+      }
+      expectOpen({});
+    });
+
+    testWidgets('each group unfolds to its settings and folds again', (
+      tester,
+    ) async {
+      useTallView(tester);
+      await connect(tester);
+      await openSettings(tester);
+
+      for (final group in SettingsGroup.values) {
+        await toggleGroup(tester, group);
+        expectOpen({group});
+        await toggleGroup(tester, group);
+        expectOpen({});
+      }
+    });
+
+    testWidgets('folded groups sum up the default settings', (tester) async {
+      await connect(tester);
+      await openSettings(tester);
+
+      expect(
+        summary(tester, SettingsGroup.pushFilters),
+        'All severities · all categories · all producers',
+      );
+      expect(
+        summary(tester, SettingsGroup.alert),
+        'Signal · 80 % · Medium · Short, short, long · Short',
+      );
+      expect(
+        summary(tester, SettingsGroup.critical),
+        'Same as Alert · sounds on silent',
+      );
+      expect(
+        summary(tester, SettingsGroup.device),
+        'Pixel 8 · Push notifications are on',
+      );
+    });
+
+    testWidgets('folded groups sum up settings changed from the defaults', (
+      tester,
+    ) async {
+      backend
+        ..publish(
+          'e-2',
+          'Disk almost full',
+          producer: {'id': 'p-2', 'name': 'nas-monitor'},
+        )
+        ..pushPreferences = {
+          ...FakeBackend.defaultPushPreferences,
+          'minimumSeverity': 'NORMAL',
+          'mutedCategories': ['INFO', 'COMPLETED'],
+          'mutedProducerIds': ['p-2'],
+        };
+      alerts
+        ..access = true
+        ..stored = jsonEncode(
+          platformAlerts(
+            const AlertSettings(
+              sound: AlertSound.pulse,
+              volume: 30,
+              vibration: AlertVibration.off,
+            ),
+            CriticalAlertSettings.defaults.copyWith(
+              different: true,
+              duringDoNotDisturb: true,
+            ),
+          ),
+        );
+      await connect(tester);
+      await openSettings(tester);
+
+      expect(
+        summary(tester, SettingsGroup.pushFilters),
+        'Normal and up · Completed, Info muted · nas-monitor muted',
+      );
+      expect(
+        summary(tester, SettingsGroup.alert),
+        'Pulse · 30 % · No vibration',
+      );
+      expect(
+        summary(tester, SettingsGroup.critical),
+        'Urgent · 100 % · Strong · Rapid pulse · Long · sounds on silent · '
+        'sounds during Do Not Disturb',
+      );
+    });
+
+    testWidgets('a summary follows a change made in its group', (tester) async {
+      useTallView(tester);
+      await connect(tester);
+      await openSettings(tester);
+      await toggleGroup(tester, SettingsGroup.alert);
+
+      await tapAndSave(tester, find.byKey(const Key('alertSound-beacon')));
+      await tapAndSave(tester, find.text('Strong'));
+
+      expect(
+        summary(tester, SettingsGroup.alert),
+        'Beacon · 80 % · Strong · Short, short, long · Short',
+      );
+    });
+
+    testWidgets('the groups left open are open the next time', (tester) async {
+      useTallView(tester);
+      await connect(tester);
+      await openSettings(tester);
+
+      await toggleGroup(tester, SettingsGroup.alert);
+      await toggleGroup(tester, SettingsGroup.device);
+      await toggleGroup(tester, SettingsGroup.pushFilters);
+      await toggleGroup(tester, SettingsGroup.pushFilters);
+      expect(openGroups.saved, {SettingsGroup.alert, SettingsGroup.device});
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await openSettings(tester);
+
+      expectOpen({SettingsGroup.alert, SettingsGroup.device});
+    });
+
+    testWidgets('the groups left open are read from the device at start', (
+      tester,
+    ) async {
+      useTallView(tester);
+      openGroups.saved = {SettingsGroup.critical};
+      await connect(tester);
+
+      await openSettings(tester);
+
+      expectOpen({SettingsGroup.critical});
+    });
+
+    testWidgets('groups whose state cannot be kept still fold', (tester) async {
+      useTallView(tester);
+      openGroups.fails = true;
+      await connect(tester);
+      await openSettings(tester);
+
+      await toggleGroup(tester, SettingsGroup.critical);
+
+      expectOpen({SettingsGroup.critical});
+    });
+
+    testWidgets('while push is off, the groups it shapes are greyed and can '
+        'still be changed', (tester) async {
+      useTallView(tester);
+      backend.pushPreferences = {
+        ...FakeBackend.defaultPushPreferences,
+        'enabled': false,
+      };
+      await connect(tester);
+      await openSettings(tester);
+
+      const note = 'Applies once push notifications are on';
+      for (final group in [
+        SettingsGroup.pushFilters,
+        SettingsGroup.alert,
+        SettingsGroup.critical,
+      ]) {
+        expect(find.byKey(Key('pushOff-${group.name}')), findsOneWidget);
+      }
+      expect(find.text(note), findsNWidgets(3));
+      expect(find.byKey(const Key('pushOff-device')), findsNothing);
+
+      await toggleGroup(tester, SettingsGroup.pushFilters);
+      await tapAndSave(tester, find.text('High'));
+      expect(backend.pushPreferences?['minimumSeverity'], 'HIGH');
+      expect(backend.pushPreferences?['enabled'], isFalse);
+      await toggleGroup(tester, SettingsGroup.alert);
+      await tapAndSave(tester, find.byKey(const Key('alertSound-glass')));
+      expect(AlertSettings.fromStored(alerts.stored)!.sound, AlertSound.glass);
+
+      await tapAndSave(tester, find.byKey(const Key('pushEnabled')));
+
+      expect(find.text(note), findsNothing);
+    });
+
+    testWidgets('an admin device has a Devices row that opens its devices', (
+      tester,
+    ) async {
+      backend
+        ..admin = true
+        ..addClient('c-tablet', 'Tablet')
+        ..addClient('c-laptop', 'Laptop', admin: true)
+        ..addClient('c-old', 'Old laptop', admin: true);
+      // A revoked admin is no longer counted as one.
+      backend.otherClients.last['revokedAt'] = '2026-09-26T09:00:00Z';
+      await connect(tester);
+      await openSettings(tester);
+      await settle(tester);
+
+      final row = find.byKey(const Key('devices'));
+      expect(
+        find.descendant(of: row, matching: find.text('4 devices · 2 admins')),
+        findsOneWidget,
+      );
+      await tester.tap(row);
+      await settle(tester);
+
+      expect(find.text('Devices'), findsOneWidget);
+      expect(find.text('Tablet'), findsOneWidget);
+      expect(find.byKey(const Key('connectDevice')), findsOneWidget);
+    });
+
+    testWidgets('a device that is not an admin has no Devices row', (
+      tester,
+    ) async {
+      await connect(tester);
+      await openSettings(tester);
+      await settle(tester);
+
+      expect(find.byKey(const Key('devices')), findsNothing);
+    });
+  });
+
   group('device management', () {
     const tablet = 'c-tablet';
     const laptop = 'c-laptop';
@@ -1437,7 +1745,9 @@ void main() {
 
     Future<void> openDevices(WidgetTester tester) async {
       await connect(tester);
-      await openDevice(tester);
+      await openSettings(tester);
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('devices')));
       await settle(tester);
     }
 
@@ -1462,8 +1772,11 @@ void main() {
     ) async {
       backend.admin = false;
 
-      await openDevices(tester);
+      await connect(tester);
+      await openSettings(tester);
+      await settle(tester);
 
+      expect(find.byKey(const Key('devices')), findsNothing);
       expect(find.text('Devices'), findsNothing);
       expect(find.text('Tablet'), findsNothing);
       expect(find.byKey(const Key('connectDevice')), findsNothing);
@@ -1478,9 +1791,11 @@ void main() {
     ) async {
       backend.deviceEndpoints = false;
 
-      await openDevices(tester);
+      await connect(tester);
+      await openSettings(tester);
+      await settle(tester);
 
-      expect(find.text('Devices'), findsNothing);
+      expect(find.byKey(const Key('devices')), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.text(AppController.notAdminMessage), findsNothing);
     });
@@ -1587,7 +1902,7 @@ void main() {
       }
       await openDevices(tester);
 
-      await scrollToEnd(tester, find.byType(DeviceScreen));
+      await scrollToEnd(tester, find.byType(DevicesScreen));
 
       expectClearOfNavigationBar(tester, find.byKey(const Key('device-c-20')));
       final actions = find.byKey(const Key('deviceActions-c-20'));

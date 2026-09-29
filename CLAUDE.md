@@ -75,9 +75,11 @@ none, volume and vibration with its pattern and length, set in the app,
 stored on the device), a
 separate alert for critical events chosen by severity alone (its own
 sound, volume, vibration, pattern and length when switched on, sounding on silent and,
-with Do Not Disturb access, during Do Not Disturb as set), and its
-build
-and commit on the *This device* screen, where an admin device also lists
+with Do Not Disturb access, during Do Not Disturb as set), all on one
+*Settings* screen from a gear icon on the inbox, in folding groups that
+sum up their values and stay open as left, with its build
+and commit and disconnecting in its *This device* group, and on an admin
+device a *Devices* row opening a screen that lists
 every device to make one an admin, revoke one that is not an admin or
 delete a revoked one, and connects a new device with a pairing code shown as a QR code with its
 countdown and a link to copy, saying which device used it; every release attaches it as an

@@ -88,20 +88,20 @@ it. Titles of the events they publish start with `Device review:`.
 | Check | What it does | What it changes |
 |---|---|---|
 | `connected-start` | Force-stops and starts the app; it must open on the inbox, not the setup screen, with the server's unread count on its badge. | Stops the app. |
-| `device-push-on` | Opens *This device*; it must say *Push notifications are on*. | Nothing. |
+| `device-push-on` | Opens *Settings* (the inbox's gear icon) and unfolds its *This device* group, unless the app left it open; it must say *Push notifications are on*. | May leave the group open. |
 | `server-push-target` | Reads the client with the admin token; its push target must be `fcm`. | Nothing. |
 | `events-channel` | The app's `signalhub_events` notification channel must be at high importance (4) or more, with no sound and no vibration of its own (the app plays its alert). | Nothing. |
 | `foreground-push` | Publishes with the app in front; the event must appear in the inbox, with no system notification. | Publishes 1 event. |
 | `background-push` | Goes home and publishes; the notification must be in the `signalhub_events` channel, and tapping it in the shade must open the event and mark it read on the server. | Publishes 1 event, marks it read. |
-| `alert-played` | Goes home and publishes; the app must log that it played its alert (`SignalHubAlert` in `logcat`) with the chosen sound. Then chooses another sound on the *Notifications* screen (which previews it), publishes again, and the app must play that one; the first sound is chosen again afterwards, even when the check fails. **What only the owner can judge:** see [Alert, by ear and by hand](#alert-by-ear-and-by-hand). | Publishes 2 events; plays the alert and two previews; restores the sound. |
+| `alert-played` | Goes home and publishes; the app must log that it played its alert (`SignalHubAlert` in `logcat`) with the chosen sound. Then chooses another sound in the *Alert* group of *Settings*, unfolding it if folded (which previews it), publishes again, and the app must play that one; the first sound is chosen again afterwards, even when the check fails. **What only the owner can judge:** see [Alert, by ear and by hand](#alert-by-ear-and-by-hand). | Publishes 2 events; plays the alert and two previews; restores the sound; may leave the group open. |
 | `alert-quiet` | Posts a notification as another app (`cmd notification post`, the shell's): the app must log no alert. Then **turns do-not-disturb on** (`cmd notification set_dnd priority`) and publishes with the app in the background: the app must log that it did not play its alert because of do-not-disturb. Do-not-disturb is turned off even when the check fails. | Posts a shell notification (dismiss it by hand); toggles do-not-disturb; publishes 1 event. |
-| `alert-critical` | Needs the critical settings at their defaults (no different alert, *Urgent* as its own sound, a long *Rapid pulse* as its own vibration) and a general sound other than *Urgent*. Publishes a `NORMAL` and a `CRITICAL` event with the app in the background: the critical push must log `Critical alert played` with the normal push's sound and vibration pattern and length (`pattern=... length=...` in the log). Then turns **Different alert for critical events** on (on the *Notifications* screen, scrolling to it), publishes a `CRITICAL` event, which must play *Urgent* with `pattern=rapid length=long`, and a `NORMAL` one, which must play the general sound, pattern and length. The switch is turned off again, even when the check fails. | Publishes 4 events; plays the alerts; toggles the switch and restores it. |
+| `alert-critical` | Needs the critical settings at their defaults (no different alert, *Urgent* as its own sound, a long *Rapid pulse* as its own vibration) and a general sound other than *Urgent*. Publishes a `NORMAL` and a `CRITICAL` event with the app in the background: the critical push must log `Critical alert played` with the normal push's sound and vibration pattern and length (`pattern=... length=...` in the log). Then turns **Different alert for critical events** on (in the *Critical alert* group of *Settings*, unfolding it if folded), publishes a `CRITICAL` event, which must play *Urgent* with `pattern=rapid length=long`, and a `NORMAL` one, which must play the general sound, pattern and length. The switch is turned off again, even when the check fails. | Publishes 4 events; plays the alerts; toggles the switch and restores it; may leave the group open. |
 | `alert-critical-quiet` | Needs the critical settings at their defaults. **Sets the ringer to silent** (`cmd audio set-ringer-mode SILENT`, which not every Android version has: the check then fails saying so, and silent mode is left to the list below) and publishes a `NORMAL` event, which must not play (`silent mode`), and a `CRITICAL` one, which must play as an alarm (**it sounds, at the alarm volume**). Sets the ringer back to normal, then **turns do-not-disturb on** and publishes a `CRITICAL` event, which must not play (`do not disturb`). The ringer is set to normal and do-not-disturb turned off even when the check fails. | Sets the ringer to silent, then normal (not to what it was); toggles do-not-disturb; publishes 3 events; sounds one critical alert. |
 | `refresh-on-return` | Goes home, publishes, and returns; the inbox must show the event without a pull to refresh. | Publishes 1 event (`LOW`). |
 | `killed-app-push` | Kills the app in the background (`am kill`, as the system would), publishes; the notification must arrive and tapping it must cold-start the app on the event. | Kills the app, publishes 1 event, marks it read. |
 | `force-stop-reregisters` | Force-stops and starts the app; the server's push target must be set again (a newer `updatedAt`). | Stops the app. |
 | `read-state` | Publishes, opens the event from the inbox (the server must say read), taps *Mark as unread* (the server must say unread, and the badge follow), then marks it read on the server; the badge must follow after a refresh. | Publishes 1 event (`LOW`), changes its read state. |
-| `push-preferences` | Switches push off on the *Notifications* screen (the server must store it) and publishes: no notification, waiting 20 s before changing the preferences again, since they apply when the event is dispatched, not when it is published; then sets a minimum severity of `HIGH` through the API and publishes a `LOW` and a `HIGH` event: only the `HIGH` one is pushed. The preferences as they were before are restored, even when the check fails. | Publishes 3 events; restores the preferences. |
+| `push-preferences` | Switches push off with the *Push notifications* switch at the top of *Settings* (the server must store it) and publishes: no notification, waiting 20 s before changing the preferences again, since they apply when the event is dispatched, not when it is published; then sets a minimum severity of `HIGH` through the API and publishes a `LOW` and a `HIGH` event: only the `HIGH` one is pushed. The preferences as they were before are restored, even when the check fails. | Publishes 3 events; restores the preferences. |
 | `idempotent-publish` | Publishes twice with one idempotency key; both answers must be one event, with one notification. | Publishes 1 event. |
 | `backend-down` | Publishes and shows the event, **stops the backend**, refreshes (the app must stay up), opens the event (marking it read fails, so it must offer *Mark as read*), **starts the backend**, and taps *Mark as read*: the server must say read. The backend is started again even when the check fails. | Stops and starts the backend; publishes 1 event (`LOW`). |
 | `offline-push` | **Turns airplane mode on**, publishes, and expects no notification; turns it off, and the notification must arrive within 3 minutes. Airplane mode is turned off even when the check fails. | Toggles airplane mode; publishes 1 event. |
@@ -110,9 +110,12 @@ it. Titles of the events they publish start with `Device review:`.
 | `no-focus-border` | On the inbox, no element may have keyboard focus; the screenshot `inbox.png` is kept for a look. | Nothing. |
 | `backend-log` | The backend's log since the run started (`docker compose logs`) must have no line at `WARN` or `ERROR`, in the text or the JSON format. `backend-down` and `backend-restart` may cause some on purpose; run this check alone afterwards to look at the rest. | Nothing. |
 
-The screen's texts the script looks for (*Show menu*, *This device*,
-*Mark as read*, and so on) come from `client/lib/src/ui/`. If the app's
-wording changes, update the constants at the top of the script.
+The screen's texts the script looks for (*Settings*, the groups' titles
+such as *This device*, *Mark as read*, and so on) come from
+`client/lib/src/ui/`. If the app's wording changes, update the constants at
+the top of the script. The app remembers which groups of *Settings* were
+left open, so the script unfolds a group only when the text its first rows
+show is not already below its header.
 
 ## Alert, by ear and by hand
 
@@ -126,7 +129,7 @@ as an update makes them), check by hand:
    sound with a medium vibration of two short buzzes and a long one, and
    *Settings → Apps → SignalHub → Notifications* shows the *Events*
    category, with no sound of its own.
-2. On *Notifications → Alert*, each sound plays when chosen or with its
+2. In *Settings → Alert*, each sound plays when chosen or with its
    play button; *None* plays nothing and turns the volume off.
 3. With the app in the background, and again after swiping it away, a push
    plays the chosen sound at the chosen volume: 10 % is clearly quieter
@@ -167,7 +170,7 @@ Critical events (publish them with `severity` `CRITICAL`, the others with
     quiet. Taking the access away again turns the switch off and keeps
     critical pushes quiet during Do Not Disturb.
 
-The vibration's pattern and length (*Notifications → Alert*, below
+The vibration's pattern and length (*Settings → Alert*, below
 *Vibration*) can only be felt; `alert-critical` checks only what the app
 logs it played. By hand, with the release APK installed over the
 previous release:

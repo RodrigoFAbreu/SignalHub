@@ -10,6 +10,7 @@ import 'src/app.dart';
 import 'src/app_controller.dart';
 import 'src/connection/server_credentials.dart';
 import 'src/push/firebase_push_service.dart';
+import 'src/settings/settings_groups.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,6 +27,7 @@ Future<void> main() async {
     alertPlatform: defaultTargetPlatform == TargetPlatform.android
         ? MethodChannelAlertPlatform()
         : null,
+    openGroups: SecureOpenGroupsStore(),
   );
   runApp(SignalHubApp(controller: controller));
   unawaited(controller.start());

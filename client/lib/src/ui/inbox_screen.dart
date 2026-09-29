@@ -5,12 +5,11 @@ import 'package:flutter/material.dart';
 import '../app_controller.dart';
 import '../models/event.dart';
 import '../push/push_registration.dart';
-import 'device_screen.dart';
 import 'event_screen.dart';
 import 'event_style.dart';
 import 'inbox_filter_sheet.dart';
 import 'link_opener.dart';
-import 'push_preferences_screen.dart';
+import 'settings_screen.dart';
 
 /// The connected app: every event, newest first, read page by page from
 /// `GET /api/v1/events`, with unread events marked and counted, optionally
@@ -146,33 +145,15 @@ class _InboxScreenState extends State<InboxScreen> {
               ? _markAllRead
               : null,
         ),
-        PopupMenuButton<void>(
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              key: const Key('device'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => DeviceScreen(controller: _controller),
-                ),
-              ),
-              child: const Text('This device'),
+        IconButton(
+          key: const Key('settings'),
+          tooltip: 'Settings',
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => SettingsScreen(controller: _controller),
             ),
-            PopupMenuItem(
-              key: const Key('notifications'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) =>
-                      PushPreferencesScreen(controller: _controller),
-                ),
-              ),
-              child: const Text('Notifications'),
-            ),
-            PopupMenuItem(
-              key: const Key('disconnect'),
-              onTap: _controller.disconnect,
-              child: const Text('Disconnect this device'),
-            ),
-          ],
+          ),
         ),
       ],
     );

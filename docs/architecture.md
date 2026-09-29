@@ -1523,7 +1523,7 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   background never reach the app, so it also re-reads the inbox whenever it
   returns to the foreground.
 - **Alert.** On Android a SignalHub push sounds and vibrates as the
-  owner set it in the app (*Notifications → Alert*): one of SignalHub's own
+  owner set it in the app (*Settings → Alert*): one of SignalHub's own
   bundled sounds or none, its volume, and SignalHub's own vibration, off,
   light, medium or strong, in one of SignalHub's patterns and at one of
   three lengths (about 0.6, 2 or 5 s, by repeating the pattern, never over
@@ -1649,7 +1649,22 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   newest event shown as `through` (`POST /api/v1/events/read`), so events
   that arrived since stay unread; older events not paged in yet are read
   too, as the owner asked for everything up to that point.
-- **Push preferences.** A *Notifications* screen sets this installation's
+- **Settings.** One *Settings* screen, opened by the gear icon in the
+  inbox's top bar, holds every setting of the app: the *Push
+  notifications* switch at the top, then groups that fold, in this order:
+  *Push filters*, *Alert*, *Critical alert* and *This device*. Folded, a
+  group's header sums up its values in one line, so the owner sees what
+  each is set to without opening it. Groups start folded; the ones the
+  owner leaves open are kept on the device (in the platform's secure
+  storage, the store the app already has, though nothing in them is
+  secret) and are open the next time. While push is paused, *Push
+  filters*, *Alert* and *Critical alert* are greyed with a line saying they
+  apply once push is on, and still change. On an admin device a *Devices*
+  row, summing up the devices and admins, opens device management on a
+  screen of its own. Reorganising the settings changed none of them: the
+  push preferences stay on the server and the alert on the device.
+- **Push preferences.** The *Push notifications* switch and the *Push
+  filters* group of Settings set this installation's
   [push preferences](#push-preferences): pause, minimum severity, and a
   switch for each category and each producer. Every change is saved at once
   with `PUT /api/v1/client/push-preferences`, sending all of them (the
@@ -1659,17 +1674,19 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   the inbox has read since the app connected, by name; a muted producer with no event there is listed by ID so
   it can be unmuted. Severities and categories are sent back as the server
   sent them, so values added in a later backend release survive a change. A
-  server without push preferences (older than the app) is reported instead
-  of the screen.
-- **This device.** A screen from the inbox menu shows the installation's
+  server without push preferences (older than the app) is reported in
+  *Push filters* instead, and there is no switch.
+- **This device.** A group of Settings shows the installation's
   name, server and push status, and which build the app is: "SignalHub
   X.Y.Z" for an app a release built, "SignalHub development build" for any
   other, and "Commit" with the first 7 characters of the commit it was built
-  from, or "Commit unknown" (see [Version](#version)).
+  from, or "Commit unknown" (see [Version](#version)). Its *Disconnect this
+  device*, after a confirmation, removes the push target and forgets the
+  credentials, and the app returns to setup.
 - **Managing devices.** On an [admin device](#admin-devices) (its
-  registration says `admin`), the *This device* screen also lists every
-  device with `GET /api/v1/client/devices`, read when the screen opens and
-  when it is pulled down: active devices first, each with its name and
+  registration says `admin`), the *Devices* screen, opened from Settings,
+  lists every device with `GET /api/v1/client/devices`, read when Settings
+  or that screen opens and when either is pulled down: active devices first, each with its name and
   whether it is this device, an admin or revoked. A device that is neither
   an admin nor revoked offers *Make an admin* and *Revoke*, each after a
   confirmation ([Device management from an admin device](#device-management-from-an-admin-device));
@@ -1686,9 +1703,10 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   v2.12.0), which has no such route; so does a `405`. The app then says the
   server cannot delete devices and stops offering *Delete*, which is shown
   until that first try because the server does not say which endpoints it
-  has, and that try changes nothing. It lives on *This device*, not in
-  a tab of its own: the app has no tabs, managing devices is occasional,
-  and ordinary devices would never use one. A `403` from the device
+  has, and that try changes nothing. It lives on a screen of its own,
+  reached from Settings, not in a tab: the app has no tabs, managing
+  devices is occasional, and a long list with actions per device reads
+  better on its own screen than folded among the settings. A `403` from the device
   endpoints, or a registration read since without admin rights, says "This
   device is no longer an admin device" in place of the list and the app
   stops offering it. Devices that are not admins, and servers without
@@ -1871,7 +1889,7 @@ the placeholder `0.0.0.dev0` of `sdk/python/pyproject.toml`:
 carries `1.2.3`. A package built any other way keeps the placeholder and
 prints `SignalHub development build`.
 
-The app shows its build on its *This device* screen (see
+The app shows its build in the *This device* group of its Settings (see
 [Client application](#client-application)). It takes two values at build
 time as `--dart-define`s, never the placeholder `version:` of
 `client/pubspec.yaml`: `SIGNALHUB_REVISION`, the commit, which the build
