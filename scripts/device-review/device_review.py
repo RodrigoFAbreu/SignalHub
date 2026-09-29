@@ -53,6 +53,10 @@ SOUND_LABELS = {
     "pulse": "Pulse",
     "glass": "Glass",
 }
+CRITICAL_SWITCH = "Different alert for critical events"
+# The sound critical events play once they have an alert of their own, by
+# default (client/lib/src/alert/alert_settings.dart).
+CRITICAL_SOUND = "urgent"
 MARK_READ = "Mark as read"
 MARK_UNREAD = "Mark as unread"
 EVENT_SCREEN_TITLE = "Event"
@@ -139,9 +143,10 @@ def channel_importance(
 
 
 def alert_messages(logcat: str) -> list[str]:
-    """What the app logged about its alert for pushes, oldest first, from
+    """What the app logged about its alert for pushes, critical or not,
+    oldest first, from
     `logcat`; not its previews on the Notifications screen."""
-    return re.findall(rf"\b{ALERT_TAG}\s*: (Alert .*\S)", logcat)
+    return re.findall(rf"\b{ALERT_TAG}\s*: ((?:Critical a|A)lert .*\S)", logcat)
 
 
 @dataclass(frozen=True)
@@ -417,6 +422,20 @@ class Device:
 
     def tap_label(self, label: str, timeout: float = 20.0, exact: bool = False) -> None:
         self.tap(self.wait_for(label, timeout, exact))
+
+    def scroll_to(self, label: str, swipes: int = 6) -> Node:
+        """The element showing `label`, scrolling the screen up until it
+        shows."""
+        for _ in range(swipes):
+            node = find_node(self.nodes(), label)
+            if node is not None:
+                return node
+            self.guard()
+            width, height = self.screen_size()
+            x = width // 2
+            self.shell(f"input swipe {x} {height * 3 // 4} {x} {height // 4} 400")
+            time.sleep(1)
+        raise CheckFailed(f"{label!r} not on the screen after {swipes} swipes")
 
     def notifications(self) -> list[PostedNotification]:
         return posted_notifications(self.shell("dumpsys notification --noredact"))
@@ -719,20 +738,20 @@ def check_events_channel(review: Review) -> str:
     return f"importance {importance}, no sound or vibration of its own"
 
 
-def alert_push(review: Review, what: str) -> str:
+def alert_push(review: Review, what: str, severity: str = "HIGH") -> str:
     """Publishes with the app in the background; what the app logged about
     its alert for the push."""
     review.inbox()
     review.device.home()
     seen = len(review.device.alert_messages())
     title = review.title(what)
-    review.server.publish(title)
+    review.server.publish(title, severity=severity)
     review.device.wait_for_notification(title)
     return review.device.wait_for_alert(seen)
 
 
-def played_sound(message: str) -> str:
-    if not message.startswith("Alert played"):
+def played_sound(message: str, kind: str = "Alert") -> str:
+    if not message.startswith(f"{kind} played"):
         raise CheckFailed(f"the app logged: {message}")
     sound = re.search(r"\bsound=(\w+)", message)
     return sound.group(1) if sound else "none"
@@ -775,6 +794,76 @@ def check_alert_quiet(review: Review) -> str:
     if not message.startswith("Alert not played (do not disturb)"):
         raise CheckFailed(f"during do-not-disturb the app logged: {message}")
     return "nothing for another app's notification; quiet during do-not-disturb"
+
+
+def toggle_critical_alert(review: Review) -> None:
+    review.open_menu_item(NOTIFICATIONS_ITEM)
+    review.device.tap(review.device.scroll_to(CRITICAL_SWITCH))
+
+
+def check_alert_critical(review: Review) -> str:
+    general = played_sound(alert_push(review, "normal", "NORMAL"))
+    critical = alert_push(review, "critical", "CRITICAL")
+    if played_sound(critical, "Critical alert") != general:
+        raise CheckFailed(f"with the switch off, a critical push: {critical}")
+    toggle_critical_alert(review)
+    try:
+        own = played_sound(
+            alert_push(review, "critical, own alert", "CRITICAL"), "Critical alert"
+        )
+        normal = played_sound(
+            alert_push(review, "normal, own critical alert", "NORMAL")
+        )
+    finally:
+        toggle_critical_alert(review)
+        review.device.home()
+    if own != CRITICAL_SOUND:
+        raise CheckFailed(f"with the switch on, a critical push played {own}")
+    if normal != general:
+        raise CheckFailed(f"with the switch on, a normal push played {normal}")
+    return (
+        f"switch off: both played {general}; switch on: critical {own}, normal "
+        f"{general} (switched off again)"
+    )
+
+
+def set_ringer(device: Device, mode: str) -> None:
+    output = (
+        device.shell(f"cmd audio set-ringer-mode {mode}", check=False) or ""
+    ).lower()
+    if "unknown" in output or "error" in output:
+        raise CheckFailed(
+            "this phone cannot set its ringer over adb (cmd audio "
+            "set-ringer-mode); check silent mode by hand (README.md)"
+        )
+
+
+def check_alert_critical_quiet(review: Review) -> str:
+    device = review.device
+    try:
+        set_ringer(device, "SILENT")
+        normal = alert_push(review, "normal on silent", "NORMAL")
+        critical = alert_push(review, "critical on silent", "CRITICAL")
+    finally:
+        device.shell("cmd audio set-ringer-mode NORMAL", check=False)
+    if not normal.startswith("Alert not played (silent mode)"):
+        raise CheckFailed(f"on silent, for a normal push the app logged: {normal}")
+    if (
+        not critical.startswith("Critical alert played")
+        or "as an alarm" not in critical
+    ):
+        raise CheckFailed(f"on silent, for a critical push the app logged: {critical}")
+    try:
+        device.shell("cmd notification set_dnd priority")
+        during = alert_push(review, "critical during do not disturb", "CRITICAL")
+    finally:
+        device.shell("cmd notification set_dnd off")
+    if not during.startswith("Critical alert not played (do not disturb"):
+        raise CheckFailed(f"during do-not-disturb the app logged: {during}")
+    return (
+        "on silent: normal quiet, critical played as an alarm; during "
+        "do-not-disturb: critical quiet"
+    )
 
 
 def check_foreground_push(review: Review) -> str:
@@ -1094,6 +1183,16 @@ CHECKS = [
         "alert-quiet",
         check_alert_quiet,
         "no alert for another app, none during do-not-disturb (toggles DND)",
+    ),
+    Check(
+        "alert-critical",
+        check_alert_critical,
+        "critical pushes: the general alert, then their own once switched on (restored)",
+    ),
+    Check(
+        "alert-critical-quiet",
+        check_alert_critical_quiet,
+        "on silent only critical pushes sound; none during DND (toggles both)",
     ),
     Check(
         "refresh-on-return",

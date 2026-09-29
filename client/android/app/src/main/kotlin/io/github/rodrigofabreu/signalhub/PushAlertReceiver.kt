@@ -12,7 +12,8 @@ import android.util.Log
 
 /**
  * Plays SignalHub's alert for a push the system shows: the events channel
- * is silent, so this is the push's sound and vibration. It receives every
+ * is silent, so this is the push's sound and vibration, a critical push's
+ * own or the general one. It receives every
  * FCM message, alongside Firebase's own receivers, which show the
  * notification.
  */
@@ -31,8 +32,11 @@ class PushAlertReceiver : BroadcastReceiver() {
             Log.i(AlertPlayer.TAG, "Alert not played ($muted)")
             return
         }
+        // By the push data's generic severity alone, never its producer,
+        // category or text.
+        val (kind, alert) = AlertPlayer.forPush(app, extras.getString("severity"))
         val pending = goAsync()
-        AlertPlayer.play(app, AlertPlayer.stored(app), "Alert") { pending.finish() }
+        AlertPlayer.play(app, alert, kind) { pending.finish() }
     }
 
     /**

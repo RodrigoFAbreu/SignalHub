@@ -6,7 +6,8 @@ enum AlertSound {
   signal('Signal'),
   beacon('Beacon'),
   pulse('Pulse'),
-  glass('Glass');
+  glass('Glass'),
+  urgent('Urgent');
 
   const AlertSound(this.label);
 
@@ -83,24 +84,26 @@ class AlertSettings {
   /// The settings a platform stored, or `null` when there are none. Values
   /// this version does not know fall back to the defaults one by one.
   static AlertSettings? fromStored(String? stored) {
-    if (stored == null) return null;
-    final Object? json;
-    try {
-      json = jsonDecode(stored);
-    } on FormatException {
-      return null;
-    }
-    if (json is! Map<String, Object?>) return null;
+    final json = _decode(stored);
+    return json == null ? null : fromJson(json);
+  }
+
+  /// The settings in [json] (sound, volume and vibration, as [toPlatform]
+  /// gives them); what is missing or unknown is [fallback]'s.
+  static AlertSettings fromJson(
+    Map<String, Object?> json, {
+    AlertSettings fallback = defaults,
+  }) {
     final sound = json['sound'];
     final volume = json['volume'];
     return AlertSettings(
       sound: !json.containsKey('sound')
-          ? defaults.sound
+          ? fallback.sound
           : sound == null
           ? null
-          : AlertSound.parse(sound) ?? defaults.sound,
-      volume: volume is num ? clampVolume(volume) : defaults.volume,
-      vibration: AlertVibration.parse(json['vibration']) ?? defaults.vibration,
+          : AlertSound.parse(sound) ?? fallback.sound,
+      volume: volume is num ? clampVolume(volume) : fallback.volume,
+      vibration: AlertVibration.parse(json['vibration']) ?? fallback.vibration,
     );
   }
 
@@ -165,4 +168,141 @@ class AlertSettings {
   String toString() =>
       'AlertSettings(${sound?.name ?? 'none'}, '
       '$volume %, ${vibration.name})';
+}
+
+/// How a push of severity `CRITICAL` alerts, whatever its producer or
+/// category. A critical push plays the general alert ([AlertSettings]),
+/// or [alert] when [different]; either way, [onSilent] and
+/// [duringDoNotDisturb] decide whether it sounds when the phone is on silent
+/// or vibrate, and during Do Not Disturb. Kept on the device, never on the
+/// server.
+class CriticalAlertSettings {
+  const CriticalAlertSettings({
+    required this.different,
+    required this.alert,
+    required this.onSilent,
+    required this.duringDoNotDisturb,
+  });
+
+  /// The same alert as every other push, but sounding on silent; more
+  /// urgent, louder and stronger than the general alert once [different].
+  static const defaults = CriticalAlertSettings(
+    different: false,
+    alert: AlertSettings(
+      sound: AlertSound.urgent,
+      volume: 100,
+      vibration: AlertVibration.strong,
+    ),
+    onSilent: true,
+    duringDoNotDisturb: false,
+  );
+
+  /// Whether critical pushes play [alert] instead of the general alert.
+  final bool different;
+
+  /// Critical pushes' own sound, volume and vibration, kept while
+  /// [different] is off.
+  final AlertSettings alert;
+
+  /// Whether a critical push sounds and vibrates while the phone's ringer
+  /// is on silent or vibrate.
+  final bool onSilent;
+
+  /// Whether a critical push sounds and vibrates during Do Not Disturb,
+  /// which Android allows only with the app's Do Not Disturb access.
+  final bool duringDoNotDisturb;
+
+  CriticalAlertSettings copyWith({
+    bool? different,
+    AlertSettings? alert,
+    bool? onSilent,
+    bool? duringDoNotDisturb,
+  }) => CriticalAlertSettings(
+    different: different ?? this.different,
+    alert: alert ?? this.alert,
+    onSilent: onSilent ?? this.onSilent,
+    duringDoNotDisturb: duringDoNotDisturb ?? this.duringDoNotDisturb,
+  );
+
+  /// The settings a platform stored with [platformAlerts], or `null` when
+  /// there are none (also when only a general alert was stored, by a
+  /// version without these). Values this version does not know fall back
+  /// to the defaults one by one.
+  static CriticalAlertSettings? fromStored(String? stored) {
+    final json = _decode(stored)?['critical'];
+    if (json is! Map<String, Object?>) return null;
+    bool flag(String key, bool fallback) =>
+        json[key] is bool ? json[key]! as bool : fallback;
+    return CriticalAlertSettings(
+      different: flag('different', defaults.different),
+      alert: AlertSettings.fromJson(json, fallback: defaults.alert),
+      onSilent: flag('onSilent', defaults.onSilent),
+      duringDoNotDisturb: flag(
+        'duringDoNotDisturb',
+        defaults.duringDoNotDisturb,
+      ),
+    );
+  }
+
+  /// These settings as stored, to read them back.
+  Map<String, Object?> toStored() => {
+    'different': different,
+    'sound': alert.sound?.name,
+    'volume': alert.volume,
+    'vibration': alert.vibration.name,
+    'onSilent': onSilent,
+    'duringDoNotDisturb': duringDoNotDisturb,
+  };
+
+  /// What a critical push plays, with [general] the general alert: the
+  /// alert's [AlertSettings.toPlatform], and `onSilent` and
+  /// `duringDoNotDisturb`, which the platform reads as `false` in the
+  /// general alert's.
+  Map<String, Object?> toPlatform(AlertSettings general) => {
+    ...(different ? alert : general).toPlatform(),
+    'onSilent': onSilent,
+    'duringDoNotDisturb': duringDoNotDisturb,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is CriticalAlertSettings &&
+      other.different == different &&
+      other.alert == alert &&
+      other.onSilent == onSilent &&
+      other.duringDoNotDisturb == duringDoNotDisturb;
+
+  @override
+  int get hashCode =>
+      Object.hash(different, alert, onSilent, duringDoNotDisturb);
+
+  @override
+  String toString() =>
+      'CriticalAlertSettings(different: $different, $alert, '
+      'onSilent: $onSilent, duringDoNotDisturb: $duringDoNotDisturb)';
+}
+
+/// What the platform stores (`AlertPlatform.save`): the [general] alert's
+/// [AlertSettings.toPlatform], played for every push but a critical one, as
+/// before critical pushes had their own; `critical`, the [critical]
+/// settings to read them back; and `criticalAlert`, what a push of severity
+/// `CRITICAL` plays.
+Map<String, Object?> platformAlerts(
+  AlertSettings general,
+  CriticalAlertSettings critical,
+) => {
+  ...general.toPlatform(),
+  'critical': critical.toStored(),
+  'criticalAlert': critical.toPlatform(general),
+};
+
+Map<String, Object?>? _decode(String? stored) {
+  if (stored == null) return null;
+  final Object? json;
+  try {
+    json = jsonDecode(stored);
+  } on FormatException {
+    return null;
+  }
+  return json is Map<String, Object?> ? json : null;
 }

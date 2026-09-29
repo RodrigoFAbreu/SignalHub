@@ -15,6 +15,13 @@ abstract interface class AlertPlatform {
   /// Plays [alert] once, as a push would. Returns `false` when the phone's
   /// silent mode or do-not-disturb keeps it quiet.
   Future<bool> preview(Map<String, Object?> alert);
+
+  /// Whether the owner gave the app Do Not Disturb access, without which
+  /// Android keeps it from sounding during do-not-disturb.
+  Future<bool> doNotDisturbAccess();
+
+  /// Opens the system screen where the owner gives that access.
+  Future<void> openDoNotDisturbAccess();
 }
 
 /// [AlertPlatform] over a method channel to the Android app.
@@ -33,4 +40,12 @@ class MethodChannelAlertPlatform implements AlertPlatform {
   @override
   Future<bool> preview(Map<String, Object?> alert) async =>
       await _channel.invokeMethod<bool>('preview', jsonEncode(alert)) ?? false;
+
+  @override
+  Future<bool> doNotDisturbAccess() async =>
+      await _channel.invokeMethod<bool>('doNotDisturbAccess') ?? false;
+
+  @override
+  Future<void> openDoNotDisturbAccess() =>
+      _channel.invokeMethod<void>('openDoNotDisturbAccess');
 }

@@ -27,5 +27,46 @@
     90,
     90,
     260
-  ]
+  ],
+  "critical": {
+    "different": false,
+    "sound": "urgent",
+    "volume": 100,
+    "vibration": "strong",
+    "onSilent": true,
+    "duringDoNotDisturb": false
+  },
+  "criticalAlert": {
+    "sound": "signal",
+    "volume": 80,
+    "vibration": "medium",
+    "resource": "signalhub_signal",
+    "gain": 0.8,
+    "timings": [
+      0,
+      90,
+      90,
+      90,
+      90,
+      260
+    ],
+    "amplitudes": [
+      0,
+      160,
+      0,
+      160,
+      0,
+      160
+    ],
+    "fallbackTimings": [
+      0,
+      90,
+      90,
+      90,
+      90,
+      260
+    ],
+    "onSilent": true,
+    "duringDoNotDisturb": false
+  }
 }

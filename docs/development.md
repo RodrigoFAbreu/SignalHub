@@ -906,7 +906,12 @@ stored, muted producers without inbox events, failures, a server without
 them), and the alert settings against `FakeAlertPlatform`, which stands in
 for the Android side (what is given to the platform for each sound, volume
 and vibration step, and the bundled defaults; saving, restoring after a
-restart, previews, a phone keeping them quiet, failures). Builds without
+restart, previews, a phone keeping them quiet, failures), and the critical events'
+settings (what a critical push plays with the switch on and off, both
+switches, reading them back, the defaults next to a general alert saved
+before them; previews on silent and during do-not-disturb with each switch
+on and off, and do-not-disturb access not given, given later or taken
+away). Builds without
 Firebase options run without push. The Android code that plays the alert
 is compiled by the release APK build and checked on a phone by the device
 review.
@@ -918,7 +923,9 @@ A functional review of the app on a real Android phone is scripted in
 against the local Compose stack with FCM, it publishes events and checks
 start-up, pushes in the foreground, the background and to a killed app,
 read state, push preferences, the app's own alert (played with the chosen
-sound, and quiet for other apps and during do-not-disturb), idempotent
+sound, and quiet for other apps and during do-not-disturb) and critical
+events' (their own alert once switched on, sounding on silent, quiet during
+do-not-disturb), idempotent
 publishing, a stopped and a
 restarted backend, a phone that was offline, and the backend log. It never
 touches the screen unless SignalHub (or the notification shade it opened)

@@ -43,6 +43,8 @@ BELL = ((1.0, 1.0), (2.0, 0.3), (3.0, 0.1))
 PLUCK = ((1.0, 1.0), (2.0, 0.2))
 BLIP = ((1.0, 1.0), (3.0, 0.2), (5.0, 0.06))
 GLASS = ((1.0, 1.0), (2.76, 0.4), (5.4, 0.15), (8.93, 0.05))
+# Odd harmonics only, close to a square wave: harsh on purpose.
+HORN = ((1.0, 1.0), (3.0, 0.33), (5.0, 0.2), (7.0, 0.14))
 
 # Each is short, and none is a single plain tone like a phone's defaults.
 SOUNDS = {
@@ -73,6 +75,16 @@ SOUNDS = {
     ),
     # One glassy strike with inharmonic partials, ringing out.
     "glass": (1.1, [Note(0.0, 1244.5, 0.25, GLASS)]),
+    # The critical events' default: two bursts of three fast, harsh notes
+    # jumping up and down a major third, like an alarm.
+    "urgent": (
+        1.2,
+        [
+            Note(burst + step * 0.11, frequency, 0.05, HORN)
+            for burst in (0.0, 0.5)
+            for step, frequency in enumerate((1760.0, 2217.5, 1760.0))
+        ],
+    ),
 }
 
 FADE_IN = 0.004  # seconds; avoids a click at each note's start
