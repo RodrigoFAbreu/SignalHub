@@ -209,11 +209,15 @@ class AlertLogTest(unittest.TestCase):
         self.assertEqual(
             alert_messages(sample("logcat-alert.txt")),
             [
-                "Alert played (sound on, vibration on): "
-                "sound=beacon volume=80% vibration=medium",
+                (
+                    "Alert played (sound on, vibration on): "
+                    "sound=beacon volume=80% vibration=medium"
+                ),
                 "Alert not played (the app is in the foreground)",
-                "Alert not played (do not disturb): "
-                "sound=signal volume=80% vibration=medium",
+                (
+                    "Alert not played (do not disturb): "
+                    "sound=signal volume=80% vibration=medium"
+                ),
             ],
         )
 
