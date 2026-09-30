@@ -141,7 +141,7 @@ public class DeviceNotifier {
       var results = new EnumMap<DeliveryResult, Integer>(DeliveryResult.class);
       for (var recipient : clients.pushRecipients()) {
         if (!recipient.clientId().equals(skipped) && recipient.preferences().enabled()) {
-          results.merge(delivery.deliver(recipient.clientId(), message), 1, Integer::sum);
+          results.merge(delivery.deliver(recipient.clientId(), message).result(), 1, Integer::sum);
         }
       }
       LOG.infof("Sent the %s for client %s: %s", what, clientId, results);

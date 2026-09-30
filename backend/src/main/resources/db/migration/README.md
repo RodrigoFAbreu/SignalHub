@@ -28,3 +28,4 @@ creates or alters tables.
 | `V13__add_client_admin.sql` | `clients.admin` and `pairings.admin`: whether a client is an admin device, and whether a pairing makes one |
 | `V14__add_pairing_created_by.sql` | `pairings.created_by`: the admin device that created a pairing, if one did |
 | `V15__add_pairing_redemption.sql` | `pairings.redeemed_at` and `pairings.redeemed_by`: when a pairing was redeemed, and as which client |
+| `V16__create_event_deliveries.sql` | `event_deliveries` table: how each push of an event to each device went, for the operator; deleted with the event or the device |

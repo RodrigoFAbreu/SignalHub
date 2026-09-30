@@ -267,7 +267,11 @@ row is written with the event, every client with a target gets one push
 unless its preferences exclude the event, expired claims are dispatched
 again, temporary failures are retried with backoff up to the last attempt,
 and a retry honours preferences changed meanwhile), `EventPushScheduleTest` (the dispatcher
-runs on its own timer) and `EventPushMessagesTest` (shortening the body). The
+runs on its own timer), `EventPushMessagesTest` (shortening the body) and
+`EventDeliveryApiTest` (each event's delivery records: every outcome with its
+reason, each filtering preference, retries as further attempts, the admin
+token, and a failure to record changing no push), with
+`EventDeliveriesMigrationTest` for their migration. The
 test profile turns the scheduler off so tests run the dispatcher directly. No
 test needs a real push provider, network access or credentials.
 `StartupDiagnosticsTest` covers the startup configuration summary (what it
@@ -384,11 +388,11 @@ doubt.
 | `/api/v1/events/{id}` | `GET`: read an event by its ID, with a client key or the admin token. |
 | `/api/v1/admin/producers/...` | Producer management, with the admin token, and `POST /{id}/events`: a test event sent as the producer. See [Producers and API keys](#producers-and-api-keys). |
 | `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
-| `/api/v1/admin/events/...` | Deleting events, with the admin token: `DELETE /{id}` one event; `POST /delete` a selection, a producer's events or events older than a time, with a dry run. See [Events API](#events-api). |
+| `/api/v1/admin/events/...` | With the admin token: `GET /{id}/deliveries` how the event's push went to each device (see [Delivery records](architecture.md#delivery-records)); deleting events: `DELETE /{id}` one event; `POST /delete` a selection, a producer's events or events older than a time, with a dry run. See [Events API](#events-api). |
 | `/api/v1/admin/status` | `GET`: whether push is configured, the push backlog, retries given up and the retention period, with the admin token; the admin page's Status section. See [Service status](architecture.md#service-status). |
 | `/api/v1/admin/pairings` | `POST`: create a pairing code for a new device, with the admin token; `GET /{id}`: whether it was used, and by which device. See [Pairing a device](#pairing-a-device). |
 | `/api/v1/pairing` | `POST`: a device redeems a pairing code and gets its client key; the owner's other devices get a push. See [Pairing a device](#pairing-a-device). |
-| `/admin/` | The admin page, in sections (`#devices`, `#producers`, `#events`, `#status`): with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and to delete it once revoked, and creates a pairing code shown as a QR code to scan, copy or download; lists every producer with its keys and its last event, creates producers, issues and revokes keys, and disables and enables producers; lists events a page at a time with the inbox's filters and opens one (`#events/<id>`) to read it and mark it read or unread, sends a test event as an enabled producer and links to it, and deletes one, the events ticked on a page, or every event of a producer or received before a day, after a confirmation stating their count; and shows whether SignalHub is working (release, health, push, backlog, failed pushes, retention, latest event). Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
+| `/admin/` | The admin page, in sections (`#devices`, `#producers`, `#events`, `#status`): with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and to delete it once revoked, and creates a pairing code shown as a QR code to scan, copy or download; lists every producer with its keys and its last event, creates producers, issues and revokes keys, and disables and enables producers; lists events a page at a time with the inbox's filters and opens one (`#events/<id>`) to read it, see how its push went to each device and mark it read or unread, sends a test event as an enabled producer and links to it, and deletes one, the events ticked on a page, or every event of a producer or received before a day, after a confirmation stating their count; and shows whether SignalHub is working (release, health, push, backlog, failed pushes, retention, latest event). Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
 | `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |

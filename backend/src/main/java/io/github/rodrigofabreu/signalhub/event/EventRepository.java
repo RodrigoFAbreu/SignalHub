@@ -136,7 +136,10 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
     return count("readAt is null");
   }
 
-  /** Deletes the event, with its pending push and retries. Returns whether it existed. */
+  /**
+   * Deletes the event, with its pending push, retries and delivery records. Returns whether it
+   * existed.
+   */
   boolean deleteEvent(UUID id) {
     return delete("id", id) == 1;
   }

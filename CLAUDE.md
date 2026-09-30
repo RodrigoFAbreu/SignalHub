@@ -34,7 +34,8 @@ admin token), a paginated event listing
 (`GET /api/v1/events`, with a client key or the admin token, filterable by
 read state among others, and browsed in the *Events* section of the
 admin page, a page at a time with the inbox's filters, opening an event
-to read it, open its link in a new tab and mark it read or unread), deleting
+to read it, open its link in a new tab, see how its push went to each
+device and mark it read or unread), deleting
 events by the operator (one, a selection, a producer's or those older than a
 date, each bulk delete with a dry-run count, through `/api/v1/admin/events`
 with the admin token or on the admin page after a confirmation), sending a
@@ -66,7 +67,8 @@ for devices that are not admins at `/api/v1/client/pairings`; whoever
 created a pairing asks whether it was used, and by which device, at
 `/api/v1/admin/pairings/{id}` or `/api/v1/client/pairings/{id}`) with
 per-client push preferences (pause, minimum severity, muted categories and producers) and
-each client's last push results in the management API, and a provider-neutral
+each client's last push results in the management API, each event's delivery
+records per device (`/api/v1/admin/events/{id}/deliveries`), and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging
 provider enabled by a service account key file (and the app's push options
 served to clients at `/api/v1/client/push-config`), and event-triggered push

@@ -472,6 +472,44 @@ class OpenApiTest {
   }
 
   @Test
+  void describesAnEventsDeliveries() {
+    var deliveries = "paths.'/api/v1/admin/events/{id}/deliveries'";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(deliveries + ".keySet()", containsInAnyOrder("get"))
+        .body(deliveries + ".get.security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(deliveries + ".get.tags", equalTo(List.of("Event management")))
+        .body(deliveries + ".get.responses.keySet()", containsInAnyOrder("200", "401", "404"))
+        .body(
+            deliveries + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/EventDeliveryList"))
+        .body(SCHEMAS + ".EventDeliveryList.required", containsInAnyOrder("items"))
+        .body(
+            SCHEMAS + ".EventDeliveryList.properties.items.items.$ref",
+            equalTo("#/components/schemas/EventDelivery"))
+        .body(
+            SCHEMAS + ".EventDelivery.required",
+            containsInAnyOrder("clientId", "clientName", "attempt", "outcome", "at"))
+        .body(
+            SCHEMAS + ".EventDelivery.properties.keySet()",
+            containsInAnyOrder("clientId", "clientName", "attempt", "outcome", "detail", "at"))
+        .body(
+            SCHEMAS + ".DeliveryOutcome.enum",
+            contains(
+                "DELIVERED",
+                "FILTERED",
+                "NO_TARGET",
+                "UNSUPPORTED_PROVIDER",
+                "INVALID_TARGET",
+                "TRANSIENT_FAILURE",
+                "PERMANENT_FAILURE"));
+  }
+
+  @Test
   void describesSendingAnEventAsAProducer() {
     var send = "paths.'/api/v1/admin/producers/{id}/events'.post";
     given()

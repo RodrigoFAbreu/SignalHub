@@ -324,6 +324,7 @@ jobs:
           # Management, health, metrics, OpenAPI and the admin page stay on the host, however the path is spelled.
           for path in /api/v1/admin/producers /api//v1/admin/producers /api/v1/%61dmin/producers \
               /api/v1/events/../admin/producers /api/v1/admin/events/delete /api/v1/admin/status \
+              /api/v1/admin/events/00000000-0000-0000-0000-000000000000/deliveries \
               /q/info /q/health \
               /api/%2e%2e/q/metrics /q/health/ready /q/metrics \
               /q/openapi / /admin/ /admin /admin/admin.js /%61dmin/ /api/../admin/ /connect/ /connect \
@@ -549,7 +550,7 @@ jobs:
           grep --quiet '^signalhub_push_dispatch_pending ' <<<"$metrics"
           grep --quiet '^agroal_active_count' <<<"$metrics"
           grep --quiet '^http_server_requests_seconds_count{.*uri="/api/v1/events/{id}"' <<<"$metrics"
-      - name: The operator sends a test event and deletes events on the host, after a dry run, and never through the proxy
+      - name: The operator sends a test event, reads an event's deliveries and deletes events on the host, after a dry run, and never through the proxy
         run: |
           manage() {
             curl --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" "$@"
@@ -578,11 +579,19 @@ jobs:
             "https://localhost/api/v1/admin/producers/$producer_id/events")
           test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
           docker compose logs backend | grep --quiet "Operator sent event .* as producer $producer_id"
+          # An event's delivery records, on the host only; they go with the event.
+          manage --fail "http://localhost:8080/api/v1/admin/events/$one/deliveries" \
+            | jq --exit-status '.items | type == "array"'
+          status=$(manage --cacert "$RUNNER_TEMP/proxy-ca.crt" --output /dev/null --write-out '%{http_code}' \
+            "https://localhost/api/v1/admin/events/$one/deliveries")
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
           # One event, then the rest of the producer's, counted first.
           test "$(manage --output /dev/null --write-out '%{http_code}' --request DELETE \
             "http://localhost:8080/api/v1/admin/events/$one")" = 204
           test "$(manage --output /dev/null --write-out '%{http_code}' --request DELETE \
             "http://localhost:8080/api/v1/admin/events/$one")" = 404
+          test "$(manage --output /dev/null --write-out '%{http_code}' \
+            "http://localhost:8080/api/v1/admin/events/$one/deliveries")" = 404
           delete_events() {
             manage --fail --header 'Content-Type: application/json' --data "$1" \
               http://localhost:8080/api/v1/admin/events/delete
@@ -1114,6 +1123,26 @@ jobs:
             "$SIGNALHUB_URL/q/metrics")
           grep --quiet --extended-regexp '^signalhub_push_deliveries_total\{result="delivered",?\} 1\.0$' <<<"$metrics"
           grep --quiet --extended-regexp '^signalhub_push_deliveries_total\{result="invalid_target",?\} 1\.0$' <<<"$metrics"
+          # Each event's delivery records say the same per device, by name, without a push token.
+          deliveries() {
+            curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+              "$SIGNALHUB_URL/api/v1/admin/events/$1/deliveries"
+          }
+          # The high event's records are written after its sends, which the wait above saw.
+          for _ in $(seq 30); do
+            deliveries "$HIGH_ID" | jq --exit-status '.items | length == 2' > /dev/null && break
+            sleep 1
+          done
+          for id in "$LOW_ID" "$HIGH_ID"; do
+            if deliveries "$id" | grep --quiet -- '-token'; then
+              echo "a push token in the delivery records of $id"; exit 1
+            fi
+          done
+          deliveries "$LOW_ID" | jq --exit-status '[.items[] | [.clientName, .attempt, .outcome, .detail]]
+              == [["e2e-phone", 1, "FILTERED", "below the minimum severity"],
+                  ["e2e-stale", 1, "INVALID_TARGET", "HTTP 404 UNREGISTERED"]]'
+          deliveries "$HIGH_ID" | jq --exit-status '[.items[] | [.clientName, .attempt, .outcome, .detail]]
+              == [["e2e-phone", 1, "DELIVERED", null], ["e2e-stale", 1, "NO_TARGET", null]]'
       - name: The client opens the pushed event from its inbox and reads it
         run: |
           client() {

@@ -39,7 +39,7 @@ class PushDeliveryTest {
   void deliversThroughTheProviderTheTargetNames() {
     var client = withTarget(FakePushProvider.NAME, "token-" + UUID.randomUUID());
 
-    assertEquals(DeliveryResult.DELIVERED, delivery.deliver(client.id(), MESSAGE));
+    assertEquals(DeliveryResult.DELIVERED, delivery.deliver(client.id(), MESSAGE).result());
 
     assertEquals(1, fake.sent().size());
     assertEquals(client.token(), fake.sent().get(0).token());
@@ -50,8 +50,8 @@ class PushDeliveryTest {
   void aClientWithoutATargetGetsNothing() {
     var client = TestClients.register("no-target");
 
-    assertEquals(DeliveryResult.NO_TARGET, delivery.deliver(client.id(), MESSAGE));
-    assertEquals(DeliveryResult.NO_TARGET, delivery.deliver(UUID.randomUUID(), MESSAGE));
+    assertEquals(DeliveryResult.NO_TARGET, delivery.deliver(client.id(), MESSAGE).result());
+    assertEquals(DeliveryResult.NO_TARGET, delivery.deliver(UUID.randomUUID(), MESSAGE).result());
     assertTrue(fake.sent().isEmpty());
   }
 
@@ -60,7 +60,7 @@ class PushDeliveryTest {
     var client = withTarget(FakePushProvider.NAME, "revoked-" + UUID.randomUUID());
     asAdmin().post(ADMIN + "/" + client.id() + "/revoke").then().statusCode(200);
 
-    assertEquals(DeliveryResult.NO_TARGET, delivery.deliver(client.id(), MESSAGE));
+    assertEquals(DeliveryResult.NO_TARGET, delivery.deliver(client.id(), MESSAGE).result());
     assertTrue(fake.sent().isEmpty());
   }
 
@@ -68,7 +68,8 @@ class PushDeliveryTest {
   void aTargetOfAnUnknownProviderIsUnsupported() {
     var client = withTarget("fcm", "fcm-" + UUID.randomUUID());
 
-    assertEquals(DeliveryResult.UNSUPPORTED_PROVIDER, delivery.deliver(client.id(), MESSAGE));
+    assertEquals(
+        DeliveryResult.UNSUPPORTED_PROVIDER, delivery.deliver(client.id(), MESSAGE).result());
     assertTrue(fake.sent().isEmpty());
     // The target is kept: a provider may be configured later.
     asClient(client.key()).get(CLIENT).then().body("pushTarget.provider", equalTo("fcm"));
@@ -79,10 +80,10 @@ class PushDeliveryTest {
     var client = withTarget(FakePushProvider.NAME, "gone-" + UUID.randomUUID());
     fake.answer((token, message) -> new PushOutcome(PushOutcome.Status.INVALID_TARGET, "gone"));
 
-    assertEquals(DeliveryResult.INVALID_TARGET, delivery.deliver(client.id(), MESSAGE));
+    assertEquals(DeliveryResult.INVALID_TARGET, delivery.deliver(client.id(), MESSAGE).result());
 
     asClient(client.key()).get(CLIENT).then().body("pushTarget", nullValue());
-    assertEquals(DeliveryResult.NO_TARGET, delivery.deliver(client.id(), MESSAGE));
+    assertEquals(DeliveryResult.NO_TARGET, delivery.deliver(client.id(), MESSAGE).result());
   }
 
   @Test
@@ -96,10 +97,10 @@ class PushDeliveryTest {
           return new PushOutcome(PushOutcome.Status.INVALID_TARGET, "gone");
         });
 
-    assertEquals(DeliveryResult.INVALID_TARGET, delivery.deliver(client.id(), MESSAGE));
+    assertEquals(DeliveryResult.INVALID_TARGET, delivery.deliver(client.id(), MESSAGE).result());
 
     fake.answer((token, message) -> PushOutcome.delivered());
-    assertEquals(DeliveryResult.DELIVERED, delivery.deliver(client.id(), MESSAGE));
+    assertEquals(DeliveryResult.DELIVERED, delivery.deliver(client.id(), MESSAGE).result());
     assertEquals(newToken, fake.sent().get(0).token());
   }
 
@@ -111,7 +112,8 @@ class PushDeliveryTest {
     var client = withTarget(FakePushProvider.NAME, "kept-" + UUID.randomUUID());
     fake.answer((token, message) -> new PushOutcome(status, "failed"));
 
-    assertEquals(DeliveryResult.valueOf(status.name()), delivery.deliver(client.id(), MESSAGE));
+    assertEquals(
+        DeliveryResult.valueOf(status.name()), delivery.deliver(client.id(), MESSAGE).result());
 
     asClient(client.key())
         .get(CLIENT)
@@ -127,7 +129,7 @@ class PushDeliveryTest {
           throw new IllegalStateException("provider bug");
         });
 
-    assertEquals(DeliveryResult.TRANSIENT_FAILURE, delivery.deliver(client.id(), MESSAGE));
+    assertEquals(DeliveryResult.TRANSIENT_FAILURE, delivery.deliver(client.id(), MESSAGE).result());
     asClient(client.key())
         .get(CLIENT)
         .then()

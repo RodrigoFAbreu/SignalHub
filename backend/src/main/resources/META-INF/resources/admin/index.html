@@ -261,6 +261,16 @@
               <dl id="event-facts" class="facts"></dl>
               <h3>Metadata</h3>
               <pre id="event-metadata"></pre>
+              <div class="heading">
+                <h3>Deliveries</h3>
+                <button type="button" id="refresh-deliveries" class="secondary">Refresh</button>
+              </div>
+              <p class="lead">
+                How its push went to each device. The push service's answer is the last thing
+                SignalHub sees: whether the phone showed it is not known.
+              </p>
+              <p id="deliveries-error" class="error" role="alert" hidden></p>
+              <ul id="event-deliveries" class="deliveries"></ul>
               <div class="actions">
                 <button type="button" id="toggle-read" class="secondary"></button>
                 <button type="button" id="delete-event" class="danger">Delete</button>

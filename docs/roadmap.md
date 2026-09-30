@@ -1996,6 +1996,54 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `docs/deployment.md` (Health monitoring), `docs/development.md`;
   compatible (`feat`)
 
+### R56 - An event's delivery
+
+- the dispatcher records, per event and device, each push attempt in a
+  new `event_deliveries` table (V16, no operator action: existing events
+  have none): the attempt (1 for the dispatch, one more per retry), the
+  outcome and when. **decided: the outcomes are `DELIVERED`, `FILTERED`,
+  `NO_TARGET`, `UNSUPPORTED_PROVIDER`, `INVALID_TARGET`,
+  `TRANSIENT_FAILURE` and `PERMANENT_FAILURE`**, with a `detail`: the
+  provider's reason for a failure (for FCM, the HTTP status and error
+  code), the provider not configured, or **the preference that filtered
+  the event out** (`pushes paused`, `below the minimum severity`,
+  `category muted`, `producer muted`); never a push token.
+  `PushDelivery` now reports the provider's reason with each result
+- **decided: every device that is not revoked gets a record, sent to or
+  not**, so a device filtered out or without a push target has its line
+  and its reason; a retry to a device that muted the event or lost its
+  target meanwhile records that too. Devices without a push target are
+  read before any send, so a target removed by `UNREGISTERED` is not
+  also recorded as missing. Recording never changes delivery (a failure
+  is a logged warning); a record for an event or device deleted meanwhile
+  is skipped
+- records go with their event (retention, the operator's deletes) and
+  their device (deleting a revoked device), through `ON DELETE CASCADE`
+- **`GET /api/v1/admin/events/{id}/deliveries`** (admin token, `404`
+  without a configured one): `{"items": [...]}`, oldest first, each with
+  the device's ID and current name, attempt, outcome, detail and time;
+  empty until the push is dispatched; `404 Event not found`
+- the admin page: an open event shows **Deliveries**, read when it opens
+  and with **Refresh**; **decided: one line per device, grouped by the
+  page** (the API stays one record per attempt), by the device's name,
+  with how its latest attempt went, the reason and when, and its earlier
+  attempts under it; text only
+- tests against real PostgreSQL and the fake push provider (each
+  outcome with its reason, each filtering preference, a device without a
+  target listed and a revoked one not, retries as further attempts, a
+  retry after muting or losing the target, not yet dispatched, unknown
+  and deleted events, the admin token required, a failed record neither
+  failing nor repeating a push, no push token returned), deletion with the
+  event, the device and by retention, the migration on an existing
+  database, the OpenAPI document, the page and its script; the page was
+  driven in headless Chromium; the Compose smoke test reads an event's
+  deliveries on the host, `404` through the proxy and after deleting the
+  event; the end-to-end job checks the records of its FCM pushes (filtered,
+  `HTTP 404 UNREGISTERED`, delivered, no target); `docs/architecture.md`
+  (Delivery records, push dispatch and delivery, deleting events and
+  clients, retention, the admin page), `docs/deployment.md`,
+  `docs/development.md`; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2569,7 +2617,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 42    | R53 - Deleting events: the API and the admin page                                                | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 43    | R54 - Sending a test event from the admin page                                                   | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Next                                                                             |
+| 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -4406,7 +4454,7 @@ a restart); graphs or history of the metrics.
 
 ### R56 - An event's delivery
 
-Status: planned; next. Added by the maintainer (2026-09-30).
+Status: done (see section 3). Added by the maintainer (2026-09-30).
 
 Goal: the operator sees, for any event, which devices its push went to
 and how each delivery went, answering "why did my phone not ping?".
@@ -4558,7 +4606,9 @@ silent and during do-not-disturb for every push; the critical alert
 inside Alert), R51 (the admin page: sections, and producers), R52 (the
 admin page: browsing events), R53 (deleting events: the API and the
 admin page), R54 (sending a test event from the admin page) and R55 (the
-admin page: a status panel) are done. **R56 (an event's delivery) is
-next**; it is the last item of the queue.
+admin page: a status panel) and R56 (an event's delivery) are done. **The
+queue is empty: nothing further is scheduled.** A new item starts only
+when the maintainer adds it to the queue; the deferred candidates of
+section 5 are not scheduled by an orchestrator.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

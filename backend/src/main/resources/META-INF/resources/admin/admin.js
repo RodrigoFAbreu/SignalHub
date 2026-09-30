@@ -4,10 +4,10 @@
 // Devices lists every client with the management API, changes them, deletes revoked ones, and
 // creates pairings shown as a QR code until they are used or expire; Producers lists every producer,
 // creates them, issues and revokes their keys, and disables and enables them; Events lists events a
-// page at a time, filtered, and opens one (#events/<id>) to read it and mark it read or unread,
-// deletes one, a selection, or a producer's or older events, after a confirmation with their count,
-// and sends a test event as a producer, linked once sent; Status sums up whether SignalHub is
-// working, from /q/info, /q/health and the management API.
+// page at a time, filtered, and opens one (#events/<id>) to read it, see how its push went to each
+// device and mark it read or unread, deletes one, a selection, or a producer's or older events,
+// after a confirmation with their count, and sends a test event as a producer, linked once sent;
+// Status sums up whether SignalHub is working, from /q/info, /q/health and the management API.
 // The admin token lives only in this closure; it is never stored, and every request goes to this
 // same origin. A new producer key is shown once and dropped when the operator is done with it.
 // Names and event contents come from the server and are always set as text, never as HTML; an
@@ -44,6 +44,16 @@
     NORMAL: "Normal",
     HIGH: "High",
     CRITICAL: "Critical",
+  };
+  // How a delivery record's attempt went, as the operator reads it.
+  const OUTCOMES = {
+    DELIVERED: "Delivered",
+    FILTERED: "Filtered out by its push preferences",
+    NO_TARGET: "Not sent: no push target",
+    UNSUPPORTED_PROVIDER: "Not sent: push provider not configured",
+    INVALID_TARGET: "Push target rejected, and removed",
+    TRANSIENT_FAILURE: "Temporary failure",
+    PERMANENT_FAILURE: "Failed",
   };
   // An enabled producer with no event for this long is marked quiet, so one that stopped stands out.
   const QUIET_DAYS = 7;
@@ -109,6 +119,9 @@
   });
   $("toggle-read").addEventListener("click", () => toggleRead());
   $("delete-event").addEventListener("click", () => deleteShownEvent());
+  $("refresh-deliveries").addEventListener("click", () => {
+    if (shownEvent) refreshDeliveries(shownEvent.id);
+  });
   $("delete-selected").addEventListener("click", () => deleteSelected());
   $("delete-events").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -562,12 +575,60 @@
   async function openEvent(eventId) {
     showError("event-error", null);
     $("event-body").hidden = true;
+    $("event-deliveries").replaceChildren();
     shownEvent = null;
     try {
       renderEvent(await call("GET", `${EVENTS}/${eventId}`));
     } catch (e) {
       showError("event-error", e.message);
+      return;
     }
+    await refreshDeliveries(eventId);
+  }
+
+  async function refreshDeliveries(eventId) {
+    showError("deliveries-error", null);
+    try {
+      renderDeliveries((await call("GET", `${ADMIN_EVENTS}/${eventId}/deliveries`)).items);
+    } catch (e) {
+      $("event-deliveries").replaceChildren();
+      showError("deliveries-error", e.message);
+    }
+  }
+
+  // One line per device, by its name, in the order the devices were first tried: how the latest
+  // attempt went and when, then the earlier attempts, if any. The records are oldest first.
+  function renderDeliveries(records) {
+    const byDevice = new Map();
+    for (const record of records) {
+      if (!byDevice.has(record.clientId)) byDevice.set(record.clientId, []);
+      byDevice.get(record.clientId).push(record);
+    }
+    const list = $("event-deliveries");
+    list.replaceChildren(...[...byDevice.values()].map(deliveryLine));
+    if (byDevice.size === 0) {
+      list.append(element("li", "empty", "None: its push is not dispatched yet, or there was no device."));
+    }
+  }
+
+  function deliveryLine(attempts) {
+    const last = attempts[attempts.length - 1];
+    const item = element("li", `delivery outcome-${last.outcome.toLowerCase()}`);
+    item.append(
+      element("strong", null, last.clientName),
+      `: ${outcome(last)}, ${time(last.at)} (${ago(last.at)})`,
+    );
+    if (attempts.length > 1) {
+      const earlier = attempts.slice(0, -1).map((a) => `${a.attempt}. ${outcome(a)}`);
+      item.append(element("p", "meta", `Attempt ${last.attempt}; before: ${earlier.join("; ")}`));
+    }
+    return item;
+  }
+
+  // A value this page does not know yet is shown as it is; the reason, if any, follows it.
+  function outcome(record) {
+    const text = OUTCOMES[record.outcome] || record.outcome;
+    return record.detail ? `${text} (${record.detail})` : text;
   }
 
   function renderEvent(event) {

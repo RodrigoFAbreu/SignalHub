@@ -4,7 +4,8 @@ import java.util.Objects;
 
 /**
  * What a provider reports for one send. The status is all that delivery logic depends on; {@code
- * detail} is for logs only and must never contain the push token or credentials.
+ * detail} is a short reason for logs and the event's delivery records, shown to the operator, and
+ * must never contain the push token or credentials.
  */
 public record PushOutcome(Status status, String detail) {
 

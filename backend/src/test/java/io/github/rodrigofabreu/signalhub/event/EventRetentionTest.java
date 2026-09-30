@@ -64,7 +64,7 @@ class EventRetentionTest {
   }
 
   @Test
-  void anExpiredEventsPendingPushAndRetriesGoWithIt() throws SQLException {
+  void anExpiredEventsPendingPushRetriesAndDeliveriesGoWithIt() throws SQLException {
     var producerId = TestProducers.register("retention-push").id();
     var clientId = TestClients.register("retention-push").id();
     var createdAt = NOW.minus(Duration.ofDays(60));
@@ -76,11 +76,16 @@ class EventRetentionTest {
         ("INSERT INTO push_retries (event_id, client_id, attempts, next_attempt_at)"
                 + " VALUES ('%s', '%s', 1, '%s')")
             .formatted(eventId, clientId, createdAt));
+    execute(
+        ("INSERT INTO event_deliveries (event_id, client_id, attempt, outcome, at)"
+                + " VALUES ('%s', '%s', 1, 'TRANSIENT_FAILURE', '%s')")
+            .formatted(eventId, clientId, createdAt));
 
     assertEquals(1, retention.deleteExpired(NOW));
 
     assertEquals(0, count("push_dispatches WHERE event_id = '" + eventId + "'"));
     assertEquals(0, count("push_retries WHERE event_id = '" + eventId + "'"));
+    assertEquals(0, count("event_deliveries WHERE event_id = '" + eventId + "'"));
     // The client is untouched.
     assertEquals(1, count("clients WHERE id = '" + clientId + "'"));
   }

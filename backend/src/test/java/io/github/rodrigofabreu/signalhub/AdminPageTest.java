@@ -320,6 +320,39 @@ class AdminPageTest {
   }
 
   @Test
+  void anEventShowsItsDeliveriesOneLinePerDeviceAsText() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    // Read with the admin token once the event is shown, and again on Refresh.
+    assertTrue(
+        script.contains(
+            "renderDeliveries((await call(\"GET\","
+                + " `${ADMIN_EVENTS}/${eventId}/deliveries`)).items);"));
+    assertTrue(
+        Pattern.compile(
+                "renderEvent\\(await call\\(\"GET\", `\\$\\{EVENTS\\}/\\$\\{eventId\\}`\\)\\);"
+                    + "\\s*\\} catch \\(e\\) \\{\\s*showError\\(\"event-error\", e\\.message\\);"
+                    + "\\s*return;\\s*\\}\\s*await refreshDeliveries\\(eventId\\);")
+            .matcher(script)
+            .find());
+    // One line per device, grouped by its ID, named by the device's name set as text; the rest of
+    // the line, the outcome and the provider's reason, is appended as text too.
+    assertTrue(
+        script.contains("if (!byDevice.has(record.clientId)) byDevice.set(record.clientId, []);"));
+    assertTrue(script.contains("element(\"strong\", null, last.clientName),"));
+    assertTrue(script.contains("`: ${outcome(last)}, ${time(last.at)} (${ago(last.at)})`,"));
+    assertTrue(script.contains("return record.detail ? `${text} (${record.detail})` : text;"));
+    var page = given().get("/admin/").then().extract().asString();
+    for (var control :
+        new String[] {
+          "<button type=\"button\" id=\"refresh-deliveries\" class=\"secondary\">Refresh</button>",
+          "<ul id=\"event-deliveries\" class=\"deliveries\"></ul>",
+          "<p id=\"deliveries-error\" class=\"error\" role=\"alert\" hidden></p>"
+        }) {
+      assertTrue(page.contains(control), control);
+    }
+  }
+
+  @Test
   void eventsAreDeletedOnlyAfterAConfirmationStatingTheDryRunsCount() {
     var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
     assertTrue(script.contains("const ADMIN_EVENTS = \"/api/v1/admin/events\";"));

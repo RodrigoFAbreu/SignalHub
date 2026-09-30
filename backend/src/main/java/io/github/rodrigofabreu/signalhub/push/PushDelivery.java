@@ -1,6 +1,7 @@
 package io.github.rodrigofabreu.signalhub.push;
 
 import io.github.rodrigofabreu.signalhub.client.ClientService;
+import io.github.rodrigofabreu.signalhub.client.PushAddress;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.quarkus.runtime.Startup;
@@ -41,24 +42,29 @@ public class PushDelivery {
     }
   }
 
-  public DeliveryResult deliver(UUID clientId, PushMessage message) {
-    var result = attempt(clientId, message);
-    deliveries.get(result).increment();
-    return result;
+  public DeliveryReport deliver(UUID clientId, PushMessage message) {
+    var report = attempt(clientId, message);
+    deliveries.get(report.result()).increment();
+    return report;
   }
 
-  private DeliveryResult attempt(UUID clientId, PushMessage message) {
+  private DeliveryReport attempt(UUID clientId, PushMessage message) {
     var target = clients.pushTargetOf(clientId);
     if (target.isEmpty()) {
-      return DeliveryResult.NO_TARGET;
+      return DeliveryReport.of(DeliveryResult.NO_TARGET);
     }
     var address = target.get();
     var provider = providers.named(address.provider());
     if (provider.isEmpty()) {
       LOG.debugf("No push provider %s for client %s", address.provider(), clientId);
-      return DeliveryResult.UNSUPPORTED_PROVIDER;
+      return new DeliveryReport(
+          DeliveryResult.UNSUPPORTED_PROVIDER, "no " + address.provider() + " provider configured");
     }
     var outcome = send(provider.get(), address.token(), message, clientId);
+    return new DeliveryReport(result(outcome, address, clientId), outcome.detail());
+  }
+
+  private DeliveryResult result(PushOutcome outcome, PushAddress address, UUID clientId) {
     return switch (outcome.status()) {
       case DELIVERED -> DeliveryResult.DELIVERED;
       case INVALID_TARGET -> {
