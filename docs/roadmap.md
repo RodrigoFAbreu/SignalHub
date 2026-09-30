@@ -1873,6 +1873,51 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `docs/architecture.md` (the admin page), `docs/deployment.md`,
   `docs/development.md`; compatible (`feat`)
 
+### R53 - Deleting events: the API and the admin page
+
+- **decided: two management endpoints** under `/api/v1/admin/events`
+  (admin token, so never forwarded by the proxy; `404` everywhere without
+  a configured token): `DELETE /api/v1/admin/events/{id}` (`204`, `404
+  Event not found` for an unknown ID or one deleted already) and `POST
+  /api/v1/admin/events/delete` with a selection (`ids`, 1 to 100) or a
+  filter (`producerId`, `createdBefore` or both, which must then both
+  match), never both, and an optional `dryRun`, answering `200 {"count",
+  "dryRun"}`. One endpoint with a dry-run flag, so the count confirmed is
+  the count of the same request; `POST` because a `DELETE` body is not
+  reliable through HTTP clients and proxies. IDs in a selection that match
+  no event are skipped and not counted; an unknown `producerId` is `404
+  Producer not found`; both kinds, neither, an empty or oversized
+  selection, a malformed ID or time or an unknown field is `400`. There is
+  no "delete everything": a filter always names a producer or a time
+- **decided: a bulk delete is one transaction** (all or nothing), unlike
+  retention's batches, since the operator waits for its answer. An
+  event's pending push and retries go with it through the existing
+  cascades (no migration); producers, clients, keys and other events stay,
+  and a producer whose events are all deleted keeps publishing with
+  `lastEventAt` `null`. Logged at `INFO` with IDs or the filter and the
+  count, never content (`Deleted event <id>`, `Deleted <n> of <m> selected
+  events: [...]`, `Deleted <n> events of producer <id> and created before
+  <time>`); a dry run is not logged
+- the admin page's Events section: a checkbox per event and **Delete
+  selected** (the selection is of the page shown, cleared when a page is
+  read again), **Delete** on an open event, which returns to the list, and
+  a **Delete events** form (producer, **Received before** a day from
+  midnight in the browser's time zone, or both). A selection and the form
+  send a dry run first and confirm with its count (_Delete 3 events of
+  "ci"?_), or say there is nothing to delete; **decided: one open event
+  is confirmed by its title, without a dry run** (its count is one)
+- tests against real PostgreSQL (each kind of delete, both filters
+  together, each dry run, the pending push and retries deleted with an
+  event while the producer, clients and other events stay, an unknown
+  event or producer, invalid bodies deleting nothing, the admin token
+  required and every path `404` without one), the OpenAPI document, the
+  page (the dry run before the confirmation, the calls, the controls); the
+  page was driven in headless Chromium; the Compose smoke test deletes an
+  event and a producer's events after a dry run on the host and checks
+  the delete endpoint is `404` through the proxy; `docs/architecture.md`
+  (Deleting events, the admin page, retention, push dispatch),
+  `docs/deployment.md`, `docs/development.md`; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2443,8 +2488,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 39    | R50 - Sound on silent and during do-not-disturb for every push; the critical alert inside Alert  | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 40    | R51 - The admin page: sections, and producers                                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 41    | R52 - The admin page: browsing events                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 42    | R53 - Deleting events: the API and the admin page                                                | Increment (`feat`)                     | Next                                                                             |
-| 43    | R54 - Sending a test event from the admin page                                                   | Increment (`feat`)                     | Blocked until R53 is merged                                                      |
+| 42    | R53 - Deleting events: the API and the admin page                                                | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 43    | R54 - Sending a test event from the admin page                                                   | Increment (`feat`)                     | Next                                                                             |
 | 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Blocked until R54 is merged                                                      |
 | 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Blocked until R55 is merged                                                      |
 
@@ -4189,7 +4234,7 @@ Non-goals: deleting (R53) or sending (R54) events; delivery details
 
 ### R53 - Deleting events: the API and the admin page
 
-Status: planned; next. Added by the maintainer (2026-09-30).
+Status: done (see section 3). Added by the maintainer (2026-09-30).
 
 Goal: the operator removes test or unwanted events from the admin page,
 instead of running SQL on the database.
@@ -4223,8 +4268,7 @@ deleting producers.
 
 ### R54 - Sending a test event from the admin page
 
-Status: planned; blocked until R53 is merged. Added by the maintainer
-(2026-09-30).
+Status: planned; next. Added by the maintainer (2026-09-30).
 
 Goal: the operator checks that pushes arrive, and that a producer's
 filters work, without a producer key or a script.
@@ -4435,9 +4479,9 @@ pairing code in the app), R45 (SignalHub's own alert, set in the app), R46
 pattern and length, set in the app), R48 (one Settings screen, in
 folding groups), R49 (the pending Dependabot updates) and R50 (sound on
 silent and during do-not-disturb for every push; the critical alert
-inside Alert), R51 (the admin page: sections, and producers) and R52 (the
-admin page: browsing events) are done. **R53 (deleting events: the API and
-the admin page) is next**, then R54 to R56 in order, each after the
-previous one is merged.
+inside Alert), R51 (the admin page: sections, and producers), R52 (the
+admin page: browsing events) and R53 (deleting events: the API and the
+admin page) are done. **R54 (sending a test event from the admin page) is
+next**, then R55 and R56 in order, each after the previous one is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

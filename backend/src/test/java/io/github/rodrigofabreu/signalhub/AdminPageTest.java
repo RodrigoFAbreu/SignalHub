@@ -315,6 +315,54 @@ class AdminPageTest {
     }
   }
 
+  @Test
+  void eventsAreDeletedOnlyAfterAConfirmationStatingTheDryRunsCount() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    assertTrue(script.contains("const ADMIN_EVENTS = \"/api/v1/admin/events\";"));
+    assertTrue(script.contains("const DELETE_EVENTS = \"/api/v1/admin/events/delete\";"));
+    // A selection and the Delete events form: a dry run first, its count in the confirmation, and
+    // only then the same request without the dry run.
+    assertTrue(
+        Pattern.compile(
+                "const \\{ count \\} = await call\\(\"POST\", DELETE_EVENTS, \\{ \\.\\.\\.request,"
+                    + " dryRun: true \\}\\);\\s*"
+                    + "if \\(count === 0\\) \\{[^}]*\\}\\s*"
+                    + "if \\(!confirm\\(question\\(count\\)\\)\\) return false;\\s*"
+                    + "const deleted = await call\\(\"POST\", DELETE_EVENTS, request\\);")
+            .matcher(script)
+            .find());
+    assertTrue(script.contains("deleteEvents(\n      { ids },"));
+    assertTrue(script.contains("if (producer.value) request.producerId = producer.value;"));
+    assertTrue(
+        script.contains(
+            "if (day) request.createdBefore = new Date(`${day}T00:00`).toISOString();"));
+    // One event: a confirmation naming it, then back to the list.
+    assertTrue(
+        Pattern.compile(
+                "if \\(!confirm\\([^;]*\\)\\) return;\\s*showError\\(\"event-error\", null\\);\\s*"
+                    + "try \\{\\s*await call\\(\"DELETE\", `\\$\\{ADMIN_EVENTS\\}/\\$\\{event\\.id\\}`\\);")
+            .matcher(script)
+            .find());
+    assertTrue(script.contains("location.hash = \"#events\";"));
+    // A selection is only of the events shown: a page read again starts with none.
+    assertTrue(
+        Pattern.compile("\\$\\(\"newer-events\"\\)\\.disabled = true;\\s*selected = new Set\\(\\);")
+            .matcher(script)
+            .find());
+    var page = given().get("/admin/").then().extract().asString();
+    for (var control :
+        new String[] {
+          "<button type=\"button\" id=\"delete-selected\" class=\"danger\" disabled>Delete"
+              + " selected</button>",
+          "<button type=\"button\" id=\"delete-event\" class=\"danger\">Delete</button>",
+          "<form id=\"delete-events\" autocomplete=\"off\" aria-labelledby=\"delete-events-title\">",
+          "<select id=\"delete-producer\">",
+          "<input id=\"delete-before\" type=\"date\" />"
+        }) {
+      assertTrue(page.contains(control), control);
+    }
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"/connect", "/connect/", "/connect/connect.js"})
   void theConnectPageOfEarlierReleasesIsGone(String path) {

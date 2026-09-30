@@ -298,6 +298,20 @@ label.check input {
   font-weight: 500;
 }
 
+.event h3 input {
+  width: auto;
+  margin: 0 4px 0 0;
+  vertical-align: middle;
+}
+
+.selection {
+  align-items: baseline;
+}
+
+.selection span {
+  color: var(--muted);
+}
+
 .event .meta,
 #event-badges {
   margin: 0;

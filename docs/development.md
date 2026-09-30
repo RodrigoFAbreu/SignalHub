@@ -384,9 +384,10 @@ doubt.
 | `/api/v1/events/{id}` | `GET`: read an event by its ID, with a client key or the admin token. |
 | `/api/v1/admin/producers/...` | Producer management, with the admin token. See [Producers and API keys](#producers-and-api-keys). |
 | `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
+| `/api/v1/admin/events/...` | Deleting events, with the admin token: `DELETE /{id}` one event; `POST /delete` a selection, a producer's events or events older than a time, with a dry run. See [Events API](#events-api). |
 | `/api/v1/admin/pairings` | `POST`: create a pairing code for a new device, with the admin token; `GET /{id}`: whether it was used, and by which device. See [Pairing a device](#pairing-a-device). |
 | `/api/v1/pairing` | `POST`: a device redeems a pairing code and gets its client key; the owner's other devices get a push. See [Pairing a device](#pairing-a-device). |
-| `/admin/` | The admin page, in sections (`#devices`, `#producers`, `#events`): with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and to delete it once revoked, and creates a pairing code shown as a QR code to scan, copy or download; lists every producer with its keys and its last event, creates producers, issues and revokes keys, and disables and enables producers; lists events a page at a time with the inbox's filters and opens one (`#events/<id>`) to read it and mark it read or unread. Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
+| `/admin/` | The admin page, in sections (`#devices`, `#producers`, `#events`): with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and to delete it once revoked, and creates a pairing code shown as a QR code to scan, copy or download; lists every producer with its keys and its last event, creates producers, issues and revokes keys, and disables and enables producers; lists events a page at a time with the inbox's filters and opens one (`#events/<id>`) to read it and mark it read or unread, and deletes one, the events ticked on a page, or every event of a producer or received before a day, after a confirmation stating their count. Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
 | `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
@@ -740,6 +741,23 @@ curl -s http://localhost:8080/api/v1/events/read -H "$H" \
 curl -s http://localhost:8080/api/v1/events/unread-count -H "$H"              # {"unread": 0}
 ```
 
+The operator deletes test or unwanted events with the admin token (see
+[architecture.md](architecture.md#deleting-events)): one event, a selection,
+every event of a producer, every event received before a time, or a producer's
+events before a time. A dry run answers how many would go and deletes none;
+there is no undo:
+
+```sh
+A="Authorization: Bearer $ADMIN_TOKEN"
+curl -s -X DELETE "http://localhost:8080/api/v1/admin/events/$EVENT" -H "$A" -o /dev/null -w '%{http_code}\n'   # 204
+curl -s http://localhost:8080/api/v1/admin/events/delete -H "$A" -H 'Content-Type: application/json' \
+  -d "{\"producerId\": \"$PRODUCER\", \"dryRun\": true}"                  # {"count": 12, "dryRun": true}
+curl -s http://localhost:8080/api/v1/admin/events/delete -H "$A" -H 'Content-Type: application/json' \
+  -d '{"createdBefore": "2026-09-01T00:00:00Z"}'                         # {"count": 40, "dryRun": false}
+curl -s http://localhost:8080/api/v1/admin/events/delete -H "$A" -H 'Content-Type: application/json' \
+  -d "{\"ids\": [\"$EVENT\", \"$OTHER_EVENT\"]}"                          # {"count": 1, ...}: one was gone
+```
+
 Without a valid key (missing, malformed, unknown, revoked, or of a disabled
 producer) the answer is always the same `401`:
 
@@ -791,7 +809,7 @@ Optional in every profile:
 
 | Variable | Effect |
 |---|---|
-| `SIGNALHUB_ADMIN_TOKEN` | Enables the management API for producers and clients, and lets the operator list events. At least 32 characters (`openssl rand -hex 32`); shorter stops startup. Unset or empty disables the management API; clients keep reading events with their keys. |
+| `SIGNALHUB_ADMIN_TOKEN` | Enables the management API for producers, clients and deleting events, and lets the operator list events. At least 32 characters (`openssl rand -hex 32`); shorter stops startup. Unset or empty disables the management API; clients keep reading events with their keys. |
 | `SIGNALHUB_EVENTS_RETENTION` | How long events are kept, a duration of at least `1d` such as `365d`; older events are deleted every hour. Shorter stops startup. Unset or empty keeps events forever (the default). See [Retention](architecture.md#retention). |
 | `SIGNALHUB_PUBLIC_URL` | The address devices reach SignalHub at, such as `https://signalhub.example.com`; [pairing](architecture.md#pairing) URIs carry it. An absolute `http` or `https` URL without credentials, query or fragment, or startup stops. Unset or empty: pairings have no URI. Compose defaults it to `https://` and `SIGNALHUB_DOMAIN` when that is set. |
 | `SIGNALHUB_LOG_JSON` | `true` writes console logs as JSON, one object per line, for log collectors; default `false` (plain text). See [Logs](architecture.md#logs). |

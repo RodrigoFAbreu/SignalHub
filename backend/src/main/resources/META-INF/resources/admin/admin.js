@@ -4,7 +4,8 @@
 // Devices lists every client with the management API, changes them, deletes revoked ones, and
 // creates pairings shown as a QR code until they are used or expire; Producers lists every producer,
 // creates them, issues and revokes their keys, and disables and enables them; Events lists events a
-// page at a time, filtered, and opens one (#events/<id>) to read it and mark it read or unread.
+// page at a time, filtered, and opens one (#events/<id>) to read it and mark it read or unread, and
+// deletes one, a selection, or a producer's or older events, after a confirmation with their count.
 // The admin token lives only in this closure; it is never stored, and every request goes to this
 // same origin. A new producer key is shown once and dropped when the operator is done with it.
 // Names and event contents come from the server and are always set as text, never as HTML; an
@@ -14,6 +15,8 @@
   const PAIRINGS = "/api/v1/admin/pairings";
   const PRODUCERS = "/api/v1/admin/producers";
   const EVENTS = "/api/v1/events";
+  const ADMIN_EVENTS = "/api/v1/admin/events";
+  const DELETE_EVENTS = "/api/v1/admin/events/delete";
   const SECTIONS = ["devices", "producers", "events"];
   const EVENT_PAGE = 25;
   // The listing's filters, by the field that sets each; the same as the app's inbox.
@@ -55,6 +58,8 @@
   let eventPages = [null];
   let nextEventCursor = null;
   let shownEvent = null;
+  // The IDs of the events ticked on the page shown; a page read again starts with none.
+  let selected = new Set();
 
   $("unlock").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -96,6 +101,12 @@
     refreshEvents();
   });
   $("toggle-read").addEventListener("click", () => toggleRead());
+  $("delete-event").addEventListener("click", () => deleteShownEvent());
+  $("delete-selected").addEventListener("click", () => deleteSelected());
+  $("delete-events").addEventListener("submit", (event) => {
+    event.preventDefault();
+    deleteMatching();
+  });
 
   $("create").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -448,6 +459,8 @@
     // Until this page is in, so a second click cannot step twice from the same one.
     $("older-events").disabled = true;
     $("newer-events").disabled = true;
+    selected = new Set();
+    showSelection();
     const query = new URLSearchParams({ limit: String(EVENT_PAGE) });
     for (const [name, id] of Object.entries(EVENT_FILTERS)) {
       if ($(id).value) query.set(name, $(id).value);
@@ -467,7 +480,7 @@
     $("newer-events").disabled = eventPages.length === 1;
   }
 
-  // The producer filter offers every producer, keeping the one chosen.
+  // The producer filter and the Delete events form offer every producer, keeping the one chosen.
   async function refreshProducerChoices() {
     let producers;
     try {
@@ -475,11 +488,16 @@
     } catch {
       return; // The filter keeps what it had; the list says what went wrong, if anything did.
     }
-    const select = $("filter-producer");
-    const chosen = select.value;
-    const options = producers.map((p) => new Option(p.name, p.id));
-    select.replaceChildren(new Option("All producers", ""), ...options);
-    select.value = producers.some((p) => p.id === chosen) ? chosen : "";
+    for (const [id, none] of [
+      ["filter-producer", "All producers"],
+      ["delete-producer", "Any producer"],
+    ]) {
+      const select = $(id);
+      const chosen = select.value;
+      const options = producers.map((p) => new Option(p.name, p.id));
+      select.replaceChildren(new Option(none, ""), ...options);
+      select.value = producers.some((p) => p.id === chosen) ? chosen : "";
+    }
   }
 
   function renderEvents(events) {
@@ -491,9 +509,17 @@
   function eventCard(event) {
     const item = element("li", event.readAt ? "event" : "event unread");
     const title = element("h3");
+    const box = element("input");
+    box.type = "checkbox";
+    box.setAttribute("aria-label", `Select "${event.title}"`);
+    box.addEventListener("change", () => {
+      if (box.checked) selected.add(event.id);
+      else selected.delete(event.id);
+      showSelection();
+    });
     const link = element("a", null, event.title);
     link.href = `#events/${event.id}`;
-    title.append(link, " ", ...badges(event));
+    title.append(box, " ", link, " ", ...badges(event));
     item.append(title);
     const where = [event.producer.name, event.context].filter(Boolean).join(" · ");
     item.append(element("p", "meta", `${where} · ${time(event.createdAt)} (${ago(event.createdAt)})`));
@@ -576,6 +602,86 @@
     } catch (e) {
       showError("event-error", e.message);
     }
+  }
+
+  function showSelection() {
+    $("delete-selected").disabled = selected.size === 0;
+    $("selection-count").textContent = selected.size ? `${eventCount(selected.size)} selected` : "";
+  }
+
+  function eventCount(count) {
+    return `${count} event${count === 1 ? "" : "s"}`;
+  }
+
+  // One event, named in the confirmation; then back to the list it came from, read again.
+  async function deleteShownEvent() {
+    const event = shownEvent;
+    if (!event) return;
+    if (!confirm(`Delete the event "${event.title}"? It is gone for good.`)) return;
+    showError("event-error", null);
+    try {
+      await call("DELETE", `${ADMIN_EVENTS}/${event.id}`);
+    } catch (e) {
+      showError("event-error", e.message);
+      return;
+    }
+    toast(`Deleted the event "${event.title}".`);
+    location.hash = "#events";
+  }
+
+  function deleteSelected() {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    deleteEvents(
+      { ids },
+      (count) => `Delete the ${eventCount(count)} selected? They are gone for good.`,
+      "events-error",
+    );
+  }
+
+  // By producer, by day or both; a day is from midnight in this browser's time zone.
+  async function deleteMatching() {
+    showError("delete-events-error", null);
+    const producer = $("delete-producer");
+    const day = $("delete-before").value;
+    const request = {};
+    if (producer.value) request.producerId = producer.value;
+    if (day) request.createdBefore = new Date(`${day}T00:00`).toISOString();
+    if (!request.producerId && !request.createdBefore) {
+      return showError("delete-events-error", "Choose a producer, a day or both.");
+    }
+    const which = [
+      producer.value ? `of "${producer.selectedOptions[0].text}"` : null,
+      day ? `received before ${day}` : null,
+    ].filter(Boolean);
+    const deleted = await deleteEvents(
+      request,
+      (count) => `Delete ${eventCount(count)} ${which.join(" ")}? They are gone for good.`,
+      "delete-events-error",
+    );
+    if (deleted) $("delete-events").reset();
+  }
+
+  // Asks the server first how many events the request deletes (a dry run, which deletes none), says
+  // so in the confirmation, and only then deletes them; the list is read again afterwards. Whether
+  // any were deleted.
+  async function deleteEvents(request, question, errorId) {
+    showError(errorId, null);
+    try {
+      const { count } = await call("POST", DELETE_EVENTS, { ...request, dryRun: true });
+      if (count === 0) {
+        toast("No events to delete.");
+        return false;
+      }
+      if (!confirm(question(count))) return false;
+      const deleted = await call("POST", DELETE_EVENTS, request);
+      toast(`Deleted ${eventCount(deleted.count)}.`);
+    } catch (e) {
+      showError(errorId, e.message);
+      return false;
+    }
+    await refreshEvents();
+    return true;
   }
 
   // --- Pairing ---------------------------------------------------------------------------------

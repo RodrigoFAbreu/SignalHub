@@ -34,7 +34,10 @@ admin token), a paginated event listing
 (`GET /api/v1/events`, with a client key or the admin token, filterable by
 read state among others, and browsed in the *Events* section of the
 admin page, a page at a time with the inbox's filters, opening an event
-to read it, open its link in a new tab and mark it read or unread), read state
+to read it, open its link in a new tab and mark it read or unread), deleting
+events by the operator (one, a selection, a producer's or those older than a
+date, each bulk delete with a dry-run count, through `/api/v1/admin/events`
+with the admin token or on the admin page after a confirmation), read state
 (mark events read or unread, the unread count), producer
 authentication (server-issued API keys, managed through
 `/api/v1/admin/producers` with an admin token, or in the *Producers*
