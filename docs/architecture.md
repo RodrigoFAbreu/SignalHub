@@ -406,6 +406,59 @@ nothing about delivery: pushes are sent whether or not an event is read.
 Concurrent marks from several clients are safe: each is one conditional
 `UPDATE`, and marking read never moves an existing `readAt`.
 
+### Deleting events
+
+Events are a permanent record, deleted only by [retention](#retention) or
+by the operator, who removes test or unwanted events through the
+management API (admin token, under `/api/v1/admin`, so the Compose proxy
+never forwards it) or the [admin page](#the-admin-page), instead of
+running SQL on the database. Clients, admin devices included, and
+producers cannot delete events.
+
+| Method and path | Result |
+|---|---|
+| `DELETE /api/v1/admin/events/{id}` | Deletes one event. `204` with no body; `404 Event not found` for an unknown ID or one deleted already. |
+| `POST /api/v1/admin/events/delete` | Deletes a selection or every event matching a filter, or with `"dryRun": true` only counts them. `200` with `{"count": <n>, "dryRun": <bool>}`. |
+
+The body of `POST /api/v1/admin/events/delete` (`DeleteEventsRequest`) is
+either a **selection**, `{"ids": [<event id>, ...]}` (1 to 100 IDs), or a
+**filter**: `{"producerId": "<producer id>"}` for every event of one
+producer, `{"createdBefore": "<time>"}` for every event received before a
+time (ISO-8601 with a UTC offset, exclusive, by the server's `createdAt` as
+retention measures age), or both, which must then both match. Either
+takes `"dryRun": true`.
+
+- **decided: one delete endpoint for a selection and a filter, with a dry
+  run flag**, rather than an endpoint per kind or a separate count: the
+  dry run is the same request, so the count the operator confirms is the
+  count of exactly what the request deletes. `POST`, since a `DELETE` body
+  is ignored or refused by some HTTP clients and proxies.
+- **A dry run** deletes nothing and answers how many events match now; a
+  delete sent after it answers how many it deleted, which differs only if
+  events arrived or went meanwhile (for example a producer still
+  publishing).
+- **All or nothing.** A bulk delete is one transaction, so a failure
+  deletes nothing; unlike retention it does not work in batches, since it
+  is the operator's request and waits for its answer.
+- **IDs in a selection that match no event** (deleted already, by retention
+  or another request) are skipped, and the count says how many were
+  deleted; an unknown `producerId` is `404 Producer not found`.
+- `400` for a body with both a selection and a filter, or neither, an empty
+  selection or more than 100 IDs, a malformed ID or time, or an unknown
+  field, as for every other body. There is no "delete everything": a
+  filter always names a producer or a time.
+- **What goes with an event**: its push if not dispatched yet and its
+  pushes waiting for a retry (their foreign keys cascade, as for
+  retention). Producers, clients, their keys and every other event stay; a
+  producer whose events are all deleted keeps publishing, with
+  `lastEventAt` `null`. A client's last push results may name a deleted
+  event, as after retention. Read state goes with the event.
+- **Logged** at `INFO` with IDs only, never an event's content: `Deleted
+  event <id>`, `Deleted <n> of <m> selected events: [<ids>]`, and `Deleted
+  <n> events of producer <id> and created before <time>`. A dry run is not
+  logged. There is no undo: a deleted event is gone, except from backups
+  taken before (see [Backup and restore](#backup-and-restore)).
+
 ### Schema
 
 `V1__create_events.sql` creates the `events` table. Check constraints repeat
@@ -1003,8 +1056,8 @@ key, so the owner can add a device from the app, away from the host:
 ### The admin page
 
 `/admin/` is the operator's page for the owner's devices, producers and
-events, the management API for clients, pairings and producers and the
-event API without a terminal. It is in sections, as tabs: **Devices**,
+events, the management API for clients, pairings, producers and events and
+the event API without a terminal. It is in sections, as tabs: **Devices**,
 **Producers** and **Events**. The section shown is the address's fragment
 (`/admin/#devices`, `/admin/#producers`, `/admin/#events`, and
 `/admin/#events/<id>` for one event; Devices when there is none), so a
@@ -1090,9 +1143,20 @@ and ID, and **Mark as read** or **Mark as unread**
   endless list, so the operator can step back to a page just read; Newer
   goes back through the pages read so far, not to events that arrived
   since, which **Refresh** on the first page shows.
-- Nothing about events is changed except read state: events are a
-  permanent record; deleting them, sending a test event and their
-  deliveries are for later releases.
+- **Deleting.** Each event has a checkbox: **Delete selected** deletes the
+  events ticked on the page shown (a page read again starts with none).
+  An open event has **Delete**, after a confirmation naming it, and
+  returns to the list. The **Delete events** form, below the list, takes
+  a producer (every producer, by name), a day (**Received before**, from
+  midnight in the browser's time zone) or both. A selection and the form
+  first send the same request as a dry run and ask for confirmation
+  stating its count (_Delete 3 events of "ci"?_), or say there is nothing
+  to delete; only then do they delete, say how many went and read the list
+  again. See [Deleting events](#deleting-events).
+- **decided: one event is confirmed by its title, without a dry run**: its
+  count is one, and an event deleted meanwhile answers `404`, shown as the
+  error. Editing events, sending a test event and their deliveries are for
+  later releases.
 
 - **On the host only.** The page is on the backend's own port, like `/q/`
   and the management API; the Compose proxy forwards only `/api/`, so it
@@ -1504,8 +1568,9 @@ pushes; the event itself is stored and listed either way.
 - **Interval.** `signalhub.push.dispatch.interval`
   (`SIGNALHUB_PUSH_DISPATCH_INTERVAL`, default `2s`) is how often the
   dispatcher looks for new rows, and so the longest a push waits.
-- Deleting an event (only [retention](#retention) does; the API cannot)
-  drops its pending push and retries with it.
+- Deleting an event ([retention](#retention), or the operator; see
+  [Deleting events](#deleting-events)) drops its pending push and retries
+  with it.
 
 The push token never appears in logs:
 providers must keep it out of outcome details, and an exception from a
@@ -2041,7 +2106,8 @@ events older than it are deleted.
   `(created_at, id)` index (V3), so a large backlog after enabling
   retention never holds long locks. An event's pending push and retries go
   with it (their foreign keys cascade); producers and clients are
-  untouched. An `INFO` line reports how many events were deleted, and
+  untouched. Besides retention, only the operator deletes events (see
+  [Deleting events](#deleting-events)). An `INFO` line reports how many events were deleted, and
   `signalhub_events_deleted_total` counts them (see [Metrics](#metrics)).
 - **Consequences.** A deleted event is gone: `GET /api/v1/events/{id}` and
   marking it read answer `404`, and it drops out of the listing and the

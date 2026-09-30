@@ -59,6 +59,22 @@ class AdminApiDisabledTest {
   }
 
   @Test
+  void eventManagementIsNotFound() {
+    given()
+        .header("Authorization", SOME_TOKEN)
+        .delete("/api/v1/admin/events/" + UUID.randomUUID())
+        .then()
+        .statusCode(404);
+    given()
+        .header("Authorization", SOME_TOKEN)
+        .contentType(ContentType.JSON)
+        .body("{\"createdBefore\": \"2100-01-01T00:00:00Z\", \"dryRun\": true}")
+        .post("/api/v1/admin/events/delete")
+        .then()
+        .statusCode(404);
+  }
+
+  @Test
   void theEventListingAcceptsOnlyClientKeys() {
     // The former admin token is no credential at all once it is unset.
     given().header("Authorization", SOME_TOKEN).get("/api/v1/events").then().statusCode(401);

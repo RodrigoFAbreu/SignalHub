@@ -408,6 +408,39 @@ class OpenApiTest {
   }
 
   @Test
+  void describesDeletingEvents() {
+    var one = "paths.'/api/v1/admin/events/{id}'.delete";
+    var many = "paths.'/api/v1/admin/events/delete'.post";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(one + ".security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(one + ".tags", equalTo(List.of("Event management")))
+        .body(one + ".responses.keySet()", containsInAnyOrder("204", "401", "404"))
+        .body(one + ".responses.'204'", not(hasKey("content")))
+        .body(many + ".security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(many + ".tags", equalTo(List.of("Event management")))
+        .body(many + ".responses.keySet()", containsInAnyOrder("200", "400", "401", "404"))
+        .body(
+            many + ".requestBody.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/DeleteEventsRequest"))
+        .body(
+            many + ".responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/DeletedEvents"))
+        .body(
+            SCHEMAS + ".DeleteEventsRequest.properties.keySet()",
+            containsInAnyOrder("ids", "producerId", "createdBefore", "dryRun"))
+        .body(SCHEMAS + ".DeleteEventsRequest.properties.ids.maxItems", equalTo(100))
+        .body(SCHEMAS + ".DeleteEventsRequest.properties.dryRun.type", equalTo("boolean"))
+        .body(SCHEMAS + ".DeletedEvents.required", containsInAnyOrder("count", "dryRun"))
+        // Deleting is management: the event API itself still cannot delete an event.
+        .body("paths.'/api/v1/events/{id}'", not(hasKey("delete")));
+  }
+
+  @Test
   void describesPairing() {
     given()
         .queryParam("format", "json")

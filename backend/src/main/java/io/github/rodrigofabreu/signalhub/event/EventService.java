@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.event;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 
 import io.github.rodrigofabreu.signalhub.producer.ProducerIdentity;
@@ -7,14 +8,20 @@ import io.github.rodrigofabreu.signalhub.producer.ProducerService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
+import org.jboss.logging.Logger;
 
 /** Stores and loads events, and maps between the API models and the persistence entity. */
 @ApplicationScoped
 class EventService {
+
+  private static final Logger LOG = Logger.getLogger(EventService.class);
 
   private final EventRepository repository;
   private final ProducerService producers;
@@ -155,6 +162,57 @@ class EventService {
   @Transactional
   UnreadCount countUnread() {
     return new UnreadCount(repository.countUnread());
+  }
+
+  /**
+   * Deletes the event, with its pending push and retries; producers, clients and other events are
+   * untouched. Returns whether it existed.
+   */
+  @Transactional
+  boolean delete(UUID id) {
+    var deleted = repository.deleteEvent(id);
+    if (deleted) {
+      LOG.infof("Deleted event %s", id);
+    }
+    return deleted;
+  }
+
+  /**
+   * Deletes the events a request selects or filters, in one transaction, so a failure deletes none;
+   * with a dry run, counts them and deletes none. Their pending pushes and retries go with them.
+   * Empty if the filter names a producer that does not exist.
+   */
+  @Transactional
+  Optional<DeletedEvents> delete(DeleteEventsRequest request) {
+    var dryRun = request.dryRunRequested();
+    if (request.selection()) {
+      var ids = new LinkedHashSet<>(request.ids());
+      if (dryRun) {
+        return Optional.of(new DeletedEvents(repository.countIds(ids), true));
+      }
+      var count = repository.deleteIds(ids);
+      LOG.infof("Deleted %d of %d selected events: %s", count, ids.size(), ids);
+      return Optional.of(new DeletedEvents(count, false));
+    }
+    var producerId = Optional.ofNullable(request.producerId());
+    if (producerId.isPresent() && producers.find(producerId.get()).isEmpty()) {
+      return Optional.empty();
+    }
+    var createdBefore = Optional.ofNullable(request.createdBefore()).map(OffsetDateTime::toInstant);
+    if (dryRun) {
+      return Optional.of(
+          new DeletedEvents(repository.countMatching(producerId, createdBefore), true));
+    }
+    var count = repository.deleteMatching(producerId, createdBefore);
+    LOG.infof(
+        "Deleted %d events %s",
+        count,
+        Stream.of(
+                producerId.map(id -> "of producer " + id),
+                createdBefore.map(before -> "created before " + before))
+            .flatMap(Optional::stream)
+            .collect(joining(" and ")));
+    return Optional.of(new DeletedEvents(count, false));
   }
 
   /**

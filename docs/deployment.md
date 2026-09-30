@@ -179,7 +179,7 @@ Not reachable from other machines:
   `.env`. Listing events with the admin token still works through the proxy.
 - **The admin page** (`/admin/`): lists
   and changes devices and producers, issues producer keys, creates
-  pairing codes and browses events with the admin token, like
+  pairing codes and browses and deletes events with the admin token, like
   the management API, so it is on `127.0.0.1:8080` only too;
   reach it from another computer through SSH (see step 6 of
   [Setup](#setup)).
@@ -478,7 +478,9 @@ host itself being down.
   ```
 
 - **Disk space.** The database only grows unless a
-  [retention](architecture.md#retention) period is set; check the free
+  [retention](architecture.md#retention) period is set (unwanted events,
+  such as tests, can also be
+  [deleted](architecture.md#deleting-events) on the admin page); check the free
   space on the host (`df -h /var/lib/docker`) and the database size (see
   [Resources](architecture.md#resources)).
 - **Delivery**, with a metrics scraper (see

@@ -317,7 +317,8 @@ jobs:
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
           # Management, health, metrics, OpenAPI and the admin page stay on the host, however the path is spelled.
           for path in /api/v1/admin/producers /api//v1/admin/producers /api/v1/%61dmin/producers \
-              /api/v1/events/../admin/producers /api/%2e%2e/q/metrics /q/health/ready /q/metrics \
+              /api/v1/events/../admin/producers /api/v1/admin/events/delete \
+              /api/%2e%2e/q/metrics /q/health/ready /q/metrics \
               /q/openapi / /admin/ /admin /admin/admin.js /%61dmin/ /api/../admin/ /connect/ /connect \
               /webjars/qrcode-generator/1.4.4/qrcode.js; do
             status=$(https_status "$path")
@@ -541,6 +542,53 @@ jobs:
           grep --quiet '^signalhub_push_dispatch_pending ' <<<"$metrics"
           grep --quiet '^agroal_active_count' <<<"$metrics"
           grep --quiet '^http_server_requests_seconds_count{.*uri="/api/v1/events/{id}"' <<<"$metrics"
+      - name: The operator deletes events on the host, after a dry run, and never through the proxy
+        run: |
+          manage() {
+            curl --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" "$@"
+          }
+          created=$(manage --fail --header 'Content-Type: application/json' \
+            --data '{"name": "ci-smoke-deleted"}' http://localhost:8080/api/v1/admin/producers)
+          key=$(jq --raw-output .apiKey <<<"$created")
+          echo "::add-mask::$key"
+          producer_id=$(jq --raw-output .producer.id <<<"$created")
+          publish() {
+            curl --fail --silent --show-error --header "Authorization: Bearer $key" \
+              --header 'Content-Type: application/json' \
+              --data '{"category": "INFO", "severity": "LOW", "title": "To delete"}' \
+              http://localhost:8080/api/v1/events | jq --raw-output .id
+          }
+          one=$(publish)
+          publish > /dev/null
+          publish > /dev/null
+          # One event, then the rest of the producer's, counted first.
+          test "$(manage --output /dev/null --write-out '%{http_code}' --request DELETE \
+            "http://localhost:8080/api/v1/admin/events/$one")" = 204
+          test "$(manage --output /dev/null --write-out '%{http_code}' --request DELETE \
+            "http://localhost:8080/api/v1/admin/events/$one")" = 404
+          delete_events() {
+            manage --fail --header 'Content-Type: application/json' --data "$1" \
+              http://localhost:8080/api/v1/admin/events/delete
+          }
+          delete_events "{\"producerId\": \"$producer_id\", \"dryRun\": true}" \
+            | jq --exit-status '.count == 2 and .dryRun == true'
+          # Deleting is management, which never leaves the host.
+          status=$(manage --cacert "$RUNNER_TEMP/proxy-ca.crt" --output /dev/null --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' --data "{\"producerId\": \"$producer_id\"}" \
+            https://localhost/api/v1/admin/events/delete)
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
+          delete_events "{\"producerId\": \"$producer_id\"}" \
+            | jq --exit-status '.count == 2 and .dryRun == false'
+          manage --fail --get --data-urlencode "producerId=$producer_id" http://localhost:8080/api/v1/events \
+            | jq --exit-status '.items == []'
+          # The producer stays, and so does every other event.
+          manage --fail "http://localhost:8080/api/v1/admin/producers/$producer_id" \
+            | jq --exit-status '.name == "ci-smoke-deleted" and .lastEventAt == null'
+          manage --fail --get --data-urlencode "producerId=$PRODUCER_ID" http://localhost:8080/api/v1/events \
+            | jq --exit-status '(.items | length) == 2'
+          # The admin page's Delete events form, on the host.
+          curl --fail --silent --show-error http://localhost:8080/admin/ | grep --quiet 'id="delete-events"'
+          docker compose logs backend | grep --quiet "Deleted 2 events of producer $producer_id"
       - name: JSON logs carry the startup summary and no secrets
         run: |
           echo 'SIGNALHUB_LOG_JSON=true' >> .env

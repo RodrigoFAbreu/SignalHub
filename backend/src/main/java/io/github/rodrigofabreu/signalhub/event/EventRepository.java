@@ -5,8 +5,10 @@ import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -132,6 +134,60 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
 
   long countUnread() {
     return count("readAt is null");
+  }
+
+  /** Deletes the event, with its pending push and retries. Returns whether it existed. */
+  boolean deleteEvent(UUID id) {
+    return delete("id", id) == 1;
+  }
+
+  /** How many of the given events exist. */
+  long countIds(Collection<UUID> ids) {
+    return count("id in ?1", ids);
+  }
+
+  /**
+   * Deletes the given events that exist, with their pending pushes and retries; returns how many.
+   */
+  long deleteIds(Collection<UUID> ids) {
+    return delete("id in ?1", ids);
+  }
+
+  /** How many events match the filter; an absent bound does not restrict. */
+  long countMatching(Optional<UUID> producerId, Optional<Instant> createdBefore) {
+    var filter = Filter.of(producerId, createdBefore);
+    return count(filter.query(), filter.parameters());
+  }
+
+  /**
+   * Deletes every event matching the filter, with their pending pushes and retries (the foreign
+   * keys of {@code push_dispatches} and {@code push_retries} cascade); returns how many.
+   */
+  long deleteMatching(Optional<UUID> producerId, Optional<Instant> createdBefore) {
+    var filter = Filter.of(producerId, createdBefore);
+    return delete(filter.query(), filter.parameters());
+  }
+
+  private record Filter(String query, Map<String, Object> parameters) {
+    static Filter of(Optional<UUID> producerId, Optional<Instant> createdBefore) {
+      var conditions = new ArrayList<String>();
+      var parameters = new HashMap<String, Object>();
+      producerId.ifPresent(
+          id -> {
+            conditions.add("producerId = :producerId");
+            parameters.put("producerId", id);
+          });
+      createdBefore.ifPresent(
+          before -> {
+            conditions.add("createdAt < :createdBefore");
+            parameters.put("createdBefore", before);
+          });
+      if (conditions.isEmpty()) {
+        // Never "every event" by accident: a filter always restricts.
+        throw new IllegalArgumentException("A filter needs a producer or a time");
+      }
+      return new Filter(String.join(" and ", conditions), parameters);
+    }
   }
 
   /**

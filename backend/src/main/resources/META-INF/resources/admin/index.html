@@ -22,7 +22,7 @@
       <p class="lead">
         Your devices, the producers that publish to them and their events: manage devices and
         connect new ones with a pairing code, register producers and manage their keys, and browse
-        events.
+        and delete events.
       </p>
 
       <form id="unlock" autocomplete="off">
@@ -169,10 +169,36 @@
             </div>
             <p id="events-error" class="error" role="alert" hidden></p>
             <ul id="event-list" class="cards"></ul>
+            <div class="actions selection">
+              <button type="button" id="delete-selected" class="danger" disabled>Delete selected</button>
+              <span id="selection-count" role="status"></span>
+            </div>
             <div class="actions pager">
               <button type="button" id="newer-events" class="secondary">Newer</button>
               <button type="button" id="older-events" class="secondary">Older</button>
             </div>
+
+            <h3 id="delete-events-title">Delete events</h3>
+            <form id="delete-events" autocomplete="off" aria-labelledby="delete-events-title">
+              <p class="lead">
+                Every event of a producer, every event received before a day, or both. You are told
+                how many first. Deleted events are gone for good; producers and devices stay.
+              </p>
+              <div class="filters">
+                <div>
+                  <label for="delete-producer">Producer</label>
+                  <select id="delete-producer">
+                    <option value="">Any producer</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="delete-before">Received before</label>
+                  <input id="delete-before" type="date" />
+                </div>
+              </div>
+              <button type="submit" class="danger">Delete events</button>
+              <p id="delete-events-error" class="error" role="alert" hidden></p>
+            </form>
           </section>
 
           <!-- One event, at #events/<id>, so a reload stays on it. -->
@@ -188,6 +214,7 @@
               <pre id="event-metadata"></pre>
               <div class="actions">
                 <button type="button" id="toggle-read" class="secondary"></button>
+                <button type="button" id="delete-event" class="danger">Delete</button>
               </div>
             </div>
           </section>
