@@ -20,6 +20,12 @@ public record ProducerResponse(
                 "When the producer was disabled; null while enabled. A disabled producer cannot"
                     + " authenticate with any of its keys.")
         Instant disabledAt,
+    @Schema(
+            description =
+                "When SignalHub received the producer's most recent event that is still stored;"
+                    + " null when none is (it never published, or retention deleted its events).",
+            examples = "2026-09-30T08:15:00.123456Z")
+        Instant lastEventAt,
     @Schema(required = true, description = "All keys ever issued, oldest first.")
         List<ApiKey> keys) {
 

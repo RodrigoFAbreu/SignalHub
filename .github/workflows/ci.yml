@@ -276,9 +276,18 @@ jobs:
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
           # The admin page and its QR library are served on the host; the old Connect page is gone.
           curl --fail --silent --show-error http://localhost:8080/admin/ | grep --quiet 'SignalHub admin'
+          # Its Producers section, and the producer's last event it shows.
+          curl --fail --silent --show-error http://localhost:8080/admin/ \
+            | grep --quiet 'id="section-producers" data-section="producers"'
+          last_event=$(curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+            "http://localhost:8080/api/v1/events?producerId=$PRODUCER_ID&limit=1" | jq --raw-output '.items[0].createdAt')
+          curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+            http://localhost:8080/api/v1/admin/producers \
+            | jq --exit-status --arg at "$last_event" \
+                '.items[] | select(.id == env.PRODUCER_ID) | .lastEventAt == $at'
           for asset in $(curl --fail --silent http://localhost:8080/admin/ \
               | grep --only-matching --extended-regexp '(src|href)="[^"]+"' | cut --delimiter '"' --fields 2); do
-            case "$asset" in /*) url="http://localhost:8080$asset" ;; *) url="http://localhost:8080/admin/$asset" ;; esac
+            case "$asset" in \#*) continue ;; /*) url="http://localhost:8080$asset" ;; *) url="http://localhost:8080/admin/$asset" ;; esac
             curl --fail --silent --show-error --output /dev/null "$url"
           done
           for path in /connect/ /connect; do

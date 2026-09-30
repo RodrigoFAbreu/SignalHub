@@ -1802,6 +1802,43 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   Not Disturb_ section, Settings, Critical events), `docs/architecture.md`
   (Client application), `docs/development.md`; compatible (`feat(client)`)
 
+### R51 - The admin page: sections, and producers
+
+- **decided: tabs, with the section in the address's fragment.** The admin
+  page gets a row of tabs, **Devices** (the device list and _Connect a
+  device_, unchanged) and **Producers**, with room for _Events_ (R52) and
+  _Status_ (R55); the section shown is `#devices` or `#producers` (Devices
+  when there is none), so a reload or a bookmark opens it, and switching
+  reads its list again. A reload still asks for the admin token, which stays
+  in the page's memory only; the fragment never reaches the server
+- **Producers**: every producer by name, with whether it is enabled, when it
+  was created and disabled, its ID, its keys (ID, created, revoked; valid
+  keys first, newest first) and its last event with how long ago. **decided:
+  an enabled producer with no stored event for 7 days, or none at all, is
+  marked _Quiet_**, a threshold fixed in the page since SignalHub knows
+  nothing of a producer's rhythm. **Create a producer** (its name), **Issue
+  a key**, **Revoke** a key (after a confirmation), **Disable** (after a
+  confirmation) and **Enable**, all through the existing management API. A
+  new key is shown once, in a field with **Copy key** and a warning that it
+  cannot be shown again, until **I have stored it** clears it from the page
+- **decided: "last published" as a new optional response field**, rather
+  than one event listing per producer: `lastEventAt` on every producer
+  response (`Producer`), when SignalHub received the producer's newest event
+  still stored, `null` when none is (never published, or deleted by
+  retention). One subquery per producer on the existing events index by
+  producer and time, so the listing is one query for it; no migration.
+  Every change is logged by the backend as before (IDs only)
+- tests against real PostgreSQL (`lastEventAt` null before the first event,
+  the newest of several, another producer's events not counted, on the
+  listing, a producer, disabling, enabling and issuing a key), the OpenAPI
+  document (optional), the page (the sections and their fragment, the
+  management calls, confirmations, the key cleared, nothing stored in the
+  browser, nothing rendered as HTML); the Compose smoke test checks the
+  Producers section on the host and the producer's `lastEventAt` against its
+  event, and the page stays `404` through the proxy;
+  `docs/architecture.md` (Producer management, the admin page),
+  `docs/deployment.md`, `docs/development.md`; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2370,8 +2407,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 37    | R48 - One Settings screen, in folding groups                                                     | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 38    | R49 - The pending Dependabot updates                                                             | Increment (`build`)                    | Done (see section 3)                                                             |
 | 39    | R50 - Sound on silent and during do-not-disturb for every push; the critical alert inside Alert  | Increment (`feat(client)`)             | Done (see section 3)                                                             |
-| 40    | R51 - The admin page: sections, and producers                                                    | Increment (`feat`)                     | Next                                                                             |
-| 41    | R52 - The admin page: browsing events                                                            | Increment (`feat`)                     | Blocked until R51 is merged                                                      |
+| 40    | R51 - The admin page: sections, and producers                                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 41    | R52 - The admin page: browsing events                                                            | Increment (`feat`)                     | Next                                                                             |
 | 42    | R53 - Deleting events: the API and the admin page                                                | Increment (`feat`)                     | Blocked until R52 is merged                                                      |
 | 43    | R54 - Sending a test event from the admin page                                                   | Increment (`feat`)                     | Blocked until R53 is merged                                                      |
 | 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Blocked until R54 is merged                                                      |
@@ -4055,7 +4092,7 @@ for critical events** is off and opens once it is on.
 
 ### R51 - The admin page: sections, and producers
 
-Status: planned; next. Added by the maintainer (2026-09-30), from a
+Status: done (see section 3). Added by the maintainer (2026-09-30), from a
 review of what the admin page should do beyond devices.
 
 Goal: the operator manages producers and their keys from the admin page,
@@ -4094,8 +4131,7 @@ keep their attribution); anything about events (R52 to R54, R56).
 
 ### R52 - The admin page: browsing events
 
-Status: planned; blocked until R51 is merged. Added by the maintainer
-(2026-09-30).
+Status: planned; next. Added by the maintainer (2026-09-30).
 
 Goal: the operator sees every event from the admin page.
 
@@ -4366,7 +4402,8 @@ pairing code in the app), R45 (SignalHub's own alert, set in the app), R46
 pattern and length, set in the app), R48 (one Settings screen, in
 folding groups), R49 (the pending Dependabot updates) and R50 (sound on
 silent and during do-not-disturb for every push; the critical alert
-inside Alert) are done. **R51 (the admin page: sections, and producers) is next**, then R52 to R56
-in order, each after the previous one is merged.
+inside Alert) and R51 (the admin page: sections, and producers) are done.
+**R52 (the admin page: browsing events) is next**, then R53 to R56 in
+order, each after the previous one is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

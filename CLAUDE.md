@@ -35,12 +35,16 @@ admin token), a paginated event listing
 read state among others), read state
 (mark events read or unread, the unread count), producer
 authentication (server-issued API keys, managed through
-`/api/v1/admin/producers` with an admin token), and client registration
+`/api/v1/admin/producers` with an admin token, or in the *Producers*
+section of the admin page, which lists every producer with its keys and
+its last event, marks a quiet one, creates producers, shows a new key
+once, issues and revokes keys, and disables and enables producers), and client registration
 (per-installation client keys and provider-neutral push targets, managed
 through `/api/v1/admin/clients` and `/api/v1/client`, or by a device
 redeeming a one-time pairing code from `/api/v1/admin/pairings` at
 `/api/v1/pairing`, made in a browser on the operator's admin page
-`/admin/` on the backend's own port, which also lists every device to
+`/admin/` on the backend's own port (in sections, *Devices* and
+*Producers*, kept in the address), which also lists every device to
 rename it, make it an admin device or not, revoke it, or delete it once
 revoked, and says which device used the code shown, with a push to the
 owner's devices when a device pairs, and an admin device can list every

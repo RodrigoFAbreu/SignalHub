@@ -187,6 +187,44 @@ class ProducerAdminApiTest {
   }
 
   @Test
+  void lastEventAtIsWhenTheProducersNewestEventWasReceived() {
+    var producer = TestProducers.register("admin-last-event");
+    var other = TestProducers.register("admin-last-event-other");
+    var path = ADMIN + "/" + producer.id();
+    asAdmin().get(path).then().statusCode(200).body("lastEventAt", nullValue());
+
+    publish(producer);
+    var newest = publish(producer);
+    publish(other);
+
+    asAdmin().get(path).then().statusCode(200).body("lastEventAt", equalTo(newest));
+    asAdmin()
+        .get(ADMIN)
+        .then()
+        .statusCode(200)
+        .body("items.find { it.id == '" + producer.id() + "' }.lastEventAt", equalTo(newest));
+    // Every response about the producer carries it, a disabled producer's included.
+    asAdmin().post(path + "/disable").then().statusCode(200).body("lastEventAt", equalTo(newest));
+    asAdmin().post(path + "/enable").then().statusCode(200).body("lastEventAt", equalTo(newest));
+    asAdmin()
+        .post(path + "/keys")
+        .then()
+        .statusCode(201)
+        .body("producer.lastEventAt", equalTo(newest));
+  }
+
+  @Test
+  void aProducerWithoutEventsIsListedWithoutALastEvent() {
+    var producer = TestProducers.register("admin-no-events");
+    asAdmin()
+        .get(ADMIN)
+        .then()
+        .statusCode(200)
+        .body("items.find { it.id == '" + producer.id() + "' }", hasKey("lastEventAt"))
+        .body("items.find { it.id == '" + producer.id() + "' }.lastEventAt", nullValue());
+  }
+
+  @Test
   void unknownProducerOrKeyIsNotFound() {
     var unknown = ADMIN + "/" + UUID.randomUUID();
     var producer = TestProducers.register("admin-unknown");
@@ -258,6 +296,18 @@ class ProducerAdminApiTest {
         .statusCode(401)
         .header("WWW-Authenticate", "Bearer realm=\"signalhub\"")
         .body("title", equalTo("Unauthorized"));
+  }
+
+  /** Publishes an event as the producer and answers when SignalHub received it. */
+  private static String publish(TestProducers.Registered producer) {
+    return TestProducers.asProducer(producer.apiKey())
+        .contentType(ContentType.JSON)
+        .body("{\"category\": \"INFO\", \"severity\": \"LOW\", \"title\": \"Last event\"}")
+        .post("/api/v1/events")
+        .then()
+        .statusCode(201)
+        .extract()
+        .path("createdAt");
   }
 
   private static ValidatableResponse create(String name) {

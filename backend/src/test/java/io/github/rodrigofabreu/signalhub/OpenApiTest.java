@@ -231,6 +231,9 @@ class OpenApiTest {
             equalTo("#/components/schemas/Producer"))
         .body(SCHEMAS + ".IssuedApiKey.required", containsInAnyOrder("producer", "keyId", "apiKey"))
         .body(SCHEMAS + ".Producer.properties", not(hasKey("apiKey")))
+        // Optional, and null when the producer has no stored event.
+        .body(SCHEMAS + ".Producer.properties", hasKey("lastEventAt"))
+        .body(SCHEMAS + ".Producer.required", not(hasItem("lastEventAt")))
         .body(SCHEMAS + ".ApiKey.properties", not(hasKey("keyHash")));
   }
 

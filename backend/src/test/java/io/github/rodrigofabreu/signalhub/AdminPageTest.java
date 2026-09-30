@@ -13,7 +13,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** The operator's admin page: a static page for devices and pairing codes on the backend's port. */
+/**
+ * The operator's admin page: a static page for devices, pairing codes and producers on the
+ * backend's port.
+ */
 @QuarkusTest
 class AdminPageTest {
 
@@ -50,7 +53,14 @@ class AdminPageTest {
   void everyScriptAndStylesheetOfThePageIsServed() {
     // Catches a QR library version in the page that no longer matches the pom's.
     var page = given().get("/admin/").then().extract().asString();
-    var assets = ASSET.matcher(page).results().map(match -> match.group(1)).toList();
+    // Links to the page's own sections (#devices) are not files.
+    var assets =
+        ASSET
+            .matcher(page)
+            .results()
+            .map(match -> match.group(1))
+            .filter(asset -> !asset.startsWith("#"))
+            .toList();
     assertFalse(assets.isEmpty());
     for (var asset : assets) {
       var path = asset.startsWith("/") ? asset : "/admin/" + asset;
@@ -117,6 +127,92 @@ class AdminPageTest {
     assertTrue(script.contains("$(\"toast\").textContent = text;"));
     var page = given().get("/admin/").then().extract().asString();
     assertTrue(page.contains("<p id=\"toast\" class=\"toast\" role=\"status\" hidden></p>"));
+  }
+
+  @Test
+  void thePageHasSectionsKeptInItsAddress() {
+    var page = given().get("/admin/").then().extract().asString();
+    assertTrue(page.contains("<a href=\"#devices\" data-section=\"devices\">Devices</a>"));
+    assertTrue(page.contains("<a href=\"#producers\" data-section=\"producers\">Producers</a>"));
+    assertTrue(page.contains("<div id=\"section-devices\" data-section=\"devices\">"));
+    assertTrue(page.contains("<div id=\"section-producers\" data-section=\"producers\" hidden>"));
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    assertTrue(script.contains("const SECTIONS = [\"devices\", \"producers\"];"));
+    // The fragment names the section, Devices when it names none, so a reload stays on it.
+    assertTrue(
+        script.contains(
+            "SECTIONS.find((section) => location.hash === `#${section}`) || SECTIONS[0];"));
+    assertTrue(
+        Pattern.compile(
+                "window\\.addEventListener\\(\"hashchange\", \\(\\) => \\{\\s*"
+                    + "if \\(token\\) showSection\\(\\);")
+            .matcher(script)
+            .find());
+  }
+
+  @Test
+  void theAdminTokenAndProducerKeysAreNeverStoredAndNothingIsRenderedAsHtml() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    for (var forbidden :
+        new String[] {
+          "localStorage",
+          "sessionStorage",
+          "indexedDB",
+          "document.cookie",
+          "innerHTML",
+          "outerHTML",
+          "insertAdjacentHTML",
+          "document.write"
+        }) {
+      assertFalse(script.contains(forbidden), forbidden);
+    }
+    // A new key is shown in a field once, and cleared when the operator is done with it.
+    assertTrue(script.contains("$(\"new-key-value\").value = issued.apiKey;"));
+    assertTrue(
+        Pattern.compile("function hideKey\\(\\) \\{\\s*\\$\\(\"new-key-value\"\\)\\.value = \"\";")
+            .matcher(script)
+            .find());
+    var page = given().get("/admin/").then().extract().asString();
+    assertTrue(page.contains("This key is shown only now"));
+  }
+
+  @Test
+  void thePageManagesProducersWithTheManagementApi() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    assertTrue(script.contains("const PRODUCERS = \"/api/v1/admin/producers\";"));
+    assertTrue(
+        script.contains(
+            "const issued = await call(\"POST\", PRODUCERS, { name: $(\"producer-name\").value.trim() });"));
+    assertTrue(script.contains("showKey(await call(\"POST\", `${PRODUCERS}/${p.id}/keys`))"));
+    // Revoking a key and disabling a producer each ask first.
+    assertTrue(
+        Pattern.compile(
+                "if \\(!confirm\\(question\\)\\) return;\\s*changeProducer\\(\\(\\) =>"
+                    + " call\\(\"POST\", `\\$\\{PRODUCERS\\}/\\$\\{p\\.id\\}/keys/\\$\\{key\\.id\\}/revoke`\\)\\);")
+            .matcher(script)
+            .find());
+    assertTrue(
+        Pattern.compile(
+                "function disable\\(p\\) \\{\\s*if \\(!confirm\\([^;]*\\)\\) return;\\s*"
+                    + "changeProducer\\(\\(\\) => call\\(\"POST\", `\\$\\{PRODUCERS\\}/\\$\\{p\\.id\\}/disable`\\)\\);")
+            .matcher(script)
+            .find());
+    assertTrue(script.contains("call(\"POST\", `${PRODUCERS}/${p.id}/enable`)"));
+    // Revoked keys offer nothing; the others a Revoke button.
+    assertTrue(
+        Pattern.compile(
+                "if \\(key\\.revokedAt\\) \\{\\s*text\\.append\\([^;]*\\);\\s*\\} else \\{\\s*item\\.append\\(button\\(\"Revoke\","
+                    + " \\(\\) => revokeKey\\(p, key\\), \"danger\"\\)\\);")
+            .matcher(script)
+            .find());
+    // A producer that went quiet stands out; a disabled one is not expected to publish.
+    assertTrue(script.contains("const QUIET_DAYS = 7;"));
+    assertTrue(
+        Pattern.compile(
+                "function quiet\\(producer\\) \\{\\s*if \\(producer\\.disabledAt\\) return false;\\s*"
+                    + "return !producer\\.lastEventAt \\|\\| Date\\.now\\(\\) - Date\\.parse\\(producer\\.lastEventAt\\) > QUIET_DAYS \\* DAY_MS;")
+            .matcher(script)
+            .find());
   }
 
   @ParameterizedTest

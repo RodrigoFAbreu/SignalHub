@@ -141,12 +141,16 @@ public class ProducerService {
     return producers.findByIdOptional(id).map(this::toResponse);
   }
 
-  /** All producers by name. Two queries in total, whatever the number of producers. */
+  /** All producers by name. Three queries in total, whatever the number of producers. */
   @Transactional
   List<ProducerResponse> list() {
     var keysByProducer = keys.ofAllProducers().stream().collect(groupingBy(k -> k.producer().id()));
+    var lastEvents = producers.lastEventTimes();
     return producers.listAll(Sort.by("name")).stream()
-        .map(p -> toResponse(p, keysByProducer.getOrDefault(p.id(), List.of())))
+        .map(
+            p ->
+                toResponse(
+                    p, lastEvents.get(p.id()), keysByProducer.getOrDefault(p.id(), List.of())))
         .toList();
   }
 
@@ -159,15 +163,20 @@ public class ProducerService {
   }
 
   private ProducerResponse toResponse(ProducerEntity producer) {
-    return toResponse(producer, keys.ofProducer(producer.id()));
+    return toResponse(
+        producer,
+        producers.lastEventAt(producer.id()).orElse(null),
+        keys.ofProducer(producer.id()));
   }
 
-  private static ProducerResponse toResponse(ProducerEntity producer, List<ApiKeyEntity> keys) {
+  private static ProducerResponse toResponse(
+      ProducerEntity producer, Instant lastEventAt, List<ApiKeyEntity> keys) {
     return new ProducerResponse(
         producer.id(),
         producer.name(),
         producer.createdAt(),
         producer.disabledAt(),
+        lastEventAt,
         keys.stream()
             .map(k -> new ProducerResponse.ApiKey(k.id(), k.createdAt(), k.revokedAt()))
             .toList());
