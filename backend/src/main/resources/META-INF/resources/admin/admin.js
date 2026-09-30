@@ -3,15 +3,40 @@
 // The admin page (docs/architecture.md#the-admin-page), in sections kept in the address's fragment:
 // Devices lists every client with the management API, changes them, deletes revoked ones, and
 // creates pairings shown as a QR code until they are used or expire; Producers lists every producer,
-// creates them, issues and revokes their keys, and disables and enables them.
+// creates them, issues and revokes their keys, and disables and enables them; Events lists events a
+// page at a time, filtered, and opens one (#events/<id>) to read it and mark it read or unread.
 // The admin token lives only in this closure; it is never stored, and every request goes to this
 // same origin. A new producer key is shown once and dropped when the operator is done with it.
-// Names come from the server and are always set as text, never as HTML.
+// Names and event contents come from the server and are always set as text, never as HTML; an
+// event's link is only ever opened by the operator, in a new tab, never followed by the page.
 (() => {
   const CLIENTS = "/api/v1/admin/clients";
   const PAIRINGS = "/api/v1/admin/pairings";
   const PRODUCERS = "/api/v1/admin/producers";
-  const SECTIONS = ["devices", "producers"];
+  const EVENTS = "/api/v1/events";
+  const SECTIONS = ["devices", "producers", "events"];
+  const EVENT_PAGE = 25;
+  // The listing's filters, by the field that sets each; the same as the app's inbox.
+  const EVENT_FILTERS = {
+    producerId: "filter-producer",
+    category: "filter-category",
+    severity: "filter-severity",
+    read: "filter-read",
+  };
+  // Canonical IDs only, so nothing typed into the address becomes another request path.
+  const EVENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  // The server accepts only these schemes; checked again so no other link is ever made clickable.
+  const WEB_LINK = /^https?:\/\//i;
+  const LABELS = {
+    ACTION_REQUIRED: "Action required",
+    BLOCKED: "Blocked",
+    COMPLETED: "Completed",
+    INFO: "Info",
+    LOW: "Low",
+    NORMAL: "Normal",
+    HIGH: "High",
+    CRITICAL: "Critical",
+  };
   // An enabled producer with no event for this long is marked quiet, so one that stopped stands out.
   const QUIET_DAYS = 7;
   const DAY_MS = 24 * 60 * 60 * 1000;
@@ -26,6 +51,10 @@
   let poller = null;
   let current = null;
   let toastTimer = null;
+  // The cursor of each events page read so far, the first page having none, and the next one's.
+  let eventPages = [null];
+  let nextEventCursor = null;
+  let shownEvent = null;
 
   $("unlock").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -49,6 +78,24 @@
 
   $("refresh").addEventListener("click", () => refresh());
   $("refresh-producers").addEventListener("click", () => refreshProducers());
+  $("refresh-events").addEventListener("click", () => refreshEvents());
+
+  for (const id of Object.values(EVENT_FILTERS)) {
+    // Other filters, other events: back to the newest page.
+    $(id).addEventListener("change", () => {
+      eventPages = [null];
+      refreshEvents();
+    });
+  }
+  $("older-events").addEventListener("click", () => {
+    eventPages.push(nextEventCursor);
+    refreshEvents();
+  });
+  $("newer-events").addEventListener("click", () => {
+    eventPages.pop();
+    refreshEvents();
+  });
+  $("toggle-read").addEventListener("click", () => toggleRead());
 
   $("create").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -123,8 +170,10 @@
   // --- Sections --------------------------------------------------------------------------------
 
   // Shows the section named in the address, Devices when it names none, and reads its list again.
+  // Events may name an event too: #events/<id>.
   function showSection() {
-    const name = SECTIONS.find((section) => location.hash === `#${section}`) || SECTIONS[0];
+    const [first, eventId] = location.hash.slice(1).split("/");
+    const name = SECTIONS.find((section) => first === section) || SECTIONS[0];
     for (const node of document.querySelectorAll("#admin > [data-section]")) {
       node.hidden = node.dataset.section !== name;
     }
@@ -132,6 +181,7 @@
       if (link.dataset.section === name) link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     }
+    if (name === "events") return showEvents(eventId);
     return name === "producers" ? refreshProducers() : refresh();
   }
 
@@ -381,6 +431,151 @@
 
   function keyStatus(text) {
     $("new-key-status").textContent = text;
+  }
+
+  // --- Events ----------------------------------------------------------------------------------
+
+  // The list, or one event when the address names one.
+  function showEvents(eventId) {
+    const one = EVENT_ID.test(eventId || "");
+    $("event-browser").hidden = one;
+    $("event-details").hidden = !one;
+    return one ? openEvent(eventId) : Promise.all([refreshEvents(), refreshProducerChoices()]);
+  }
+
+  async function refreshEvents() {
+    showError("events-error", null);
+    // Until this page is in, so a second click cannot step twice from the same one.
+    $("older-events").disabled = true;
+    $("newer-events").disabled = true;
+    const query = new URLSearchParams({ limit: String(EVENT_PAGE) });
+    for (const [name, id] of Object.entries(EVENT_FILTERS)) {
+      if ($(id).value) query.set(name, $(id).value);
+    }
+    const cursor = eventPages[eventPages.length - 1];
+    if (cursor) query.set("cursor", cursor);
+    try {
+      const page = await call("GET", `${EVENTS}?${query}`);
+      nextEventCursor = page.nextCursor;
+      renderEvents(page.items);
+    } catch (e) {
+      nextEventCursor = null;
+      $("event-list").replaceChildren();
+      showError("events-error", e.message);
+    }
+    $("older-events").disabled = !nextEventCursor;
+    $("newer-events").disabled = eventPages.length === 1;
+  }
+
+  // The producer filter offers every producer, keeping the one chosen.
+  async function refreshProducerChoices() {
+    let producers;
+    try {
+      producers = (await call("GET", PRODUCERS)).items;
+    } catch {
+      return; // The filter keeps what it had; the list says what went wrong, if anything did.
+    }
+    const select = $("filter-producer");
+    const chosen = select.value;
+    const options = producers.map((p) => new Option(p.name, p.id));
+    select.replaceChildren(new Option("All producers", ""), ...options);
+    select.value = producers.some((p) => p.id === chosen) ? chosen : "";
+  }
+
+  function renderEvents(events) {
+    const list = $("event-list");
+    list.replaceChildren(...events.map(eventCard));
+    if (events.length === 0) list.append(element("li", "empty", "No events."));
+  }
+
+  function eventCard(event) {
+    const item = element("li", event.readAt ? "event" : "event unread");
+    const title = element("h3");
+    const link = element("a", null, event.title);
+    link.href = `#events/${event.id}`;
+    title.append(link, " ", ...badges(event));
+    item.append(title);
+    const where = [event.producer.name, event.context].filter(Boolean).join(" · ");
+    item.append(element("p", "meta", `${where} · ${time(event.createdAt)} (${ago(event.createdAt)})`));
+    return item;
+  }
+
+  function badges(event) {
+    const list = [
+      // Only high and critical stand out, so Unread is the one blue badge.
+      element("span", `badge muted severity-${event.severity.toLowerCase()}`, label(event.severity)),
+      element("span", "badge muted", label(event.category)),
+    ];
+    if (!event.readAt) list.push(element("span", "badge", "Unread"));
+    return list;
+  }
+
+  // A value this page does not know yet (a later release may add one) is shown as it is.
+  function label(value) {
+    return LABELS[value] || value;
+  }
+
+  async function openEvent(eventId) {
+    showError("event-error", null);
+    $("event-body").hidden = true;
+    shownEvent = null;
+    try {
+      renderEvent(await call("GET", `${EVENTS}/${eventId}`));
+    } catch (e) {
+      showError("event-error", e.message);
+    }
+  }
+
+  function renderEvent(event) {
+    shownEvent = event;
+    $("event-title").textContent = event.title;
+    $("event-badges").replaceChildren(...badges(event));
+    $("event-message").textContent = event.message || "";
+    $("event-message").hidden = !event.message;
+
+    const facts = $("event-facts");
+    facts.replaceChildren();
+    const fact = (name, value) => facts.append(element("dt", null, name), element("dd", null, value));
+    fact("Producer", event.producer.name);
+    fact("Category", label(event.category));
+    fact("Severity", label(event.severity));
+    if (event.context) fact("Context", event.context);
+    fact("Happened", event.occurredAt ? time(event.occurredAt) : "Not given");
+    fact("Received", `${time(event.createdAt)} (${ago(event.createdAt)})`);
+    if (event.link) facts.append(element("dt", null, "Link"), linkTo(event.link));
+    fact("Read", event.readAt ? time(event.readAt) : "Unread");
+    fact("ID", event.id);
+
+    $("event-metadata").textContent = JSON.stringify(event.metadata, null, 2);
+    $("toggle-read").textContent = event.readAt ? "Mark as unread" : "Mark as read";
+    $("event-body").hidden = false;
+  }
+
+  // Opened only by the operator's click, in a new tab that cannot reach back to this page and is
+  // told nothing of where it came from.
+  function linkTo(url) {
+    const cell = element("dd");
+    if (!WEB_LINK.test(url)) {
+      cell.textContent = url;
+      return cell;
+    }
+    const link = element("a", null, url);
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    cell.append(link);
+    return cell;
+  }
+
+  async function toggleRead() {
+    const event = shownEvent;
+    if (!event) return;
+    showError("event-error", null);
+    try {
+      renderEvent(await call(event.readAt ? "DELETE" : "PUT", `${EVENTS}/${event.id}/read`));
+    } catch (e) {
+      showError("event-error", e.message);
+    }
   }
 
   // --- Pairing ---------------------------------------------------------------------------------

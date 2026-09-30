@@ -1839,6 +1839,40 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `docs/architecture.md` (Producer management, the admin page),
   `docs/deployment.md`, `docs/development.md`; compatible (`feat`)
 
+### R52 - The admin page: browsing events
+
+- an **Events** tab (`#events`) on the admin page: events newest first
+  through `GET /api/v1/events` with the admin token, with the app inbox's
+  filters (producer, chosen from every producer by name; category;
+  severity; read and unread, unread only or read only), each sent only
+  when chosen; changing one goes back to the newest page. Each event
+  shows its title, severity, category, _Unread_, its producer, context
+  and when it was received. **decided: 25 events to a page, with Older
+  and Newer**, the listing's cursor for Older and the pages read so far
+  for Newer, rather than an endless list
+- **decided: an event opens at `#events/<id>`**, so a reload or a
+  bookmark stays on it (and R54 can link to a new event); only a
+  canonical ID in the address is requested, anything else shows the
+  list. Its details: title, message, producer, category, severity,
+  context, when it happened (or _Not given_) and was received, its link,
+  its metadata as `JSON.stringify` indents it, its read state and ID,
+  with **Mark as read** / **Mark as unread** (`PUT`/`DELETE
+  /api/v1/events/{id}/read`) and **Back to events** to the same page and
+  filters
+- **decided: the link is made clickable only for `http`/`https`** (the
+  API's own rule, checked again) and opens in a new tab with `noopener
+  noreferrer`; the page never follows, fetches or previews it. Every
+  value is set as text, never as HTML; a metadata number beyond what
+  JavaScript holds exactly is shown rounded (the stored value is
+  unchanged), documented
+- no API, schema or header change; tests pin the page (the tab and its
+  fragment, the filters, paging, opening an event by a canonical ID only,
+  marking read and unread, every field as text, the link's scheme check,
+  new tab and `noopener noreferrer`, no navigation by the page) and the
+  Compose smoke test checks the Events section on the host;
+  `docs/architecture.md` (the admin page), `docs/deployment.md`,
+  `docs/development.md`; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2408,8 +2442,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 38    | R49 - The pending Dependabot updates                                                             | Increment (`build`)                    | Done (see section 3)                                                             |
 | 39    | R50 - Sound on silent and during do-not-disturb for every push; the critical alert inside Alert  | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 40    | R51 - The admin page: sections, and producers                                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 41    | R52 - The admin page: browsing events                                                            | Increment (`feat`)                     | Next                                                                             |
-| 42    | R53 - Deleting events: the API and the admin page                                                | Increment (`feat`)                     | Blocked until R52 is merged                                                      |
+| 41    | R52 - The admin page: browsing events                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 42    | R53 - Deleting events: the API and the admin page                                                | Increment (`feat`)                     | Next                                                                             |
 | 43    | R54 - Sending a test event from the admin page                                                   | Increment (`feat`)                     | Blocked until R53 is merged                                                      |
 | 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Blocked until R54 is merged                                                      |
 | 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Blocked until R55 is merged                                                      |
@@ -4131,7 +4165,7 @@ keep their attribution); anything about events (R52 to R54, R56).
 
 ### R52 - The admin page: browsing events
 
-Status: planned; next. Added by the maintainer (2026-09-30).
+Status: done (see section 3). Added by the maintainer (2026-09-30).
 
 Goal: the operator sees every event from the admin page.
 
@@ -4155,8 +4189,7 @@ Non-goals: deleting (R53) or sending (R54) events; delivery details
 
 ### R53 - Deleting events: the API and the admin page
 
-Status: planned; blocked until R52 is merged. Added by the maintainer
-(2026-09-30).
+Status: planned; next. Added by the maintainer (2026-09-30).
 
 Goal: the operator removes test or unwanted events from the admin page,
 instead of running SQL on the database.
@@ -4402,8 +4435,9 @@ pairing code in the app), R45 (SignalHub's own alert, set in the app), R46
 pattern and length, set in the app), R48 (one Settings screen, in
 folding groups), R49 (the pending Dependabot updates) and R50 (sound on
 silent and during do-not-disturb for every push; the critical alert
-inside Alert) and R51 (the admin page: sections, and producers) are done.
-**R52 (the admin page: browsing events) is next**, then R53 to R56 in
-order, each after the previous one is merged.
+inside Alert), R51 (the admin page: sections, and producers) and R52 (the
+admin page: browsing events) are done. **R53 (deleting events: the API and
+the admin page) is next**, then R54 to R56 in order, each after the
+previous one is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

@@ -74,7 +74,8 @@ label {
   font-weight: 600;
 }
 
-input {
+input,
+select {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--border);
@@ -166,7 +167,8 @@ label.check input {
 }
 
 .device,
-.producer {
+.producer,
+.event {
   margin: 12px 0;
   padding: 12px 14px;
   border: 1px solid var(--border);
@@ -180,7 +182,8 @@ label.check input {
 }
 
 .device h3,
-.producer h3 {
+.producer h3,
+.event h3 {
   margin: 0 0 8px;
   font-size: 1rem;
   overflow-wrap: anywhere;
@@ -222,7 +225,8 @@ label.check input {
 }
 
 .device dl,
-.producer dl {
+.producer dl,
+.facts {
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: 2px 12px;
@@ -231,12 +235,14 @@ label.check input {
 }
 
 .device dt,
-.producer dt {
+.producer dt,
+.facts dt {
   color: var(--muted);
 }
 
 .device dd,
-.producer dd {
+.producer dd,
+.facts dd {
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -260,6 +266,78 @@ label.check input {
 .badge.warn {
   background: var(--warning-bg);
   color: var(--warning-text);
+}
+
+.badge.severity-critical {
+  background: var(--danger);
+  color: var(--card);
+}
+
+.badge.severity-high {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.event .badge + .badge,
+#event-badges .badge + .badge {
+  margin-left: 4px;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0 12px;
+}
+
+.event.unread h3 a {
+  font-weight: 700;
+}
+
+.event h3 a {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.event .meta,
+#event-badges {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.pager {
+  justify-content: space-between;
+}
+
+#event-title {
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+
+.message {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+#event-details h3 {
+  margin: 16px 0 4px;
+  font-size: 0.9rem;
+}
+
+#event-metadata {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+#event-details a {
+  color: var(--accent);
 }
 
 .empty {

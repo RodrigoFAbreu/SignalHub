@@ -1002,12 +1002,14 @@ key, so the owner can add a device from the app, away from the host:
 
 ### The admin page
 
-`/admin/` is the operator's page for the owner's devices and producers, the
-management API for clients, pairings and producers without a terminal. It is
-in sections, as tabs: **Devices** and **Producers**. The section shown is the
-address's fragment (`/admin/#devices`, `/admin/#producers`; Devices when
-there is none), so a reload or a bookmark opens it, and switching sections
-reads its list again. A reload asks for the admin token again, since the
+`/admin/` is the operator's page for the owner's devices, producers and
+events, the management API for clients, pairings and producers and the
+event API without a terminal. It is in sections, as tabs: **Devices**,
+**Producers** and **Events**. The section shown is the address's fragment
+(`/admin/#devices`, `/admin/#producers`, `/admin/#events`, and
+`/admin/#events/<id>` for one event; Devices when there is none), so a
+reload or a bookmark opens it, and switching sections reads its list
+again. A reload asks for the admin token again, since the
 page keeps it only in memory; the fragment never reaches the server.
 
 **Devices.** After the operator types the
@@ -1059,6 +1061,39 @@ after every change and with **Refresh**. Every change is logged by the
 backend at `INFO` with IDs only, as through the management API (see
 [Logging](#logging)).
 
+**Events.** Every event, newest first, 25 to a page, with **Older** and
+**Newer** to move between pages, through the
+[listing](#listing-events) with the admin token (its cursor, so events
+that arrive meanwhile never shift a page). It has the app inbox's
+filters: producer (every producer, by name), category, severity and read
+state (read and unread, unread only, read only); changing one goes back
+to the newest page. Each event shows its title, severity, category,
+whether it is unread, its producer and context, and when it was received.
+Its title opens it at `#events/<id>` (only a canonical ID in the address
+is ever requested), with its title, message, producer, category,
+severity, context, when it happened (`occurredAt`, or _Not given_) and
+was received, its link, its metadata as formatted JSON, its read state
+and ID, and **Mark as read** or **Mark as unread**
+([Read state](#read-state)), shared with every client as always.
+**Back to events** returns to the same page and filters, read again.
+
+- **decided: the link is only ever opened by the operator.** It is shown
+  as a link only when it is `http` or `https` (as the API already
+  requires), and opens in a new tab with `noopener noreferrer`, so the
+  site cannot reach back to the page and is not told where the click came
+  from. The page never fetches, follows or previews it.
+- The metadata is shown as the browser reads the JSON, indented: object
+  key order is `jsonb`'s, and a number beyond what JavaScript holds
+  exactly (more than 15 or so significant digits) is shown rounded, while
+  the stored value is unchanged.
+- **decided: a page is 25 events,** with Older and Newer rather than an
+  endless list, so the operator can step back to a page just read; Newer
+  goes back through the pages read so far, not to events that arrived
+  since, which **Refresh** on the first page shows.
+- Nothing about events is changed except read state: events are a
+  permanent record; deleting them, sending a test event and their
+  deliveries are for later releases.
+
 - **On the host only.** The page is on the backend's own port, like `/q/`
   and the management API; the Compose proxy forwards only `/api/`, so it
   never reaches other machines. From another computer, reach it through SSH
@@ -1069,7 +1104,8 @@ backend at `INFO` with IDs only, as through the management API (see
   off, it shows the error and nothing else. The token stays in the page's
   memory: it is not stored, and is gone when the tab closes; so is a new
   producer key, which is on the page only until the operator is done with it.
-  Device and producer names are shown as text, never as HTML.
+  Device and producer names, and every field of an event, metadata
+  included, are shown as text, never as HTML.
 - **Locked down.** The page runs only its own scripts (a
   `Content-Security-Policy` of `default-src 'none'`, with `'self'` for
   scripts, styles and requests), cannot be framed, is never cached and sends

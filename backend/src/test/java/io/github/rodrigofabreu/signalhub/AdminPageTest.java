@@ -14,7 +14,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * The operator's admin page: a static page for devices, pairing codes and producers on the
+ * The operator's admin page: a static page for devices, pairing codes, producers and events on the
  * backend's port.
  */
 @QuarkusTest
@@ -134,14 +134,19 @@ class AdminPageTest {
     var page = given().get("/admin/").then().extract().asString();
     assertTrue(page.contains("<a href=\"#devices\" data-section=\"devices\">Devices</a>"));
     assertTrue(page.contains("<a href=\"#producers\" data-section=\"producers\">Producers</a>"));
+    assertTrue(page.contains("<a href=\"#events\" data-section=\"events\">Events</a>"));
     assertTrue(page.contains("<div id=\"section-devices\" data-section=\"devices\">"));
     assertTrue(page.contains("<div id=\"section-producers\" data-section=\"producers\" hidden>"));
+    assertTrue(page.contains("<div id=\"section-events\" data-section=\"events\" hidden>"));
     var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
-    assertTrue(script.contains("const SECTIONS = [\"devices\", \"producers\"];"));
-    // The fragment names the section, Devices when it names none, so a reload stays on it.
+    assertTrue(script.contains("const SECTIONS = [\"devices\", \"producers\", \"events\"];"));
+    // The fragment names the section, Devices when it names none, so a reload stays on it; Events
+    // may name an event too (#events/<id>).
+    assertTrue(script.contains("const [first, eventId] = location.hash.slice(1).split(\"/\");"));
     assertTrue(
         script.contains(
-            "SECTIONS.find((section) => location.hash === `#${section}`) || SECTIONS[0];"));
+            "const name = SECTIONS.find((section) => first === section) || SECTIONS[0];"));
+    assertTrue(script.contains("if (name === \"events\") return showEvents(eventId);"));
     assertTrue(
         Pattern.compile(
                 "window\\.addEventListener\\(\"hashchange\", \\(\\) => \\{\\s*"
@@ -213,6 +218,101 @@ class AdminPageTest {
                     + "return !producer\\.lastEventAt \\|\\| Date\\.now\\(\\) - Date\\.parse\\(producer\\.lastEventAt\\) > QUIET_DAYS \\* DAY_MS;")
             .matcher(script)
             .find());
+  }
+
+  @Test
+  void thePageBrowsesEventsWithTheListingAPageAtATime() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    assertTrue(script.contains("const EVENTS = \"/api/v1/events\";"));
+    // The app inbox's filters, each only when chosen, and the page's cursor.
+    for (var filter :
+        new String[] {
+          "producerId: \"filter-producer\"",
+          "category: \"filter-category\"",
+          "severity: \"filter-severity\"",
+          "read: \"filter-read\""
+        }) {
+      assertTrue(script.contains(filter), filter);
+    }
+    assertTrue(script.contains("if ($(id).value) query.set(name, $(id).value);"));
+    assertTrue(script.contains("if (cursor) query.set(\"cursor\", cursor);"));
+    assertTrue(script.contains("const page = await call(\"GET\", `${EVENTS}?${query}`);"));
+    // Older follows the listing's cursor; Newer goes back to the page before; a filter starts over.
+    assertTrue(
+        Pattern.compile(
+                "\\$\\(\"older-events\"\\)\\.addEventListener\\(\"click\", \\(\\) => \\{\\s*"
+                    + "eventPages\\.push\\(nextEventCursor\\);")
+            .matcher(script)
+            .find());
+    assertTrue(
+        Pattern.compile(
+                "\\$\\(\"newer-events\"\\)\\.addEventListener\\(\"click\", \\(\\) => \\{\\s*"
+                    + "eventPages\\.pop\\(\\);")
+            .matcher(script)
+            .find());
+    assertTrue(
+        Pattern.compile(
+                "\\$\\(id\\)\\.addEventListener\\(\"change\", \\(\\) => \\{\\s*"
+                    + "eventPages = \\[null\\];")
+            .matcher(script)
+            .find());
+    assertTrue(script.contains("$(\"older-events\").disabled = !nextEventCursor;"));
+    var page = given().get("/admin/").then().extract().asString();
+    for (var control :
+        new String[] {
+          "<select id=\"filter-producer\">",
+          "<option value=\"ACTION_REQUIRED\">Action required</option>",
+          "<option value=\"CRITICAL\">Critical</option>",
+          "<option value=\"false\">Unread only</option>",
+          "<button type=\"button\" id=\"older-events\" class=\"secondary\">Older</button>"
+        }) {
+      assertTrue(page.contains(control), control);
+    }
+  }
+
+  @Test
+  void anEventOpensByItsIdAndIsMarkedReadOrUnread() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    // Only a canonical ID from the address becomes a request path.
+    assertTrue(script.contains("const one = EVENT_ID.test(eventId || \"\");"));
+    assertTrue(script.contains("renderEvent(await call(\"GET\", `${EVENTS}/${eventId}`));"));
+    assertTrue(script.contains("link.href = `#events/${event.id}`;"));
+    assertTrue(
+        script.contains(
+            "renderEvent(await call(event.readAt ? \"DELETE\" : \"PUT\","
+                + " `${EVENTS}/${event.id}/read`));"));
+    assertTrue(
+        script.contains(
+            "$(\"toggle-read\").textContent = event.readAt ? \"Mark as unread\" : \"Mark as read\";"));
+  }
+
+  @Test
+  void anEventIsShownAsTextAndItsLinkOnlyOpensInANewTab() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    // Every field is text; the metadata is formatted JSON, as text too.
+    assertTrue(script.contains("$(\"event-title\").textContent = event.title;"));
+    assertTrue(script.contains("$(\"event-message\").textContent = event.message || \"\";"));
+    assertTrue(
+        script.contains(
+            "$(\"event-metadata\").textContent = JSON.stringify(event.metadata, null, 2);"));
+    // A link is clickable only as http or https, opens in a new tab that cannot reach back to the
+    // page and gets no referrer; the page itself never follows it.
+    assertTrue(script.contains("const WEB_LINK = /^https?:\\/\\//i;"));
+    assertTrue(
+        Pattern.compile(
+                "if \\(!WEB_LINK\\.test\\(url\\)\\) \\{\\s*cell\\.textContent = url;\\s*return cell;")
+            .matcher(script)
+            .find());
+    assertTrue(
+        Pattern.compile(
+                "link\\.href = url;\\s*link\\.target = \"_blank\";\\s*"
+                    + "link\\.rel = \"noopener noreferrer\";")
+            .matcher(script)
+            .find());
+    for (var forbidden :
+        new String[] {"window.open", "location.assign", "location.replace", "location.href"}) {
+      assertFalse(script.contains(forbidden), forbidden);
+    }
   }
 
   @ParameterizedTest
