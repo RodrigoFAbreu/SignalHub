@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -26,15 +27,17 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 /**
- * Event management for the operator: delete test or unwanted events. Requires the admin token, and
- * does not exist unless one is configured. Events are otherwise deleted only by retention.
+ * Event management for the operator: see how an event's push went to each client, and delete test
+ * or unwanted events. Requires the admin token, and does not exist unless one is configured. Events
+ * are otherwise deleted only by retention.
  */
 @Path("/api/v1/admin/events")
 @Tag(
     name = "Event management",
     description =
-        "Delete events: one, a selection, or every event of a producer or older than a time, with"
-            + " a dry run that counts them first. Requires the admin token"
+        "An event's delivery records, and deleting events: one, a selection, or every event of a"
+            + " producer or older than a time, with a dry run that counts them first. Requires the"
+            + " admin token"
             + " (SIGNALHUB_ADMIN_TOKEN); every path answers 404 when none is configured.")
 @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
 @APIResponse(
@@ -46,9 +49,39 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 public class EventAdminResource {
 
   private final EventService events;
+  private final EventDeliveries deliveries;
 
-  EventAdminResource(EventService events) {
+  EventAdminResource(EventService events, EventDeliveries deliveries) {
     this.events = events;
+    this.deliveries = deliveries;
+  }
+
+  @GET
+  @Path("/{id}/deliveries")
+  @Operation(
+      summary = "An event's delivery records",
+      description =
+          "How the event's push went to each client, one record per attempt, oldest first: sent"
+              + " and accepted by the provider, filtered out by the client's push preferences, not"
+              + " sent for want of a push target, or failed, with the provider's reason. Clients"
+              + " revoked before the event are not listed; a deleted client's records go with it."
+              + " An event whose push is not dispatched yet has none. The push token is never"
+              + " shown. The provider's answer is the last thing the server sees: whether the"
+              + " device showed the push is not known.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The event's delivery records.",
+      content = @Content(schema = @Schema(implementation = EventDeliveryList.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No event has this ID, or it was deleted.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public EventDeliveryList deliveries(
+      @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
+    return deliveries
+        .of(id)
+        .map(EventDeliveryList::new)
+        .orElseThrow(() -> notFound("Event not found"));
   }
 
   @DELETE
@@ -56,9 +89,9 @@ public class EventAdminResource {
   @Operation(
       summary = "Delete an event",
       description =
-          "Deletes the event for good, with its push if it has not been sent yet and its pushes"
-              + " waiting for a retry. Producers, clients and other events are untouched. There"
-              + " is no undo.")
+          "Deletes the event for good, with its push if it has not been sent yet, its pushes"
+              + " waiting for a retry and its delivery records. Producers, clients and other"
+              + " events are untouched. There is no undo.")
   @APIResponse(responseCode = "204", description = "The event is deleted.")
   @APIResponse(
       responseCode = "404",
@@ -79,9 +112,10 @@ public class EventAdminResource {
       description =
           "Deletes a selection of events (ids), or every event matching a filter: of one"
               + " producer (producerId), created before a time (createdBefore), or both. Each"
-              + " event goes with its pending push and retries; producers, clients and other"
-              + " events are untouched. All or nothing, in one transaction. With dryRun, nothing"
-              + " is deleted and the count says how many events match now. There is no undo.")
+              + " event goes with its pending push, retries and delivery records; producers,"
+              + " clients and other events are untouched. All or nothing, in one transaction."
+              + " With dryRun, nothing is deleted and the count says how many events match now."
+              + " There is no undo.")
   @APIResponse(
       responseCode = "200",
       description = "How many events were deleted, or would be with dryRun.",

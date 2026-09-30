@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.rodrigofabreu.signalhub.event.Category;
 import io.github.rodrigofabreu.signalhub.event.Severity;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -62,5 +63,27 @@ class PushPreferencesTest {
 
     assertEquals(List.of(Category.BLOCKED, Category.INFO), preferences.mutedCategories());
     assertEquals(List.of(PRODUCER, OTHER), preferences.mutedProducerIds());
+  }
+
+  @Test
+  void theFirstPreferenceThatKeepsAnEventOutIsNamed() {
+    var all = new PushPreferences(false, Severity.HIGH, List.of(Category.INFO), List.of(PRODUCER));
+
+    assertEquals(
+        Optional.of("pushes paused"), all.exclusion(Category.INFO, Severity.LOW, PRODUCER));
+    assertEquals(
+        Optional.of("below the minimum severity"),
+        new PushPreferences(true, Severity.HIGH, List.of(Category.INFO), List.of(PRODUCER))
+            .exclusion(Category.INFO, Severity.LOW, PRODUCER));
+    assertEquals(
+        Optional.of("category muted"),
+        new PushPreferences(true, Severity.LOW, List.of(Category.INFO), List.of(PRODUCER))
+            .exclusion(Category.INFO, Severity.LOW, PRODUCER));
+    assertEquals(
+        Optional.of("producer muted"),
+        new PushPreferences(true, Severity.LOW, List.of(), List.of(PRODUCER))
+            .exclusion(Category.INFO, Severity.LOW, PRODUCER));
+    assertEquals(
+        Optional.empty(), PushPreferences.DEFAULT.exclusion(Category.INFO, Severity.LOW, OTHER));
   }
 }

@@ -63,7 +63,7 @@ class FcmDeliveryTest {
   void deliversToAClientWithAnFcmTarget() {
     var client = withFcmTarget("fcm-" + UUID.randomUUID());
 
-    assertEquals(DeliveryResult.DELIVERED, delivery.deliver(client.id(), MESSAGE));
+    assertEquals(DeliveryResult.DELIVERED, delivery.deliver(client.id(), MESSAGE).result());
 
     var message = fcm.sends().get(0).body().path("message");
     assertEquals(client.token(), message.path("token").asText());
@@ -75,7 +75,7 @@ class FcmDeliveryTest {
     var client = withFcmTarget("gone-" + UUID.randomUUID());
     fcm.answerSends(404, FakeFcm.error(404, "NOT_FOUND", "UNREGISTERED"));
 
-    assertEquals(DeliveryResult.INVALID_TARGET, delivery.deliver(client.id(), MESSAGE));
+    assertEquals(DeliveryResult.INVALID_TARGET, delivery.deliver(client.id(), MESSAGE).result());
 
     asClient(client.key()).get(CLIENT).then().body("pushTarget", nullValue());
   }

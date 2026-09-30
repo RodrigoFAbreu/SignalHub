@@ -1,6 +1,10 @@
 package io.github.rodrigofabreu.signalhub.event;
 
+import static java.util.stream.Collectors.toSet;
+
 import io.github.rodrigofabreu.signalhub.client.ClientService;
+import io.github.rodrigofabreu.signalhub.client.PushRecipient;
+import io.github.rodrigofabreu.signalhub.push.DeliveryReport;
 import io.github.rodrigofabreu.signalhub.push.DeliveryResult;
 import io.github.rodrigofabreu.signalhub.push.PushDelivery;
 import io.micrometer.core.instrument.Counter;
@@ -24,7 +28,8 @@ import org.jboss.logging.Logger;
  * acknowledged event even across restarts; clients deduplicate by event ID. A send that fails
  * temporarily is retried with growing delays, up to {@link #MAX_ATTEMPTS} sends in all; other
  * failures are final, as repeating them cannot help. The result of each send is recorded on the
- * client for the operator.
+ * client for the operator, and every attempt, with the clients not sent to and why, in the event's
+ * delivery records.
  */
 // Created at startup so its meters are scraped before the first use.
 @Startup
@@ -52,6 +57,7 @@ class EventPushDispatcher {
   private final EventService events;
   private final ClientService clients;
   private final PushDelivery delivery;
+  private final EventDeliveries deliveries;
   private final Counter abandoned;
   // Counted by each run, so a scrape reads memory rather than the database.
   private final AtomicLong pendingDispatches = new AtomicLong();
@@ -62,11 +68,13 @@ class EventPushDispatcher {
       EventService events,
       ClientService clients,
       PushDelivery delivery,
+      EventDeliveries deliveries,
       MeterRegistry registry) {
     this.dispatches = dispatches;
     this.events = events;
     this.clients = clients;
     this.delivery = delivery;
+    this.deliveries = deliveries;
     this.abandoned =
         Counter.builder("signalhub.push.retries.abandoned")
             .description("Pushes to one client given up after the last attempt failed temporarily")
@@ -133,17 +141,29 @@ class EventPushDispatcher {
     if (push.isPresent()) {
       var results = new EnumMap<DeliveryResult, Integer>(DeliveryResult.class);
       var excluded = 0;
-      for (var recipient : clients.pushRecipients()) {
-        if (push.get().allowedBy(recipient.preferences())) {
-          var result = delivery.deliver(recipient.clientId(), push.get().message());
-          record(recipient.clientId(), eventId, result);
-          results.merge(result, 1, Integer::sum);
-          if (result == DeliveryResult.TRANSIENT_FAILURE) {
+      var recipients = clients.pushRecipients();
+      // Read before sending, as a send can remove a push target; and without the recipients, in
+      // case one registered a target between the two reads.
+      var recipientIds = recipients.stream().map(PushRecipient::clientId).collect(toSet());
+      var withoutTarget =
+          clients.withoutPushTarget().stream().filter(id -> !recipientIds.contains(id)).toList();
+      for (var recipient : recipients) {
+        var exclusion = push.get().exclusionBy(recipient.preferences());
+        if (exclusion.isEmpty()) {
+          var report = delivery.deliver(recipient.clientId(), push.get().message());
+          record(recipient.clientId(), eventId, 1, report);
+          results.merge(report.result(), 1, Integer::sum);
+          if (report.result() == DeliveryResult.TRANSIENT_FAILURE) {
             retryClientIds.add(recipient.clientId());
           }
         } else {
+          recordDelivery(
+              eventId, recipient.clientId(), 1, DeliveryOutcome.FILTERED, exclusion.get());
           excluded++;
         }
+      }
+      for (var clientId : withoutTarget) {
+        recordDelivery(eventId, clientId, 1, DeliveryOutcome.NO_TARGET, null);
       }
       LOG.debugf(
           "Dispatched the push for event %s: %s, %d excluded by preferences",
@@ -154,45 +174,73 @@ class EventPushDispatcher {
 
   /**
    * Sends a push again to one client. The client's push target and preferences are read now, so a
-   * client that was revoked, lost its target or muted the event meanwhile is not sent to.
+   * client that was revoked, lost its target or muted the event meanwhile is not sent to, and its
+   * delivery records say so.
    */
   private void retry(PushRetry retry) {
     var push = events.pushFor(retry.eventId());
-    var recipient = clients.pushRecipient(retry.clientId());
-    if (push.isPresent()
-        && recipient.isPresent()
-        && push.get().allowedBy(recipient.get().preferences())) {
-      var result = delivery.deliver(retry.clientId(), push.get().message());
-      record(retry.clientId(), retry.eventId(), result);
-      var attempts = retry.attempts() + 1;
-      if (result == DeliveryResult.TRANSIENT_FAILURE) {
-        if (attempts < MAX_ATTEMPTS) {
-          dispatches.retryLater(retry, RETRY_DELAYS.get(attempts - 1));
-          return;
-        }
-        LOG.warnf(
-            "Gave up the push of event %s to client %s after %d attempts",
-            retry.eventId(), retry.clientId(), attempts);
-        abandoned.increment();
-      } else {
-        LOG.debugf(
-            "Retried the push of event %s to client %s: %s (attempt %d)",
-            retry.eventId(), retry.clientId(), result, attempts);
+    if (push.isPresent()) {
+      var attempt = retry.attempts() + 1;
+      var recipient = clients.pushRecipient(retry.clientId());
+      var exclusion = recipient.flatMap(r -> push.get().exclusionBy(r.preferences()));
+      if (recipient.isEmpty()) {
+        recordDelivery(retry.eventId(), retry.clientId(), attempt, DeliveryOutcome.NO_TARGET, null);
+      } else if (exclusion.isPresent()) {
+        recordDelivery(
+            retry.eventId(), retry.clientId(), attempt, DeliveryOutcome.FILTERED, exclusion.get());
+      } else if (sendAgain(retry, push.get(), attempt)) {
+        return;
       }
     }
     dispatches.completeRetry(retry);
   }
 
+  /** Sends the retry; true if it failed temporarily again and is to be sent once more later. */
+  private boolean sendAgain(PushRetry retry, EventPush push, int attempt) {
+    var report = delivery.deliver(retry.clientId(), push.message());
+    record(retry.clientId(), retry.eventId(), attempt, report);
+    if (report.result() != DeliveryResult.TRANSIENT_FAILURE) {
+      LOG.debugf(
+          "Retried the push of event %s to client %s: %s (attempt %d)",
+          retry.eventId(), retry.clientId(), report.result(), attempt);
+      return false;
+    }
+    if (attempt < MAX_ATTEMPTS) {
+      dispatches.retryLater(retry, RETRY_DELAYS.get(attempt - 1));
+      return true;
+    }
+    LOG.warnf(
+        "Gave up the push of event %s to client %s after %d attempts",
+        retry.eventId(), retry.clientId(), attempt);
+    abandoned.increment();
+    return false;
+  }
+
   /**
-   * Records the send's result on the client. The push has been sent by then, so failing to record
-   * it must neither fail the dispatch nor send the push again: the result is only missing.
+   * Records the send's result on the client and in the event's delivery records. The push has been
+   * sent by then, so failing to record it must neither fail the dispatch nor send the push again:
+   * the result is only missing.
    */
-  private void record(UUID clientId, UUID eventId, DeliveryResult result) {
+  private void record(UUID clientId, UUID eventId, int attempt, DeliveryReport report) {
     try {
-      clients.recordPushResult(clientId, eventId, result);
+      clients.recordPushResult(clientId, eventId, report.result());
     } catch (RuntimeException e) {
       LOG.warnf(
           "Could not record the push result of event %s for client %s: %s",
+          eventId, clientId, e.getClass().getName());
+    }
+    recordDelivery(
+        eventId, clientId, attempt, DeliveryOutcome.of(report.result()), report.detail());
+  }
+
+  /** Adds to the event's delivery records; as above, a failure only leaves the record missing. */
+  private void recordDelivery(
+      UUID eventId, UUID clientId, int attempt, DeliveryOutcome outcome, String detail) {
+    try {
+      deliveries.record(eventId, clientId, attempt, outcome, detail);
+    } catch (RuntimeException e) {
+      LOG.warnf(
+          "Could not record the delivery of event %s to client %s: %s",
           eventId, clientId, e.getClass().getName());
     }
   }

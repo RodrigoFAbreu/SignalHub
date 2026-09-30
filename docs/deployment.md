@@ -181,8 +181,9 @@ Not reachable from other machines:
   `.env`. Listing events with the admin token still works through the proxy.
 - **The admin page** (`/admin/`): lists
   and changes devices and producers, issues producer keys, creates
-  pairing codes and browses, sends test events and deletes events with
-  the admin token, like
+  pairing codes and browses, sends test events and deletes events, and
+  shows how each event's push went to each device, with the admin token,
+  like
   the management API, so it is on `127.0.0.1:8080` only too;
   reach it from another computer through SSH (see step 6 of
   [Setup](#setup)).
@@ -502,6 +503,11 @@ host itself being down.
   `signalhub_push_retries_abandoned_total` means the push provider is
   unreachable. To check a phone end to end, send a
   [test event](architecture.md#test-events) from the admin page's
-  **Events** section and delete it once it has arrived.
+  **Events** section and delete it once it has arrived. When a phone did
+  not ping for an event, open the event there: its **Deliveries** say, per
+  device, whether the push was delivered to the push service, filtered out
+  by the device's preferences (and which), not sent for want of a push
+  target, or failed and why (see
+  [Delivery records](architecture.md#delivery-records)).
 - **Logs.** Warnings and errors, such as failed pushes, are in
   `docker compose logs backend`; see [Logs](architecture.md#logs).

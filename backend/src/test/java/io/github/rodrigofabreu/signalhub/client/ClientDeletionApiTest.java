@@ -227,7 +227,8 @@ class ClientDeletionApiTest {
   }
 
   /**
-   * Gives the client an event it marked read, push results and a pending retry; returns the event.
+   * Gives the client an event it marked read, push results, a pending retry and a delivery record;
+   * returns the event.
    */
   private UUID clientWithData(Registered client) throws SQLException {
     var producer = TestProducers.register("deletion");
@@ -254,6 +255,11 @@ class ClientDeletionApiTest {
             + " VALUES (?, ?, 1, now() + interval '1 hour')",
         eventId,
         client.id());
+    execute(
+        "INSERT INTO event_deliveries (event_id, client_id, attempt, outcome, detail, at)"
+            + " VALUES (?, ?, 1, 'TRANSIENT_FAILURE', 'HTTP 503', now())",
+        eventId,
+        client.id());
     asAdmin()
         .get(ADMIN + "/" + client.id())
         .then()
@@ -277,6 +283,7 @@ class ClientDeletionApiTest {
     asAdmin().get(ADMIN).then().body("items.find { it.id == '" + id + "' }", nullValue());
     assertEquals(0, count("SELECT count(*) FROM clients WHERE id = ?", id));
     assertEquals(0, count("SELECT count(*) FROM push_retries WHERE client_id = ?", id));
+    assertEquals(0, count("SELECT count(*) FROM event_deliveries WHERE client_id = ?", id));
     assertEquals(0, count("SELECT count(*) FROM pairings WHERE created_by = ?", id));
     // The event is the owner's, not the client's: it stays, still read.
     asAdmin()

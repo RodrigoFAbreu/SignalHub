@@ -176,8 +176,8 @@ class EventService {
   }
 
   /**
-   * Deletes the event, with its pending push and retries; producers, clients and other events are
-   * untouched. Returns whether it existed.
+   * Deletes the event, with its pending push, retries and delivery records; producers, clients and
+   * other events are untouched. Returns whether it existed.
    */
   @Transactional
   boolean delete(UUID id) {

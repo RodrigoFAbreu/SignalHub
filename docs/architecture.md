@@ -447,9 +447,9 @@ takes `"dryRun": true`.
   selection or more than 100 IDs, a malformed ID or time, or an unknown
   field, as for every other body. There is no "delete everything": a
   filter always names a producer or a time.
-- **What goes with an event**: its push if not dispatched yet and its
-  pushes waiting for a retry (their foreign keys cascade, as for
-  retention). Producers, clients, their keys and every other event stay; a
+- **What goes with an event**: its push if not dispatched yet, its
+  pushes waiting for a retry and its [delivery records](#delivery-records)
+  (their foreign keys cascade, as for retention). Producers, clients, their keys and every other event stay; a
   producer whose events are all deleted keeps publishing, with
   `lastEventAt` `null`. A client's last push results may name a deleted
   event, as after retention. Read state goes with the event.
@@ -556,6 +556,8 @@ events, which serves the unread count and marking read up to an event.
 unique index on `(producer_id, idempotency_key)` over events that have one.
 `V11__add_event_link.sql` adds the nullable `link` column (existing events
 have none), checked to be 1 to 2000 characters; the API checks the scheme.
+`V16__create_event_deliveries.sql` creates the `event_deliveries` table of
+[delivery records](#delivery-records); existing events have none.
 
 ## Producers and authentication
 
@@ -964,11 +966,12 @@ admin device's device list in the app ([Client application](#client-application)
   answers `404` the second time. There is no undo.
 - **What goes with it:** everything that exists only for the client, its
   push results (columns of its row), its pushes waiting for a retry
-  (`push_retries`) and the unused pairing codes it created as an admin
-  device (`pairings.created_by`). Both tables reference `clients` with `ON
-  DELETE CASCADE` since they were created, so no migration was needed and
-  upgrading needs no operator action; a test checks that every foreign key
-  to `clients` cascades. A push to it already under way when it is deleted
+  (`push_retries`), its lines in events' [delivery
+  records](#delivery-records) (`event_deliveries`, V16) and the unused
+  pairing codes it created as an admin device (`pairings.created_by`).
+  These tables reference `clients` with `ON DELETE CASCADE` since they
+  were created, so no migration was needed and upgrading needs no operator
+  action; a test checks that every foreign key to `clients` cascades. A push to it already under way when it is deleted
   records nothing and is not retried.
 - **What stays: every event,** with its read state. Read state is the
   owner's, not a client's (see [Read state](#read-state)), and events are
@@ -1208,6 +1211,22 @@ was received, its link, its metadata as formatted JSON, its read state
 and ID, and **Mark as read** or **Mark as unread**
 ([Read state](#read-state)), shared with every client as always.
 **Back to events** returns to the same page and filters, read again.
+
+- **Deliveries.** An open event shows how its push went to each device,
+  from its [delivery records](#delivery-records), read with the admin
+  token when the event opens and again with **Refresh**: one line per
+  device, by the device's name, in the order the devices were first
+  tried, saying how the latest attempt went (_Delivered_, _Filtered out by
+  its push preferences_, _Not sent: no push target_, _Temporary failure_,
+  _Failed_, and so on), with its reason when there is one (the preference
+  that filtered it out, or the provider's, such as `HTTP 503
+  UNAVAILABLE`) and when; a device tried more than once lists its earlier
+  attempts under it. An event whose push is not dispatched yet, or that had no
+  device to go to, says _None_. **decided: one line per device, grouped by the page** from the
+  records, which stay one per attempt in the API, so the answer to "why
+  did my phone not ping?" is the device's own line, and retries stay
+  visible under it. Names and reasons are set as text, like everything
+  else the page shows.
 
 - **decided: the link is only ever opened by the operator.** It is shown
   as a link only when it is `http` or `https` (as the API already
@@ -1513,7 +1532,8 @@ logged at `DEBUG` like producer keys.
 
 > Status: the provider boundary, the `fcm` provider and event-triggered
 > dispatch, filtered by each client's push preferences and with bounded
-> retries of temporary failures, are implemented and tested with fakes.
+> retries of temporary failures, and each event's delivery records, are
+> implemented and tested with fakes.
 
 Delivery code asks for a push to one client and never sees a concrete
 provider. Everything provider-specific stays behind one small interface, so
@@ -1545,7 +1565,9 @@ adding a provider (Firebase Cloud Messaging first) touches only the edge.
 Delivery also reports `NO_TARGET` (unknown or revoked client, or no push
 target) and `UNSUPPORTED_PROVIDER` (no active provider has the target's
 name; the target is kept, since the provider may be configured later). An
-exception thrown by a provider counts as a transient failure.
+exception thrown by a provider counts as a transient failure. With each
+result comes a short reason (the provider's outcome detail, never a token),
+which dispatch keeps in the event's [delivery records](#delivery-records).
 
 **Configuration boundary.** Providers are CDI beans in the backend. A
 provider that is not configured (for example without credentials) must not be
@@ -1650,7 +1672,8 @@ pushes; the event itself is stored and listed either way.
                         claim due retries ──▶ PushDelivery.deliver(client, message)
                                               └─ delete the row, or schedule the next attempt
 
- after each send: record the result on the client (last success or last failure)
+ after each send: record the result on the client (last success or last failure),
+ and for every client, sent to or not, a delivery record of the event
 ```
 
 - **Durable.** Publishing writes the event and a `push_dispatches` row in the
@@ -1675,10 +1698,11 @@ pushes; the event itself is stored and listed either way.
   meanwhile is not sent to. Retries are only for temporary failures; the
   other results are final (see [Push delivery](#push-delivery)).
 - **Final failure.** After the last attempt the retry is dropped and a
-  warning names the event and client (`Gave up the push of event ...`). No
-  per-attempt record is kept (only each client's last results, above): the event stays in the inbox, where the client
-  shows it on its next refresh, and a push that late would interrupt for
-  little. A redispatched event does not reset a client's pending retry.
+  warning names the event and client (`Gave up the push of event ...`);
+  the event's [delivery records](#delivery-records) show every attempt.
+  The event stays in the inbox, where the client shows it on its next
+  refresh, and a push that late would interrupt for little. A redispatched
+  event does not reset a client's pending retry.
 - **Each client's last results.** After each send, the dispatch and the
   retries record its result on the client (V12), in a transaction of its
   own: a delivered push overwrites the client's last success, any failure
@@ -1698,12 +1722,79 @@ pushes; the event itself is stored and listed either way.
   (`SIGNALHUB_PUSH_DISPATCH_INTERVAL`, default `2s`) is how often the
   dispatcher looks for new rows, and so the longest a push waits.
 - Deleting an event ([retention](#retention), or the operator; see
-  [Deleting events](#deleting-events)) drops its pending push and retries
-  with it.
+  [Deleting events](#deleting-events)) drops its pending push, retries and
+  delivery records with it.
 
-The push token never appears in logs:
+The push token never appears in logs or delivery records:
 providers must keep it out of outcome details, and an exception from a
 provider is logged by type only.
+
+#### Delivery records
+
+For every event, the dispatcher records how its push went to each client
+that is not revoked, so the operator can answer "why did my phone not
+ping?" for any event. They are read with the admin token, on the
+[admin page](#the-admin-page) (an event's **Deliveries**) or through the
+management API:
+
+| Method and path | Result |
+|---|---|
+| `GET /api/v1/admin/events/{id}/deliveries` | The event's records, oldest first: `200` with `{"items": [...]}` (`EventDeliveryList`), empty while its push is not dispatched; `404 Event not found` for an unknown or deleted event. |
+
+```json
+{"items": [
+  {"clientId": "01997d4a-...", "clientName": "Pixel 9", "attempt": 1,
+   "outcome": "TRANSIENT_FAILURE", "detail": "HTTP 503 UNAVAILABLE",
+   "at": "2026-09-30T09:12:40.654321Z"},
+  {"clientId": "01997d4a-...", "clientName": "Pixel 9", "attempt": 2,
+   "outcome": "DELIVERED", "detail": null, "at": "2026-09-30T09:13:10.123456Z"},
+  {"clientId": "01997d4b-...", "clientName": "Tablet", "attempt": 1,
+   "outcome": "FILTERED", "detail": "below the minimum severity",
+   "at": "2026-09-30T09:12:40.654400Z"}
+]}
+```
+
+- **One record per attempt.** The first dispatch is attempt 1 and each
+  [retry](#push-dispatch) one more, so a push that failed temporarily and
+  then arrived has two records. An event dispatched again after the
+  backend stopped mid-way (at least once) may have two records with the
+  same attempt, which is what happened.
+- **Outcomes.** `DELIVERED` (the provider accepted the push), `FILTERED`
+  (the client's [push preferences](#push-preferences) keep the event from
+  it; `detail` names the first that does: `pushes paused`, `below the
+  minimum severity`, `category muted` or `producer muted`), `NO_TARGET`
+  (the client has no push target, or was revoked before a retry), and the
+  failures of [Push delivery](#push-delivery): `UNSUPPORTED_PROVIDER`
+  (`detail` names the provider not configured), `INVALID_TARGET`,
+  `TRANSIENT_FAILURE` and `PERMANENT_FAILURE`, each with the provider's
+  reason as `detail` (for FCM, the HTTP status and error code, such as
+  `HTTP 404 UNREGISTERED`), at most 200 characters. Later releases may add
+  outcomes.
+- **decided: every client that is not revoked gets a record, sent to or
+  not.** A device filtered out or without a push target is exactly the
+  one whose owner asks why it did not ping, so it is listed with the
+  reason; revoked clients, which get no pushes, are not. With one owner's
+  handful of devices, that is a few rows per event.
+- **What the record cannot say.** The provider's answer is the last thing
+  the backend sees: whether the device showed or sounded the push is not
+  known, and `DELIVERED` means the provider accepted it. Pushes that are
+  not an event's (the [pairing notice](#pairing-notice) and device
+  changes) have no records.
+- **Never a push token.** Only the outcome and the reason, which providers
+  keep free of tokens and credentials, as in logs.
+- **Kept as long as the event and the client.** `event_deliveries` (V16)
+  references both with `ON DELETE CASCADE`: [retention](#retention), the
+  operator [deleting events](#deleting-events) and
+  [deleting a revoked client](#deleting-a-revoked-client) delete their
+  records, and nothing else does. Records for a client show its name now.
+- **Never changes delivery.** Records are written after each send, each in
+  a transaction of its own, like each client's last results: a failure to
+  record is logged as a warning (`Could not record the delivery ...`) and
+  ignored. A record for an event or client deleted meanwhile is skipped.
+- **decided: a table of its own**, rather than keeping `push_retries` rows
+  or widening each client's last results, which are overwritten by design
+  (V12). Existing events have no records, so the migration needs no
+  operator action. Reading them is not logged, like every other read.
 
 ## Client application
 
@@ -2233,9 +2324,9 @@ events older than it are deleted.
 - **Deletion.** Every hour, starting a minute after startup, a job deletes
   the expired events, oldest first, 1000 per transaction through the
   `(created_at, id)` index (V3), so a large backlog after enabling
-  retention never holds long locks. An event's pending push and retries go
-  with it (their foreign keys cascade); producers and clients are
-  untouched. Besides retention, only the operator deletes events (see
+  retention never holds long locks. An event's pending push, retries and
+  delivery records go with it (their foreign keys cascade); producers and
+  clients are untouched. Besides retention, only the operator deletes events (see
   [Deleting events](#deleting-events)). An `INFO` line reports how many events were deleted, and
   `signalhub_events_deleted_total` counts them (see [Metrics](#metrics)).
 - **Consequences.** A deleted event is gone: `GET /api/v1/events/{id}` and

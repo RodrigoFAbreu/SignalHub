@@ -45,7 +45,7 @@ class EventDeletionApiTest {
   @Inject AgroalDataSource dataSource;
 
   @Test
-  void deletingAnEventRemovesItsPushAndRetriesButNotItsProducerClientsOrOtherEvents()
+  void deletingAnEventRemovesItsPushRetriesAndDeliveriesButNotItsProducerClientsOrOtherEvents()
       throws SQLException {
     var producer = TestProducers.register("delete-one");
     var client = TestClients.register("delete-one-client");
@@ -53,6 +53,8 @@ class EventDeletionApiTest {
     var kept = publish(producer);
     retry(deleted, client.id());
     retry(kept, client.id());
+    delivery(deleted, client.id());
+    delivery(kept, client.id());
     assertEquals(1, count("push_dispatches", deleted));
 
     asAdmin().delete(ADMIN_EVENTS + "/" + deleted).then().statusCode(204);
@@ -60,9 +62,11 @@ class EventDeletionApiTest {
     asAdmin().get(EVENTS + "/" + deleted).then().statusCode(404);
     assertEquals(0, count("push_dispatches", deleted));
     assertEquals(0, count("push_retries", deleted));
+    assertEquals(0, count("event_deliveries", deleted));
     asAdmin().get(EVENTS + "/" + kept).then().statusCode(200);
     assertEquals(1, count("push_dispatches", kept));
     assertEquals(1, count("push_retries", kept));
+    assertEquals(1, count("event_deliveries", kept));
     asAdmin().get(TestProducers.ADMIN + "/" + producer.id()).then().statusCode(200);
     asClient(client.clientKey()).get(TestClients.CLIENT).then().statusCode(200);
   }
@@ -300,6 +304,14 @@ class EventDeletionApiTest {
     execute(
         "INSERT INTO push_retries (event_id, client_id, attempts, next_attempt_at)"
             + " VALUES (?, ?, 1, now() + interval '1 hour')",
+        eventId,
+        clientId);
+  }
+
+  private void delivery(UUID eventId, UUID clientId) throws SQLException {
+    execute(
+        "INSERT INTO event_deliveries (event_id, client_id, attempt, outcome, at)"
+            + " VALUES (?, ?, 1, 'DELIVERED', now())",
         eventId,
         clientId);
   }

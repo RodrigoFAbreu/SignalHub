@@ -3,6 +3,7 @@ package io.github.rodrigofabreu.signalhub.client;
 import io.github.rodrigofabreu.signalhub.event.Category;
 import io.github.rodrigofabreu.signalhub.event.Severity;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
@@ -42,9 +43,26 @@ public record PushPreferences(
 
   /** Whether an event with these generic fields is pushed to the client. */
   public boolean allow(Category category, Severity severity, UUID producerId) {
-    return enabled
-        && severity.compareTo(minimumSeverity) >= 0
-        && !mutedCategories.contains(category)
-        && !mutedProducerIds.contains(producerId);
+    return exclusion(category, severity, producerId).isEmpty();
+  }
+
+  /**
+   * Which preference keeps an event with these generic fields from being pushed to the client, for
+   * the operator; empty if it is pushed.
+   */
+  public Optional<String> exclusion(Category category, Severity severity, UUID producerId) {
+    if (!enabled) {
+      return Optional.of("pushes paused");
+    }
+    if (severity.compareTo(minimumSeverity) < 0) {
+      return Optional.of("below the minimum severity");
+    }
+    if (mutedCategories.contains(category)) {
+      return Optional.of("category muted");
+    }
+    if (mutedProducerIds.contains(producerId)) {
+      return Optional.of("producer muted");
+    }
+    return Optional.empty();
   }
 }

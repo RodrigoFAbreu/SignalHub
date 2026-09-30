@@ -2,6 +2,7 @@ package io.github.rodrigofabreu.signalhub.event;
 
 import io.github.rodrigofabreu.signalhub.client.PushPreferences;
 import io.github.rodrigofabreu.signalhub.push.PushMessage;
+import java.util.Optional;
 import java.util.UUID;
 
 /** The push for one event, with the generic fields that push preferences are matched against. */
@@ -12,7 +13,8 @@ record EventPush(Category category, Severity severity, UUID producerId, PushMess
         event.category(), event.severity(), event.producerId(), EventPushMessages.of(event));
   }
 
-  boolean allowedBy(PushPreferences preferences) {
-    return preferences.allow(category, severity, producerId);
+  /** The preference that keeps this push from the client; empty if it is pushed. */
+  Optional<String> exclusionBy(PushPreferences preferences) {
+    return preferences.exclusion(category, severity, producerId);
   }
 }

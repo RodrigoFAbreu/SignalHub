@@ -364,6 +364,16 @@ public class ClientService {
         .toList();
   }
 
+  /** The IDs of the clients that are not revoked but have no push target, oldest first. */
+  @Transactional
+  public List<UUID> withoutPushTarget() {
+    return clients
+        .list("revokedAt is null and pushProvider is null", Sort.by("createdAt").and("id"))
+        .stream()
+        .map(ClientEntity::id)
+        .toList();
+  }
+
   /** The client as a push recipient: empty if it is unknown, revoked, or has no push target. */
   @Transactional
   public Optional<PushRecipient> pushRecipient(UUID id) {
