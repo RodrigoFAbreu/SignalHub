@@ -386,7 +386,7 @@ doubt.
 | `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
 | `/api/v1/admin/pairings` | `POST`: create a pairing code for a new device, with the admin token; `GET /{id}`: whether it was used, and by which device. See [Pairing a device](#pairing-a-device). |
 | `/api/v1/pairing` | `POST`: a device redeems a pairing code and gets its client key; the owner's other devices get a push. See [Pairing a device](#pairing-a-device). |
-| `/admin/` | The admin page: with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and to delete it once revoked, and creates a pairing code shown as a QR code to scan, copy or download. Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
+| `/admin/` | The admin page, in sections (`#devices`, `#producers`): with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and to delete it once revoked, and creates a pairing code shown as a QR code to scan, copy or download; lists every producer with its keys and its last event, creates producers, issues and revokes keys, and disables and enables producers. Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
 | `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
@@ -425,6 +425,7 @@ curl -s http://localhost:8080/api/v1/admin/producers \
     "name": "ci-build-runner",
     "createdAt": "2026-09-25T16:34:40.404295Z",
     "disabledAt": null,
+    "lastEventAt": null,
     "keys": [
       {"id": "b49cd36a-84ed-4581-b4bb-9b89f170a57c", "createdAt": "2026-09-25T16:34:40.417295Z", "revokedAt": null}
     ]
@@ -435,7 +436,11 @@ curl -s http://localhost:8080/api/v1/admin/producers \
 ```
 
 Give `apiKey` to the producer through its own secret store, never through the
-repository. Then manage it (`$PRODUCER` and `$KEY` are the IDs above):
+repository. `lastEventAt` is when SignalHub received the producer's newest
+event still stored (`null` before its first one). The
+[admin page](architecture.md#the-admin-page) at `http://localhost:8080/admin/#producers`
+does all of this in a browser; with curl, manage it (`$PRODUCER` and `$KEY`
+are the IDs above):
 
 ```sh
 H="Authorization: Bearer $ADMIN_TOKEN"

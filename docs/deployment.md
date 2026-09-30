@@ -94,7 +94,10 @@ operator on the host ──http://localhost:8080──▶ backend (management AP
    should connect a device; tick **Pair it as an admin device** for your own
    phone. Once the phone has used the code, the page names it and is ready
    for the next one. The page also lists every device, to rename it, make it an admin
-   or take admin rights away, revoke it, and delete it once revoked. On the host
+   or take admin rights away, revoke it, and delete it once revoked. Its
+   **Producers** section registers the producers that publish to you, shows
+   each new key once to copy into the producer, and issues and revokes keys,
+   disables and enables producers, and shows when each last published. On the host
    itself, a terminal does the same (see
    [Pairing a device](development.md#pairing-a-device)):
 
@@ -175,7 +178,8 @@ Not reachable from other machines:
   `https://` and `SIGNALHUB_DOMAIN`, or `SIGNALHUB_PUBLIC_URL` if set in
   `.env`. Listing events with the admin token still works through the proxy.
 - **The admin page** (`/admin/`): lists
-  and changes devices and creates pairing codes with the admin token, like
+  and changes devices and producers, issues producer keys and creates
+  pairing codes with the admin token, like
   the management API, so it is on `127.0.0.1:8080` only too;
   reach it from another computer through SSH (see step 6 of
   [Setup](#setup)).

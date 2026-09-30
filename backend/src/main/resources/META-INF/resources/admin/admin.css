@@ -63,7 +63,8 @@ h2 {
 
 .lead,
 #countdown,
-#status {
+#status,
+#new-key-status {
   color: var(--muted);
 }
 
@@ -137,30 +138,91 @@ label.check input {
   width: auto;
 }
 
-#devices {
+#sections {
+  display: flex;
+  gap: 4px;
+  margin-top: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+#sections a {
+  padding: 8px 14px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+#sections a[aria-current="page"] {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+
+.cards,
+.keys {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.device {
+.device,
+.producer {
   margin: 12px 0;
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
 }
 
-.device.revoked {
+.device.revoked,
+.producer.disabled,
+.key.revoked {
   color: var(--muted);
 }
 
-.device h3 {
+.device h3,
+.producer h3 {
   margin: 0 0 8px;
   font-size: 1rem;
   overflow-wrap: anywhere;
 }
 
-.device dl {
+.producer h4 {
+  margin: 12px 0 4px;
+  font-size: 0.9rem;
+}
+
+.key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.key button {
+  margin-top: 0;
+  padding: 2px 10px;
+}
+
+.new-key {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+
+.new-key h3 {
+  margin: 0;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.device dl,
+.producer dl {
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: 2px 12px;
@@ -168,11 +230,13 @@ label.check input {
   font-size: 0.9rem;
 }
 
-.device dt {
+.device dt,
+.producer dt {
   color: var(--muted);
 }
 
-.device dd {
+.device dd,
+.producer dd {
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -191,6 +255,11 @@ label.check input {
 .badge.muted {
   background: var(--border);
   color: var(--text);
+}
+
+.badge.warn {
+  background: var(--warning-bg);
+  color: var(--warning-text);
 }
 
 .empty {

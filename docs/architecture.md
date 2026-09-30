@@ -549,6 +549,14 @@ for curl examples.
 Unknown producer or key IDs get `404`, as does a key ID used with another
 producer's path.
 
+Every producer response carries `lastEventAt`: when SignalHub received the
+producer's newest event that is still stored, or `null` when none is (it
+never published, or [retention](#retention) deleted its events). It is one
+lookup per producer on the events index by producer and time, so the listing
+costs one query for it whatever the number of producers or events; the
+[admin page](#the-admin-page) uses it to show a producer that went quiet.
+It was added in R51 as an optional field, a compatible change.
+
 Both management listings (producers and [clients](#client-api)) answer an
 object, `{"items": [...]}`, like the [event listing](#listing-events), so
 fields such as paging can be added later without breaking them. Releases
@@ -994,8 +1002,15 @@ key, so the owner can add a device from the app, away from the host:
 
 ### The admin page
 
-`/admin/` is the operator's page for the owner's devices, the management API
-for clients and pairings without a terminal. After the operator types the
+`/admin/` is the operator's page for the owner's devices and producers, the
+management API for clients, pairings and producers without a terminal. It is
+in sections, as tabs: **Devices** and **Producers**. The section shown is the
+address's fragment (`/admin/#devices`, `/admin/#producers`; Devices when
+there is none), so a reload or a bookmark opens it, and switching sections
+reads its list again. A reload asks for the admin token again, since the
+page keeps it only in memory; the fragment never reaches the server.
+
+**Devices.** After the operator types the
 admin token, it shows every client, revoked or not: its name, whether it is
 an admin, when it was created or revoked, whether it has a push target, and
 its last push results (`pushStatus`). For each device that is not revoked,
@@ -1026,6 +1041,24 @@ expired code stays blurred until a new one is created, and the page stops
 asking. The device list is also read again after every change and with
 **Refresh**.
 
+**Producers.** Every producer, by name, with whether it is enabled, when
+it was created (and disabled), its ID, its keys (ID, created, revoked;
+valid keys first, newest first) and its last event (`lastEventAt`, with how
+long ago). An enabled producer whose last stored event is more than 7 days
+old, or that has none, is marked **Quiet**, so one that stopped publishing
+stands out; the threshold is fixed in the page, since SignalHub knows
+nothing of how often a producer publishes. **Create a producer** takes its
+name; the producer's first key is then shown **once**, in a field with
+**Copy key** and a warning that it cannot be shown again, until the
+operator presses **I have stored it**, which clears it from the page. Per
+producer, **Issue a key** shows the new key the same way, **Revoke** on a
+valid key revokes it after a confirmation, and **Disable** (after a
+confirmation) and **Enable** switch the producer. Producers are never
+deleted, so their events keep their attribution. The list is read again
+after every change and with **Refresh**. Every change is logged by the
+backend at `INFO` with IDs only, as through the management API (see
+[Logging](#logging)).
+
 - **On the host only.** The page is on the backend's own port, like `/q/`
   and the management API; the Compose proxy forwards only `/api/`, so it
   never reaches other machines. From another computer, reach it through SSH
@@ -1034,8 +1067,9 @@ asking. The device list is also read again after every change and with
   static files; everything it does is a management API call, with the token
   typed into the page. Without the admin token, or with the management API
   off, it shows the error and nothing else. The token stays in the page's
-  memory: it is not stored, and is gone when the tab closes. Device names
-  are shown as text, never as HTML.
+  memory: it is not stored, and is gone when the tab closes; so is a new
+  producer key, which is on the page only until the operator is done with it.
+  Device and producer names are shown as text, never as HTML.
 - **Locked down.** The page runs only its own scripts (a
   `Content-Security-Policy` of `default-src 'none'`, with `'self'` for
   scripts, styles and requests), cannot be framed, is never cached and sends

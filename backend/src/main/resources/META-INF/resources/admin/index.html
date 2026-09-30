@@ -1,6 +1,7 @@
 <!doctype html>
 <!--
-  The admin page: the operator's devices and pairing codes (docs/architecture.md#the-admin-page).
+  The admin page: the operator's devices, pairing codes and producers
+  (docs/architecture.md#the-admin-page).
   Served only on the backend's own port, never through the proxy. It is static; everything it does
   goes through the management API with the admin token typed here, which stays in this page's
   memory.
@@ -19,63 +20,109 @@
     <main>
       <h1>SignalHub admin</h1>
       <p class="lead">
-        Your devices: rename them, make them admins or take admin rights away, revoke them, delete
-        revoked ones, and connect new ones with a pairing code.
+        Your devices and the producers that publish to them: manage devices and connect new ones
+        with a pairing code, register producers and manage their keys.
       </p>
 
       <form id="unlock" autocomplete="off">
         <label for="token">Admin token</label>
         <input id="token" type="password" required minlength="32" spellcheck="false" />
-        <button type="submit">Show devices</button>
+        <button type="submit">Unlock</button>
         <p id="error" class="error" role="alert" hidden></p>
       </form>
 
       <div id="admin" hidden>
-        <section aria-labelledby="devices-title">
-          <div class="heading">
-            <h2 id="devices-title">Devices</h2>
-            <button type="button" id="refresh" class="secondary">Refresh</button>
-          </div>
-          <p id="devices-error" class="error" role="alert" hidden></p>
-          <ul id="devices"></ul>
-        </section>
+        <!-- The section shown is the address's fragment, so a reload stays on it. -->
+        <nav id="sections" aria-label="Sections">
+          <a href="#devices" data-section="devices">Devices</a>
+          <a href="#producers" data-section="producers">Producers</a>
+        </nav>
 
-        <section aria-labelledby="connect-title">
-          <h2 id="connect-title">Connect a device</h2>
-          <form id="create" autocomplete="off">
-            <label for="name">Device name</label>
-            <input id="name" type="text" required maxlength="100" value="New device" />
-            <label class="check">
-              <input id="pair-admin" type="checkbox" />
-              Pair it as an admin device
-            </label>
-            <button type="submit">Create pairing code</button>
-            <p id="pair-error" class="error" role="alert" hidden></p>
-          </form>
+        <div id="section-devices" data-section="devices">
+          <section aria-labelledby="devices-title">
+            <div class="heading">
+              <h2 id="devices-title">Devices</h2>
+              <button type="button" id="refresh" class="secondary">Refresh</button>
+            </div>
+            <p id="devices-error" class="error" role="alert" hidden></p>
+            <ul id="device-list" class="cards"></ul>
+          </section>
 
-          <div id="pairing" hidden aria-live="polite">
-            <h3>Pairing code for <span id="pairing-name"></span></h3>
-            <p id="pairing-admin" hidden>It will be an admin device.</p>
-            <div id="qr-box">
-              <canvas id="qr" width="320" height="320" aria-label="Pairing QR code"></canvas>
-              <p id="expired-cover" hidden>Expired. Create a new code.</p>
+          <section aria-labelledby="connect-title">
+            <h2 id="connect-title">Connect a device</h2>
+            <form id="create" autocomplete="off">
+              <label for="name">Device name</label>
+              <input id="name" type="text" required maxlength="100" value="New device" />
+              <label class="check">
+                <input id="pair-admin" type="checkbox" />
+                Pair it as an admin device
+              </label>
+              <button type="submit">Create pairing code</button>
+              <p id="pair-error" class="error" role="alert" hidden></p>
+            </form>
+
+            <div id="pairing" hidden aria-live="polite">
+              <h3>Pairing code for <span id="pairing-name"></span></h3>
+              <p id="pairing-admin" hidden>It will be an admin device.</p>
+              <div id="qr-box">
+                <canvas id="qr" width="320" height="320" aria-label="Pairing QR code"></canvas>
+                <p id="expired-cover" hidden>Expired. Create a new code.</p>
+              </div>
+              <p id="countdown"></p>
+              <label for="link">Pairing link</label>
+              <input id="link" type="text" readonly spellcheck="false" />
+              <div class="actions">
+                <button type="button" id="copy-image" class="secondary">Copy QR image</button>
+                <button type="button" id="copy-link" class="secondary">Copy link</button>
+                <button type="button" id="download" class="secondary">Download QR</button>
+              </div>
+              <p id="status" role="status"></p>
+              <p class="warning">
+                Anyone with this code, its link or a picture of it can connect one device until it is
+                used or expires. Send it only to someone you trust. The device gets its own key, which
+                you can revoke, and your devices get a push when it connects.
+              </p>
             </div>
-            <p id="countdown"></p>
-            <label for="link">Pairing link</label>
-            <input id="link" type="text" readonly spellcheck="false" />
-            <div class="actions">
-              <button type="button" id="copy-image" class="secondary">Copy QR image</button>
-              <button type="button" id="copy-link" class="secondary">Copy link</button>
-              <button type="button" id="download" class="secondary">Download QR</button>
+          </section>
+        </div>
+
+        <div id="section-producers" data-section="producers" hidden>
+          <section aria-labelledby="producers-title">
+            <div class="heading">
+              <h2 id="producers-title">Producers</h2>
+              <button type="button" id="refresh-producers" class="secondary">Refresh</button>
             </div>
-            <p id="status" role="status"></p>
-            <p class="warning">
-              Anyone with this code, its link or a picture of it can connect one device until it is
-              used or expires. Send it only to someone you trust. The device gets its own key, which
-              you can revoke, and your devices get a push when it connects.
-            </p>
-          </div>
-        </section>
+            <p id="producers-error" class="error" role="alert" hidden></p>
+
+            <div id="new-key" class="new-key" hidden aria-live="polite">
+              <h3>New key for <span id="new-key-producer"></span></h3>
+              <label for="new-key-value">API key</label>
+              <input id="new-key-value" type="text" readonly spellcheck="false" />
+              <div class="actions">
+                <button type="button" id="copy-key" class="secondary">Copy key</button>
+                <button type="button" id="new-key-done">I have stored it</button>
+              </div>
+              <p id="new-key-status" role="status"></p>
+              <p class="warning">
+                This key is shown only now: SignalHub keeps only its hash and cannot show it again.
+                Store it in the producer's configuration or secret store before you close this. A
+                lost key cannot be recovered; issue a new one and revoke the old one.
+              </p>
+            </div>
+
+            <ul id="producer-list" class="cards"></ul>
+          </section>
+
+          <section aria-labelledby="create-producer-title">
+            <h2 id="create-producer-title">Create a producer</h2>
+            <form id="create-producer" autocomplete="off">
+              <label for="producer-name">Producer name</label>
+              <input id="producer-name" type="text" required maxlength="100" spellcheck="false" />
+              <button type="submit">Create producer</button>
+              <p id="create-producer-error" class="error" role="alert" hidden></p>
+            </form>
+          </section>
+        </div>
       </div>
       <p id="toast" class="toast" role="status" hidden></p>
     </main>
