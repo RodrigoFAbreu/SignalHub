@@ -17,16 +17,29 @@ Future<void> _tell(BuildContext context, Future<String?> action) async {
 
 /// The _Alert_ settings: SignalHub's own sound, its volume and its
 /// vibration (its strength, pattern and length), for pushes the system
-/// shows while the app is in the background or closed. Each change is
-/// saved on this device at once and previewed.
+/// shows while the app is in the background or closed; which pushes sound
+/// on silent and during Do Not Disturb; and whether critical events have an
+/// alert of their own, set in [CriticalAlertSection] below this. Each
+/// change is saved on this device at once and previewed.
 class GeneralAlertSection extends StatelessWidget {
   const GeneralAlertSection({super.key, required this.controller});
 
   final AlertController controller;
 
   /// One line for the folded group, such as _Signal · 80 % · Medium ·
-  /// Short, short, long · Short_.
-  static String summary(AlertSettings alert) => [
+  /// Short, short, long · Short · sounds on silent: critical_.
+  static String summary(AlertController controller) => [
+    alertSummary(controller.settings),
+    if (controller.quiet.onSilent != SoundThrough.off)
+      'sounds on silent: ${_quietSummary(controller.quiet.onSilent)}',
+    if (controller.duringDoNotDisturb != SoundThrough.off)
+      'during Do Not Disturb: '
+          '${_quietSummary(controller.duringDoNotDisturb)}',
+  ].join(' · ');
+
+  /// One alert's sound, volume and vibration in a line, such as _Signal ·
+  /// 80 % · Medium · Short, short, long · Short_.
+  static String alertSummary(AlertSettings alert) => [
     alert.sound?.label ?? 'No sound',
     if (alert.sound != null) '${alert.volume} %',
     if (alert.vibration == AlertVibration.off)
@@ -38,54 +51,131 @@ class GeneralAlertSection extends StatelessWidget {
     ],
   ].join(' · ');
 
+  static String _quietSummary(SoundThrough through) => switch (through) {
+    SoundThrough.off => 'off',
+    SoundThrough.critical => 'critical',
+    SoundThrough.all => 'all pushes',
+  };
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
-    builder: (context, _) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const ListTile(
-          subtitle: Text(
-            'How pushes sound and vibrate while SignalHub is in the '
-            'background or closed, on this device. The phone\'s silent '
-            'mode, Do Not Disturb and notification settings still apply, '
-            'except as set for critical events.',
+    builder: (context, _) {
+      final critical = controller.critical;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const ListTile(
+            subtitle: Text(
+              'How pushes sound and vibrate while SignalHub is in the '
+              'background or closed, on this device. The phone\'s silent '
+              'mode, Do Not Disturb and notification settings still apply, '
+              'except as chosen below.',
+            ),
           ),
-        ),
-        _AlertChoices(
-          keyPrefix: 'alert',
-          settings: controller.settings,
-          defaultSound: AlertSettings.defaults.sound,
-          playTooltip: (sound) => 'Play ${sound.label}',
-          vibrateTooltip: (pattern) => 'Vibrate ${pattern.label}',
-          change: (next) => _tell(context, controller.change(next)),
-          preview: (alert) => _tell(context, controller.preview(alert)),
-        ),
-      ],
-    ),
+          _AlertChoices(
+            keyPrefix: 'alert',
+            settings: controller.settings,
+            defaultSound: AlertSettings.defaults.sound,
+            playTooltip: (sound) => 'Play ${sound.label}',
+            vibrateTooltip: (pattern) => 'Vibrate ${pattern.label}',
+            change: (next) => _tell(context, controller.change(next)),
+            preview: (alert) => _tell(context, controller.preview(alert)),
+          ),
+          _QuietChoice(
+            key: const Key('soundOnSilent'),
+            title: 'Sound when the phone is on silent',
+            description:
+                'These pushes sound and vibrate as an alarm, at the alarm '
+                'volume, while the phone is on silent or vibrate',
+            value: controller.quiet.onSilent,
+            change: (next) => _tell(context, controller.changeOnSilent(next)),
+          ),
+          _QuietChoice(
+            key: const Key('soundDuringDoNotDisturb'),
+            title: 'Sound during Do Not Disturb',
+            description: controller.doNotDisturbAccess
+                ? 'These pushes sound and vibrate as an alarm, at the alarm '
+                      'volume, during Do Not Disturb'
+                : 'Needs Do Not Disturb access for SignalHub, which '
+                      'choosing Critical only or All pushes asks for',
+            value: controller.duringDoNotDisturb,
+            change: (next) =>
+                _tell(context, controller.changeDuringDoNotDisturb(next)),
+          ),
+          SwitchListTile(
+            key: const Key('criticalDifferent'),
+            title: const Text('Different alert for critical events'),
+            subtitle: const Text(
+              'Their own sound, volume, vibration, pattern and length, set '
+              'under Critical alert',
+            ),
+            value: critical.different,
+            onChanged: (on) => _tell(
+              context,
+              controller.changeCritical(critical.copyWith(different: on)),
+            ),
+          ),
+        ],
+      );
+    },
   );
 }
 
-/// The _Critical alert_ settings: whether pushes of critical events play an
-/// alert of their own, and whether they sound on silent and during Do Not
-/// Disturb. Saved on this device at every change.
+/// Which pushes sound through one of the phone's quiet modes: none, critical
+/// ones only, or all.
+class _QuietChoice extends StatelessWidget {
+  const _QuietChoice({
+    super.key,
+    required this.title,
+    required this.description,
+    required this.value,
+    required this.change,
+  });
+
+  final String title;
+  final String description;
+  final SoundThrough value;
+  final void Function(SoundThrough) change;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      ListTile(title: Text(title), subtitle: Text(description)),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: SegmentedButton<SoundThrough>(
+          showSelectedIcon: false,
+          segments: [
+            for (final through in SoundThrough.values)
+              ButtonSegment(value: through, label: Text(through.label)),
+          ],
+          selected: {value},
+          onSelectionChanged: (selected) => change(selected.single),
+        ),
+      ),
+      const SizedBox(height: 8),
+    ],
+  );
+}
+
+/// The _Critical alert_ settings, used once **Different alert for critical
+/// events** is on: the sound, volume and vibration pushes of critical events
+/// play instead of the general alert. Saved on this device at every change.
 class CriticalAlertSection extends StatelessWidget {
   const CriticalAlertSection({super.key, required this.controller});
 
   final AlertController controller;
 
-  /// One line for the folded group, such as _Same as Alert · sounds on
-  /// silent_.
+  /// One line for the folded sub-group, such as _Urgent · 100 % · Strong ·
+  /// Rapid pulse · Long_, or _Same as Alert_ while critical events play the
+  /// general alert.
   static String summary(AlertController controller) {
     final critical = controller.critical;
-    return [
-      if (critical.different)
-        GeneralAlertSection.summary(critical.alert)
-      else
-        'Same as Alert',
-      if (critical.onSilent) 'sounds on silent',
-      if (controller.criticalDuringDoNotDisturb) 'sounds during Do Not Disturb',
-    ].join(' · ');
+    return critical.different
+        ? GeneralAlertSection.alertSummary(critical.alert)
+        : 'Same as Alert';
   }
 
   @override
@@ -93,57 +183,28 @@ class CriticalAlertSection extends StatelessWidget {
     listenable: controller,
     builder: (context, _) {
       final critical = controller.critical;
-      void changeCritical(CriticalAlertSettings next) =>
-          _tell(context, controller.changeCritical(next));
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const ListTile(
-            subtitle: Text('Pushes of events with critical severity.'),
-          ),
-          SwitchListTile(
-            key: const Key('criticalDifferent'),
-            title: const Text('Different alert for critical events'),
-            subtitle: const Text(
-              'Their own sound, volume, vibration, pattern and length',
-            ),
-            value: critical.different,
-            onChanged: (on) => changeCritical(critical.copyWith(different: on)),
-          ),
-          if (critical.different)
-            _AlertChoices(
-              keyPrefix: 'critical',
-              settings: critical.alert,
-              defaultSound: CriticalAlertSettings.defaults.alert.sound,
-              playTooltip: (sound) => 'Play ${sound.label} for critical events',
-              vibrateTooltip: (pattern) =>
-                  'Vibrate ${pattern.label} for critical events',
-              change: (next) => changeCritical(critical.copyWith(alert: next)),
-              preview: (alert) =>
-                  _tell(context, controller.previewCritical(alert)),
-            ),
-          SwitchListTile(
-            key: const Key('criticalOnSilent'),
-            title: const Text('Sound when the phone is on silent'),
-            subtitle: const Text(
-              'Critical events sound and vibrate even when the phone is on '
-              'silent or vibrate',
-            ),
-            value: critical.onSilent,
-            onChanged: (on) => changeCritical(critical.copyWith(onSilent: on)),
-          ),
-          SwitchListTile(
-            key: const Key('criticalDuringDoNotDisturb'),
-            title: const Text('Sound during Do Not Disturb'),
             subtitle: Text(
-              controller.doNotDisturbAccess
-                  ? 'Critical events sound and vibrate during Do Not Disturb'
-                  : 'Needs Do Not Disturb access for SignalHub, which '
-                        'turning this on asks for',
+              'Pushes of events with critical severity play this alert '
+              'instead of the one above.',
             ),
-            value: controller.criticalDuringDoNotDisturb,
-            onChanged: (on) =>
-                changeCritical(critical.copyWith(duringDoNotDisturb: on)),
+          ),
+          _AlertChoices(
+            keyPrefix: 'critical',
+            settings: critical.alert,
+            defaultSound: CriticalAlertSettings.defaults.alert.sound,
+            playTooltip: (sound) => 'Play ${sound.label} for critical events',
+            vibrateTooltip: (pattern) =>
+                'Vibrate ${pattern.label} for critical events',
+            change: (next) => _tell(
+              context,
+              controller.changeCritical(critical.copyWith(alert: next)),
+            ),
+            preview: (alert) =>
+                _tell(context, controller.previewCritical(alert)),
           ),
         ],
       );

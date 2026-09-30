@@ -50,7 +50,6 @@ PUSH_SWITCH = "Push notifications"
 # shows it on a line of its own).
 PUSH_FILTERS_GROUP = "Push filters"
 ALERT_GROUP = ("Alert", "How pushes sound and vibrate")
-CRITICAL_GROUP = ("Critical alert", "Pushes of events with critical severity")
 DEVICE_GROUP = ("This device", PUSH_ON)
 # The sounds in the Alert group, by the name the alert log uses.
 SOUND_LABELS = {
@@ -59,6 +58,12 @@ SOUND_LABELS = {
     "pulse": "Pulse",
     "glass": "Glass",
 }
+# In the Alert group, below the general alert: which pushes sound on silent
+# (each choice's options below its title), and the switch above the
+# Critical alert sub-group.
+SILENT_CHOICE = "Sound when the phone is on silent"
+CRITICAL_ONLY = "Critical only"
+ALL_PUSHES = "All pushes"
 CRITICAL_SWITCH = "Different alert for critical events"
 # The sound critical events play once they have an alert of their own, by
 # default (client/lib/src/alert/alert_settings.dart).
@@ -856,8 +861,19 @@ def check_alert_quiet(review: Review) -> str:
 
 
 def toggle_critical_alert(review: Review) -> None:
-    review.open_group(CRITICAL_GROUP)
+    review.open_group(ALERT_GROUP)
     review.device.tap(review.device.scroll_to(CRITICAL_SWITCH))
+
+
+def choose_on_silent(review: Review, option: str) -> None:
+    """Chooses which pushes sound on silent, in the Alert group."""
+    review.open_group(ALERT_GROUP)
+    device = review.device
+    title = device.scroll_to_upper_half(SILENT_CHOICE)
+    node = group_row(device.nodes(), title, option)
+    if node is None:
+        raise CheckFailed(f"{option!r} not shown below {SILENT_CHOICE!r}")
+    device.tap(node)
 
 
 def check_alert_critical(review: Review) -> str:
@@ -908,15 +924,27 @@ def check_alert_critical_quiet(review: Review) -> str:
         set_ringer(device, "SILENT")
         normal = alert_push(review, "normal on silent", "NORMAL")
         critical = alert_push(review, "critical on silent", "CRITICAL")
+        if not normal.startswith("Alert not played (silent mode)"):
+            raise CheckFailed(f"on silent, for a normal push the app logged: {normal}")
+        if (
+            not critical.startswith("Critical alert played")
+            or "as an alarm" not in critical
+        ):
+            raise CheckFailed(
+                f"on silent, for a critical push the app logged: {critical}"
+            )
+        choose_on_silent(review, ALL_PUSHES)
+        try:
+            every = alert_push(review, "normal on silent, all pushes", "NORMAL")
+        finally:
+            choose_on_silent(review, CRITICAL_ONLY)
+            device.home()
     finally:
         device.shell("cmd audio set-ringer-mode NORMAL", check=False)
-    if not normal.startswith("Alert not played (silent mode)"):
-        raise CheckFailed(f"on silent, for a normal push the app logged: {normal}")
-    if (
-        not critical.startswith("Critical alert played")
-        or "as an alarm" not in critical
-    ):
-        raise CheckFailed(f"on silent, for a critical push the app logged: {critical}")
+    if not every.startswith("Alert played") or "as an alarm" not in every:
+        raise CheckFailed(
+            f"on silent with All pushes, for a normal push the app logged: {every}"
+        )
     try:
         device.shell("cmd notification set_dnd priority")
         during = alert_push(review, "critical during do not disturb", "CRITICAL")
@@ -925,7 +953,8 @@ def check_alert_critical_quiet(review: Review) -> str:
     if not during.startswith("Critical alert not played (do not disturb"):
         raise CheckFailed(f"during do-not-disturb the app logged: {during}")
     return (
-        "on silent: normal quiet, critical played as an alarm; during "
+        "on silent: normal quiet, critical played as an alarm, normal played "
+        "as an alarm with All pushes (Critical only again); during "
         "do-not-disturb: critical quiet"
     )
 
@@ -1256,7 +1285,8 @@ CHECKS = [
     Check(
         "alert-critical-quiet",
         check_alert_critical_quiet,
-        "on silent only critical pushes sound; none during DND (toggles both)",
+        "on silent only critical pushes sound, every push with All pushes "
+        "(restored); none during DND (toggles both)",
     ),
     Check(
         "refresh-on-return",

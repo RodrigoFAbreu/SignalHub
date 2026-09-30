@@ -263,7 +263,14 @@ class AlertCheckTest(unittest.TestCase):
         device.tap_label.side_effect = lambda label, **_: steps.append(label)
         device.shell.side_effect = lambda command, **_: steps.append(command)
         device.scroll_to.side_effect = lambda label, **_: label
-        device.tap.side_effect = lambda node: steps.append(f"tap {node}")
+        device.tap.side_effect = lambda node: steps.append(
+            f"tap {getattr(node, 'label', node)}"
+        )
+        # The Alert group's choice of pushes sounding on silent.
+        device.scroll_to_upper_half.side_effect = lambda label, **_: row(label, 300)
+        device.nodes.return_value = [
+            row(label, 500) for label in ("Off", "Critical only", "All pushes")
+        ]
         review = Review(fake_config(), device, server)
         review.title = lambda what: what
         review.inbox = lambda: None
@@ -336,7 +343,7 @@ class AlertCheckTest(unittest.TestCase):
         self.assertEqual(self.severities, ["NORMAL", "CRITICAL", "CRITICAL", "NORMAL"])
         switch = "tap Different alert for critical events"
         self.assertEqual(steps.count(switch), 2)
-        self.assertEqual(steps[2:4], ["open Critical alert", switch])
+        self.assertEqual(steps[2:4], ["open Alert", switch])
         self.assertEqual(steps[-1], switch)
         self.assertIn("critical urgent (rapid long)", detail)
         self.assertIn("normal signal (standard short)", detail)
@@ -396,19 +403,30 @@ class AlertCheckTest(unittest.TestCase):
             check_alert_critical(review)
         self.assertEqual(steps[-1], "tap Different alert for critical events")
 
-    def test_on_silent_only_critical_pushes_play_and_none_during_dnd(self):
+    def test_on_silent_critical_pushes_or_all_play_and_none_during_dnd(self):
         review, steps = self.review(
             [
                 "Alert not played (silent mode): sound=signal",
                 "Critical alert played (sound on, vibration on, as an alarm): x",
+                "Alert played (sound on, vibration on, as an alarm): x",
                 "Critical alert not played (do not disturb): x",
             ]
         )
-        check_alert_critical_quiet(review)
-        self.assertEqual(self.severities, ["NORMAL", "CRITICAL", "CRITICAL"])
+        detail = check_alert_critical_quiet(review)
+        self.assertEqual(self.severities, ["NORMAL", "CRITICAL", "NORMAL", "CRITICAL"])
         self.assertEqual(steps[0], "cmd audio set-ringer-mode SILENT")
-        self.assertIn("cmd audio set-ringer-mode NORMAL", steps)
+        choices = [step for step in steps if step.startswith("tap ")]
+        self.assertEqual(choices, ["tap All pushes", "tap Critical only"])
+        self.assertLess(
+            steps.index("publish normal on silent, all pushes"),
+            steps.index("tap Critical only"),
+        )
+        self.assertLess(
+            steps.index("tap Critical only"),
+            steps.index("cmd audio set-ringer-mode NORMAL"),
+        )
         self.assertEqual(steps[-1], "cmd notification set_dnd off")
+        self.assertIn("All pushes", detail)
 
     def test_a_critical_push_quiet_on_silent_fails_and_the_ringer_is_restored(self):
         review, steps = self.review(
@@ -421,11 +439,25 @@ class AlertCheckTest(unittest.TestCase):
             check_alert_critical_quiet(review)
         self.assertEqual(steps[-1], "cmd audio set-ringer-mode NORMAL")
 
+    def test_a_normal_push_quiet_with_all_pushes_fails_and_is_restored(self):
+        review, steps = self.review(
+            [
+                "Alert not played (silent mode): sound=signal",
+                "Critical alert played (sound on, vibration on, as an alarm): x",
+                "Alert not played (silent mode): sound=signal",
+            ]
+        )
+        with self.assertRaisesRegex(CheckFailed, "with All pushes"):
+            check_alert_critical_quiet(review)
+        self.assertIn("tap Critical only", steps)
+        self.assertEqual(steps[-1], "cmd audio set-ringer-mode NORMAL")
+
     def test_a_critical_alert_during_dnd_fails(self):
         review, steps = self.review(
             [
                 "Alert not played (silent mode): sound=signal",
                 "Critical alert played (sound on, vibration on, as an alarm): x",
+                "Alert played (sound on, vibration on, as an alarm): x",
                 "Critical alert played (sound on, vibration on, as an alarm): x",
             ]
         )

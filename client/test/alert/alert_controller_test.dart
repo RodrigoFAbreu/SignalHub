@@ -27,9 +27,19 @@ void main() {
       volume: 90,
       vibration: AlertVibration.strong,
     ),
-    onSilent: false,
-    duringDoNotDisturb: false,
   );
+  const quiet = QuietModeSettings(
+    onSilent: SoundThrough.all,
+    duringDoNotDisturb: SoundThrough.off,
+  );
+
+  /// What a preview of the general alert plays, with the default quiet
+  /// modes: never on silent or during Do Not Disturb.
+  Map<String, Object?> asNormalPush(AlertSettings alert) => {
+    ...alert.toPlatform(),
+    'onSilent': false,
+    'duringDoNotDisturb': false,
+  };
 
   test('a new installation saves the defaults for the first push', () async {
     await alert.load();
@@ -37,18 +47,23 @@ void main() {
     expect(alert.settings, AlertSettings.defaults);
     expect(alert.critical, CriticalAlertSettings.defaults);
     expect(platform.saved, [
-      platformAlerts(AlertSettings.defaults, CriticalAlertSettings.defaults),
+      platformAlerts(
+        AlertSettings.defaults,
+        CriticalAlertSettings.defaults,
+        QuietModeSettings.defaults,
+      ),
     ]);
     expect(platform.previewed, isEmpty);
   });
 
   test('restores the saved settings without saving again', () async {
-    platform.stored = jsonEncode(platformAlerts(chosen, critical));
+    platform.stored = jsonEncode(platformAlerts(chosen, critical, quiet));
 
     await alert.load();
 
     expect(alert.settings, chosen);
     expect(alert.critical, critical);
+    expect(alert.quiet, quiet);
     expect(platform.saved, isEmpty);
   });
 
@@ -60,9 +75,44 @@ void main() {
 
     expect(alert.settings, chosen);
     expect(alert.critical, CriticalAlertSettings.defaults);
+    expect(alert.quiet, QuietModeSettings.defaults);
     expect(platform.saved, [
-      platformAlerts(chosen, CriticalAlertSettings.defaults),
+      platformAlerts(
+        chosen,
+        CriticalAlertSettings.defaults,
+        QuietModeSettings.defaults,
+      ),
     ]);
+  });
+
+  test('carries over the critical switches for silent mode and Do Not '
+      'Disturb, and saves them as the choices', () async {
+    // As a version with the critical-only switches saved them.
+    final saved = platformAlerts(chosen, critical, quiet);
+    platform.stored = jsonEncode(
+      {
+        ...saved,
+        'onSilent': null,
+        'duringDoNotDisturb': null,
+        'quiet': null,
+        'critical': {
+          ...saved['critical']! as Map<String, Object?>,
+          'onSilent': false,
+          'duringDoNotDisturb': true,
+        },
+      }..removeWhere((_, value) => value == null),
+    );
+
+    await alert.load();
+
+    const carried = QuietModeSettings(
+      onSilent: SoundThrough.off,
+      duringDoNotDisturb: SoundThrough.critical,
+    );
+    expect(alert.settings, chosen);
+    expect(alert.critical, critical);
+    expect(alert.quiet, carried);
+    expect(platform.saved, [platformAlerts(chosen, critical, carried)]);
   });
 
   test('keeps settings saved before patterns and lengths, and saves them '
@@ -71,7 +121,7 @@ void main() {
     Map<String, Object?> older(Map<String, Object?> alert) => {...alert}
       ..remove('pattern')
       ..remove('length');
-    final saved = platformAlerts(chosen, critical);
+    final saved = platformAlerts(chosen, critical, quiet);
     platform.stored = jsonEncode({
       ...older(saved),
       'critical': older(saved['critical']! as Map<String, Object?>),
@@ -90,7 +140,7 @@ void main() {
     );
     expect(alert.critical, withDefaults);
     // A critical push now plays the new default pattern and length.
-    expect(platform.saved, [platformAlerts(chosen, withDefaults)]);
+    expect(platform.saved, [platformAlerts(chosen, withDefaults, quiet)]);
   });
 
   test('a change is saved at once and survives a restart', () async {
@@ -102,7 +152,11 @@ void main() {
 
     expect(
       platform.saved.last,
-      platformAlerts(chosen, CriticalAlertSettings.defaults),
+      platformAlerts(
+        chosen,
+        CriticalAlertSettings.defaults,
+        QuietModeSettings.defaults,
+      ),
     );
     expect(restarted.settings, chosen);
   });
@@ -116,19 +170,19 @@ void main() {
     await alert.change(alert.settings.copyWith(volume: 30));
 
     expect(platform.previewed, [
-      AlertSettings.defaults
-          .copyWith(
-            sound: () => AlertSound.beacon,
-            vibration: AlertVibration.off,
-          )
-          .toPlatform(),
-      AlertSettings.defaults
-          .copyWith(
-            sound: () => AlertSound.beacon,
-            volume: 30,
-            vibration: AlertVibration.off,
-          )
-          .toPlatform(),
+      asNormalPush(
+        AlertSettings.defaults.copyWith(
+          sound: () => AlertSound.beacon,
+          vibration: AlertVibration.off,
+        ),
+      ),
+      asNormalPush(
+        AlertSettings.defaults.copyWith(
+          sound: () => AlertSound.beacon,
+          volume: 30,
+          vibration: AlertVibration.off,
+        ),
+      ),
     ]);
   });
 
@@ -139,11 +193,15 @@ void main() {
       AlertSettings.defaults.copyWith(vibration: AlertVibration.strong),
     );
 
-    expect(platform.previewed.single, {
-      ...AlertSettings.defaults
-          .copyWith(sound: () => null, vibration: AlertVibration.strong)
-          .toPlatform(),
-    });
+    expect(
+      platform.previewed.single,
+      asNormalPush(
+        AlertSettings.defaults.copyWith(
+          sound: () => null,
+          vibration: AlertVibration.strong,
+        ),
+      ),
+    );
   });
 
   test('a new pattern or length is previewed without sound', () async {
@@ -155,16 +213,19 @@ void main() {
     await alert.change(alert.settings.copyWith(length: AlertLength.long));
 
     expect(platform.previewed, [
-      AlertSettings.defaults
-          .copyWith(sound: () => null, pattern: AlertPattern.heartbeat)
-          .toPlatform(),
-      AlertSettings.defaults
-          .copyWith(
-            sound: () => null,
-            pattern: AlertPattern.heartbeat,
-            length: AlertLength.long,
-          )
-          .toPlatform(),
+      asNormalPush(
+        AlertSettings.defaults.copyWith(
+          sound: () => null,
+          pattern: AlertPattern.heartbeat,
+        ),
+      ),
+      asNormalPush(
+        AlertSettings.defaults.copyWith(
+          sound: () => null,
+          pattern: AlertPattern.heartbeat,
+          length: AlertLength.long,
+        ),
+      ),
     ]);
     expect(platform.saved.last['pattern'], 'heartbeat');
     expect(platform.saved.last['length'], 'long');
@@ -312,113 +373,13 @@ void main() {
       },
     );
 
-    group('on silent', () {
-      setUp(() => platform.silent = true);
+    test('a general alert changed later sounds on silent as a critical '
+        'push', () async {
+      await alert.load();
+      await alert.change(chosen);
 
-      test('sound by default, unlike every other push', () async {
-        await alert.load();
-
-        expect(await alert.previewCritical(chosen), isNull);
-        expect(
-          await alert.preview(chosen),
-          contains('Silent mode or Do Not Disturb'),
-        );
-      });
-
-      test('stay quiet with the switch off', () async {
-        await alert.load();
-        await alert.changeCritical(alert.critical.copyWith(onSilent: false));
-
-        expect(criticalAlert()['onSilent'], isFalse);
-        expect(
-          await alert.previewCritical(chosen),
-          contains('Silent mode or Do Not Disturb'),
-        );
-      });
-    });
-
-    group('during Do Not Disturb', () {
-      setUp(() => platform.doNotDisturb = true);
-
-      test('stay quiet by default, as every other push', () async {
-        platform.access = true;
-        await alert.load();
-
-        expect(
-          await alert.previewCritical(chosen),
-          contains('Silent mode or Do Not Disturb'),
-        );
-        expect(
-          await alert.preview(chosen),
-          contains('Silent mode or Do Not Disturb'),
-        );
-      });
-
-      test('sound with the switch on and the access given', () async {
-        platform.access = true;
-        await alert.load();
-
-        final message = await alert.changeCritical(
-          alert.critical.copyWith(duringDoNotDisturb: true),
-        );
-
-        expect(message, isNull);
-        expect(alert.criticalDuringDoNotDisturb, isTrue);
-        expect(criticalAlert()['duringDoNotDisturb'], isTrue);
-        expect(await alert.previewCritical(chosen), isNull);
-        expect(platform.accessOpened, 0);
-      });
-
-      test('without the access, the switch stays off and the system screen '
-          'to give it opens', () async {
-        await alert.load();
-        final saved = platform.saved.length;
-
-        final message = await alert.changeCritical(
-          alert.critical.copyWith(duringDoNotDisturb: true),
-        );
-
-        expect(message, contains('Do Not Disturb access'));
-        expect(platform.accessOpened, 1);
-        expect(alert.critical.duringDoNotDisturb, isFalse);
-        expect(alert.criticalDuringDoNotDisturb, isFalse);
-        expect(platform.saved, hasLength(saved));
-      });
-
-      test('the access given in the meantime is read again', () async {
-        await alert.load();
-        await alert.changeCritical(
-          alert.critical.copyWith(duringDoNotDisturb: true),
-        );
-        platform.access = true;
-
-        await alert.refreshDoNotDisturbAccess();
-        await alert.changeCritical(
-          alert.critical.copyWith(duringDoNotDisturb: true),
-        );
-
-        expect(alert.criticalDuringDoNotDisturb, isTrue);
-        expect(platform.accessOpened, 1);
-      });
-
-      test('the access taken away turns the switch off', () async {
-        platform.access = true;
-        platform.stored = jsonEncode(
-          platformAlerts(chosen, critical.copyWith(duringDoNotDisturb: true)),
-        );
-        await alert.load();
-        expect(alert.criticalDuringDoNotDisturb, isTrue);
-
-        platform.access = false;
-        await alert.refreshDoNotDisturbAccess();
-
-        expect(alert.criticalDuringDoNotDisturb, isFalse);
-        // Without the access, the phone keeps it quiet.
-        expect(
-          await alert.previewCritical(chosen),
-          contains('Silent mode or Do Not Disturb'),
-        );
-      });
+      expect(criticalAlert()['onSilent'], isTrue);
+      expect(platform.saved.last['onSilent'], isFalse);
     });
 
     test('a critical setting not saved is not kept', () async {
@@ -430,6 +391,168 @@ void main() {
       expect(message, 'The alert setting could not be saved');
       expect(alert.critical, CriticalAlertSettings.defaults);
       expect(platform.previewed, isEmpty);
+    });
+  });
+
+  group('on silent', () {
+    setUp(() => platform.silent = true);
+    Map<String, Object?> criticalAlert() =>
+        platform.saved.last['criticalAlert']! as Map<String, Object?>;
+
+    test('by default only critical pushes sound', () async {
+      await alert.load();
+
+      expect(await alert.previewCritical(chosen), isNull);
+      expect(
+        await alert.preview(chosen),
+        contains('Silent mode or Do Not Disturb'),
+      );
+    });
+
+    test('none sound with Off', () async {
+      await alert.load();
+
+      expect(await alert.changeOnSilent(SoundThrough.off), isNull);
+
+      expect(alert.quiet.onSilent, SoundThrough.off);
+      expect(platform.saved.last['onSilent'], isFalse);
+      expect(criticalAlert()['onSilent'], isFalse);
+      expect(
+        await alert.previewCritical(chosen),
+        contains('Silent mode or Do Not Disturb'),
+      );
+    });
+
+    test('every push sounds with All pushes', () async {
+      await alert.load();
+
+      await alert.changeOnSilent(SoundThrough.all);
+
+      expect(platform.saved.last['onSilent'], isTrue);
+      expect(criticalAlert()['onSilent'], isTrue);
+      expect(await alert.preview(chosen), isNull);
+      expect(await alert.previewCritical(chosen), isNull);
+      // The choice is its own: the critical settings are unchanged.
+      expect(alert.critical, CriticalAlertSettings.defaults);
+    });
+
+    test('a choice not saved is not kept', () async {
+      await alert.load();
+      platform.failsToSave = true;
+
+      final message = await alert.changeOnSilent(SoundThrough.all);
+
+      expect(message, 'The alert setting could not be saved');
+      expect(alert.quiet, QuietModeSettings.defaults);
+    });
+  });
+
+  group('during Do Not Disturb', () {
+    setUp(() => platform.doNotDisturb = true);
+    Map<String, Object?> criticalAlert() =>
+        platform.saved.last['criticalAlert']! as Map<String, Object?>;
+
+    test('none sound by default', () async {
+      platform.access = true;
+      await alert.load();
+
+      expect(alert.duringDoNotDisturb, SoundThrough.off);
+      expect(
+        await alert.previewCritical(chosen),
+        contains('Silent mode or Do Not Disturb'),
+      );
+      expect(
+        await alert.preview(chosen),
+        contains('Silent mode or Do Not Disturb'),
+      );
+    });
+
+    test('critical pushes sound with Critical only and the access '
+        'given', () async {
+      platform.access = true;
+      await alert.load();
+
+      final message = await alert.changeDuringDoNotDisturb(
+        SoundThrough.critical,
+      );
+
+      expect(message, isNull);
+      expect(alert.duringDoNotDisturb, SoundThrough.critical);
+      expect(criticalAlert()['duringDoNotDisturb'], isTrue);
+      expect(platform.saved.last['duringDoNotDisturb'], isFalse);
+      expect(await alert.previewCritical(chosen), isNull);
+      expect(
+        await alert.preview(chosen),
+        contains('Silent mode or Do Not Disturb'),
+      );
+      expect(platform.accessOpened, 0);
+    });
+
+    test('every push sounds with All pushes and the access given', () async {
+      platform.access = true;
+      await alert.load();
+
+      await alert.changeDuringDoNotDisturb(SoundThrough.all);
+
+      expect(criticalAlert()['duringDoNotDisturb'], isTrue);
+      expect(platform.saved.last['duringDoNotDisturb'], isTrue);
+      expect(await alert.preview(chosen), isNull);
+      expect(await alert.previewCritical(chosen), isNull);
+    });
+
+    test('without the access, the choice stays Off and the system screen '
+        'to give it opens', () async {
+      await alert.load();
+      final saved = platform.saved.length;
+
+      for (final choice in [SoundThrough.critical, SoundThrough.all]) {
+        final message = await alert.changeDuringDoNotDisturb(choice);
+
+        expect(message, contains('Do Not Disturb access'));
+      }
+
+      expect(platform.accessOpened, 2);
+      expect(alert.quiet.duringDoNotDisturb, SoundThrough.off);
+      expect(alert.duringDoNotDisturb, SoundThrough.off);
+      expect(platform.saved, hasLength(saved));
+    });
+
+    test('the access given in the meantime is read again', () async {
+      await alert.load();
+      await alert.changeDuringDoNotDisturb(SoundThrough.all);
+      platform.access = true;
+
+      await alert.refreshDoNotDisturbAccess();
+      await alert.changeDuringDoNotDisturb(SoundThrough.all);
+
+      expect(alert.duringDoNotDisturb, SoundThrough.all);
+      expect(platform.accessOpened, 1);
+    });
+
+    test('the access taken away shows the choice Off', () async {
+      platform.access = true;
+      platform.stored = jsonEncode(
+        platformAlerts(
+          chosen,
+          critical,
+          quiet.copyWith(duringDoNotDisturb: SoundThrough.critical),
+        ),
+      );
+      await alert.load();
+      expect(alert.duringDoNotDisturb, SoundThrough.critical);
+
+      platform.access = false;
+      await alert.refreshDoNotDisturbAccess();
+
+      expect(alert.duringDoNotDisturb, SoundThrough.off);
+      // Without the access, the phone keeps it quiet.
+      expect(
+        await alert.previewCritical(chosen),
+        contains('Silent mode or Do Not Disturb'),
+      );
+      // A choice on silent is saved without asking for the access.
+      expect(await alert.changeOnSilent(SoundThrough.off), isNull);
+      expect(platform.accessOpened, 0);
     });
   });
 }

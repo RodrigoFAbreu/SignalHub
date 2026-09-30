@@ -30,15 +30,19 @@
     90,
     260
   ],
+  "onSilent": false,
+  "duringDoNotDisturb": false,
+  "quiet": {
+    "onSilent": "critical",
+    "duringDoNotDisturb": "off"
+  },
   "critical": {
     "different": false,
     "sound": "urgent",
     "volume": 100,
     "vibration": "strong",
     "pattern": "rapid",
-    "length": "long",
-    "onSilent": true,
-    "duringDoNotDisturb": false
+    "length": "long"
   },
   "criticalAlert": {
     "sound": "signal",

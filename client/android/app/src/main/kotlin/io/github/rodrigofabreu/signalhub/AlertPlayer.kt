@@ -20,10 +20,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * What to play for a push, as the app's alert settings give it
  * (AlertSettings.toPlatform in lib/src/alert/alert_settings.dart, and
- * CriticalAlertSettings.toPlatform for a critical push's). The settings
- * themselves are worked out in Dart; this only plays them. [onSilent] and
- * [duringDoNotDisturb], a critical push's only, let it sound when the
- * ringer is on silent or vibrate, and during do-not-disturb.
+ * CriticalAlertSettings.toPlatform for a critical push's, each with
+ * QuietModeSettings.toPlatform). The settings themselves are worked out in
+ * Dart; this only plays them. [onSilent] and [duringDoNotDisturb], as the
+ * owner chose them for this kind of push (none, critical ones or all), let
+ * it sound when the ringer is on silent or vibrate, and during
+ * do-not-disturb.
  */
 class Alert(
     val description: String,
@@ -65,14 +67,16 @@ class Alert(
  * Stores the alerts on the device and plays them: the sound on the
  * notification stream, so the phone's notification volume scales it, and
  * the vibration as a notification's, so the phone's vibration settings
- * apply. The general alert never plays through do-not-disturb, and follows
+ * apply. Otherwise an alert never plays through do-not-disturb, and follows
  * the ringer: nothing on silent, only the vibration on vibrate.
  *
- * A critical push's alert may sound on silent or vibrate ([Alert.onSilent])
- * and during do-not-disturb ([Alert.duringDoNotDisturb], only while the
- * owner gives the app Do Not Disturb access). When it does, it plays as an
- * alarm, on the alarm stream at the phone's alarm volume, which neither the
- * ringer nor do-not-disturb's default of letting alarms through mutes.
+ * An alert, a critical push's or the general one, may sound on silent or
+ * vibrate ([Alert.onSilent]) and during do-not-disturb
+ * ([Alert.duringDoNotDisturb], only while the owner gives the app Do Not
+ * Disturb access). When it does, it plays as an alarm, on the alarm stream
+ * at the phone's alarm volume, which neither the ringer nor
+ * do-not-disturb's default of letting alarms through mutes. The app never
+ * changes the ringer or do-not-disturb.
  */
 object AlertPlayer {
     const val TAG = "SignalHubAlert"

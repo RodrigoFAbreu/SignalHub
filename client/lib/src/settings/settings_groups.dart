@@ -1,7 +1,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// The folding groups of the Settings screen, in the order it shows them.
-/// Their names are what [OpenGroupsStore] keeps.
+/// The folding groups of the Settings screen, in the order it shows them;
+/// [critical] is a sub-group inside [alert]. Their names are what
+/// [OpenGroupsStore] keeps.
 enum SettingsGroup { pushFilters, alert, critical, device }
 
 /// Keeps which groups of the Settings screen the owner left open, on the

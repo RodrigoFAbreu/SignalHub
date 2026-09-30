@@ -72,10 +72,12 @@ event inbox with its filters (unread only, producer, category, severity)
 and event details with opening an event's link, read state,
 push preferences, SignalHub's own alert on Android (bundled sounds or
 none, volume and vibration with its pattern and length, set in the app,
-stored on the device), a
+stored on the device), sounding on silent and, with Do Not Disturb
+access, during Do Not Disturb for no push, critical ones only or all
+pushes as chosen, a
 separate alert for critical events chosen by severity alone (its own
-sound, volume, vibration, pattern and length when switched on, sounding on silent and,
-with Do Not Disturb access, during Do Not Disturb as set), all on one
+sound, volume, vibration, pattern and length when switched on, in a
+sub-group of the alert's settings that opens only then), all on one
 *Settings* screen from a gear icon on the inbox, in folding groups that
 sum up their values and stay open as left, with its build
 and commit and disconnecting in its *This device* group, and on an admin
