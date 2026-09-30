@@ -285,6 +285,9 @@ jobs:
             http://localhost:8080/api/v1/admin/producers \
             | jq --exit-status --arg at "$last_event" \
                 '.items[] | select(.id == env.PRODUCER_ID) | .lastEventAt == $at'
+          # Its Events section, which browses the listing above with the admin token.
+          curl --fail --silent --show-error http://localhost:8080/admin/ \
+            | grep --quiet 'id="section-events" data-section="events"'
           for asset in $(curl --fail --silent http://localhost:8080/admin/ \
               | grep --only-matching --extended-regexp '(src|href)="[^"]+"' | cut --delimiter '"' --fields 2); do
             case "$asset" in \#*) continue ;; /*) url="http://localhost:8080$asset" ;; *) url="http://localhost:8080/admin/$asset" ;; esac

@@ -32,7 +32,9 @@ OpenAPI, Docker Compose) with generic event ingestion
 an optional `link` URL, `GET /api/v1/events/{id}` with a client key or the
 admin token), a paginated event listing
 (`GET /api/v1/events`, with a client key or the admin token, filterable by
-read state among others), read state
+read state among others, and browsed in the *Events* section of the
+admin page, a page at a time with the inbox's filters, opening an event
+to read it, open its link in a new tab and mark it read or unread), read state
 (mark events read or unread, the unread count), producer
 authentication (server-issued API keys, managed through
 `/api/v1/admin/producers` with an admin token, or in the *Producers*
@@ -43,8 +45,8 @@ once, issues and revokes keys, and disables and enables producers), and client r
 through `/api/v1/admin/clients` and `/api/v1/client`, or by a device
 redeeming a one-time pairing code from `/api/v1/admin/pairings` at
 `/api/v1/pairing`, made in a browser on the operator's admin page
-`/admin/` on the backend's own port (in sections, *Devices* and
-*Producers*, kept in the address), which also lists every device to
+`/admin/` on the backend's own port (in sections, *Devices*,
+*Producers* and *Events*, kept in the address), which also lists every device to
 rename it, make it an admin device or not, revoke it, or delete it once
 revoked, and says which device used the code shown, with a push to the
 owner's devices when a device pairs, and an admin device can list every

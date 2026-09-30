@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  The admin page: the operator's devices, pairing codes and producers
+  The admin page: the operator's devices, pairing codes, producers and events
   (docs/architecture.md#the-admin-page).
   Served only on the backend's own port, never through the proxy. It is static; everything it does
   goes through the management API with the admin token typed here, which stays in this page's
@@ -20,8 +20,9 @@
     <main>
       <h1>SignalHub admin</h1>
       <p class="lead">
-        Your devices and the producers that publish to them: manage devices and connect new ones
-        with a pairing code, register producers and manage their keys.
+        Your devices, the producers that publish to them and their events: manage devices and
+        connect new ones with a pairing code, register producers and manage their keys, and browse
+        events.
       </p>
 
       <form id="unlock" autocomplete="off">
@@ -36,6 +37,7 @@
         <nav id="sections" aria-label="Sections">
           <a href="#devices" data-section="devices">Devices</a>
           <a href="#producers" data-section="producers">Producers</a>
+          <a href="#events" data-section="events">Events</a>
         </nav>
 
         <div id="section-devices" data-section="devices">
@@ -121,6 +123,73 @@
               <button type="submit">Create producer</button>
               <p id="create-producer-error" class="error" role="alert" hidden></p>
             </form>
+          </section>
+        </div>
+        <div id="section-events" data-section="events" hidden>
+          <section id="event-browser" aria-labelledby="events-title">
+            <div class="heading">
+              <h2 id="events-title">Events</h2>
+              <button type="button" id="refresh-events" class="secondary">Refresh</button>
+            </div>
+            <div id="event-filters" class="filters">
+              <div>
+                <label for="filter-producer">Producer</label>
+                <select id="filter-producer">
+                  <option value="">All producers</option>
+                </select>
+              </div>
+              <div>
+                <label for="filter-category">Category</label>
+                <select id="filter-category">
+                  <option value="">All categories</option>
+                  <option value="ACTION_REQUIRED">Action required</option>
+                  <option value="BLOCKED">Blocked</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="INFO">Info</option>
+                </select>
+              </div>
+              <div>
+                <label for="filter-severity">Severity</label>
+                <select id="filter-severity">
+                  <option value="">All severities</option>
+                  <option value="CRITICAL">Critical</option>
+                  <option value="HIGH">High</option>
+                  <option value="NORMAL">Normal</option>
+                  <option value="LOW">Low</option>
+                </select>
+              </div>
+              <div>
+                <label for="filter-read">Read state</label>
+                <select id="filter-read">
+                  <option value="">Read and unread</option>
+                  <option value="false">Unread only</option>
+                  <option value="true">Read only</option>
+                </select>
+              </div>
+            </div>
+            <p id="events-error" class="error" role="alert" hidden></p>
+            <ul id="event-list" class="cards"></ul>
+            <div class="actions pager">
+              <button type="button" id="newer-events" class="secondary">Newer</button>
+              <button type="button" id="older-events" class="secondary">Older</button>
+            </div>
+          </section>
+
+          <!-- One event, at #events/<id>, so a reload stays on it. -->
+          <section id="event-details" aria-labelledby="event-title" hidden>
+            <p><a href="#events" id="back-to-events">Back to events</a></p>
+            <p id="event-error" class="error" role="alert" hidden></p>
+            <div id="event-body" hidden>
+              <h2 id="event-title"></h2>
+              <p id="event-badges"></p>
+              <p id="event-message" class="message"></p>
+              <dl id="event-facts" class="facts"></dl>
+              <h3>Metadata</h3>
+              <pre id="event-metadata"></pre>
+              <div class="actions">
+                <button type="button" id="toggle-read" class="secondary"></button>
+              </div>
+            </div>
           </section>
         </div>
       </div>

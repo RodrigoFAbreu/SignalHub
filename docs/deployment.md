@@ -178,8 +178,8 @@ Not reachable from other machines:
   `https://` and `SIGNALHUB_DOMAIN`, or `SIGNALHUB_PUBLIC_URL` if set in
   `.env`. Listing events with the admin token still works through the proxy.
 - **The admin page** (`/admin/`): lists
-  and changes devices and producers, issues producer keys and creates
-  pairing codes with the admin token, like
+  and changes devices and producers, issues producer keys, creates
+  pairing codes and browses events with the admin token, like
   the management API, so it is on `127.0.0.1:8080` only too;
   reach it from another computer through SSH (see step 6 of
   [Setup](#setup)).
