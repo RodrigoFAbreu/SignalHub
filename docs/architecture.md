@@ -497,6 +497,45 @@ under `/api/v1/admin`, so the Compose proxy never forwards it) or the
   "admin" producer, which could not test a producer's filters, no push to
   one device only and no scheduling.
 
+### Service status
+
+The [admin page](#the-admin-page)'s **Status** section answers "is
+SignalHub working?". Most of what it shows already exists: the release at
+[`/q/info`](#version), health at `/q/health`, each device's last push
+results in the [client list](#client-api) and the newest event in the
+[listing](#listing-events). The rest is only in the [metrics](#metrics) or
+the configuration, so rather than have the page parse metrics, the
+management API (admin token, under `/api/v1/admin`, so the Compose proxy
+never forwards it) sums it up:
+
+| Method and path | Result |
+|---|---|
+| `GET /api/v1/admin/status` | `200` with the push configuration, the push backlog and the retention setting (`ServiceStatus`). |
+
+```json
+{"pushProviders": ["fcm"], "pushClientOptions": "fcm", "pendingDispatches": 0,
+ "pendingRetries": 0, "abandonedRetries": 0, "eventRetentionSeconds": 31536000}
+```
+
+- `pushProviders`: the [push providers](#push-delivery) enabled, by name
+  (`fcm` once its credentials file is set), empty when nothing is pushed;
+  `pushClientOptions`: the provider whose [options](#push-client-options)
+  apps are given, or `null` when none are served.
+- `pendingDispatches` and `pendingRetries`: the [outbox](#push-dispatch)'s
+  rows, **decided: read from the database at each request** (two counts),
+  so the panel is current even between dispatcher runs, unlike the
+  metrics' gauges.
+- `abandonedRetries`: pushes given up after their last attempt, **since
+  the backend started** (the `signalhub_push_retries_abandoned_total`
+  counter, which is in memory), so it goes back to 0 with a restart.
+- `eventRetentionSeconds`: the [retention](#retention) period in seconds,
+  or `null` when events are kept forever.
+- It never carries a secret, a key, a push token or a file path: whether
+  push is configured, not with what. Reading it is not logged, as no read
+  of the management API is. Settings are changed only in `.env`, with a
+  restart; the page changes none. Adding it was a compatible change (R55).
+
+
 ### Schema
 
 `V1__create_events.sql` creates the `events` table. Check constraints repeat
@@ -1096,11 +1135,11 @@ key, so the owner can add a device from the app, away from the host:
 ### The admin page
 
 `/admin/` is the operator's page for the owner's devices, producers and
-events (test events included), the management API for clients, pairings, producers and events and
-the event API without a terminal. It is in sections, as tabs: **Devices**,
-**Producers** and **Events**. The section shown is the address's fragment
-(`/admin/#devices`, `/admin/#producers`, `/admin/#events`, and
-`/admin/#events/<id>` for one event; Devices when there is none), so a
+events (test events included) and the service's status, the management API for clients,
+pairings, producers, events and status and the event API without a terminal. It is in sections,
+as tabs: **Devices**, **Producers**, **Events** and **Status**. The section shown is the
+address's fragment (`/admin/#devices`, `/admin/#producers`, `/admin/#events`,
+`/admin/#events/<id>` for one event, and `/admin/#status`; Devices when there is none), so a
 reload or a bookmark opens it, and switching sections reads its list
 again. A reload asks for the admin token again, since the
 page keeps it only in memory; the fragment never reaches the server.
@@ -1211,6 +1250,42 @@ and ID, and **Mark as read** or **Mark as unread**
   the list again; the form keeps its values, so the same event can be sent
   again. A validation error is shown as the server words it, and metadata
   that is not a JSON object is refused by the page before it asks.
+
+**Status.** One screen that answers "is SignalHub working?", read again
+each time the section is shown and with **Refresh**: the release and
+commit (`/q/info`); health, overall and each check by its name (the
+database's included, from `/q/health`, which answers `503` with its
+checks when one is down); whether push is configured and whether apps are
+given push options; pushes waiting to be sent and waiting for a retry;
+retries given up since the backend started; the event retention period;
+how many devices' last push failed, listed below by name with the result
+and when; and when the most recent event arrived. See
+[Service status](#service-status) for what the management API adds.
+
+- **decided: it reads what exists** (`/q/info`, `/q/health`, the client
+  list for the devices' push results, the listing's first event) and one
+  new management endpoint for the rest, all at once; a part that cannot be
+  read says so in its place and the others are still shown. `/q/info` and
+  `/q/health` need no credential, so the page sends them no token.
+- **decided: a device's last push failed** when it is not revoked and its
+  last failure is later than its last success (or it has none), whatever
+  the failure; a success afterwards clears it.
+- **decided: what needs the operator is marked _Check_**, and the summary
+  above says **Working** or **Needs attention** and names each: health not
+  up, no push provider, push configured but no options served to apps
+  (an app without built-in Firebase options, such as a release's, then
+  gets no pushes), retries given up, a device whose last push failed, or a
+  part that could not be read. Waiting pushes are shown but not marked,
+  as they clear by themselves within seconds; one that keeps growing is
+  for [monitoring](deployment.md#health-monitoring).
+- **With the database down**, the page cannot be unlocked, since the
+  token is checked with a management call that reads the database; a page
+  unlocked before shows health _Down_, the database check _Down_, and says
+  which parts could not be read (_SignalHub answered 500._).
+  `docker compose ps` and `/q/health/ready` say the same without a token
+  (see [Health monitoring](deployment.md#health-monitoring)).
+- Nothing is changed from it: settings live in `.env` and need a restart.
+  No graphs or history, which a metrics scraper provides.
 
 - **On the host only.** The page is on the backend's own port, like `/q/`
   and the management API; the Compose proxy forwards only `/api/`, so it

@@ -1956,6 +1956,46 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   (Test events, the admin page, producer management, logging, metrics),
   `docs/deployment.md`, `docs/development.md`; compatible (`feat`)
 
+### R55 - The admin page: a status panel
+
+- the admin page gets a **Status** section (`#status`, a fourth tab),
+  read again when shown and with **Refresh**: the release and commit,
+  health overall and each check by name, whether push is configured and
+  apps are given push options, pushes waiting to be sent and waiting for
+  a retry, retries given up since the backend started, devices whose last
+  push failed (listed by name with the result and when), the event
+  retention period and when the most recent event arrived
+- **decided: the page reads what exists** (`/q/info`, `/q/health`, which
+  answers `503` with its checks when down, the client list's push
+  results and the listing's first event), sending no token to `/q/`, and
+  **one new endpoint for what is only in metrics or configuration:
+  `GET /api/v1/admin/status`** (admin token, `404` without a configured
+  one), answering `pushProviders`, `pushClientOptions`,
+  `pendingDispatches` and `pendingRetries` (**decided: counted from the
+  database at each request**, not the metrics' gauges),
+  `abandonedRetries` (since the backend started) and
+  `eventRetentionSeconds` (`null` when events are kept forever); never a
+  secret, key, push token or file path
+- **decided: a device's last push failed** when it is active and its last
+  failure is later than its last success; **decided: what needs the
+  operator is marked _Check_** and summed up as _Working_ or _Needs
+  attention_ (health not up, no push provider, no push options for apps
+  while push is configured, retries given up, a failing device, a part
+  that could not be read); waiting pushes are shown but not marked. Each
+  part is read at once and shown on its own, so one that fails does not
+  hide the others; values are set as text only
+- tests against real PostgreSQL and the fake push provider (the admin
+  token required, the configuration in the default, FCM and retention
+  profiles, the backlog as the database has it, retries waiting and given
+  up), the OpenAPI document, the page and its script (the section in the
+  address, what it reads, no token to `/q/`, the failing-device rule,
+  text only); the page was driven in headless Chromium; the Compose smoke
+  test reads the endpoint on the host (and the retention once set) and
+  checks it, `/q/info` and `/q/health` are `404` through the proxy;
+  `docs/architecture.md` (Service status, the admin page),
+  `docs/deployment.md` (Health monitoring), `docs/development.md`;
+  compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2528,8 +2568,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 41    | R52 - The admin page: browsing events                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 42    | R53 - Deleting events: the API and the admin page                                                | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 43    | R54 - Sending a test event from the admin page                                                   | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Next                                                                             |
-| 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Blocked until R55 is merged                                                      |
+| 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -4340,7 +4380,7 @@ scheduling events.
 
 ### R55 - The admin page: a status panel
 
-Status: planned; next. Added by the maintainer (2026-09-30).
+Status: done (see section 3). Added by the maintainer (2026-09-30).
 
 Goal: one screen answers "is SignalHub working?".
 
@@ -4366,8 +4406,7 @@ a restart); graphs or history of the metrics.
 
 ### R56 - An event's delivery
 
-Status: planned; blocked until R55 is merged. Added by the maintainer
-(2026-09-30).
+Status: planned; next. Added by the maintainer (2026-09-30).
 
 Goal: the operator sees, for any event, which devices its push went to
 and how each delivery went, answering "why did my phone not ping?".
@@ -4518,8 +4557,8 @@ folding groups), R49 (the pending Dependabot updates) and R50 (sound on
 silent and during do-not-disturb for every push; the critical alert
 inside Alert), R51 (the admin page: sections, and producers), R52 (the
 admin page: browsing events), R53 (deleting events: the API and the
-admin page) and R54 (sending a test event from the admin page) are done.
-**R55 (the admin page: a status panel) is next**, then R56, after R55 is
-merged.
+admin page), R54 (sending a test event from the admin page) and R55 (the
+admin page: a status panel) are done. **R56 (an event's delivery) is
+next**; it is the last item of the queue.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
-  The admin page: the operator's devices, pairing codes, producers and events, and test events
-  (docs/architecture.md#the-admin-page).
+  The admin page: the operator's devices, pairing codes, producers and events, test events, and
+  the service's status (docs/architecture.md#the-admin-page).
   Served only on the backend's own port, never through the proxy. It is static; everything it does
   goes through the management API with the admin token typed here, which stays in this page's
   memory.
@@ -21,8 +21,8 @@
       <h1>SignalHub admin</h1>
       <p class="lead">
         Your devices, the producers that publish to them and their events: manage devices and
-        connect new ones with a pairing code, register producers and manage their keys, and browse,
-        send test events and delete events.
+        connect new ones with a pairing code, register producers and manage their keys, browse,
+        send test events and delete events, and see whether SignalHub is working.
       </p>
 
       <form id="unlock" autocomplete="off">
@@ -38,6 +38,7 @@
           <a href="#devices" data-section="devices">Devices</a>
           <a href="#producers" data-section="producers">Producers</a>
           <a href="#events" data-section="events">Events</a>
+          <a href="#status" data-section="status">Status</a>
         </nav>
 
         <div id="section-devices" data-section="devices">
@@ -265,6 +266,23 @@
                 <button type="button" id="delete-event" class="danger">Delete</button>
               </div>
             </div>
+          </section>
+        </div>
+
+        <div id="section-status" data-section="status" hidden>
+          <section aria-labelledby="status-title">
+            <div class="heading">
+              <h2 id="status-title">Status</h2>
+              <button type="button" id="refresh-status" class="secondary">Refresh</button>
+            </div>
+            <p id="status-summary"></p>
+            <dl id="status-facts" class="facts"></dl>
+            <h3>Devices whose last push failed</h3>
+            <ul id="failing-devices" class="keys"></ul>
+            <p class="lead">
+              Nothing is changed here: settings are in the server's <code>.env</code> and take
+              effect after a restart.
+            </p>
           </section>
         </div>
       </div>

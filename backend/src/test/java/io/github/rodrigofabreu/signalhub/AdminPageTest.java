@@ -135,11 +135,14 @@ class AdminPageTest {
     assertTrue(page.contains("<a href=\"#devices\" data-section=\"devices\">Devices</a>"));
     assertTrue(page.contains("<a href=\"#producers\" data-section=\"producers\">Producers</a>"));
     assertTrue(page.contains("<a href=\"#events\" data-section=\"events\">Events</a>"));
+    assertTrue(page.contains("<a href=\"#status\" data-section=\"status\">Status</a>"));
     assertTrue(page.contains("<div id=\"section-devices\" data-section=\"devices\">"));
     assertTrue(page.contains("<div id=\"section-producers\" data-section=\"producers\" hidden>"));
     assertTrue(page.contains("<div id=\"section-events\" data-section=\"events\" hidden>"));
+    assertTrue(page.contains("<div id=\"section-status\" data-section=\"status\" hidden>"));
     var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
-    assertTrue(script.contains("const SECTIONS = [\"devices\", \"producers\", \"events\"];"));
+    assertTrue(
+        script.contains("const SECTIONS = [\"devices\", \"producers\", \"events\", \"status\"];"));
     // The fragment names the section, Devices when it names none, so a reload stays on it; Events
     // may name an event too (#events/<id>).
     assertTrue(script.contains("const [first, eventId] = location.hash.slice(1).split(\"/\");"));
@@ -147,6 +150,7 @@ class AdminPageTest {
         script.contains(
             "const name = SECTIONS.find((section) => first === section) || SECTIONS[0];"));
     assertTrue(script.contains("if (name === \"events\") return showEvents(eventId);"));
+    assertTrue(script.contains("if (name === \"status\") return refreshStatus();"));
     assertTrue(
         Pattern.compile(
                 "window\\.addEventListener\\(\"hashchange\", \\(\\) => \\{\\s*"
@@ -407,6 +411,63 @@ class AdminPageTest {
           "<input id=\"send-title\" type=\"text\" required maxlength=\"200\" value=\"Test event\" />",
           "<textarea id=\"send-metadata\" rows=\"3\" spellcheck=\"false\"></textarea>",
           "<button type=\"submit\">Send test event</button>"
+        }) {
+      assertTrue(page.contains(control), control);
+    }
+  }
+
+  @Test
+  void theStatusIsReadFromWhatExistsAndTheManagementApi() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    assertTrue(script.contains("const STATUS = \"/api/v1/admin/status\";"));
+    assertTrue(script.contains("const INFO = \"/q/info\";"));
+    assertTrue(script.contains("const HEALTH = \"/q/health\";"));
+    // Every part at once, each shown or said to be unreadable on its own; the latest event from
+    // the listing and the devices' last push results from the device list.
+    assertTrue(
+        Pattern.compile(
+                "await Promise\\.allSettled\\(\\[\\s*probe\\(INFO\\),\\s*probe\\(HEALTH\\),\\s*"
+                    + "call\\(\"GET\", STATUS\\),\\s*call\\(\"GET\", CLIENTS\\),\\s*"
+                    + "call\\(\"GET\", `\\$\\{EVENTS\\}\\?limit=1`\\),\\s*\\]\\);")
+            .matcher(script)
+            .find());
+    // /q/ needs no token, so the page sends it none; health that is down answers 503 with its
+    // checks, which the page still reads.
+    assertTrue(script.contains("response = await fetch(path, { cache: \"no-store\" });"));
+    assertTrue(
+        Pattern.compile(
+                "try \\{\\s*return await response\\.json\\(\\);\\s*\\} catch \\{\\s*"
+                    + "throw new Error\\(`SignalHub answered \\$\\{response\\.status\\}\\.`\\);")
+            .matcher(script)
+            .find());
+    // A device counts while its latest result is a failure; a revoked one never does.
+    assertTrue(
+        Pattern.compile(
+                "if \\(client\\.revokedAt \\|\\| !lastFailure\\) return false;\\s*"
+                    + "return !lastSuccess \\|\\| Date\\.parse\\(lastFailure\\.at\\) >"
+                    + " Date\\.parse\\(lastSuccess\\.at\\);")
+            .matcher(script)
+            .find());
+    // A failure that is not one of SignalHub's own errors, such as a database that is down, is
+    // said by its status, never shown as an empty error.
+    assertTrue(
+        script.contains(
+            "if (body.title) return details ? `${body.title}: ${details}` : body.title;"));
+    assertTrue(
+        Pattern.compile(
+                "\\} catch \\{\\s*// Not JSON[^\\n]*\\s*\\}\\s*(//[^\\n]*\\s*)*"
+                    + "return `SignalHub answered \\$\\{response\\.status\\}\\.`;")
+            .matcher(script)
+            .find());
+    // Values from the server are text: each fact is an element given its text.
+    assertTrue(script.contains("const cell = element(\"dd\", null, value);"));
+    assertTrue(script.contains("$(\"status-facts\").replaceChildren(...facts);"));
+    var page = given().get("/admin/").then().extract().asString();
+    for (var control :
+        new String[] {
+          "<button type=\"button\" id=\"refresh-status\" class=\"secondary\">Refresh</button>",
+          "<dl id=\"status-facts\" class=\"facts\"></dl>",
+          "<ul id=\"failing-devices\" class=\"keys\"></ul>"
         }) {
       assertTrue(page.contains(control), control);
     }

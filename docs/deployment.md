@@ -486,6 +486,15 @@ host itself being down.
   [deleted](architecture.md#deleting-events) on the admin page); check the free
   space on the host (`df -h /var/lib/docker`) and the database size (see
   [Resources](architecture.md#resources)).
+- **At a glance**, the admin page's **Status** section (`/admin/#status`,
+  on the host, see [Network exposure](#network-exposure)) answers "is
+  SignalHub working?" on one screen: the release and commit, health and
+  each check, whether push is configured and apps are given push options,
+  pushes waiting and retrying, retries given up since the backend
+  started, devices whose last push failed, the retention period and when
+  the most recent event arrived, marking what needs attention (see
+  [the admin page](architecture.md#the-admin-page)). It is for looking,
+  not alerting: it shows only what is true when it is read.
 - **Delivery**, with a metrics scraper (see
   [Metrics](architecture.md#metrics)): a `signalhub_push_dispatch_pending`
   that keeps growing means dispatch is stuck; a rising

@@ -53,7 +53,9 @@ through `/api/v1/admin/clients` and `/api/v1/client`, or by a device
 redeeming a one-time pairing code from `/api/v1/admin/pairings` at
 `/api/v1/pairing`, made in a browser on the operator's admin page
 `/admin/` on the backend's own port (in sections, *Devices*,
-*Producers* and *Events*, kept in the address), which also lists every device to
+*Producers*, *Events* and *Status*, kept in the address; *Status* answers
+whether SignalHub is working, from `/q/info`, `/q/health`, the management
+API and `/api/v1/admin/status`), which also lists every device to
 rename it, make it an admin device or not, revoke it, or delete it once
 revoked, and says which device used the code shown, with a push to the
 owner's devices when a device pairs, and an admin device can list every

@@ -82,6 +82,11 @@ class AdminApiDisabledTest {
   }
 
   @Test
+  void theStatusIsNotFound() {
+    given().header("Authorization", SOME_TOKEN).get("/api/v1/admin/status").then().statusCode(404);
+  }
+
+  @Test
   void theEventListingAcceptsOnlyClientKeys() {
     // The former admin token is no credential at all once it is unset.
     given().header("Authorization", SOME_TOKEN).get("/api/v1/events").then().statusCode(401);

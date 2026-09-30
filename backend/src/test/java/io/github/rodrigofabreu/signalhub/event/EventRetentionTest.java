@@ -1,5 +1,7 @@
 package io.github.rodrigofabreu.signalhub.event;
 
+import static io.github.rodrigofabreu.signalhub.TestProducers.asAdmin;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -50,6 +52,15 @@ class EventRetentionTest {
     assertEquals(deletedBefore + 1, deleted());
     // Nothing is left to delete.
     assertEquals(0, retention.deleteExpired(NOW));
+  }
+
+  @Test
+  void theStatusStatesTheRetentionPeriod() {
+    asAdmin()
+        .get("/api/v1/admin/status")
+        .then()
+        .statusCode(200)
+        .body("eventRetentionSeconds", equalTo((int) Duration.ofDays(30).toSeconds()));
   }
 
   @Test
