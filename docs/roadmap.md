@@ -2370,6 +2370,12 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 37    | R48 - One Settings screen, in folding groups                                                     | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 38    | R49 - The pending Dependabot updates                                                             | Increment (`build`)                    | Done (see section 3)                                                             |
 | 39    | R50 - Sound on silent and during do-not-disturb for every push; the critical alert inside Alert  | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 40    | R51 - The admin page: sections, and producers                                                    | Increment (`feat`)                     | Next                                                                             |
+| 41    | R52 - The admin page: browsing events                                                            | Increment (`feat`)                     | Blocked until R51 is merged                                                      |
+| 42    | R53 - Deleting events: the API and the admin page                                                | Increment (`feat`)                     | Blocked until R52 is merged                                                      |
+| 43    | R54 - Sending a test event from the admin page                                                   | Increment (`feat`)                     | Blocked until R53 is merged                                                      |
+| 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Blocked until R54 is merged                                                      |
+| 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Blocked until R55 is merged                                                      |
 
 How an autonomous run uses it:
 
@@ -2738,6 +2744,23 @@ G1 → G2 → R19 v1.0.0
     under **Different alert for critical events** that is folded, greyed
     and cannot be opened while that switch is off (a fold inside a fold
     is accepted here: one sub-group, tied to the switch above it)
+- **R51 to R56 were added by the maintainer on 2026-09-30**, after a
+  review of what the admin page should do beyond devices: producers were
+  created and events cleaned up by hand (`curl`, SQL) during testing. The
+  maintainer's answers, recorded here so no increment has to ask again:
+  - the admin page gets **sections** (Devices, Producers, Events, Status)
+    and manages **producers and their keys** (R51) and **events** (R52)
+  - **deleting events** (one, a selection, by producer, older than a
+    date, each with a dry-run count and a confirmation) comes before
+    sending them, so test events can be cleaned up from the start (R53)
+  - a **test event** is sent **as an existing producer**, chosen by the
+    operator, and goes through every device's push preferences as that
+    producer's own would; chosen over a dedicated "admin" producer, which
+    could not test a producer's filters (R54)
+  - a **status panel** (R55) and **an event's delivery** per device (R56)
+    are included now
+  - left out: editing events (a permanent record), exporting events,
+    full-text search (still deferred) and changing settings from the page
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -2781,6 +2804,7 @@ advance; they follow from the queue.
 | R48           | minor (`feat(client)`)                                                                                                                                | a reorganized app screen; no API change                                                                    |
 | R49           | patch (`build`)                                                                                                                                       | build and CI tool versions; nothing a user, producer or operator sees                                      |
 | R50           | minor (`feat(client)`)                                                                                                                                | new app choices and a reorganized settings group; no API change                                            |
+| R51 to R56    | minor (`feat`)                                                                                                                                        | admin page sections, new management endpoints, one migration with no operator action                       |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -4029,6 +4053,198 @@ only_ or _All pushes_; the same for do-not-disturb once access is given;
 the Critical alert sub-group cannot be opened while **Different alert
 for critical events** is off and opens once it is on.
 
+### R51 - The admin page: sections, and producers
+
+Status: planned; next. Added by the maintainer (2026-09-30), from a
+review of what the admin page should do beyond devices.
+
+Goal: the operator manages producers and their keys from the admin page,
+without `curl`, and the page has room for the sections that follow.
+
+Scope, the admin page (on the backend's own port, never forwarded by
+the proxy, the admin token typed in as today):
+
+- **navigation**: the page gets sections, **Devices** (today's content,
+  with _Connect a device_), **Producers**, and later **Events** (R52) and
+  **Status** (R55), as tabs or a menu the increment picks; the section
+  shown is kept in the page's address so a reload stays on it; the admin
+  token is still kept in memory only
+- **Producers**: every producer with its name, whether it is enabled, its
+  keys (ID, created, revoked) and when it last published an event, so a
+  producer that went quiet stands out
+  - **Create a producer**: its name; the new key is shown **once**, with a
+    copy button and a clear warning that it cannot be shown again
+  - per producer: **issue a key** (shown once, as above), **revoke a key**
+    (after a confirmation), **disable** and **enable**
+- the page uses the management API that exists
+  (`/api/v1/admin/producers`); "last published" may come from the event
+  listing (`GET /api/v1/events`, filtered by producer, one event) or, if
+  that is too many requests, a new optional response field, which is then
+  a compatible API change
+- every change is logged by the backend as today (IDs only, never a key)
+- tests for the page, its script and headers (as R35's), and for any API
+  change against real PostgreSQL; the Compose smoke test covers the new
+  section on the host and `404` through the proxy; `docs/architecture.md`
+  (the admin page), `docs/deployment.md`
+
+Compatible (`feat`): no breaking change.
+
+Non-goals: deleting producers (they are never deleted, so their events
+keep their attribution); anything about events (R52 to R54, R56).
+
+### R52 - The admin page: browsing events
+
+Status: planned; blocked until R51 is merged. Added by the maintainer
+(2026-09-30).
+
+Goal: the operator sees every event from the admin page.
+
+Scope:
+
+- an **Events** section: events newest first, a page at a time, with the
+  filters the app's inbox has (producer, category, severity, read or
+  unread), using `GET /api/v1/events` with the admin token
+- an event opens to its details: title, message, producer, category,
+  severity, context, when it happened and was received, its link (opened
+  in a new tab, never followed by the page itself), its metadata shown as
+  formatted JSON, always as text and never as HTML, and its read state,
+  with **Mark as read** / **Mark as unread**
+- tests for the page and its script (text never rendered as HTML, links
+  opened safely); `docs/architecture.md` (the admin page)
+
+Compatible (`feat`): no API change.
+
+Non-goals: deleting (R53) or sending (R54) events; delivery details
+(R56); editing events, which are a permanent record.
+
+### R53 - Deleting events: the API and the admin page
+
+Status: planned; blocked until R52 is merged. Added by the maintainer
+(2026-09-30).
+
+Goal: the operator removes test or unwanted events from the admin page,
+instead of running SQL on the database.
+
+Scope:
+
+- management API (admin token, under `/api/v1/admin`, so never forwarded
+  by the proxy): delete **one event**, a **selection** of events, **every
+  event of one producer**, or **every event older than a date**; a
+  **dry run** of each bulk delete answers how many events it would delete
+  without deleting any. The increment picks the endpoints and statuses and
+  documents them
+- deleting an event also removes what exists only for it (its pending
+  pushes and retries, its delivery records once R56 exists); producers,
+  devices and other events are untouched
+- every delete is logged at `INFO` with the event IDs or the filter and
+  the count, never an event's content
+- the admin page: **Delete** on an event and on a selection, and a
+  **Delete events** form (by producer, by date), each behind a
+  confirmation that states the count from the dry run
+- tests against real PostgreSQL (each kind of delete, the dry run, what
+  goes with an event and what stays, an unknown ID, the admin token
+  required), the OpenAPI document, the page; `docs/architecture.md`
+  (events are deleted only by retention or by the operator, and how),
+  `docs/deployment.md`
+
+Compatible (`feat`): new endpoints; nothing existing changes.
+
+Non-goals: undoing a delete; deleting from the app or a device key;
+deleting producers.
+
+### R54 - Sending a test event from the admin page
+
+Status: planned; blocked until R53 is merged. Added by the maintainer
+(2026-09-30).
+
+Goal: the operator checks that pushes arrive, and that a producer's
+filters work, without a producer key or a script.
+
+Scope:
+
+- management API (admin token): publish an event **as an existing
+  producer**, chosen by the operator, with the fields a producer sends
+  (category, severity, title, message, context, link, metadata); it is
+  stored and pushed exactly as that producer's own event would be, through
+  every device's push preferences, so it tests what a real event would
+  trigger. The admin token can already issue keys for any producer, so
+  this adds no power; a disabled producer is refused. The increment picks
+  the endpoint and statuses
+- logged at `INFO` as sent by the operator as that producer (IDs only)
+- the admin page: a **Send test event** form, with the producer, category
+  and severity as choices and the rest as fields, defaults that make a
+  push likely to arrive (for example _Action required_, _High_), and
+  after sending, a link to the event in the Events section, where it can
+  be deleted (R53)
+- tests against real PostgreSQL and the fake push provider (the event
+  stored under the chosen producer, pushed through preferences as the
+  producer's own, a disabled or unknown producer refused, validation as
+  for producers), the OpenAPI document, the page; `docs/architecture.md`
+
+Compatible (`feat`): a new endpoint; publishing by producers is
+unchanged.
+
+Non-goals: a dedicated "admin" producer; pushing to one device only;
+scheduling events.
+
+### R55 - The admin page: a status panel
+
+Status: planned; blocked until R54 is merged. Added by the maintainer
+(2026-09-30).
+
+Goal: one screen answers "is SignalHub working?".
+
+Scope:
+
+- a **Status** section with: the running version and commit, health
+  (database, and the backend's own checks), whether push is configured
+  (FCM credentials, the app's push options), pushes pending and retrying,
+  retries abandoned, devices whose last push failed (from R33's results),
+  the event retention setting, and when the most recent event arrived
+- the page reads what exists (`/q/info`, `/q/health`, the management
+  API) and, where that would mean parsing metrics in the browser, a new
+  management endpoint (admin token) summing up the status, which is then a
+  compatible API change; never a secret, a key or a push token
+- tests for any endpoint against real PostgreSQL, the page and its
+  script; `docs/architecture.md`, `docs/deployment.md` (Health
+  monitoring)
+
+Compatible (`feat`): no breaking change.
+
+Non-goals: changing settings from the page (they live in `.env` and need
+a restart); graphs or history of the metrics.
+
+### R56 - An event's delivery
+
+Status: planned; blocked until R55 is merged. Added by the maintainer
+(2026-09-30).
+
+Goal: the operator sees, for any event, which devices its push went to
+and how each delivery went, answering "why did my phone not ping?".
+
+Scope:
+
+- the backend records, per event and device, each push attempt's outcome
+  (delivered, filtered out by the device's preferences, no push target,
+  temporary or permanent failure, with the provider's reason, never a
+  push token) and when; kept as long as the event (deleted with it, by
+  retention or by R53); a Flyway migration that needs no operator action
+- a management endpoint (admin token) returning an event's delivery
+  records
+- the admin page: an event's details (R52) show its deliveries, one line
+  per device, by the device's name
+- tests against real PostgreSQL and the fake push provider (each outcome,
+  retries, filtered devices, deletion with the event, retention), the
+  migration, the OpenAPI document, the page; `docs/architecture.md` (Push
+  delivery, the admin page)
+
+Compatible (`feat`): a new endpoint and a migration with no operator
+action.
+
+Non-goals: delivery details in the app; confirming that the phone showed
+or sounded the push (the provider's answer is the last thing the backend
+sees).
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -4150,8 +4366,7 @@ pairing code in the app), R45 (SignalHub's own alert, set in the app), R46
 pattern and length, set in the app), R48 (one Settings screen, in
 folding groups), R49 (the pending Dependabot updates) and R50 (sound on
 silent and during do-not-disturb for every push; the critical alert
-inside Alert) are done. **The queue is empty: nothing further is
-scheduled.** A new row is added only by the maintainer; the deferred
-candidates of section 5 stay deferred until the maintainer adds one.
+inside Alert) are done. **R51 (the admin page: sections, and producers) is next**, then R52 to R56
+in order, each after the previous one is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
