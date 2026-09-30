@@ -363,6 +363,55 @@ class AdminPageTest {
     }
   }
 
+  @Test
+  void aTestEventIsSentAsAnEnabledProducerAndLinkedOnceSent() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    // Through the management API, as the producer chosen; only enabled producers are offered.
+    assertTrue(
+        script.contains(
+            "sent = await call(\"POST\", `${PRODUCERS}/${$(\"send-producer\").value}/events`,"
+                + " testEvent());"));
+    assertTrue(
+        script.contains(
+            "[\"send-producer\", \"Choose a producer\", producers.filter((p) => !p.disabledAt)],"));
+    // The fields a producer sends, the optional ones only when filled in; metadata only as a JSON
+    // object.
+    assertTrue(
+        Pattern.compile(
+                "category: \\$\\(\"send-category\"\\)\\.value,\\s*"
+                    + "severity: \\$\\(\"send-severity\"\\)\\.value,\\s*"
+                    + "title: \\$\\(\"send-title\"\\)\\.value\\.trim\\(\\),")
+            .matcher(script)
+            .find());
+    assertTrue(script.contains("if (value) request[name] = value;"));
+    assertTrue(script.contains("if (metadata) request.metadata = jsonObject(metadata);"));
+    assertTrue(
+        script.contains(
+            "if (value === null || typeof value !== \"object\" || Array.isArray(value)) {"));
+    // Once sent: a link to the event in the Events section, where it can be deleted, set as text.
+    assertTrue(
+        Pattern.compile(
+                "const link = element\\(\"a\", null, \"Open it\"\\);\\s*"
+                    + "link\\.href = `#events/\\$\\{sent\\.id\\}`;\\s*"
+                    + "\\$\\(\"send-event-result\"\\)\\.replaceChildren\\(")
+            .matcher(script)
+            .find());
+    var page = given().get("/admin/").then().extract().asString();
+    // Defaults that make a push likely to arrive.
+    for (var control :
+        new String[] {
+          "<form id=\"send-event\" autocomplete=\"off\" aria-labelledby=\"send-event-title\">",
+          "<select id=\"send-producer\" required>",
+          "<option value=\"ACTION_REQUIRED\" selected>Action required</option>",
+          "<option value=\"HIGH\" selected>High</option>",
+          "<input id=\"send-title\" type=\"text\" required maxlength=\"200\" value=\"Test event\" />",
+          "<textarea id=\"send-metadata\" rows=\"3\" spellcheck=\"false\"></textarea>",
+          "<button type=\"submit\">Send test event</button>"
+        }) {
+      assertTrue(page.contains(control), control);
+    }
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"/connect", "/connect/", "/connect/connect.js"})
   void theConnectPageOfEarlierReleasesIsGone(String path) {

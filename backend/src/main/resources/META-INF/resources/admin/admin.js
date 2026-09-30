@@ -4,8 +4,9 @@
 // Devices lists every client with the management API, changes them, deletes revoked ones, and
 // creates pairings shown as a QR code until they are used or expire; Producers lists every producer,
 // creates them, issues and revokes their keys, and disables and enables them; Events lists events a
-// page at a time, filtered, and opens one (#events/<id>) to read it and mark it read or unread, and
-// deletes one, a selection, or a producer's or older events, after a confirmation with their count.
+// page at a time, filtered, and opens one (#events/<id>) to read it and mark it read or unread,
+// deletes one, a selection, or a producer's or older events, after a confirmation with their count,
+// and sends a test event as a producer, linked once sent.
 // The admin token lives only in this closure; it is never stored, and every request goes to this
 // same origin. A new producer key is shown once and dropped when the operator is done with it.
 // Names and event contents come from the server and are always set as text, never as HTML; an
@@ -106,6 +107,10 @@
   $("delete-events").addEventListener("submit", (event) => {
     event.preventDefault();
     deleteMatching();
+  });
+  $("send-event").addEventListener("submit", (event) => {
+    event.preventDefault();
+    sendTestEvent();
   });
 
   $("create").addEventListener("submit", async (event) => {
@@ -480,7 +485,8 @@
     $("newer-events").disabled = eventPages.length === 1;
   }
 
-  // The producer filter and the Delete events form offer every producer, keeping the one chosen.
+  // The producer filter and the Delete events form offer every producer, and the test event every
+  // enabled one, keeping the one chosen.
   async function refreshProducerChoices() {
     let producers;
     try {
@@ -488,15 +494,17 @@
     } catch {
       return; // The filter keeps what it had; the list says what went wrong, if anything did.
     }
-    for (const [id, none] of [
-      ["filter-producer", "All producers"],
-      ["delete-producer", "Any producer"],
+    for (const [id, none, offered] of [
+      ["filter-producer", "All producers", producers],
+      ["delete-producer", "Any producer", producers],
+      // A disabled producer could not publish the event itself, so the server refuses it.
+      ["send-producer", "Choose a producer", producers.filter((p) => !p.disabledAt)],
     ]) {
       const select = $(id);
       const chosen = select.value;
-      const options = producers.map((p) => new Option(p.name, p.id));
+      const options = offered.map((p) => new Option(p.name, p.id));
       select.replaceChildren(new Option(none, ""), ...options);
-      select.value = producers.some((p) => p.id === chosen) ? chosen : "";
+      select.value = offered.some((p) => p.id === chosen) ? chosen : "";
     }
   }
 
@@ -682,6 +690,59 @@
     }
     await refreshEvents();
     return true;
+  }
+
+  // Published as the producer chosen, stored and pushed as its own event would be; once sent, it is
+  // linked from here, to open and delete it, and the list is read again. The form keeps its values,
+  // so the same event can be sent again.
+  async function sendTestEvent() {
+    showError("send-event-error", null);
+    $("send-event-result").hidden = true;
+    let sent;
+    try {
+      sent = await call("POST", `${PRODUCERS}/${$("send-producer").value}/events`, testEvent());
+    } catch (e) {
+      return showError("send-event-error", e.message);
+    }
+    const link = element("a", null, "Open it");
+    link.href = `#events/${sent.id}`;
+    $("send-event-result").replaceChildren(`Sent "${sent.title}" as "${sent.producer.name}". `, link);
+    $("send-event-result").hidden = false;
+    await refreshEvents();
+  }
+
+  // The fields a producer sends, the optional ones only when filled in; the server validates them
+  // as it does a producer's.
+  function testEvent() {
+    const request = {
+      category: $("send-category").value,
+      severity: $("send-severity").value,
+      title: $("send-title").value.trim(),
+    };
+    for (const [name, id] of [
+      ["message", "send-message"],
+      ["context", "send-context"],
+      ["link", "send-link"],
+    ]) {
+      const value = $(id).value.trim();
+      if (value) request[name] = value;
+    }
+    const metadata = $("send-metadata").value.trim();
+    if (metadata) request.metadata = jsonObject(metadata);
+    return request;
+  }
+
+  function jsonObject(text) {
+    let value;
+    try {
+      value = JSON.parse(text);
+    } catch {
+      throw new Error("Metadata is not valid JSON.");
+    }
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("Metadata must be a JSON object, such as {\"run\": 42}.");
+    }
+    return value;
   }
 
   // --- Pairing ---------------------------------------------------------------------------------

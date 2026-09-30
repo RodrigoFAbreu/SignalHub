@@ -441,6 +441,28 @@ class OpenApiTest {
   }
 
   @Test
+  void describesSendingAnEventAsAProducer() {
+    var send = "paths.'/api/v1/admin/producers/{id}/events'.post";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(send + ".security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(send + ".tags", equalTo(List.of("Event management")))
+        .body(send + ".responses.keySet()", containsInAnyOrder("201", "400", "401", "404", "409"))
+        .body(
+            send + ".requestBody.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/CreateEventRequest"))
+        .body(
+            send + ".responses.'201'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/Event"))
+        .body(send + ".parameters.name", equalTo(List.of("id")))
+        .body("paths.'/api/v1/admin/producers/{id}/events'.keySet()", containsInAnyOrder("post"));
+  }
+
+  @Test
   void describesPairing() {
     given()
         .queryParam("format", "json")

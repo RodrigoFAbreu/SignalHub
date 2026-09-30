@@ -37,7 +37,11 @@ admin page, a page at a time with the inbox's filters, opening an event
 to read it, open its link in a new tab and mark it read or unread), deleting
 events by the operator (one, a selection, a producer's or those older than a
 date, each bulk delete with a dry-run count, through `/api/v1/admin/events`
-with the admin token or on the admin page after a confirmation), read state
+with the admin token or on the admin page after a confirmation), sending a
+test event as an existing producer (stored and pushed as its own, through
+every device's preferences; a disabled producer is refused) through
+`/api/v1/admin/producers/{id}/events` or the admin page's *Events* section,
+which links to it once sent, read state
 (mark events read or unread, the unread count), producer
 authentication (server-issued API keys, managed through
 `/api/v1/admin/producers` with an admin token, or in the *Producers*

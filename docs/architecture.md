@@ -459,6 +459,44 @@ takes `"dryRun": true`.
   logged. There is no undo: a deleted event is gone, except from backups
   taken before (see [Backup and restore](#backup-and-restore)).
 
+### Test events
+
+The operator checks that pushes arrive, and that a producer's filters
+work on the devices, by publishing an event **as an existing producer**,
+without its key or a script, through the management API (admin token,
+under `/api/v1/admin`, so the Compose proxy never forwards it) or the
+[admin page](#the-admin-page):
+
+| Method and path | Result |
+|---|---|
+| `POST /api/v1/admin/producers/{id}/events` | Publishes the event in the body as the producer. `201` with the stored event and a `Location` to it, as for the producer's own; `404 Producer not found` for an unknown producer; `409 Producer is disabled`. |
+
+- **decided: the producer is chosen by the path**, under the producer it
+  publishes as, and the body is exactly the producer's own
+  (`CreateEventRequest`: category, severity, title, message, context, link,
+  metadata, occurredAt), validated the same way, so a body that a producer
+  could not send is `400` here too, and an unknown field (such as
+  `producer`) is refused. Nothing in the event says it was a test: it is
+  stored under the producer and pushed through the
+  [outbox](#push-dispatch) exactly as that producer's own event would be,
+  through every device's [push preferences](#push-preferences), a muted
+  producer, category or lower severity included, so it tests what a real
+  event would trigger. It counts in `signalhub_events_published_total`
+  and moves the producer's `lastEventAt`, as any stored event does.
+- **decided: a disabled producer is refused with `409`**, since it could
+  not publish the event itself; enabling it first makes the same request
+  work. A revoked or missing key does not matter: the admin token stands
+  in for the key. The admin token can already issue a key for any
+  producer, so this gives it no new power.
+- **No `Idempotency-Key`:** each request stores a new event; a test event
+  whose answer was lost is simply sent again and the extra one deleted.
+- **Logged** at `INFO` with IDs only, never the event's content:
+  `Operator sent event <event id> as producer <producer id>`.
+- Test events are ordinary events: listed, read and
+  [deleted](#deleting-events) like any other. There is no dedicated
+  "admin" producer, which could not test a producer's filters, no push to
+  one device only and no scheduling.
+
 ### Schema
 
 `V1__create_events.sql` creates the `events` table. Check constraints repeat
@@ -598,6 +636,7 @@ for curl examples.
 | `POST /api/v1/admin/producers/{id}/keys/{keyId}/revoke` | Revokes a key, immediately and permanently. Idempotent. |
 | `POST /api/v1/admin/producers/{id}/disable` | Disables the producer: none of its keys authenticate. Idempotent. Events are kept. |
 | `POST /api/v1/admin/producers/{id}/enable` | Re-enables it: its unrevoked keys work again. |
+| `POST /api/v1/admin/producers/{id}/events` | Publishes an event as the producer: see [Test events](#test-events). |
 
 Unknown producer or key IDs get `404`, as does a key ID used with another
 producer's path.
@@ -650,8 +689,9 @@ producer to keep using its name.
 ### Logging
 
 Credentials never reach the logs. The backend logs producer registration,
-key issuance and revocation, and disabling and enabling at `INFO` with
-producer and key IDs only. Rejected credentials are logged at `DEBUG` with the
+key issuance and revocation, disabling and enabling, and a
+[test event](#test-events) sent as a producer at `INFO` with producer, key
+and event IDs only. Rejected credentials are logged at `DEBUG` with the
 reason and, when the key is well formed, its key ID, never the key, the
 `Authorization` header, the admin token, or a hash. `IssuedApiKey`, the only
 type that holds a key, omits it from `toString()`.
@@ -1056,7 +1096,7 @@ key, so the owner can add a device from the app, away from the host:
 ### The admin page
 
 `/admin/` is the operator's page for the owner's devices, producers and
-events, the management API for clients, pairings, producers and events and
+events (test events included), the management API for clients, pairings, producers and events and
 the event API without a terminal. It is in sections, as tabs: **Devices**,
 **Producers** and **Events**. The section shown is the address's fragment
 (`/admin/#devices`, `/admin/#producers`, `/admin/#events`, and
@@ -1155,8 +1195,22 @@ and ID, and **Mark as read** or **Mark as unread**
   again. See [Deleting events](#deleting-events).
 - **decided: one event is confirmed by its title, without a dry run**: its
   count is one, and an event deleted meanwhile answers `404`, shown as the
-  error. Editing events, sending a test event and their deliveries are for
-  later releases.
+  error. Editing events is not offered; their deliveries are for a later
+  release.
+- **Send a test event.** A form below the list publishes an event as a
+  producer (see [Test events](#test-events)): the producer, chosen from
+  the enabled ones by name (a disabled one would be refused), category and
+  severity as choices, and the title, message, context, link and metadata
+  (a JSON object) as fields, the optional ones sent only when filled in.
+  **decided: the defaults are _Action required_ and _High_**, with the
+  title _Test event_ and a short message, so the push gets past most
+  preferences (a minimum severity up to _High_, and _Action required_ is
+  seldom muted); the operator changes them to test a filter. Once sent,
+  the page says so (_Sent "Test event" as "ci"._) with **Open it**, a
+  link to the event at `#events/<id>`, where it can be deleted, and reads
+  the list again; the form keeps its values, so the same event can be sent
+  again. A validation error is shown as the server words it, and metadata
+  that is not a JSON object is refused by the page before it asks.
 
 - **On the host only.** The page is on the backend's own port, like `/q/`
   and the management API; the Compose proxy forwards only `/api/`, so it
@@ -2063,7 +2117,7 @@ Prometheus and Grafana), not part of SignalHub.
 
   | Meter | Type | Meaning |
   |---|---|---|
-  | `signalhub_events_published_total` | counter | Events stored and acknowledged; a repeat with an idempotency key stores nothing and is not counted. |
+  | `signalhub_events_published_total` | counter | Events stored and acknowledged, [test events](#test-events) included; a repeat with an idempotency key stores nothing and is not counted. |
   | `signalhub_events_deleted_total` | counter | Events deleted because they were older than the [retention](#retention) period. |
   | `signalhub_push_deliveries_total{result}` | counter | Pushes to one client, by `result`: `delivered`, `no_target`, `unsupported_provider`, `invalid_target`, `transient_failure`, `permanent_failure` (see [Push delivery](#push-delivery)). Retries count again. |
   | `signalhub_push_retries_abandoned_total` | counter | Pushes given up after the last attempt failed temporarily (see [Push dispatch](#push-dispatch)). |

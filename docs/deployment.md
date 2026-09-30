@@ -97,7 +97,9 @@ operator on the host ──http://localhost:8080──▶ backend (management AP
    or take admin rights away, revoke it, and delete it once revoked. Its
    **Producers** section registers the producers that publish to you, shows
    each new key once to copy into the producer, and issues and revokes keys,
-   disables and enables producers, and shows when each last published. On the host
+   disables and enables producers, and shows when each last published; its
+   **Events** section sends a test event as a producer, to check that the
+   phone gets the push, and deletes it afterwards. On the host
    itself, a terminal does the same (see
    [Pairing a device](development.md#pairing-a-device)):
 
@@ -179,7 +181,8 @@ Not reachable from other machines:
   `.env`. Listing events with the admin token still works through the proxy.
 - **The admin page** (`/admin/`): lists
   and changes devices and producers, issues producer keys, creates
-  pairing codes and browses and deletes events with the admin token, like
+  pairing codes and browses, sends test events and deletes events with
+  the admin token, like
   the management API, so it is on `127.0.0.1:8080` only too;
   reach it from another computer through SSH (see step 6 of
   [Setup](#setup)).
@@ -488,6 +491,8 @@ host itself being down.
   that keeps growing means dispatch is stuck; a rising
   `signalhub_push_deliveries_total{result="transient_failure"}` or
   `signalhub_push_retries_abandoned_total` means the push provider is
-  unreachable.
+  unreachable. To check a phone end to end, send a
+  [test event](architecture.md#test-events) from the admin page's
+  **Events** section and delete it once it has arrived.
 - **Logs.** Warnings and errors, such as failed pushes, are in
   `docker compose logs backend`; see [Logs](architecture.md#logs).

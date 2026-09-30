@@ -1918,6 +1918,44 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   (Deleting events, the admin page, retention, push dispatch),
   `docs/deployment.md`, `docs/development.md`; compatible (`feat`)
 
+### R54 - Sending a test event from the admin page
+
+- **decided: `POST /api/v1/admin/producers/{id}/events`**, under the
+  producer the event is published as (admin token, so never forwarded by
+  the proxy; `404` without a configured token), with exactly the body a
+  producer sends (`CreateEventRequest`), validated the same way (`400`,
+  an unknown field such as `producer` included). `201` with the stored
+  event and a `Location` to it; `404 Producer not found`; **decided: `409
+  Producer is disabled`** for a disabled producer, since it could not
+  publish the event itself. No `Idempotency-Key`: each request stores a
+  new event
+- the event is stored under the producer through the same publishing
+  path as the producer's own (`EventService.create`, the same lock,
+  `createdAt` and outbox row), so it is pushed through every device's
+  preferences, a muted producer included; it counts in
+  `signalhub_events_published_total` and moves `lastEventAt`. Logged at
+  `INFO` as `Operator sent event <id> as producer <id>`, IDs only
+- the admin page's Events section: a **Send a test event** form below
+  the list, with the producer (enabled ones only, by name), category and
+  severity as choices and the title, message, context, link and metadata
+  (a JSON object, checked by the page first) as fields, the optional ones
+  sent only when filled in; **decided: defaults _Action required_,
+  _High_, title _Test event_ and a short message**. Once sent it says so
+  with **Open it**, a link to `#events/<id>` where the event can be
+  deleted, and reads the list again; the form keeps its values
+- tests against real PostgreSQL and the fake push provider (the event
+  stored under the chosen producer and listed and counted as its own,
+  pushed through preferences as the producer's own, a disabled producer
+  refused until enabled, an unknown one `404`, validation as for
+  producers with nothing stored, the admin token required and the path
+  `404` without one), the OpenAPI document, the page (the call, the
+  enabled producers offered, the fields sent, the metadata check, the
+  link once sent, the defaults); the page was driven in headless
+  Chromium; the Compose smoke test sends a test event on the host and
+  checks the endpoint is `404` through the proxy; `docs/architecture.md`
+  (Test events, the admin page, producer management, logging, metrics),
+  `docs/deployment.md`, `docs/development.md`; compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2489,8 +2527,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 40    | R51 - The admin page: sections, and producers                                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 41    | R52 - The admin page: browsing events                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 42    | R53 - Deleting events: the API and the admin page                                                | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 43    | R54 - Sending a test event from the admin page                                                   | Increment (`feat`)                     | Next                                                                             |
-| 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Blocked until R54 is merged                                                      |
+| 43    | R54 - Sending a test event from the admin page                                                   | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Next                                                                             |
 | 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Blocked until R55 is merged                                                      |
 
 How an autonomous run uses it:
@@ -4268,7 +4306,7 @@ deleting producers.
 
 ### R54 - Sending a test event from the admin page
 
-Status: planned; next. Added by the maintainer (2026-09-30).
+Status: done (see section 3). Added by the maintainer (2026-09-30).
 
 Goal: the operator checks that pushes arrive, and that a producer's
 filters work, without a producer key or a script.
@@ -4302,8 +4340,7 @@ scheduling events.
 
 ### R55 - The admin page: a status panel
 
-Status: planned; blocked until R54 is merged. Added by the maintainer
-(2026-09-30).
+Status: planned; next. Added by the maintainer (2026-09-30).
 
 Goal: one screen answers "is SignalHub working?".
 
@@ -4480,8 +4517,9 @@ pattern and length, set in the app), R48 (one Settings screen, in
 folding groups), R49 (the pending Dependabot updates) and R50 (sound on
 silent and during do-not-disturb for every push; the critical alert
 inside Alert), R51 (the admin page: sections, and producers), R52 (the
-admin page: browsing events) and R53 (deleting events: the API and the
-admin page) are done. **R54 (sending a test event from the admin page) is
-next**, then R55 and R56 in order, each after the previous one is merged.
+admin page: browsing events), R53 (deleting events: the API and the
+admin page) and R54 (sending a test event from the admin page) are done.
+**R55 (the admin page: a status panel) is next**, then R56, after R55 is
+merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
