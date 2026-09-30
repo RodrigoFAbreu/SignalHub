@@ -1534,10 +1534,11 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   own, and for one Firebase shows as a notification (the app not in the
   foreground) it plays the stored sound on the notification stream at the
   chosen volume, relative to the phone's notification volume, and vibrates
-  as a notification. It never overrides the phone: nothing during
-  do-not-disturb, nothing on silent, only the vibration on vibrate, and
-  nothing when the owner turned SignalHub's notifications or the channel
-  off or to silent. The settings are stored on the device (in the app's
+  as a notification. Unless the owner chose otherwise (below), it never
+  overrides the phone: nothing during do-not-disturb, nothing on silent,
+  only the vibration on vibrate; and nothing, whatever was chosen, when
+  the owner turned SignalHub's notifications or the channel off or to
+  silent. The settings are stored on the device (in the app's
   Android preferences, kept across updates), never on the server; the
   Dart code works out what to play from them (the sound's resource, a gain,
   the vibration's timings and amplitudes, the pattern repeated to its
@@ -1554,24 +1555,30 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   app does not know, plays the general alert. The owner turns on a
   different alert for critical events, with its own sound, volume and
   vibration (by default *Urgent*, SignalHub's one urgent sound, at 100 %,
-  strong, a rapid pulse, long); off, they play the general alert. Two more settings apply to
-  critical pushes only: sounding when the ringer is on silent or vibrate (on
-  by default) and during do-not-disturb (off by default). The Dart side
-  stores, next to the general alert, what a critical push plays: the
-  general alert or its own, and both switches. Before playing, the Android
-  side reads the phone's do-not-disturb state (its interruption filter) and
-  ringer mode: a critical push sounds through silent or vibrate only with
-  its switch on, and through do-not-disturb only with its switch on **and**
-  the app's Do Not Disturb access (`ACCESS_NOTIFICATION_POLICY`, which the
-  owner grants on the system screen the app opens; without it the switch
-  stays off). When it sounds through either, it plays on the alarm stream
-  and vibrates as an alarm, which neither the ringer nor a do-not-disturb
-  letting alarms through (Android's default) mutes; its volume is then
-  relative to the alarm volume. A do-not-disturb that silences alarms too
-  (total silence) keeps it quiet. The app never changes the phone's ringer
-  or do-not-disturb. The general alert is unchanged: it always follows
-  silent mode and do-not-disturb. The push payload is unchanged, since
+  strong, a rapid pulse, long); off, they play the general alert. The
+  settings of that alert of their own sit in a sub-group of *Alert* that
+  opens only while the switch is on. The push payload is unchanged, since
   `severity` was already in its data.
+- **Silent mode and do-not-disturb.** Two global choices of *Alert* say
+  which pushes sound when the ringer is on silent or vibrate (by default
+  critical ones) and during do-not-disturb (by default none): *Off*,
+  *Critical only* (severity `CRITICAL`, with or without a different
+  alert) or *All pushes*. The Dart side works out, for the general alert
+  and for what a critical push plays, whether it sounds on silent and
+  during do-not-disturb, and stores both next to each alert, with the
+  choices to read them back (the critical-only switches an earlier
+  version stored carry over: on is *Critical only*, off is *Off*). Before
+  playing, the Android side reads the phone's do-not-disturb state (its
+  interruption filter) and ringer mode: a push sounds through silent or
+  vibrate only when its alert says so, and through do-not-disturb only
+  when its alert says so **and** the app has Do Not Disturb access
+  (`ACCESS_NOTIFICATION_POLICY`, which the owner grants on the system
+  screen the app opens; without it the choice stays *Off*). When it sounds
+  through either, it plays on the alarm stream and vibrates as an alarm,
+  which neither the ringer nor a do-not-disturb letting alarms through
+  (Android's default) mutes; its volume is then relative to the alarm
+  volume. A do-not-disturb that silences alarms too (total silence) keeps
+  it quiet. The app never changes the phone's ringer or do-not-disturb.
 - **Inbox.** The home screen lists events, newest first, from
   `GET /api/v1/events`, 30 per page. The next page is read with the previous
   page's `nextCursor` when the owner scrolls near the end; a pull to refresh
@@ -1652,13 +1659,16 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
 - **Settings.** One *Settings* screen, opened by the gear icon in the
   inbox's top bar, holds every setting of the app: the *Push
   notifications* switch at the top, then groups that fold, in this order:
-  *Push filters*, *Alert*, *Critical alert* and *This device*. Folded, a
-  group's header sums up its values in one line, so the owner sees what
-  each is set to without opening it. Groups start folded; the ones the
+  *Push filters*, *Alert* and *This device*; inside *Alert*, below the
+  general alert, the silent and do-not-disturb choices and the switch for
+  a different critical alert, the *Critical alert* sub-group, greyed and
+  closed while that switch is off. Folded, a group's header sums up its
+  values in one line, so the owner sees what each is set to without
+  opening it. Groups start folded; the ones the
   owner leaves open are kept on the device (in the platform's secure
   storage, the store the app already has, though nothing in them is
-  secret) and are open the next time. While push is paused, *Push
-  filters*, *Alert* and *Critical alert* are greyed with a line saying they
+  secret) and are open the next time, the sub-group too. While push is
+  paused, *Push filters* and *Alert* are greyed with a line saying they
   apply once push is on, and still change. On an admin device a *Devices*
   row, summing up the devices and admins, opens device management on a
   screen of its own. Reorganising the settings changed none of them: the

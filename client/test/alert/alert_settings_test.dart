@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:signalhub_client/src/alert/alert_settings.dart';
 
+import '../support/fakes.dart';
+
 void main() {
   group('what the platform is given', () {
     test('the defaults: Signal at 80 %, a medium vibration', () {
@@ -28,7 +30,11 @@ void main() {
 
       expect(
         jsonDecode(bundled.readAsStringSync()),
-        platformAlerts(AlertSettings.defaults, CriticalAlertSettings.defaults),
+        platformAlerts(
+          AlertSettings.defaults,
+          CriticalAlertSettings.defaults,
+          QuietModeSettings.defaults,
+        ),
       );
     });
 
@@ -364,14 +370,13 @@ void main() {
       vibration: AlertVibration.light,
     );
     Map<String, Object?> stored(CriticalAlertSettings critical) =>
-        platformAlerts(general, critical);
+        platformAlerts(general, critical, QuietModeSettings.defaults);
 
-    test('by default: the general alert, sounding on silent only', () {
-      expect(CriticalAlertSettings.defaults.toPlatform(general), {
-        ...general.toPlatform(),
-        'onSilent': true,
-        'duringDoNotDisturb': false,
-      });
+    test('by default: the general alert', () {
+      expect(
+        CriticalAlertSettings.defaults.toPlatform(general),
+        general.toPlatform(),
+      );
     });
 
     test('by default their own alert is more urgent, louder, stronger, '
@@ -392,48 +397,28 @@ void main() {
     test('with a different alert, play their own', () {
       final critical = CriticalAlertSettings.defaults.copyWith(different: true);
 
-      expect(critical.toPlatform(general), {
-        ...critical.alert.toPlatform(),
-        'onSilent': true,
-        'duringDoNotDisturb': false,
-      });
+      expect(critical.toPlatform(general), critical.alert.toPlatform());
       expect(critical.toPlatform(general)['resource'], 'signalhub_urgent');
       expect(critical.toPlatform(general)['gain'], 1.0);
       expect(critical.toPlatform(general)['amplitudes'], contains(255));
     });
 
-    test('each switch is given as it is set', () {
-      for (final onSilent in [false, true]) {
-        for (final duringDoNotDisturb in [false, true]) {
-          final alert = CriticalAlertSettings.defaults
-              .copyWith(
-                onSilent: onSilent,
-                duringDoNotDisturb: duringDoNotDisturb,
-              )
-              .toPlatform(general);
-
-          expect(alert['onSilent'], onSilent);
-          expect(alert['duringDoNotDisturb'], duringDoNotDisturb);
-        }
-      }
-    });
-
-    test('every other push plays the general alert, never on silent', () {
+    test('every other push plays the general alert', () {
       final alerts = stored(
-        CriticalAlertSettings.defaults.copyWith(
-          different: true,
-          duringDoNotDisturb: true,
-        ),
+        CriticalAlertSettings.defaults.copyWith(different: true),
       );
 
       expect(
         {...alerts}
+          ..remove('quiet')
           ..remove('critical')
           ..remove('criticalAlert'),
-        {...general.toPlatform()},
+        {
+          ...general.toPlatform(),
+          'onSilent': false,
+          'duringDoNotDisturb': false,
+        },
       );
-      expect(alerts, isNot(contains('onSilent')));
-      expect(alerts, isNot(contains('duringDoNotDisturb')));
     });
 
     test('are read back, their own alert kept while not used', () {
@@ -446,8 +431,6 @@ void main() {
           pattern: AlertPattern.steady,
           length: AlertLength.medium,
         ),
-        onSilent: false,
-        duringDoNotDisturb: true,
       );
 
       expect(
@@ -476,7 +459,6 @@ void main() {
             'vibration': 'max',
             'pattern': 'morse',
             'length': 'forever',
-            'onSilent': 1,
           },
         }),
       );
@@ -500,7 +482,6 @@ void main() {
       );
 
       expect(read!.different, isTrue);
-      expect(read.onSilent, isFalse);
       expect(
         read.alert,
         const AlertSettings(
@@ -510,6 +491,155 @@ void main() {
           pattern: AlertPattern.rapid,
           length: AlertLength.long,
         ),
+      );
+    });
+  });
+
+  group('sound on silent and during Do Not Disturb', () {
+    const general = AlertSettings(
+      sound: AlertSound.beacon,
+      volume: 50,
+      vibration: AlertVibration.light,
+    );
+
+    test('by default: critical pushes on silent, none during Do Not '
+        'Disturb', () {
+      expect(QuietModeSettings.defaults.onSilent, SoundThrough.critical);
+      expect(QuietModeSettings.defaults.duringDoNotDisturb, SoundThrough.off);
+    });
+
+    test('each option covers the pushes it names', () {
+      expect(SoundThrough.off.covers(critical: false), isFalse);
+      expect(SoundThrough.off.covers(critical: true), isFalse);
+      expect(SoundThrough.critical.covers(critical: false), isFalse);
+      expect(SoundThrough.critical.covers(critical: true), isTrue);
+      expect(SoundThrough.all.covers(critical: false), isTrue);
+      expect(SoundThrough.all.covers(critical: true), isTrue);
+    });
+
+    // Every option on silent, on vibrate and during Do Not Disturb (with
+    // and without access), for a normal and a critical push, with and
+    // without a different critical alert, as the phone plays them.
+    for (final different in [false, true]) {
+      for (final onSilent in SoundThrough.values) {
+        for (final duringDoNotDisturb in SoundThrough.values) {
+          test('different alert ${different ? 'on' : 'off'}, on silent '
+              '${onSilent.name}, during Do Not Disturb '
+              '${duringDoNotDisturb.name}', () {
+            final alerts = platformAlerts(
+              general,
+              CriticalAlertSettings.defaults.copyWith(different: different),
+              QuietModeSettings(
+                onSilent: onSilent,
+                duringDoNotDisturb: duringDoNotDisturb,
+              ),
+            );
+            for (final critical in [false, true]) {
+              final alert = alertForPush(
+                alerts,
+                critical ? 'CRITICAL' : 'NORMAL',
+              );
+              final push = critical ? 'a critical push' : 'a normal push';
+              final sound = critical && different ? 'urgent' : 'beacon';
+              expect(alert['sound'], sound, reason: push);
+
+              final silent = onSilent.covers(critical: critical);
+              expect(
+                playedOnPhone(alert, ringer: Ringer.silent),
+                silent ? (sound: true, vibration: true, alarm: true) : null,
+                reason: '$push on silent',
+              );
+              expect(
+                playedOnPhone(alert, ringer: Ringer.vibrate),
+                silent
+                    ? (sound: true, vibration: true, alarm: true)
+                    : (sound: false, vibration: true, alarm: false),
+                reason: '$push on vibrate',
+              );
+              expect(playedOnPhone(alert), (
+                sound: true,
+                vibration: true,
+                alarm: false,
+              ), reason: '$push with the ringer on');
+              expect(
+                playedOnPhone(alert, doNotDisturb: true, access: true),
+                duringDoNotDisturb.covers(critical: critical)
+                    ? (sound: true, vibration: true, alarm: true)
+                    : null,
+                reason: '$push during Do Not Disturb',
+              );
+              expect(
+                playedOnPhone(alert, doNotDisturb: true),
+                isNull,
+                reason: '$push during Do Not Disturb without access',
+              );
+            }
+          });
+        }
+      }
+    }
+
+    test('are read back', () {
+      const quiet = QuietModeSettings(
+        onSilent: SoundThrough.all,
+        duringDoNotDisturb: SoundThrough.critical,
+      );
+      final alerts = jsonEncode(
+        platformAlerts(general, CriticalAlertSettings.defaults, quiet),
+      );
+
+      expect(QuietModeSettings.fromStored(alerts), quiet);
+    });
+
+    test('carry over the critical switches saved before them', () {
+      QuietModeSettings? read(Object? onSilent, Object? duringDoNotDisturb) =>
+          QuietModeSettings.fromStored(
+            jsonEncode({
+              ...general.toPlatform(),
+              'critical': {
+                'different': false,
+                'sound': 'urgent',
+                'onSilent': ?onSilent,
+                'duringDoNotDisturb': ?duringDoNotDisturb,
+              },
+            }),
+          );
+
+      expect(
+        read(true, false),
+        const QuietModeSettings(
+          onSilent: SoundThrough.critical,
+          duringDoNotDisturb: SoundThrough.off,
+        ),
+      );
+      expect(
+        read(false, true),
+        const QuietModeSettings(
+          onSilent: SoundThrough.off,
+          duringDoNotDisturb: SoundThrough.critical,
+        ),
+      );
+      expect(read(null, null), QuietModeSettings.defaults);
+      expect(read(1, 'yes'), QuietModeSettings.defaults);
+    });
+
+    test('none before any were saved', () {
+      expect(
+        QuietModeSettings.fromStored(jsonEncode(general.toPlatform())),
+        isNull,
+      );
+      expect(QuietModeSettings.fromStored(null), isNull);
+      expect(QuietModeSettings.fromStored('not json'), isNull);
+    });
+
+    test('values this version does not know are the defaults', () {
+      expect(
+        QuietModeSettings.fromStored(
+          jsonEncode({
+            'quiet': {'onSilent': 'sometimes', 'duringDoNotDisturb': true},
+          }),
+        ),
+        QuietModeSettings.defaults,
       );
     });
   });

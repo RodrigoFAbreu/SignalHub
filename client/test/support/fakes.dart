@@ -589,11 +589,13 @@ class FakeAlertPlatform implements AlertPlatform {
   @override
   Future<bool> preview(Map<String, Object?> alert) async {
     previewed.add(alert);
-    if (doNotDisturb && !(alert['duringDoNotDisturb'] == true && access)) {
-      return false;
-    }
-    if (silent && alert['onSilent'] != true) return false;
-    return plays;
+    final played = playedOnPhone(
+      alert,
+      ringer: silent ? Ringer.silent : Ringer.normal,
+      doNotDisturb: doNotDisturb,
+      access: access,
+    );
+    return played != null && plays;
   }
 
   @override
@@ -601,4 +603,37 @@ class FakeAlertPlatform implements AlertPlatform {
 
   @override
   Future<void> openDoNotDisturbAccess() async => accessOpened++;
+}
+
+/// The phone's ringer mode.
+enum Ringer { normal, vibrate, silent }
+
+/// What a push of [severity] plays from the [alerts] the app saved
+/// (`platformAlerts`), as `AlertPlayer.forPush` picks it.
+Map<String, Object?> alertForPush(
+  Map<String, Object?> alerts,
+  String severity,
+) => severity == 'CRITICAL' && alerts['criticalAlert'] is Map
+    ? alerts['criticalAlert']! as Map<String, Object?>
+    : alerts;
+
+/// What `AlertPlayer.play` does with [alert] in the phone's state: `null`
+/// when the phone keeps it quiet, or whether it sounds and vibrates, and
+/// whether as an alarm.
+({bool sound, bool vibration, bool alarm})? playedOnPhone(
+  Map<String, Object?> alert, {
+  Ringer ringer = Ringer.normal,
+  bool doNotDisturb = false,
+  bool access = false,
+}) {
+  final onSilent = alert['onSilent'] == true;
+  if (doNotDisturb && !(alert['duringDoNotDisturb'] == true && access)) {
+    return null;
+  }
+  if (ringer == Ringer.silent && !onSilent) return null;
+  return (
+    sound: (ringer == Ringer.normal || onSilent) && alert['resource'] != null,
+    vibration: (alert['timings']! as List).isNotEmpty,
+    alarm: doNotDisturb || (ringer != Ringer.normal && onSilent),
+  );
 }

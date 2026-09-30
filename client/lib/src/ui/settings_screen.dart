@@ -107,22 +107,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         save: _save,
                       ),
               ),
-              if (alert != null) ...[
+              if (alert != null)
                 _group(
                   SettingsGroup.alert,
                   title: 'Alert',
                   greyed: paused,
-                  summary: GeneralAlertSection.summary(alert.settings),
-                  child: GeneralAlertSection(controller: alert),
+                  summary: GeneralAlertSection.summary(alert),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      GeneralAlertSection(controller: alert),
+                      // Critical events' own alert, usable only while they
+                      // have one.
+                      _group(
+                        SettingsGroup.critical,
+                        title: 'Critical alert',
+                        enabled: alert.critical.different,
+                        summary: CriticalAlertSection.summary(alert),
+                        child: CriticalAlertSection(controller: alert),
+                      ),
+                    ],
+                  ),
                 ),
-                _group(
-                  SettingsGroup.critical,
-                  title: 'Critical alert',
-                  greyed: paused,
-                  summary: CriticalAlertSection.summary(alert),
-                  child: CriticalAlertSection(controller: alert),
-                ),
-              ],
               _group(
                 SettingsGroup.device,
                 title: 'This device',
@@ -163,11 +169,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String summary,
     required Widget child,
     bool greyed = false,
+    bool enabled = true,
   }) => _Group(
     group: group,
     title: title,
     summary: summary,
     greyed: greyed,
+    enabled: enabled,
     open: _controller.openSettingsGroups.contains(group),
     onOpened: (open) => _controller.setSettingsGroupOpen(group, open: open),
     child: child,
@@ -176,13 +184,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 /// A group of settings that folds, showing a one-line [summary] of its
 /// values in its header. Greyed while the settings do not apply, and still
-/// changeable.
+/// changeable; or, not [enabled], greyed, folded and not to be opened, its
+/// open state kept for when it is enabled again.
 class _Group extends StatelessWidget {
   const _Group({
     required this.group,
     required this.title,
     required this.summary,
     required this.greyed,
+    required this.enabled,
     required this.open,
     required this.onOpened,
     required this.child,
@@ -192,41 +202,47 @@ class _Group extends StatelessWidget {
   final String title;
   final String summary;
   final bool greyed;
+  final bool enabled;
   final bool open;
   final ValueChanged<bool> onOpened;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final grey = greyed ? Theme.of(context).disabledColor : null;
-    return ExpansionTile(
-      key: Key('group-${group.name}'),
-      initiallyExpanded: open,
-      onExpansionChanged: onOpened,
-      textColor: grey,
-      collapsedTextColor: grey,
-      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-      title: Text(title),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            summary,
-            key: Key('summary-${group.name}'),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (greyed)
-            Text(
-              'Applies once push notifications are on',
-              key: Key('pushOff-${group.name}'),
-            ),
-        ],
-      ),
-      children: [greyed ? Opacity(opacity: 0.5, child: child) : child],
-    );
+    final grey = greyed || !enabled ? Theme.of(context).disabledColor : null;
+    // A new tile once it is enabled or not, so it folds when disabled and
+    // opens as it was left when enabled again.
+    return KeyedSubtree(key: ValueKey(enabled), child: _tile(grey));
   }
+
+  Widget _tile(Color? grey) => ExpansionTile(
+    key: Key('group-${group.name}'),
+    enabled: enabled,
+    initiallyExpanded: enabled && open,
+    onExpansionChanged: onOpened,
+    textColor: grey,
+    collapsedTextColor: grey,
+    expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+    title: Text(title),
+    subtitle: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          summary,
+          key: Key('summary-${group.name}'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (greyed)
+          Text(
+            'Applies once push notifications are on',
+            key: Key('pushOff-${group.name}'),
+          ),
+      ],
+    ),
+    children: [greyed ? Opacity(opacity: 0.5, child: child) : child],
+  );
 }
 
 /// This installation: its registration and server, push status and build,

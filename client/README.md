@@ -16,7 +16,8 @@ system browser (or the app the phone assigns to the address); the link is
 never opened from the inbox or the notification, only from the event.
 The gear icon on the inbox opens [Settings](#settings): whether and which
 events are pushed to this device, how pushes sound and vibrate on Android,
-with SignalHub's own sounds and a separate alert for critical events (see
+with SignalHub's own sounds, which pushes sound on silent and during Do
+Not Disturb, and a separate alert for critical events (see
 [Alert](#alert)), and this device, from which it is disconnected.
 On an [admin device](../docs/architecture.md#admin-devices), its *Devices*
 row opens every device of the owner, with *Make an admin*
@@ -39,7 +40,7 @@ commands that CI runs.
 | `lib/src/push/push_registration.dart` | Keeps the server's push target in step with the provider's token. |
 | `lib/src/push/firebase_push_service.dart` | The Firebase Cloud Messaging adapter: the only Dart code that knows Firebase. |
 | `lib/src/build_identity.dart` | Which SignalHub build the app is: release version and commit, from build-time defines. |
-| `lib/src/alert/` | The alert settings (sound, volume, vibration with its pattern and length, and critical events' own), what the platform is given for them, their controller, and `AlertPlatform`, the port to the Android code that stores and plays them. |
+| `lib/src/alert/` | The alert settings (sound, volume, vibration with its pattern and length, which pushes sound on silent and during Do Not Disturb, and critical events' own), what the platform is given for them, their controller, and `AlertPlatform`, the port to the Android code that stores and plays them. |
 | `lib/src/settings/` | The groups of the Settings screen, and which of them are open, kept in secure storage. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
 | `lib/src/ui/` | The setup, pairing scanner, inbox (with its filter sheet), event, Settings (with its push filters and alert sections), devices (for an admin device) and *Connect a device* (a pairing code as a QR code, drawn with the pure-Dart `qr` package) screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
@@ -174,10 +175,16 @@ unfold or fold it:
   pushed, saved on the server at every change. A producer is listed once
   its events are in the inbox; a muted one stays listed to unmute it.
 - **Alert**: the general alert's sound, volume, vibration, pattern and
-  length, with their previews (see [Alert](#alert)).
-- **Critical alert**: whether critical events get an alert of their own,
-  its sound, volume, vibration, pattern and length, and whether they sound
-  on silent and during Do Not Disturb (see [Critical events](#critical-events)).
+  length, with their previews, then which pushes sound on silent and
+  during Do Not Disturb (see [Alert](#alert)), and **Different alert for
+  critical events** with, below it, the **Critical alert** sub-group: the
+  critical alert's own sound, volume, vibration, pattern and length (see
+  [Critical events](#critical-events)). While the switch is off, the
+  sub-group is folded and greyed and does not open; while it is on, it
+  folds like the groups, with its summary, and is remembered open or
+  folded as they are. The *Alert* summary also names the silent and Do
+  Not Disturb choices that are not *Off*, such as *Signal · 80 % · Medium
+  · Short, short, long · Short · sounds on silent: critical*.
 - **This device**: its name and server, its push status, its build (see
   [Build identity](#build-identity)), and **Disconnect this device**,
   which asks first. Disconnecting removes this device's push target and
@@ -186,7 +193,7 @@ unfold or fold it:
 
 Groups start folded; those left open are open again the next time,
 across restarts, kept on the device only. While push is off, *Push
-filters*, *Alert* and *Critical alert* are greyed, saying they apply once
+filters* and *Alert* are greyed, saying they apply once
 push notifications are on; they can still be changed. With a server
 released before push preferences, there is no switch and *Push filters*
 says the server does not support them. Where the app plays no alert of its
@@ -196,7 +203,10 @@ Pull down to read the registration, the push status and the devices again.
 
 Updating from a release with the *Notifications* and *This device* screens
 keeps every setting: the push preferences stay on the server and the alert
-settings on the device, as before.
+settings on the device, as before. Updating from a release with a
+top-level *Critical alert* group keeps its settings, now inside *Alert*;
+if it was left open, the sub-group opens with *Alert* once critical events
+have their own alert.
 
 ## Manage devices
 
@@ -340,12 +350,44 @@ the server never sees it. The settings survive app updates, and stay when
 the device disconnects. A push while the app is open plays nothing: it
 appears in the inbox.
 
-The phone still decides: during Do Not Disturb the alert neither sounds
-nor vibrates, on silent mode likewise, on vibrate it only vibrates, and it
-follows the phone's notification volume and vibration settings. Turning the
-*Events* category off or to *Silent* in *Settings → Apps → SignalHub →
-Notifications* silences it too. Another app's notifications are never
-affected. Critical events alone may be set to sound anyway, below.
+Unless chosen otherwise below, the phone still decides: during Do Not
+Disturb the alert neither sounds nor vibrates, on silent mode likewise, on
+vibrate it only vibrates, and it follows the phone's notification volume
+and vibration settings. Turning the *Events* category off or to *Silent*
+in *Settings → Apps → SignalHub → Notifications* silences it too, whatever
+is chosen below. Another app's notifications are never affected.
+
+### Silent mode and Do Not Disturb
+
+Two choices in the *Alert* group, below the general alert, say which
+pushes sound anyway, each with three options: *Off*, *Critical only*
+(pushes of events with `CRITICAL` severity, whether or not they have a
+[different alert](#critical-events)) or *All pushes* (every SignalHub
+push):
+
+- **Sound when the phone is on silent**, *Critical only* by default:
+  those pushes sound and vibrate even when the phone's ringer is on silent
+  or vibrate.
+- **Sound during Do Not Disturb**, *Off* by default: those pushes sound
+  and vibrate during Do Not Disturb. Android lets an app do that only once
+  you give it *Do Not Disturb access*: choosing *Critical only* or *All
+  pushes* without it opens the phone's screen to give it, and the choice
+  stays *Off* until you have allowed SignalHub there and choose again.
+  Taking the access away shows it *Off* until the access is given again.
+  A Do Not Disturb that silences alarms too (*total silence*) still keeps
+  it quiet.
+
+A push that sounds through silent mode, vibrate or Do Not Disturb plays as
+an alarm: its volume is then relative to the phone's alarm volume, not the
+notification volume. Otherwise it plays like any push. The app never
+changes the phone's ringer or Do Not Disturb. Previews follow the same
+choices: a preview of the general alert as a normal push, of the critical
+alert's own as a critical push.
+
+After updating from a release where these were two switches for critical
+events, a switch that was on becomes *Critical only* and one that was off
+*Off*; the defaults are the same as before, so nothing changes until you
+choose *All pushes*.
 
 How it works: Android fixes a notification channel's sound and vibration
 when the channel is created, and has no volume per channel, so the
@@ -368,34 +410,23 @@ critical events too.
 ### Critical events
 
 A push of an event with `CRITICAL` severity, whatever its producer,
-category or text, can alert differently, set in the *Critical alert*
+category or text, can alert differently, set at the end of the *Alert*
 group of Settings:
 
 - **Different alert for critical events**, off by default. Off, critical
-  pushes play the general alert above. On, they play their own **Sound**,
-  **Volume**, **Vibration**, **Pattern** and **Length**, chosen as the
-  general ones (the same sounds, steps, patterns and lengths), by default
-  *Urgent* at 100 % with a strong, long *Rapid pulse* vibration. Every
-  other severity keeps the general alert, and so does a severity this app
-  does not know. Turned off, the critical alert's own settings are kept for
-  the next time.
-- **Sound when the phone is on silent**, on by default: a critical push
-  sounds and vibrates even when the phone's ringer is on silent or vibrate.
-- **Sound during Do Not Disturb**, off by default: on, a critical push
-  sounds and vibrates during Do Not Disturb. Android lets an app do that
-  only once you give it *Do Not Disturb access*: turning the switch on
-  without it opens the phone's screen to give it, and the switch stays off
-  until you have allowed SignalHub there and turn it on again. Taking the
-  access away turns it off until the access is given again. A Do Not Disturb that silences alarms too
-  (*total silence*) still keeps it quiet.
+  pushes play the general alert above, and the **Critical alert**
+  sub-group below the switch is greyed and does not open. On, they play
+  their own **Sound**, **Volume**, **Vibration**, **Pattern** and
+  **Length**, set in that sub-group as the general ones (the same sounds,
+  steps, patterns and lengths), by default *Urgent* at 100 % with a
+  strong, long *Rapid pulse* vibration. Every other severity keeps the
+  general alert, and so does a severity this app does not know. Turned
+  off, the critical alert's own settings are kept for the next time.
 
-Both switches apply to critical pushes whether or not they have a
-different alert; the general alert always follows silent mode and Do Not
-Disturb. When a critical push sounds through silent mode, vibrate or Do Not
-Disturb, it plays as an alarm: its volume is then relative to the phone's
-alarm volume, not the notification volume. Otherwise it plays like any
-push. Turning SignalHub's notifications or the *Events* category off or to
-*Silent* still silences critical pushes too.
+Whether critical pushes sound on silent and during Do Not Disturb is
+chosen [above](#silent-mode-and-do-not-disturb), for them with or without
+a different alert. Turning SignalHub's notifications or the *Events*
+category off or to *Silent* still silences critical pushes too.
 
 After updating from a release without critical alerts, a critical push
 plays the general alert, as before, until the app is opened once.

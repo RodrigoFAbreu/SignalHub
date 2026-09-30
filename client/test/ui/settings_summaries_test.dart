@@ -56,7 +56,7 @@ void main() {
 
   test('the alert summary leaves out what does not play', () {
     expect(
-      GeneralAlertSection.summary(
+      GeneralAlertSection.alertSummary(
         const AlertSettings(
           sound: null,
           volume: 60,

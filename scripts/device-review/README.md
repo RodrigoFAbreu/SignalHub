@@ -95,8 +95,8 @@ it. Titles of the events they publish start with `Device review:`.
 | `background-push` | Goes home and publishes; the notification must be in the `signalhub_events` channel, and tapping it in the shade must open the event and mark it read on the server. | Publishes 1 event, marks it read. |
 | `alert-played` | Goes home and publishes; the app must log that it played its alert (`SignalHubAlert` in `logcat`) with the chosen sound. Then chooses another sound in the *Alert* group of *Settings*, unfolding it if folded (which previews it), publishes again, and the app must play that one; the first sound is chosen again afterwards, even when the check fails. **What only the owner can judge:** see [Alert, by ear and by hand](#alert-by-ear-and-by-hand). | Publishes 2 events; plays the alert and two previews; restores the sound; may leave the group open. |
 | `alert-quiet` | Posts a notification as another app (`cmd notification post`, the shell's): the app must log no alert. Then **turns do-not-disturb on** (`cmd notification set_dnd priority`) and publishes with the app in the background: the app must log that it did not play its alert because of do-not-disturb. Do-not-disturb is turned off even when the check fails. | Posts a shell notification (dismiss it by hand); toggles do-not-disturb; publishes 1 event. |
-| `alert-critical` | Needs the critical settings at their defaults (no different alert, *Urgent* as its own sound, a long *Rapid pulse* as its own vibration) and a general sound other than *Urgent*. Publishes a `NORMAL` and a `CRITICAL` event with the app in the background: the critical push must log `Critical alert played` with the normal push's sound and vibration pattern and length (`pattern=... length=...` in the log). Then turns **Different alert for critical events** on (in the *Critical alert* group of *Settings*, unfolding it if folded), publishes a `CRITICAL` event, which must play *Urgent* with `pattern=rapid length=long`, and a `NORMAL` one, which must play the general sound, pattern and length. The switch is turned off again, even when the check fails. | Publishes 4 events; plays the alerts; toggles the switch and restores it; may leave the group open. |
-| `alert-critical-quiet` | Needs the critical settings at their defaults. **Sets the ringer to silent** (`cmd audio set-ringer-mode SILENT`, which not every Android version has: the check then fails saying so, and silent mode is left to the list below) and publishes a `NORMAL` event, which must not play (`silent mode`), and a `CRITICAL` one, which must play as an alarm (**it sounds, at the alarm volume**). Sets the ringer back to normal, then **turns do-not-disturb on** and publishes a `CRITICAL` event, which must not play (`do not disturb`). The ringer is set to normal and do-not-disturb turned off even when the check fails. | Sets the ringer to silent, then normal (not to what it was); toggles do-not-disturb; publishes 3 events; sounds one critical alert. |
+| `alert-critical` | Needs the critical settings at their defaults (no different alert, *Urgent* as its own sound, a long *Rapid pulse* as its own vibration) and a general sound other than *Urgent*. Publishes a `NORMAL` and a `CRITICAL` event with the app in the background: the critical push must log `Critical alert played` with the normal push's sound and vibration pattern and length (`pattern=... length=...` in the log). Then turns **Different alert for critical events** on (in the *Alert* group of *Settings*, below the general alert, unfolding the group if folded), publishes a `CRITICAL` event, which must play *Urgent* with `pattern=rapid length=long`, and a `NORMAL` one, which must play the general sound, pattern and length. The switch is turned off again, even when the check fails. | Publishes 4 events; plays the alerts; toggles the switch and restores it; may leave the group open. |
+| `alert-critical-quiet` | Needs **Sound when the phone is on silent** and **Sound during Do Not Disturb** at their defaults (*Critical only*, *Off*). **Sets the ringer to silent** (`cmd audio set-ringer-mode SILENT`, which not every Android version has: the check then fails saying so, and silent mode is left to the list below) and publishes a `NORMAL` event, which must not play (`silent mode`), and a `CRITICAL` one, which must play as an alarm (**it sounds, at the alarm volume**). Then chooses *All pushes* for **Sound when the phone is on silent** (in the *Alert* group of *Settings*) and publishes a `NORMAL` event, which must now play as an alarm (**it sounds**), and chooses *Critical only* again, even when the check fails. Sets the ringer back to normal, then **turns do-not-disturb on** and publishes a `CRITICAL` event, which must not play (`do not disturb`). The ringer is set to normal and do-not-disturb turned off even when the check fails. | Sets the ringer to silent, then normal (not to what it was); changes the silent-mode choice and restores it; toggles do-not-disturb; publishes 4 events; sounds one critical and one normal alert; may leave the *Alert* group open. |
 | `refresh-on-return` | Goes home, publishes, and returns; the inbox must show the event without a pull to refresh. | Publishes 1 event (`LOW`). |
 | `killed-app-push` | Kills the app in the background (`am kill`, as the system would), publishes; the notification must arrive and tapping it must cold-start the app on the event. | Kills the app, publishes 1 event, marks it read. |
 | `force-stop-reregisters` | Force-stops and starts the app; the server's push target must be set again (a newer `updatedAt`). | Stops the app. |
@@ -139,7 +139,8 @@ as an update makes them), check by hand:
    does not vibrate.
 5. Changing a setting changes the next push; a push while the app is open
    plays nothing and shows in the inbox.
-6. On silent mode a push is silent and does not vibrate; on vibrate it
+6. With the default settings, on silent mode a `NORMAL` push is silent
+   and does not vibrate; on vibrate it
    only vibrates; during Do Not Disturb it neither sounds nor vibrates; with
    the *Events* category set to *Silent* in the phone's settings, no alert.
 7. Another app's notification still sounds as before, never like
@@ -156,29 +157,39 @@ Critical events (publish them with `severity` `CRITICAL`, the others with
    alert; the critical sounds, volume slider and vibration play when
    chosen, as the general ones do. Off again, both play the general alert,
    and the critical settings chosen are still there when it is turned on.
-10. With the default settings, on silent and on vibrate, a `CRITICAL` push
-    sounds (at the phone's alarm volume) and vibrates, and a `NORMAL` push
-    is silent (only vibrating on vibrate). With **Sound when the phone is
-    on silent** off, the `CRITICAL` push is like the `NORMAL` one.
-11. With the default settings, during Do Not Disturb, neither a
-    `CRITICAL` nor a `NORMAL` push sounds or vibrates. Turning **Sound
-    during Do Not Disturb** on without Do Not Disturb access opens the
-    system screen that gives it and leaves the switch off; once SignalHub
-    is allowed there and the app is back in front, the switch turns on, and
-    a `CRITICAL` push then sounds and vibrates during Do Not Disturb (one
-    that lets alarms through, Android's default) while a `NORMAL` one stays
-    quiet. Taking the access away again turns the switch off and keeps
-    critical pushes quiet during Do Not Disturb.
+10. With the default settings (**Sound when the phone is on silent**
+    *Critical only*), on silent and on vibrate, a `CRITICAL` push sounds
+    (at the phone's alarm volume) and vibrates, and a `NORMAL` push is
+    silent (only vibrating on vibrate). With *Off*, the `CRITICAL` push is
+    like the `NORMAL` one; with *All pushes*, the `NORMAL` push sounds (at
+    the alarm volume) and vibrates too. Each holds with **Different alert
+    for critical events** off and on. The ringer itself never changes.
+11. With the default settings (**Sound during Do Not Disturb** *Off*),
+    during Do Not Disturb, neither a `CRITICAL` nor a `NORMAL` push sounds
+    or vibrates. Choosing *Critical only* without Do Not Disturb access
+    opens the system screen that gives it and leaves the choice *Off*;
+    once SignalHub is allowed there and the app is back in front, choosing
+    it again takes, and a `CRITICAL` push then sounds and vibrates during
+    Do Not Disturb (one that lets alarms through, Android's default) while
+    a `NORMAL` one stays quiet; with *All pushes* both sound. Taking the
+    access away again shows the choice *Off* and keeps every push quiet
+    during Do Not Disturb. Do Not Disturb itself never changes.
+12. In *Settings → Alert*, below the general alert and the two choices,
+    the **Critical alert** sub-group is greyed and does not open while
+    **Different alert for critical events** is off; turned on, it opens
+    and folds with its summary, and is open again the next time if left
+    open. The *Alert* summary names the silent and Do Not Disturb choices
+    that are not *Off*.
 
 The vibration's pattern and length (*Settings → Alert*, below
 *Vibration*) can only be felt; `alert-critical` checks only what the app
 logs it played. By hand, with the release APK installed over the
 previous release:
 
-12. Before changing anything, the general alert still vibrates as before
+13. Before changing anything, the general alert still vibrates as before
     (two short buzzes and a long one, about 0.6 s), with *Short, short,
     long* and *Short* selected.
-13. Each pattern (*Short, short, long*, *Steady*, *Heartbeat*, *Rapid
+14. Each pattern (*Short, short, long*, *Steady*, *Heartbeat*, *Rapid
     pulse*) vibrates when chosen and with its vibrate button, and each
     feels clearly different from the others and from another app's single
     buzz; *Short*, *Medium* and *Long* vibrate for about 0.6 s, 2 s and
@@ -186,12 +197,12 @@ previous release:
     still feel different with every pattern and length (on a phone without
     amplitude control, in length). With the vibration *Off*, the pattern
     and length are greyed and nothing vibrates.
-14. With the app in the background, and again after swiping it away, a
+15. With the app in the background, and again after swiping it away, a
     push vibrates in the chosen pattern and length; with **Different alert
     for critical events** on, a `CRITICAL` push vibrates in its own (by
     default a long *Rapid pulse*) and a `NORMAL` push in the general
     alert's. The critical pattern and length vibrate when chosen too.
-15. Opening a notification whose alert is still vibrating (a *Long*
+16. Opening a notification whose alert is still vibrating (a *Long*
     one), or opening the app, stops the vibration. On silent, during Do
     Not Disturb and with the *Events* category silent, a long vibration
     follows items 6, 10 and 11 exactly as a short one does.

@@ -253,22 +253,14 @@ class AlertSettings {
 }
 
 /// How a push of severity `CRITICAL` alerts, whatever its producer or
-/// category. A critical push plays the general alert ([AlertSettings]),
-/// or [alert] when [different]; either way, [onSilent] and
-/// [duringDoNotDisturb] decide whether it sounds when the phone is on silent
-/// or vibrate, and during Do Not Disturb. Kept on the device, never on the
-/// server.
+/// category: the general alert ([AlertSettings]), or [alert] when
+/// [different]. Whether it sounds on silent or during Do Not Disturb is
+/// [QuietModeSettings]'. Kept on the device, never on the server.
 class CriticalAlertSettings {
-  const CriticalAlertSettings({
-    required this.different,
-    required this.alert,
-    required this.onSilent,
-    required this.duringDoNotDisturb,
-  });
+  const CriticalAlertSettings({required this.different, required this.alert});
 
-  /// The same alert as every other push, but sounding on silent; more
-  /// urgent, louder, stronger and longer than the general alert once
-  /// [different].
+  /// The same alert as every other push; more urgent, louder, stronger and
+  /// longer than the general alert once [different].
   static const defaults = CriticalAlertSettings(
     different: false,
     alert: AlertSettings(
@@ -278,8 +270,6 @@ class CriticalAlertSettings {
       pattern: AlertPattern.rapid,
       length: AlertLength.long,
     ),
-    onSilent: true,
-    duringDoNotDisturb: false,
   );
 
   /// Whether critical pushes play [alert] instead of the general alert.
@@ -289,25 +279,11 @@ class CriticalAlertSettings {
   /// [different] is off.
   final AlertSettings alert;
 
-  /// Whether a critical push sounds and vibrates while the phone's ringer
-  /// is on silent or vibrate.
-  final bool onSilent;
-
-  /// Whether a critical push sounds and vibrates during Do Not Disturb,
-  /// which Android allows only with the app's Do Not Disturb access.
-  final bool duringDoNotDisturb;
-
-  CriticalAlertSettings copyWith({
-    bool? different,
-    AlertSettings? alert,
-    bool? onSilent,
-    bool? duringDoNotDisturb,
-  }) => CriticalAlertSettings(
-    different: different ?? this.different,
-    alert: alert ?? this.alert,
-    onSilent: onSilent ?? this.onSilent,
-    duringDoNotDisturb: duringDoNotDisturb ?? this.duringDoNotDisturb,
-  );
+  CriticalAlertSettings copyWith({bool? different, AlertSettings? alert}) =>
+      CriticalAlertSettings(
+        different: different ?? this.different,
+        alert: alert ?? this.alert,
+      );
 
   /// The settings a platform stored with [platformAlerts], or `null` when
   /// there are none (also when only a general alert was stored, by a
@@ -316,16 +292,11 @@ class CriticalAlertSettings {
   static CriticalAlertSettings? fromStored(String? stored) {
     final json = _decode(stored)?['critical'];
     if (json is! Map<String, Object?>) return null;
-    bool flag(String key, bool fallback) =>
-        json[key] is bool ? json[key]! as bool : fallback;
     return CriticalAlertSettings(
-      different: flag('different', defaults.different),
+      different: json['different'] is bool
+          ? json['different']! as bool
+          : defaults.different,
       alert: AlertSettings.fromJson(json, fallback: defaults.alert),
-      onSilent: flag('onSilent', defaults.onSilent),
-      duringDoNotDisturb: flag(
-        'duringDoNotDisturb',
-        defaults.duringDoNotDisturb,
-      ),
     );
   }
 
@@ -337,50 +308,153 @@ class CriticalAlertSettings {
     'vibration': alert.vibration.name,
     'pattern': alert.pattern.name,
     'length': alert.length.name,
-    'onSilent': onSilent,
-    'duringDoNotDisturb': duringDoNotDisturb,
   };
 
   /// What a critical push plays, with [general] the general alert: the
-  /// alert's [AlertSettings.toPlatform], and `onSilent` and
-  /// `duringDoNotDisturb`, which the platform reads as `false` in the
-  /// general alert's.
-  Map<String, Object?> toPlatform(AlertSettings general) => {
-    ...(different ? alert : general).toPlatform(),
-    'onSilent': onSilent,
-    'duringDoNotDisturb': duringDoNotDisturb,
-  };
+  /// alert's [AlertSettings.toPlatform].
+  Map<String, Object?> toPlatform(AlertSettings general) =>
+      (different ? alert : general).toPlatform();
 
   @override
   bool operator ==(Object other) =>
       other is CriticalAlertSettings &&
       other.different == different &&
-      other.alert == alert &&
+      other.alert == alert;
+
+  @override
+  int get hashCode => Object.hash(different, alert);
+
+  @override
+  String toString() => 'CriticalAlertSettings(different: $different, $alert)';
+}
+
+/// Which pushes sound through one of the phone's quiet modes.
+enum SoundThrough {
+  off('Off'),
+  critical('Critical only'),
+  all('All pushes');
+
+  const SoundThrough(this.label);
+
+  final String label;
+
+  /// Whether a push, [critical] or not, sounds through the quiet mode.
+  bool covers({required bool critical}) =>
+      this == all || (this == SoundThrough.critical && critical);
+
+  static SoundThrough? parse(Object? name) =>
+      values.where((s) => s.name == name).firstOrNull;
+}
+
+/// Which pushes sound and vibrate while the phone's ringer is on silent or
+/// vibrate ([onSilent]), and during Do Not Disturb ([duringDoNotDisturb],
+/// which Android allows only with the app's Do Not Disturb access), whatever
+/// alert they play. Kept on the device, never on the server.
+class QuietModeSettings {
+  const QuietModeSettings({
+    required this.onSilent,
+    required this.duringDoNotDisturb,
+  });
+
+  /// Critical pushes sound on silent, none during Do Not Disturb.
+  static const defaults = QuietModeSettings(
+    onSilent: SoundThrough.critical,
+    duringDoNotDisturb: SoundThrough.off,
+  );
+
+  final SoundThrough onSilent;
+  final SoundThrough duringDoNotDisturb;
+
+  QuietModeSettings copyWith({
+    SoundThrough? onSilent,
+    SoundThrough? duringDoNotDisturb,
+  }) => QuietModeSettings(
+    onSilent: onSilent ?? this.onSilent,
+    duringDoNotDisturb: duringDoNotDisturb ?? this.duringDoNotDisturb,
+  );
+
+  /// The settings a platform stored with [platformAlerts], or `null` when
+  /// there are none. A version before these stored a switch for each among
+  /// the critical settings: on is [SoundThrough.critical], off
+  /// [SoundThrough.off]. Values this version does not know fall back to the
+  /// defaults one by one.
+  static QuietModeSettings? fromStored(String? stored) {
+    final json = _decode(stored);
+    final quiet = json?['quiet'];
+    if (quiet is Map<String, Object?>) {
+      return QuietModeSettings(
+        onSilent: SoundThrough.parse(quiet['onSilent']) ?? defaults.onSilent,
+        duringDoNotDisturb:
+            SoundThrough.parse(quiet['duringDoNotDisturb']) ??
+            defaults.duringDoNotDisturb,
+      );
+    }
+    final critical = json?['critical'];
+    if (critical is! Map<String, Object?>) return null;
+    SoundThrough switched(String key, SoundThrough fallback) =>
+        switch (critical[key]) {
+          true => SoundThrough.critical,
+          false => SoundThrough.off,
+          _ => fallback,
+        };
+    return QuietModeSettings(
+      onSilent: switched('onSilent', defaults.onSilent),
+      duringDoNotDisturb: switched(
+        'duringDoNotDisturb',
+        defaults.duringDoNotDisturb,
+      ),
+    );
+  }
+
+  /// These settings as stored, to read them back.
+  Map<String, Object?> toStored() => {
+    'onSilent': onSilent.name,
+    'duringDoNotDisturb': duringDoNotDisturb.name,
+  };
+
+  /// What the platform reads next to the alert a push plays, [critical] or
+  /// not: whether it sounds on silent or vibrate (`onSilent`) and during Do
+  /// Not Disturb (`duringDoNotDisturb`).
+  Map<String, Object?> toPlatform({required bool critical}) => {
+    'onSilent': onSilent.covers(critical: critical),
+    'duringDoNotDisturb': duringDoNotDisturb.covers(critical: critical),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is QuietModeSettings &&
       other.onSilent == onSilent &&
       other.duringDoNotDisturb == duringDoNotDisturb;
 
   @override
-  int get hashCode =>
-      Object.hash(different, alert, onSilent, duringDoNotDisturb);
+  int get hashCode => Object.hash(onSilent, duringDoNotDisturb);
 
   @override
   String toString() =>
-      'CriticalAlertSettings(different: $different, $alert, '
-      'onSilent: $onSilent, duringDoNotDisturb: $duringDoNotDisturb)';
+      'QuietModeSettings(onSilent: ${onSilent.name}, '
+      'duringDoNotDisturb: ${duringDoNotDisturb.name})';
 }
 
 /// What the platform stores (`AlertPlatform.save`): the [general] alert's
 /// [AlertSettings.toPlatform], played for every push but a critical one, as
-/// before critical pushes had their own; `critical`, the [critical]
-/// settings to read them back; and `criticalAlert`, what a push of severity
-/// `CRITICAL` plays.
+/// before critical pushes had their own, with whether such a push sounds
+/// on silent and during Do Not Disturb ([QuietModeSettings.toPlatform]);
+/// `quiet` and `critical`, the [quiet] and [critical] settings to read them
+/// back; and `criticalAlert`, what a push of severity `CRITICAL` plays, and
+/// whether it sounds on silent and during Do Not Disturb.
 Map<String, Object?> platformAlerts(
   AlertSettings general,
   CriticalAlertSettings critical,
+  QuietModeSettings quiet,
 ) => {
   ...general.toPlatform(),
+  ...quiet.toPlatform(critical: false),
+  'quiet': quiet.toStored(),
   'critical': critical.toStored(),
-  'criticalAlert': critical.toPlatform(general),
+  'criticalAlert': {
+    ...critical.toPlatform(general),
+    ...quiet.toPlatform(critical: true),
+  },
 };
 
 Map<String, Object?>? _decode(String? stored) {

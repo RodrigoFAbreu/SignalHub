@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:signalhub_client/src/alert/alert_settings.dart';
 import 'package:signalhub_client/src/api/signalhub_api.dart';
@@ -819,11 +820,14 @@ void main() {
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await openSettings(tester);
-    if (controller.alert != null) {
-      await toggleGroup(tester, SettingsGroup.critical);
-      await toggleGroup(tester, SettingsGroup.alert);
-    }
     await toggleGroup(tester, SettingsGroup.pushFilters);
+    if (controller.alert case final alert?) {
+      await toggleGroup(tester, SettingsGroup.alert);
+      // The critical alert's own settings, once critical events have one.
+      if (alert.critical.different) {
+        await toggleGroup(tester, SettingsGroup.critical);
+      }
+    }
   }
 
   Future<void> tapAndSave(WidgetTester tester, Finder finder) async {
@@ -930,8 +934,31 @@ void main() {
     AlertSettings stored() => AlertSettings.fromStored(alerts.stored)!;
     CriticalAlertSettings storedCritical() =>
         CriticalAlertSettings.fromStored(alerts.stored)!;
+    QuietModeSettings storedQuiet() =>
+        QuietModeSettings.fromStored(alerts.stored)!;
     bool switchValue(WidgetTester tester, String key) =>
         tester.widget<SwitchListTile>(find.byKey(Key(key))).value;
+    Set<SoundThrough> quietChoice(WidgetTester tester, String key) => tester
+        .widget<SegmentedButton<SoundThrough>>(
+          find.descendant(
+            of: find.byKey(Key(key)),
+            matching: find.byType(SegmentedButton<SoundThrough>),
+          ),
+        )
+        .selected;
+    Future<void> chooseQuiet(
+      WidgetTester tester,
+      String key,
+      String option,
+    ) async {
+      final target = find.descendant(
+        of: find.byKey(Key(key)),
+        matching: find.text(option),
+      );
+      await tester.ensureVisible(target);
+      await tester.pumpAndSettle();
+      await tapAndSave(tester, target);
+    }
 
     Future<void> tapCritical(WidgetTester tester, String key) async {
       final target = find.byKey(Key(key));
@@ -940,17 +967,19 @@ void main() {
       await tapAndSave(tester, target);
     }
 
-    testWidgets('critical events: by default the general alert, sounding on '
-        'silent only', (tester) async {
+    testWidgets('by default critical events play the general alert and '
+        'sound on silent only', (tester) async {
       await connect(tester);
       await openNotifications(tester);
 
-      expect(find.text('Critical alert'), findsOneWidget);
       expect(switchValue(tester, 'criticalDifferent'), isFalse);
       expect(find.byKey(const Key('criticalSound-urgent')), findsNothing);
-      expect(switchValue(tester, 'criticalOnSilent'), isTrue);
-      expect(switchValue(tester, 'criticalDuringDoNotDisturb'), isFalse);
+      expect(quietChoice(tester, 'soundOnSilent'), {SoundThrough.critical});
+      expect(quietChoice(tester, 'soundDuringDoNotDisturb'), {
+        SoundThrough.off,
+      });
       expect(storedCritical(), CriticalAlertSettings.defaults);
+      expect(storedQuiet(), QuietModeSettings.defaults);
     });
 
     testWidgets('critical events get a different alert of their own', (
@@ -961,8 +990,9 @@ void main() {
 
       await tapCritical(tester, 'criticalDifferent');
       expect(storedCritical().different, isTrue);
-      expect(find.text('Urgent (default)'), findsOneWidget);
       expect(alerts.previewed, isEmpty);
+      await toggleGroup(tester, SettingsGroup.critical);
+      expect(find.text('Urgent (default)'), findsOneWidget);
 
       await tapCritical(tester, 'criticalSound-glass');
       expect(storedCritical().alert.sound, AlertSound.glass);
@@ -999,17 +1029,28 @@ void main() {
       expect(storedCritical().alert.sound, AlertSound.glass);
     });
 
-    testWidgets('critical events stay quiet on silent once switched off', (
-      tester,
-    ) async {
+    testWidgets('chooses which pushes sound on silent', (tester) async {
       await connect(tester);
       await openNotifications(tester);
 
-      await tapCritical(tester, 'criticalOnSilent');
+      await chooseQuiet(tester, 'soundOnSilent', 'All pushes');
+      expect(quietChoice(tester, 'soundOnSilent'), {SoundThrough.all});
+      expect(storedQuiet().onSilent, SoundThrough.all);
+      expect(alerts.saved.last['onSilent'], isTrue);
+      expect((alerts.saved.last['criticalAlert']! as Map)['onSilent'], isTrue);
 
-      expect(switchValue(tester, 'criticalOnSilent'), isFalse);
-      expect(storedCritical().onSilent, isFalse);
+      await chooseQuiet(tester, 'soundOnSilent', 'Off');
+      expect(storedQuiet().onSilent, SoundThrough.off);
+      expect(alerts.saved.last['onSilent'], isFalse);
       expect((alerts.saved.last['criticalAlert']! as Map)['onSilent'], isFalse);
+
+      await chooseQuiet(tester, 'soundOnSilent', 'Critical only');
+      expect(storedQuiet().onSilent, SoundThrough.critical);
+      expect(alerts.saved.last['onSilent'], isFalse);
+      expect((alerts.saved.last['criticalAlert']! as Map)['onSilent'], isTrue);
+      // Nothing is previewed, and the critical settings are their own.
+      expect(alerts.previewed, isEmpty);
+      expect(storedCritical(), CriticalAlertSettings.defaults);
     });
 
     testWidgets('sounding during Do Not Disturb asks for the access first', (
@@ -1019,15 +1060,17 @@ void main() {
       await openNotifications(tester);
       expect(find.textContaining('Needs Do Not Disturb access'), findsOne);
 
-      await tapCritical(tester, 'criticalDuringDoNotDisturb');
+      await chooseQuiet(tester, 'soundDuringDoNotDisturb', 'Critical only');
 
       expect(alerts.accessOpened, 1);
       expect(
         find.textContaining('Allow SignalHub in Do Not Disturb'),
         findsOne,
       );
-      expect(switchValue(tester, 'criticalDuringDoNotDisturb'), isFalse);
-      expect(storedCritical().duringDoNotDisturb, isFalse);
+      expect(quietChoice(tester, 'soundDuringDoNotDisturb'), {
+        SoundThrough.off,
+      });
+      expect(storedQuiet().duringDoNotDisturb, SoundThrough.off);
 
       // The owner gives it in the phone's settings and comes back.
       alerts.access = true;
@@ -1035,16 +1078,18 @@ void main() {
         ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
         ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await settle(tester);
-      expect(
-        find.text('Critical events sound and vibrate during Do Not Disturb'),
-        findsOne,
-      );
-      expect(switchValue(tester, 'criticalDuringDoNotDisturb'), isFalse);
+      expect(find.textContaining('Needs Do Not Disturb access'), findsNothing);
+      expect(quietChoice(tester, 'soundDuringDoNotDisturb'), {
+        SoundThrough.off,
+      });
 
-      await tapCritical(tester, 'criticalDuringDoNotDisturb');
+      await chooseQuiet(tester, 'soundDuringDoNotDisturb', 'All pushes');
 
-      expect(switchValue(tester, 'criticalDuringDoNotDisturb'), isTrue);
-      expect(storedCritical().duringDoNotDisturb, isTrue);
+      expect(quietChoice(tester, 'soundDuringDoNotDisturb'), {
+        SoundThrough.all,
+      });
+      expect(storedQuiet().duringDoNotDisturb, SoundThrough.all);
+      expect(alerts.saved.last['duringDoNotDisturb'], isTrue);
       expect(alerts.accessOpened, 1);
     });
 
@@ -1149,6 +1194,7 @@ void main() {
       expect(find.byKey(const Key('criticalPattern-rapid')), findsNothing);
 
       await tapCritical(tester, 'criticalDifferent');
+      await toggleGroup(tester, SettingsGroup.critical);
       final rapid = tester.widget<RadioListTile<AlertPattern>>(
         find.byKey(const Key('criticalPattern-rapid')),
       );
@@ -1222,9 +1268,10 @@ void main() {
             pattern: AlertPattern.heartbeat,
             length: AlertLength.medium,
           ),
-          CriticalAlertSettings.defaults.copyWith(
-            different: true,
-            onSilent: false,
+          CriticalAlertSettings.defaults.copyWith(different: true),
+          const QuietModeSettings(
+            onSilent: SoundThrough.off,
+            duringDoNotDisturb: SoundThrough.critical,
           ),
         ),
       );
@@ -1261,7 +1308,11 @@ void main() {
         100,
       );
       expect(switchValue(tester, 'criticalDifferent'), isTrue);
-      expect(switchValue(tester, 'criticalOnSilent'), isFalse);
+      expect(quietChoice(tester, 'soundOnSilent'), {SoundThrough.off});
+      // Shown Off without Do Not Disturb access, and kept as chosen.
+      expect(quietChoice(tester, 'soundDuringDoNotDisturb'), {
+        SoundThrough.off,
+      });
       expect(alerts.saved, isEmpty);
     });
 
@@ -1474,7 +1525,7 @@ void main() {
     const insideGroup = {
       SettingsGroup.pushFilters: Key('minimumSeverity'),
       SettingsGroup.alert: Key('alertSound-signal'),
-      SettingsGroup.critical: Key('criticalDifferent'),
+      SettingsGroup.critical: Key('criticalSound-urgent'),
       SettingsGroup.device: Key('disconnect'),
     };
 
@@ -1506,14 +1557,11 @@ void main() {
 
       expect(find.text('Settings'), findsOneWidget);
       expect(find.byKey(const Key('pushEnabled')), findsOneWidget);
-      for (final title in [
-        'Push filters',
-        'Alert',
-        'Critical alert',
-        'This device',
-      ]) {
+      for (final title in ['Push filters', 'Alert', 'This device']) {
         expect(find.text(title), findsOneWidget);
       }
+      // Inside Alert, no longer a group of its own.
+      expect(find.text('Critical alert'), findsNothing);
       expectOpen({});
     });
 
@@ -1525,11 +1573,78 @@ void main() {
       await openSettings(tester);
 
       for (final group in SettingsGroup.values) {
+        if (group == SettingsGroup.critical) continue;
         await toggleGroup(tester, group);
         expectOpen({group});
         await toggleGroup(tester, group);
         expectOpen({});
       }
+    });
+
+    ExpansionTile criticalGroup(WidgetTester tester) =>
+        tester.widget<ExpansionTile>(find.byKey(const Key('group-critical')));
+
+    testWidgets('the Critical alert sub-group is greyed and cannot be opened '
+        'while critical events have no alert of their own', (tester) async {
+      useTallView(tester);
+      await connect(tester);
+      await openSettings(tester);
+      await toggleGroup(tester, SettingsGroup.alert);
+
+      // Below the general alert, its two choices and the switch.
+      final top = tester.getTopLeft(find.byKey(const Key('group-critical')));
+      for (final key in [
+        'alertLength',
+        'soundOnSilent',
+        'soundDuringDoNotDisturb',
+        'criticalDifferent',
+      ]) {
+        expect(tester.getTopLeft(find.byKey(Key(key))).dy, lessThan(top.dy));
+      }
+      expect(criticalGroup(tester).enabled, isFalse);
+      expect(summary(tester, SettingsGroup.critical), 'Same as Alert');
+      final title = tester.renderObject<RenderParagraph>(
+        find.text('Critical alert'),
+      );
+      expect(
+        title.text.style?.color,
+        Theme.of(tester.element(find.text('Critical alert'))).disabledColor,
+      );
+
+      await toggleGroup(tester, SettingsGroup.critical);
+
+      expectOpen({SettingsGroup.alert});
+      expect(openGroups.saved, {SettingsGroup.alert});
+    });
+
+    testWidgets('the Critical alert sub-group unfolds once the switch is on, '
+        'and folds when it is turned off', (tester) async {
+      useTallView(tester);
+      await connect(tester);
+      await openSettings(tester);
+      await toggleGroup(tester, SettingsGroup.alert);
+
+      await tapAndSave(tester, find.byKey(const Key('criticalDifferent')));
+      expect(criticalGroup(tester).enabled, isTrue);
+      expect(
+        summary(tester, SettingsGroup.critical),
+        'Urgent · 100 % · Strong · Rapid pulse · Long',
+      );
+      expectOpen({SettingsGroup.alert});
+
+      await toggleGroup(tester, SettingsGroup.critical);
+      expectOpen({SettingsGroup.alert, SettingsGroup.critical});
+      await toggleGroup(tester, SettingsGroup.critical);
+      expectOpen({SettingsGroup.alert});
+      await toggleGroup(tester, SettingsGroup.critical);
+
+      await tapAndSave(tester, find.byKey(const Key('criticalDifferent')));
+      expect(criticalGroup(tester).enabled, isFalse);
+      expectOpen({SettingsGroup.alert});
+
+      // Left open, it opens again with the switch.
+      await tapAndSave(tester, find.byKey(const Key('criticalDifferent')));
+      expectOpen({SettingsGroup.alert, SettingsGroup.critical});
     });
 
     testWidgets('folded groups sum up the default settings', (tester) async {
@@ -1542,11 +1657,8 @@ void main() {
       );
       expect(
         summary(tester, SettingsGroup.alert),
-        'Signal · 80 % · Medium · Short, short, long · Short',
-      );
-      expect(
-        summary(tester, SettingsGroup.critical),
-        'Same as Alert · sounds on silent',
+        'Signal · 80 % · Medium · Short, short, long · Short · sounds on '
+        'silent: critical',
       );
       expect(
         summary(tester, SettingsGroup.device),
@@ -1578,9 +1690,10 @@ void main() {
               volume: 30,
               vibration: AlertVibration.off,
             ),
-            CriticalAlertSettings.defaults.copyWith(
-              different: true,
-              duringDoNotDisturb: true,
+            CriticalAlertSettings.defaults.copyWith(different: true),
+            const QuietModeSettings(
+              onSilent: SoundThrough.all,
+              duringDoNotDisturb: SoundThrough.critical,
             ),
           ),
         );
@@ -1593,12 +1706,13 @@ void main() {
       );
       expect(
         summary(tester, SettingsGroup.alert),
-        'Pulse · 30 % · No vibration',
+        'Pulse · 30 % · No vibration · sounds on silent: all pushes · during '
+        'Do Not Disturb: critical',
       );
+      await toggleGroup(tester, SettingsGroup.alert);
       expect(
         summary(tester, SettingsGroup.critical),
-        'Urgent · 100 % · Strong · Rapid pulse · Long · sounds on silent · '
-        'sounds during Do Not Disturb',
+        'Urgent · 100 % · Strong · Rapid pulse · Long',
       );
     });
 
@@ -1611,6 +1725,19 @@ void main() {
       await tapAndSave(tester, find.byKey(const Key('alertSound-beacon')));
       await tapAndSave(tester, find.text('Strong'));
 
+      expect(
+        summary(tester, SettingsGroup.alert),
+        'Beacon · 80 % · Strong · Short, short, long · Short · sounds on '
+        'silent: critical',
+      );
+
+      await tapAndSave(
+        tester,
+        find.descendant(
+          of: find.byKey(const Key('soundOnSilent')),
+          matching: find.text('Off'),
+        ),
+      );
       expect(
         summary(tester, SettingsGroup.alert),
         'Beacon · 80 % · Strong · Short, short, long · Short',
@@ -1639,12 +1766,19 @@ void main() {
       tester,
     ) async {
       useTallView(tester);
-      openGroups.saved = {SettingsGroup.critical};
+      openGroups.saved = {SettingsGroup.alert, SettingsGroup.critical};
+      alerts.stored = jsonEncode(
+        platformAlerts(
+          AlertSettings.defaults,
+          CriticalAlertSettings.defaults.copyWith(different: true),
+          QuietModeSettings.defaults,
+        ),
+      );
       await connect(tester);
 
       await openSettings(tester);
 
-      expectOpen({SettingsGroup.critical});
+      expectOpen({SettingsGroup.alert, SettingsGroup.critical});
     });
 
     testWidgets('groups whose state cannot be kept still fold', (tester) async {
@@ -1653,9 +1787,9 @@ void main() {
       await connect(tester);
       await openSettings(tester);
 
-      await toggleGroup(tester, SettingsGroup.critical);
+      await toggleGroup(tester, SettingsGroup.alert);
 
-      expectOpen({SettingsGroup.critical});
+      expectOpen({SettingsGroup.alert});
     });
 
     testWidgets('while push is off, the groups it shapes are greyed and can '
@@ -1669,14 +1803,10 @@ void main() {
       await openSettings(tester);
 
       const note = 'Applies once push notifications are on';
-      for (final group in [
-        SettingsGroup.pushFilters,
-        SettingsGroup.alert,
-        SettingsGroup.critical,
-      ]) {
+      for (final group in [SettingsGroup.pushFilters, SettingsGroup.alert]) {
         expect(find.byKey(Key('pushOff-${group.name}')), findsOneWidget);
       }
-      expect(find.text(note), findsNWidgets(3));
+      expect(find.text(note), findsNWidgets(2));
       expect(find.byKey(const Key('pushOff-device')), findsNothing);
 
       await toggleGroup(tester, SettingsGroup.pushFilters);
