@@ -542,7 +542,7 @@ jobs:
           grep --quiet '^signalhub_push_dispatch_pending ' <<<"$metrics"
           grep --quiet '^agroal_active_count' <<<"$metrics"
           grep --quiet '^http_server_requests_seconds_count{.*uri="/api/v1/events/{id}"' <<<"$metrics"
-      - name: The operator deletes events on the host, after a dry run, and never through the proxy
+      - name: The operator sends a test event and deletes events on the host, after a dry run, and never through the proxy
         run: |
           manage() {
             curl --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" "$@"
@@ -560,7 +560,17 @@ jobs:
           }
           one=$(publish)
           publish > /dev/null
-          publish > /dev/null
+          # A test event, sent by the operator as the producer without its key; deleted with the rest.
+          manage --fail --header 'Content-Type: application/json' \
+            --data '{"category": "ACTION_REQUIRED", "severity": "HIGH", "title": "Test event"}' \
+            "http://localhost:8080/api/v1/admin/producers/$producer_id/events" \
+            | jq --exit-status --arg id "$producer_id" '.producer.id == $id and .title == "Test event"'
+          status=$(manage --cacert "$RUNNER_TEMP/proxy-ca.crt" --output /dev/null --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --data '{"category": "INFO", "severity": "LOW", "title": "Through the proxy"}' \
+            "https://localhost/api/v1/admin/producers/$producer_id/events")
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
+          docker compose logs backend | grep --quiet "Operator sent event .* as producer $producer_id"
           # One event, then the rest of the producer's, counted first.
           test "$(manage --output /dev/null --write-out '%{http_code}' --request DELETE \
             "http://localhost:8080/api/v1/admin/events/$one")" = 204
@@ -586,7 +596,8 @@ jobs:
             | jq --exit-status '.name == "ci-smoke-deleted" and .lastEventAt == null'
           manage --fail --get --data-urlencode "producerId=$PRODUCER_ID" http://localhost:8080/api/v1/events \
             | jq --exit-status '(.items | length) == 2'
-          # The admin page's Delete events form, on the host.
+          # The admin page's Send a test event and Delete events forms, on the host.
+          curl --fail --silent --show-error http://localhost:8080/admin/ | grep --quiet 'id="send-event"'
           curl --fail --silent --show-error http://localhost:8080/admin/ | grep --quiet 'id="delete-events"'
           docker compose logs backend | grep --quiet "Deleted 2 events of producer $producer_id"
       - name: JSON logs carry the startup summary and no secrets

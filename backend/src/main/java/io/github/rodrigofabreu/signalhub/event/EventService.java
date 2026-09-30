@@ -80,6 +80,17 @@ class EventService {
   }
 
   /**
+   * Publishes the event as the given producer on the operator's behalf, exactly as that producer's
+   * own event without an idempotency key: stored, then pushed through every client's preferences.
+   */
+  @Transactional
+  EventResponse createAsOperator(ProducerIdentity producer, CreateEventRequest request) {
+    var event = create(producer, request, null).event();
+    LOG.infof("Operator sent event %s as producer %s", event.id(), producer.id());
+    return event;
+  }
+
+  /**
    * Now, or just after the newest stored event if that is later (same microsecond, or a clock set
    * back), so the listing never orders a new event before one already visible.
    */

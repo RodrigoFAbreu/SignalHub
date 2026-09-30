@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  The admin page: the operator's devices, pairing codes, producers and events
+  The admin page: the operator's devices, pairing codes, producers and events, and test events
   (docs/architecture.md#the-admin-page).
   Served only on the backend's own port, never through the proxy. It is static; everything it does
   goes through the management API with the admin token typed here, which stays in this page's
@@ -21,8 +21,8 @@
       <h1>SignalHub admin</h1>
       <p class="lead">
         Your devices, the producers that publish to them and their events: manage devices and
-        connect new ones with a pairing code, register producers and manage their keys, and browse
-        and delete events.
+        connect new ones with a pairing code, register producers and manage their keys, and browse,
+        send test events and delete events.
       </p>
 
       <form id="unlock" autocomplete="off">
@@ -177,6 +177,54 @@
               <button type="button" id="newer-events" class="secondary">Newer</button>
               <button type="button" id="older-events" class="secondary">Older</button>
             </div>
+
+            <h3 id="send-event-title">Send a test event</h3>
+            <form id="send-event" autocomplete="off" aria-labelledby="send-event-title">
+              <p class="lead">
+                Published as the producer you choose, so it is stored and pushed exactly as that
+                producer's own event would be: each device's push preferences apply to it. Open it
+                afterwards to delete it.
+              </p>
+              <div class="filters">
+                <div>
+                  <label for="send-producer">Producer</label>
+                  <select id="send-producer" required>
+                    <option value="">Choose a producer</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="send-category">Category</label>
+                  <select id="send-category">
+                    <option value="ACTION_REQUIRED" selected>Action required</option>
+                    <option value="BLOCKED">Blocked</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="INFO">Info</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="send-severity">Severity</label>
+                  <select id="send-severity">
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH" selected>High</option>
+                    <option value="NORMAL">Normal</option>
+                    <option value="LOW">Low</option>
+                  </select>
+                </div>
+              </div>
+              <label for="send-title">Title</label>
+              <input id="send-title" type="text" required maxlength="200" value="Test event" />
+              <label for="send-message">Message (optional)</label>
+              <textarea id="send-message" rows="3" maxlength="4000">Sent from the admin page.</textarea>
+              <label for="send-context">Context (optional)</label>
+              <input id="send-context" type="text" maxlength="200" spellcheck="false" />
+              <label for="send-link">Link (optional)</label>
+              <input id="send-link" type="url" maxlength="2000" spellcheck="false" />
+              <label for="send-metadata">Metadata (optional, a JSON object)</label>
+              <textarea id="send-metadata" rows="3" spellcheck="false"></textarea>
+              <button type="submit">Send test event</button>
+              <p id="send-event-error" class="error" role="alert" hidden></p>
+              <p id="send-event-result" role="status" hidden></p>
+            </form>
 
             <h3 id="delete-events-title">Delete events</h3>
             <form id="delete-events" autocomplete="off" aria-labelledby="delete-events-title">

@@ -72,6 +72,13 @@ class AdminApiDisabledTest {
         .post("/api/v1/admin/events/delete")
         .then()
         .statusCode(404);
+    given()
+        .header("Authorization", SOME_TOKEN)
+        .contentType(ContentType.JSON)
+        .body("{\"category\": \"INFO\", \"severity\": \"LOW\", \"title\": \"x\"}")
+        .post(ADMIN + "/" + UUID.randomUUID() + "/events")
+        .then()
+        .statusCode(404);
   }
 
   @Test

@@ -72,6 +72,12 @@ public class ProducerService {
     return producers.findByIdOptional(id).map(p -> new ProducerIdentity(p.id(), p.name()));
   }
 
+  /** Whether the producer exists and is not disabled. */
+  @Transactional
+  public boolean isEnabled(UUID id) {
+    return producers.findByIdOptional(id).map(ProducerEntity::enabled).orElse(false);
+  }
+
   /** The given producers by ID, enabled or not. One query whatever the number of IDs. */
   @Transactional
   public Map<UUID, ProducerIdentity> find(Collection<UUID> ids) {
