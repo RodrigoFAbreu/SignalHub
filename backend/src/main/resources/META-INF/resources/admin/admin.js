@@ -6,7 +6,8 @@
 // creates them, issues and revokes their keys, and disables and enables them; Events lists events a
 // page at a time, filtered, and opens one (#events/<id>) to read it and mark it read or unread,
 // deletes one, a selection, or a producer's or older events, after a confirmation with their count,
-// and sends a test event as a producer, linked once sent.
+// and sends a test event as a producer, linked once sent; Status sums up whether SignalHub is
+// working, from /q/info, /q/health and the management API.
 // The admin token lives only in this closure; it is never stored, and every request goes to this
 // same origin. A new producer key is shown once and dropped when the operator is done with it.
 // Names and event contents come from the server and are always set as text, never as HTML; an
@@ -18,7 +19,10 @@
   const EVENTS = "/api/v1/events";
   const ADMIN_EVENTS = "/api/v1/admin/events";
   const DELETE_EVENTS = "/api/v1/admin/events/delete";
-  const SECTIONS = ["devices", "producers", "events"];
+  const STATUS = "/api/v1/admin/status";
+  const INFO = "/q/info";
+  const HEALTH = "/q/health";
+  const SECTIONS = ["devices", "producers", "events", "status"];
   const EVENT_PAGE = 25;
   // The listing's filters, by the field that sets each; the same as the app's inbox.
   const EVENT_FILTERS = {
@@ -43,7 +47,8 @@
   };
   // An enabled producer with no event for this long is marked quiet, so one that stopped stands out.
   const QUIET_DAYS = 7;
-  const DAY_MS = 24 * 60 * 60 * 1000;
+  const DAY_S = 24 * 60 * 60;
+  const DAY_MS = DAY_S * 1000;
   const QR_SIZE = 320;
   // Asked only while a code is shown; one owner's page, so a few seconds late is fine.
   const POLL_MS = 2500;
@@ -85,6 +90,7 @@
   $("refresh").addEventListener("click", () => refresh());
   $("refresh-producers").addEventListener("click", () => refreshProducers());
   $("refresh-events").addEventListener("click", () => refreshEvents());
+  $("refresh-status").addEventListener("click", () => refreshStatus());
 
   for (const id of Object.values(EVENT_FILTERS)) {
     // Other filters, other events: back to the newest page.
@@ -177,10 +183,13 @@
     try {
       const body = await response.json();
       const details = (body.violations || []).map((v) => v.message).join(", ");
-      return details ? `${body.title}: ${details}` : body.title;
+      if (body.title) return details ? `${body.title}: ${details}` : body.title;
     } catch {
-      return `SignalHub answered ${response.status}.`;
+      // Not JSON: said below by its status alone.
     }
+    // Only SignalHub's own errors have a title; a failure outside them, such as a database that
+    // is down, is said by its status, so it is never shown as an empty error.
+    return `SignalHub answered ${response.status}.`;
   }
 
   // --- Sections --------------------------------------------------------------------------------
@@ -198,6 +207,7 @@
       else link.removeAttribute("aria-current");
     }
     if (name === "events") return showEvents(eventId);
+    if (name === "status") return refreshStatus();
     return name === "producers" ? refreshProducers() : refresh();
   }
 
@@ -743,6 +753,146 @@
       throw new Error("Metadata must be a JSON object, such as {\"run\": 42}.");
     }
     return value;
+  }
+
+  // --- Status ----------------------------------------------------------------------------------
+
+  // Reads every part at once; a part that cannot be read says so where it would be shown, and the
+  // others are shown all the same. Anything that needs the operator is named in the summary.
+  async function refreshStatus() {
+    const [info, health, status, clients, latest] = await Promise.allSettled([
+      probe(INFO),
+      probe(HEALTH),
+      call("GET", STATUS),
+      call("GET", CLIENTS),
+      call("GET", `${EVENTS}?limit=1`),
+    ]);
+    const problems = [];
+    const facts = [];
+    const fact = (name, value, problem) => {
+      const cell = element("dd", null, value);
+      if (problem) {
+        cell.append(" ", element("span", "badge warn", "Check"));
+        problems.push(problem);
+      }
+      facts.push(element("dt", null, name), cell);
+    };
+    const notRead = (part) => `Could not read: ${part.reason.message}`;
+
+    if (info.status === "fulfilled") {
+      const build = info.value.signalhub || {};
+      fact("Version", build.version === "development" ? "Development build" : build.version || "Unknown");
+      fact("Commit", build.revision || "Unknown");
+    } else {
+      fact("Version", notRead(info), "the version");
+    }
+
+    if (health.status === "fulfilled") {
+      const up = health.value.status === "UP";
+      fact("Health", up ? "Up" : "Down", !up && "health");
+      // The database and the backend's own checks, by the name each reports.
+      for (const check of health.value.checks || []) {
+        fact(check.name, check.status === "UP" ? "Up" : "Down");
+      }
+    } else {
+      fact("Health", notRead(health), "health");
+    }
+
+    if (status.status === "fulfilled") {
+      const s = status.value;
+      const push = s.pushProviders.length > 0;
+      fact(
+        "Push",
+        push ? `Configured: ${s.pushProviders.join(", ")}` : "Not configured: nothing is pushed",
+        !push && "push",
+      );
+      fact(
+        "Push options for apps",
+        s.pushClientOptions
+          ? `Served for ${s.pushClientOptions}`
+          : "Not served: only apps with Firebase options built in can receive pushes",
+        push && !s.pushClientOptions && "the push options for apps",
+      );
+      fact("Pushes waiting to be sent", String(s.pendingDispatches));
+      fact("Pushes waiting for a retry", String(s.pendingRetries));
+      fact(
+        "Retries given up since the backend started",
+        String(s.abandonedRetries),
+        s.abandonedRetries > 0 && "the retries given up",
+      );
+      fact(
+        "Event retention",
+        s.eventRetentionSeconds === null ? "Off: events are kept forever" : duration(s.eventRetentionSeconds),
+      );
+    } else {
+      fact("Push", notRead(status), "push");
+    }
+
+    if (clients.status === "fulfilled") {
+      const failing = clients.value.items.filter(lastPushFailed);
+      fact("Devices whose last push failed", String(failing.length), failing.length > 0 && "the devices");
+      renderFailing(failing);
+    } else {
+      fact("Devices whose last push failed", notRead(clients), "the devices");
+      renderFailing([]);
+    }
+
+    if (latest.status === "fulfilled") {
+      const [event] = latest.value.items;
+      fact("Most recent event", event ? `${time(event.createdAt)} (${ago(event.createdAt)})` : "None stored");
+    } else {
+      fact("Most recent event", notRead(latest), "the events");
+    }
+
+    $("status-facts").replaceChildren(...facts);
+    $("status-summary").replaceChildren(
+      problems.length ? element("span", "badge warn", "Needs attention") : element("span", "badge", "Working"),
+      problems.length ? ` Check ${problems.join(", ")}.` : " Nothing needs attention.",
+    );
+  }
+
+  // /q/info and /q/health need no token, so none is sent; health answers 503 with its checks when
+  // something is down, which is still an answer to show.
+  async function probe(path) {
+    let response;
+    try {
+      response = await fetch(path, { cache: "no-store" });
+    } catch {
+      throw new Error("Could not reach SignalHub.");
+    }
+    try {
+      return await response.json();
+    } catch {
+      throw new Error(`SignalHub answered ${response.status}.`);
+    }
+  }
+
+  // An active device whose latest push result is a failure; a later success clears it.
+  function lastPushFailed(client) {
+    const { lastSuccess, lastFailure } = client.pushStatus;
+    if (client.revokedAt || !lastFailure) return false;
+    return !lastSuccess || Date.parse(lastFailure.at) > Date.parse(lastSuccess.at);
+  }
+
+  function renderFailing(clients) {
+    const list = $("failing-devices");
+    list.replaceChildren(
+      ...clients.map((client) => {
+        const failure = client.pushStatus.lastFailure;
+        return element("li", "key", `${client.name}: ${failure.result}, ${time(failure.at)} (${ago(failure.at)})`);
+      }),
+    );
+    if (clients.length === 0) list.append(element("li", "empty", "None."));
+  }
+
+  function duration(seconds) {
+    if (seconds % DAY_S === 0) return amount(seconds / DAY_S, "day");
+    if (seconds % 3600 === 0) return amount(seconds / 3600, "hour");
+    return amount(seconds, "second");
+  }
+
+  function amount(count, unit) {
+    return `${count} ${unit}${count === 1 ? "" : "s"}`;
   }
 
   // --- Pairing ---------------------------------------------------------------------------------

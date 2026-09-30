@@ -2,6 +2,8 @@ package io.github.rodrigofabreu.signalhub.push;
 
 import static io.github.rodrigofabreu.signalhub.TestClients.CLIENT;
 import static io.github.rodrigofabreu.signalhub.TestClients.asClient;
+import static io.github.rodrigofabreu.signalhub.TestProducers.asAdmin;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,6 +46,17 @@ class FcmDeliveryTest {
   void theFcmProviderIsActive() {
     assertTrue(providers.named("fcm").isPresent());
     assertTrue(providers.named(FakePushProvider.NAME).isPresent());
+  }
+
+  @Test
+  void theStatusSaysPushIsConfigured() {
+    // The fake provider is on every test's classpath.
+    asAdmin()
+        .get("/api/v1/admin/status")
+        .then()
+        .statusCode(200)
+        .body("pushProviders", equalTo(List.of("fake", "fcm")))
+        .body("pushClientOptions", equalTo("fcm"));
   }
 
   @Test

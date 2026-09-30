@@ -61,6 +61,11 @@ class EventRetention {
     }
   }
 
+  /** How long events are kept; empty if they are kept forever. */
+  Optional<Duration> retention() {
+    return retention;
+  }
+
   @Scheduled(
       identity = "event-retention",
       every = "1h",

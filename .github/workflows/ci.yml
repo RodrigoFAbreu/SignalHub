@@ -288,6 +288,12 @@ jobs:
           # Its Events section, which browses the listing above with the admin token.
           curl --fail --silent --show-error http://localhost:8080/admin/ \
             | grep --quiet 'id="section-events" data-section="events"'
+          # Its Status section, which reads /q/info, /q/health and the status summed up here.
+          curl --fail --silent --show-error http://localhost:8080/admin/ \
+            | grep --quiet 'id="section-status" data-section="status"'
+          curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+            http://localhost:8080/api/v1/admin/status \
+            | jq --exit-status '.pushProviders == [] and .pendingDispatches >= 0 and .eventRetentionSeconds == null'
           for asset in $(curl --fail --silent http://localhost:8080/admin/ \
               | grep --only-matching --extended-regexp '(src|href)="[^"]+"' | cut --delimiter '"' --fields 2); do
             case "$asset" in \#*) continue ;; /*) url="http://localhost:8080$asset" ;; *) url="http://localhost:8080/admin/$asset" ;; esac
@@ -317,7 +323,8 @@ jobs:
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
           # Management, health, metrics, OpenAPI and the admin page stay on the host, however the path is spelled.
           for path in /api/v1/admin/producers /api//v1/admin/producers /api/v1/%61dmin/producers \
-              /api/v1/events/../admin/producers /api/v1/admin/events/delete \
+              /api/v1/events/../admin/producers /api/v1/admin/events/delete /api/v1/admin/status \
+              /q/info /q/health \
               /api/%2e%2e/q/metrics /q/health/ready /q/metrics \
               /q/openapi / /admin/ /admin /admin/admin.js /%61dmin/ /api/../admin/ /connect/ /connect \
               /webjars/qrcode-generator/1.4.4/qrcode.js; do
@@ -616,6 +623,9 @@ jobs:
           if grep --quiet --fixed-strings --regexp="$ADMIN_TOKEN" --regexp="$db_password" <<<"$logs"; then
             echo "a secret reached the logs"; exit 1
           fi
+          # The admin page's Status section reports the retention set (400 days, in seconds).
+          curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+            http://localhost:8080/api/v1/admin/status | jq --exit-status '.eventRetentionSeconds == 34560000'
       # The commands of docs/architecture.md#backup-and-restore.
       - name: A backup restores into an empty database
         run: |

@@ -122,6 +122,11 @@ class EventPushDispatcher {
     return dispatched;
   }
 
+  /** Pushes given up after their last attempt, since the backend started. */
+  long abandonedRetries() {
+    return (long) abandoned.count();
+  }
+
   private void dispatch(UUID eventId) {
     var push = events.pushFor(eventId);
     var retryClientIds = new ArrayList<UUID>();

@@ -441,6 +441,37 @@ class OpenApiTest {
   }
 
   @Test
+  void describesTheStatus() {
+    var status = "paths.'/api/v1/admin/status'";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(status + ".keySet()", containsInAnyOrder("get"))
+        .body(status + ".get.security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(status + ".get.tags", equalTo(List.of("Status")))
+        .body(status + ".get.responses.keySet()", containsInAnyOrder("200", "401"))
+        .body(
+            status + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/ServiceStatus"))
+        .body(
+            SCHEMAS + ".ServiceStatus.required",
+            containsInAnyOrder(
+                "pushProviders", "pendingDispatches", "pendingRetries", "abandonedRetries"))
+        .body(
+            SCHEMAS + ".ServiceStatus.properties.keySet()",
+            containsInAnyOrder(
+                "pushProviders",
+                "pushClientOptions",
+                "pendingDispatches",
+                "pendingRetries",
+                "abandonedRetries",
+                "eventRetentionSeconds"));
+  }
+
+  @Test
   void describesSendingAnEventAsAProducer() {
     var send = "paths.'/api/v1/admin/producers/{id}/events'.post";
     given()

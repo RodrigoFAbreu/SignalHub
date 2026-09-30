@@ -10,6 +10,8 @@ import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.jboss.logging.Logger;
@@ -20,7 +22,7 @@ import org.jboss.logging.Logger;
  */
 @Startup
 @Singleton
-final class PushProviders {
+public final class PushProviders {
 
   private static final Logger LOG = Logger.getLogger(PushProviders.class);
 
@@ -51,5 +53,10 @@ final class PushProviders {
 
   Optional<PushProvider> named(String name) {
     return Optional.ofNullable(byName.get(name));
+  }
+
+  /** The names of the active providers, such as {@code fcm}; empty if push is not configured. */
+  public SortedSet<String> names() {
+    return new TreeSet<>(byName.keySet());
   }
 }
