@@ -2618,6 +2618,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 43    | R54 - Sending a test event from the admin page                                                   | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 46    | R57 - The alert also plays while the app is open                                                 | Increment (`fix(client)`)              | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3003,6 +3004,11 @@ G1 → G2 → R19 v1.0.0
     are included now
   - left out: editing events (a permanent record), exporting events,
     full-text search (still deferred) and changing settings from the page
+- **R57 was added by the maintainer on 2026-10-02**: since R45, a push
+  that arrives while the app is open plays no alert, only the in-app
+  notice, by design. Using the app, the owner misses those pushes, so the
+  alert now plays in the foreground too, under the same rules as in the
+  background, once per push.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3047,6 +3053,7 @@ advance; they follow from the queue.
 | R49           | patch (`build`)                                                                                                                                       | build and CI tool versions; nothing a user, producer or operator sees                                      |
 | R50           | minor (`feat(client)`)                                                                                                                                | new app choices and a reorganized settings group; no API change                                            |
 | R51 to R56    | minor (`feat`)                                                                                                                                        | admin page sections, new management endpoints, one migration with no operator action                       |
+| R57           | patch (`fix(client)`)                                                                                                                                 | the app plays its alert in the foreground too; no API change                                               |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -4482,6 +4489,52 @@ Non-goals: delivery details in the app; confirming that the phone showed
 or sounded the push (the provider's answer is the last thing the backend
 sees).
 
+### R57 - The alert also plays while the app is open
+
+Status: planned; next. Added by the maintainer (2026-10-02), from use on
+the phone.
+
+Goal: a SignalHub push is heard and felt whether or not the app is open.
+Since R45, a push that arrives while the app is in the foreground plays
+no alert and only shows the in-app notice, by design; the owner, using
+the app, misses those pushes, so this decision is reversed.
+
+Scope, the Android app:
+
+- a push that arrives while the app is in the foreground plays the same
+  alert as in the background: the general alert, or the critical alert of
+  its own for a `CRITICAL` push when **Different alert for critical
+  events** is on (R46), with its sound, volume, vibration, pattern and
+  length (R45 to R47)
+- every rule still applies exactly as in the background: the sound on
+  silent and during do-not-disturb choices (R50), the phone's ringer,
+  do-not-disturb and the channel's settings; the owner's push preferences
+  already decide on the server whether the push is sent at all
+- the in-app notice stays, and no system notification is added in the
+  foreground (as today); the alert plays once per push, never twice (for
+  example once from the foreground path and once from the background
+  path)
+- the increment picks where the foreground alert is played (for example
+  in `PushAlertReceiver`, dropping its foreground exception, or from the
+  app's foreground message handling) and documents it in
+  `docs/architecture.md` (Client application) and `client/README.md`
+  (Alert)
+- tests: the mapping and controller tests for a foreground push (general
+  and critical, each rule above), a test that a push plays its alert
+  exactly once; the device review's `foreground-push` check also requires
+  the alert to be played (from what the app logs), and the by-hand list
+  says what the owner checks
+
+Compatible (`fix(client)`): no API change.
+
+Non-goals: a different alert in the foreground; a system notification
+while the app is open; silencing the alert while a particular screen is
+shown.
+
+Exit criteria: on the owner's phone, with the app open, a push plays the
+chosen alert, following silent mode and do-not-disturb as chosen, and
+shows the in-app notice, once.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -4606,9 +4659,6 @@ silent and during do-not-disturb for every push; the critical alert
 inside Alert), R51 (the admin page: sections, and producers), R52 (the
 admin page: browsing events), R53 (deleting events: the API and the
 admin page), R54 (sending a test event from the admin page) and R55 (the
-admin page: a status panel) and R56 (an event's delivery) are done. **The
-queue is empty: nothing further is scheduled.** A new item starts only
-when the maintainer adds it to the queue; the deferred candidates of
-section 5 are not scheduled by an orchestrator.
+admin page: a status panel) and R56 (an event's delivery) are done. **R57 (the alert also plays while the app is open) is next.**
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
