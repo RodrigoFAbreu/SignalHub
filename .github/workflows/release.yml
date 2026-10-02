@@ -193,7 +193,7 @@ jobs:
       - name: Remove the signing key
         if: always()
         run: rm -rf "$RUNNER_TEMP/signing"
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-path: ${{ steps.build.outputs.apk }}
       - uses: actions/upload-artifact@v4
