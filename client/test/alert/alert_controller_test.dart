@@ -555,4 +555,66 @@ void main() {
       expect(platform.accessOpened, 0);
     });
   });
+
+  // PushAlertReceiver plays a push's alert from what the app saved, the same
+  // with the app open as in the background (client/README.md, "Alert").
+  group('a push while the app is open', () {
+    test('plays the general alert, and a critical push its own once '
+        'switched on', () async {
+      await alert.load();
+
+      final normal = platform.pushArrives('NORMAL');
+      expect(normal.alert['resource'], 'signalhub_signal');
+      expect(normal.played, (sound: true, vibration: true, alarm: false));
+      expect(
+        platform.pushArrives('CRITICAL').alert['resource'],
+        'signalhub_signal',
+      );
+
+      await alert.changeCritical(critical);
+
+      final own = platform.pushArrives('CRITICAL');
+      expect(own.alert['resource'], 'signalhub_glass');
+      expect(own.alert['gain'], 0.9);
+      expect(own.played, (sound: true, vibration: true, alarm: false));
+      expect(
+        platform.pushArrives('NORMAL').alert['resource'],
+        'signalhub_signal',
+      );
+    });
+
+    test('on silent, by default only a critical push sounds, as an '
+        'alarm', () async {
+      platform.silent = true;
+      await alert.load();
+
+      expect(platform.pushArrives('NORMAL').played, isNull);
+      expect(platform.pushArrives('CRITICAL').played, (
+        sound: true,
+        vibration: true,
+        alarm: true,
+      ));
+
+      await alert.changeOnSilent(SoundThrough.off);
+      expect(platform.pushArrives('CRITICAL').played, isNull);
+    });
+
+    test('during Do Not Disturb, none by default, then as chosen with the '
+        'access given', () async {
+      platform
+        ..doNotDisturb = true
+        ..access = true;
+      await alert.load();
+
+      expect(platform.pushArrives('CRITICAL').played, isNull);
+      expect(platform.pushArrives('NORMAL').played, isNull);
+
+      await alert.changeDuringDoNotDisturb(SoundThrough.critical);
+      expect(platform.pushArrives('CRITICAL').played?.alarm, isTrue);
+      expect(platform.pushArrives('NORMAL').played, isNull);
+
+      platform.access = false;
+      expect(platform.pushArrives('CRITICAL').played, isNull);
+    });
+  });
 }

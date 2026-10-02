@@ -1886,10 +1886,18 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   vibration when the channel is created and gives a channel no volume, so
   the *Events* channel has neither, and the app plays the alert itself: a
   broadcast receiver of the app gets every FCM message next to Firebase's
-  own, and for one Firebase shows as a notification (the app not in the
-  foreground) it plays the stored sound on the notification stream at the
+  own, and for every SignalHub push (a message with a notification part)
+  it plays the stored sound on the notification stream at the
   chosen volume, relative to the phone's notification volume, and vibrates
-  as a notification. Unless the owner chose otherwise (below), it never
+  as a notification. It does so whether the app is in the background,
+  closed or in the foreground (where Firebase shows no notification and
+  hands the push to the app instead): the alert is played in that
+  receiver, and only there, so a push plays it once, never once from the
+  foreground path and again from the background one. The app's own
+  foreground handling of a push only re-reads the inbox; playing the alert
+  from it as well was rejected, since Firebase and the receiver would each
+  decide whether the app is in the foreground, and a push arriving as the
+  app opens or closes could then play twice or not at all. Unless the owner chose otherwise (below), it never
   overrides the phone: nothing during do-not-disturb, nothing on silent,
   only the vibration on vibrate; and nothing, whatever was chosen, when
   the owner turned SignalHub's notifications or the channel off or to

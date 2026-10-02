@@ -91,7 +91,7 @@ it. Titles of the events they publish start with `Device review:`.
 | `device-push-on` | Opens *Settings* (the inbox's gear icon) and unfolds its *This device* group, unless the app left it open; it must say *Push notifications are on*. | May leave the group open. |
 | `server-push-target` | Reads the client with the admin token; its push target must be `fcm`. | Nothing. |
 | `events-channel` | The app's `signalhub_events` notification channel must be at high importance (4) or more, with no sound and no vibration of its own (the app plays its alert). | Nothing. |
-| `foreground-push` | Publishes with the app in front; the event must appear in the inbox, with no system notification. | Publishes 1 event. |
+| `foreground-push` | Publishes with the app in front; the event must appear in the inbox, with no system notification, and the app must log that it played its alert (`SignalHubAlert` in `logcat`), once: no second alert message within 5 s. | Publishes 1 event; plays the alert. |
 | `background-push` | Goes home and publishes; the notification must be in the `signalhub_events` channel, and tapping it in the shade must open the event and mark it read on the server. | Publishes 1 event, marks it read. |
 | `alert-played` | Goes home and publishes; the app must log that it played its alert (`SignalHubAlert` in `logcat`) with the chosen sound. Then chooses another sound in the *Alert* group of *Settings*, unfolding it if folded (which previews it), publishes again, and the app must play that one; the first sound is chosen again afterwards, even when the check fails. **What only the owner can judge:** see [Alert, by ear and by hand](#alert-by-ear-and-by-hand). | Publishes 2 events; plays the alert and two previews; restores the sound; may leave the group open. |
 | `alert-quiet` | Posts a notification as another app (`cmd notification post`, the shell's): the app must log no alert. Then **turns do-not-disturb on** (`cmd notification set_dnd priority`) and publishes with the app in the background: the app must log that it did not play its alert because of do-not-disturb. Do-not-disturb is turned off even when the check fails. | Posts a shell notification (dismiss it by hand); toggles do-not-disturb; publishes 1 event. |
@@ -137,8 +137,12 @@ as an update makes them), check by hand:
 4. *Light*, *Medium* and *Strong* vibrate noticeably differently (in
    strength, or on a phone without amplitude control in length), and *Off*
    does not vibrate.
-5. Changing a setting changes the next push; a push while the app is open
-   plays nothing and shows in the inbox.
+5. Changing a setting changes the next push. A push while the app is
+   open plays the same alert as in the background, once (one sound, one
+   vibration), and shows in the inbox with no system notification; with
+   **Different alert for critical events** on, a `CRITICAL` push plays its
+   own. Items 6, 10 and 11 (silent mode, Do Not Disturb, the *Events*
+   category set to *Silent*) hold with the app open too.
 6. With the default settings, on silent mode a `NORMAL` push is silent
    and does not vibrate; on vibrate it
    only vibrates; during Do Not Disturb it neither sounds nor vibrates; with

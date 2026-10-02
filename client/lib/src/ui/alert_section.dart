@@ -16,8 +16,8 @@ Future<void> _tell(BuildContext context, Future<String?> action) async {
 }
 
 /// The _Alert_ settings: SignalHub's own sound, its volume and its
-/// vibration (its strength, pattern and length), for pushes the system
-/// shows while the app is in the background or closed; which pushes sound
+/// vibration (its strength, pattern and length), for every push, the app
+/// open, in the background or closed; which pushes sound
 /// on silent and during Do Not Disturb; and whether critical events have an
 /// alert of their own, set in [CriticalAlertSection] below this. Each
 /// change is saved on this device at once and previewed.
@@ -67,8 +67,8 @@ class GeneralAlertSection extends StatelessWidget {
         children: [
           const ListTile(
             subtitle: Text(
-              'How pushes sound and vibrate while SignalHub is in the '
-              'background or closed, on this device. The phone\'s silent '
+              'How pushes sound and vibrate on this device, whether '
+              'SignalHub is open or not. The phone\'s silent '
               'mode, Do Not Disturb and notification settings still apply, '
               'except as chosen below.',
             ),
