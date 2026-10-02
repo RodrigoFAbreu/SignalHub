@@ -43,8 +43,8 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Plays SignalHub's own alert for pushes Firebase shows; only FCM
-             may send it messages, as to Firebase's own receivers. -->
+        <!-- Plays SignalHub's own alert for every push, the app open or not;
+             only FCM may send it messages, as to Firebase's own receivers. -->
         <receiver
             android:name=".PushAlertReceiver"
             android:exported="true"

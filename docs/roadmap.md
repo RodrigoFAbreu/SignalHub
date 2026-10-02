@@ -2044,6 +2044,35 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   clients, retention, the admin page), `docs/deployment.md`,
   `docs/development.md`; compatible (`feat`)
 
+### R57 - The alert also plays while the app is open
+
+- a push that arrives while the app is in the foreground plays the same
+  alert as in the background: the general alert, or a `CRITICAL` push's
+  own when **Different alert for critical events** is on, with its sound,
+  volume, vibration, pattern and length, under the same rules (silent
+  mode and do-not-disturb as chosen, the ringer, the phone's
+  do-not-disturb, SignalHub's notifications and the *Events* channel)
+- **decided: the alert is played in `PushAlertReceiver`, which drops its
+  foreground exception**, and nowhere else: it gets every FCM message, so
+  it plays every push's alert once, the app open or not. Playing it from
+  the app's foreground message handling was rejected: Firebase and the
+  receiver would each decide whether the app is in the foreground, so a
+  push arriving as the app opens or closes could play twice or not at
+  all. The app's foreground handling only re-reads the inbox, as before;
+  no system notification is added in the foreground
+- the *Alert* group's description says it applies whether the app is open
+  or not
+- tests: what a push plays on the phone from the saved settings, with the
+  app open (general and critical, its own once switched on, on silent and
+  during do-not-disturb with and without the access), and that a push
+  while the app is open plays once, from the phone's receiver, with the
+  app playing nothing itself and the event in the inbox; the device
+  review's `foreground-push` check requires the alert to be logged as
+  played, once, and the by-hand list says what the owner checks;
+  `docs/architecture.md` (Client application, Alert), `client/README.md`
+  (Alert); compatible (`fix(client)`), no API change. The exit criteria
+  need the owner's phone
+
 ---
 
 ## 4. Planned roadmap
@@ -2618,8 +2647,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 43    | R54 - Sending a test event from the admin page                                                   | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 46    | R57 - The alert also plays while the app is open                                                 | Increment (`fix(client)`)              | Next                                                                             |
-| 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Blocked until R57 is merged                                                      |
+| 46    | R57 - The alert also plays while the app is open                                                 | Increment (`fix(client)`)              | Done (see section 3)                                                             |
+| 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -4500,8 +4529,8 @@ sees).
 
 ### R57 - The alert also plays while the app is open
 
-Status: planned; next. Added by the maintainer (2026-10-02), from use on
-the phone.
+Status: done (see section 3). Added by the maintainer (2026-10-02), from
+use on the phone.
 
 Goal: a SignalHub push is heard and felt whether or not the app is open.
 Since R45, a push that arrives while the app is in the foreground plays
@@ -4546,8 +4575,7 @@ shows the in-app notice, once.
 
 ### R58 - The second batch of Dependabot updates
 
-Status: planned; blocked until R57 is merged. Added by the maintainer
-(2026-10-02).
+Status: planned; next. Added by the maintainer (2026-10-02).
 
 Goal: the build, CI and admin-page library updates Dependabot proposed
 after R49 are applied, verified and released, and no Dependabot pull
@@ -4717,7 +4745,8 @@ silent and during do-not-disturb for every push; the critical alert
 inside Alert), R51 (the admin page: sections, and producers), R52 (the
 admin page: browsing events), R53 (deleting events: the API and the
 admin page), R54 (sending a test event from the admin page) and R55 (the
-admin page: a status panel) and R56 (an event's delivery) are done. **R57 (the alert also plays while the app is open) is next**, then R58
-(the second batch of Dependabot updates) once R57 is merged.
+admin page: a status panel), R56 (an event's delivery) and R57 (the
+alert also plays while the app is open) are done. **R58 (the second batch
+of Dependabot updates) is next.**
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

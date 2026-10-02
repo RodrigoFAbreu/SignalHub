@@ -462,6 +462,34 @@ void main() {
     expect(app.takeEventToOpen(), isNull);
   });
 
+  test('a push while the app is open plays its alert once, from the phone, '
+      'and is in the inbox', () async {
+    final platform = FakeAlertPlatform();
+    final app = AppController(
+      store: store,
+      apiFactory: (credentials) =>
+          backend.api(credentials.baseUrl, credentials.clientKey),
+      redeemPairing: backend.redeemPairing,
+      push: push,
+      alertPlatform: platform,
+    );
+    await app.start();
+    await app.connect(serverUrl, clientKey);
+    backend.publish('e-1', 'First', severity: 'CRITICAL');
+
+    // PushAlertReceiver plays it as it arrives, and Firebase hands it to the
+    // app; the app only re-reads the inbox, so it is never played twice.
+    platform.pushArrives('CRITICAL');
+    push.received.add(const PushNotice(title: 'First', eventId: 'e-1'));
+    await pumpEventQueue();
+
+    expect(platform.pushes, hasLength(1));
+    expect(platform.pushes.single.played, isNotNull);
+    expect(platform.previewed, isEmpty);
+    expect(app.events.map((e) => e.id), ['e-1']);
+    app.dispose();
+  });
+
   test('returning to the foreground re-reads the inbox', () async {
     final app = controller();
     await app.connect(serverUrl, clientKey);

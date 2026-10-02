@@ -1,7 +1,5 @@
 package io.github.rodrigofabreu.signalhub
 
-import android.app.ActivityManager
-import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -11,22 +9,18 @@ import android.os.Bundle
 import android.util.Log
 
 /**
- * Plays SignalHub's alert for a push the system shows: the events channel
- * is silent, so this is the push's sound and vibration, a critical push's
- * own or the general one. It receives every
- * FCM message, alongside Firebase's own receivers, which show the
- * notification.
+ * Plays SignalHub's alert for every push: the events channel is silent, so
+ * this is the push's sound and vibration, a critical push's own or the
+ * general one. It receives every FCM message, alongside Firebase's own
+ * receivers, which show the notification in the background and hand the
+ * push to the app in the foreground. Playing it here, and nowhere else,
+ * whether the app is open or not, plays it once per push.
  */
 class PushAlertReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val extras = intent.extras ?: return
-        if (!isShownNotification(extras)) return
+        if (!isNotification(extras)) return
         val app = context.applicationContext
-        // In the foreground Firebase shows nothing: the app's own notice.
-        if (inForeground(app)) {
-            Log.i(AlertPlayer.TAG, "Alert not played (the app is in the foreground)")
-            return
-        }
         val muted = mutedByOwner(app)
         if (muted != null) {
             Log.i(AlertPlayer.TAG, "Alert not played ($muted)")
@@ -40,22 +34,14 @@ class PushAlertReceiver : BroadcastReceiver() {
     }
 
     /**
-     * Whether Firebase shows this message as a notification: a message
-     * with a notification part, which every SignalHub push has, and not an
-     * FCM housekeeping message.
+     * Whether this message is a notification: a message with a
+     * notification part, which every SignalHub push has, and not an FCM
+     * housekeeping message.
      */
-    private fun isShownNotification(extras: Bundle): Boolean {
+    private fun isNotification(extras: Bundle): Boolean {
         val type = extras.getString("message_type")
         if (type != null && type != "gcm") return false
         return extras.keySet().any { it.startsWith("gcm.n.") || it.startsWith("gcm.notification.") }
-    }
-
-    /** As Firebase decides it: the app in front and the phone unlocked. */
-    private fun inForeground(context: Context): Boolean {
-        if (context.getSystemService(KeyguardManager::class.java).isKeyguardLocked) return false
-        val process = ActivityManager.RunningAppProcessInfo()
-        ActivityManager.getMyMemoryState(process)
-        return process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
     }
 
     /**

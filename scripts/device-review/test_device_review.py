@@ -21,6 +21,7 @@ from device_review import (
     check_alert_critical_quiet,
     check_alert_played,
     check_alert_quiet,
+    check_foreground_push,
     check_popup_over_other_app,
     check_push_preferences,
     find_node,
@@ -219,7 +220,6 @@ class AlertLogTest(unittest.TestCase):
                     "sound=beacon volume=80% vibration=medium "
                     "pattern=standard length=short"
                 ),
-                "Alert not played (the app is in the foreground)",
                 (
                     "Alert not played (do not disturb): "
                     "sound=signal volume=80% vibration=medium "
@@ -313,6 +313,39 @@ class AlertCheckTest(unittest.TestCase):
         review, _ = self.review(["Alert not played (silent mode): sound=signal"])
         with self.assertRaisesRegex(CheckFailed, "silent mode"):
             check_alert_played(review)
+
+    def test_a_foreground_push_plays_its_alert_once(self):
+        review, steps = self.review(
+            [f"Alert played (sound on, vibration on): {GENERAL}"]
+        )
+        review.device.app_notifications.return_value = []
+        with mock.patch("time.sleep"):
+            detail = check_foreground_push(review)
+        self.assertEqual(steps, ["publish foreground"])
+        self.assertIn("played once (sound signal)", detail)
+
+    def test_a_foreground_push_not_played_fails(self):
+        review, _ = self.review([f"Alert not played (silent mode): {GENERAL}"])
+        review.device.app_notifications.return_value = []
+        with (
+            mock.patch("time.sleep"),
+            self.assertRaisesRegex(CheckFailed, "silent mode"),
+        ):
+            check_foreground_push(review)
+
+    def test_a_foreground_push_played_twice_fails(self):
+        played = f"Alert played (sound on, vibration on): {GENERAL}"
+        review, _ = self.review([played])
+        review.device.app_notifications.return_value = []
+
+        def again(_):
+            review.device.alert_messages.side_effect = lambda: [played, played]
+
+        with (
+            mock.patch("time.sleep", side_effect=again),
+            self.assertRaisesRegex(CheckFailed, "twice"),
+        ):
+            check_foreground_push(review)
 
     def test_quiet_during_do_not_disturb_which_is_turned_off_again(self):
         review, steps = self.review(["Alert not played (do not disturb): sound=x"])

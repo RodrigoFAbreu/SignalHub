@@ -598,6 +598,31 @@ class FakeAlertPlatform implements AlertPlatform {
     return played != null && plays;
   }
 
+  /// Each push that arrived ([pushArrives]): the alert the phone picked for
+  /// it, and what it did with it.
+  final pushes = <PushAlert>[];
+
+  /// A push of [severity] arrives: `PushAlertReceiver` plays the alert the
+  /// app saved for it, in the phone's state set here, the same whether the
+  /// app is open or not.
+  PushAlert pushArrives(String severity) {
+    final alert = alertForPush(
+      jsonDecode(stored!) as Map<String, Object?>,
+      severity,
+    );
+    final push = (
+      alert: alert,
+      played: playedOnPhone(
+        alert,
+        ringer: silent ? Ringer.silent : Ringer.normal,
+        doNotDisturb: doNotDisturb,
+        access: access,
+      ),
+    );
+    pushes.add(push);
+    return push;
+  }
+
   @override
   Future<bool> doNotDisturbAccess() async => access;
 
@@ -607,6 +632,12 @@ class FakeAlertPlatform implements AlertPlatform {
 
 /// The phone's ringer mode.
 enum Ringer { normal, vibrate, silent }
+
+/// The alert a push played on the phone, and what it did ([playedOnPhone]).
+typedef PushAlert = ({
+  Map<String, Object?> alert,
+  ({bool sound, bool vibration, bool alarm})? played,
+});
 
 /// What a push of [severity] plays from the [alerts] the app saved
 /// (`platformAlerts`), as `AlertPlayer.forPush` picks it.

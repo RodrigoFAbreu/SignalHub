@@ -311,15 +311,15 @@ client's registration (`GET /api/v1/admin/clients/{id}`) shows push target
 provider `fcm`. Publish an event and it arrives as a notification; on
 Android it pops up with SignalHub's own alert (see [Alert](#alert)), and
 *Settings → Apps → SignalHub → Notifications → Events* changes how. While the app is in the foreground, pushes appear in
-its list instead of as a system notification; pushes that arrived in the
+its list instead of as a system notification, with the same alert; pushes that arrived in the
 background are in the list when you return to the app. Pushes are delivered
 at least once; the app lists each event once.
 
 ## Alert
 
-On Android, a push shown while the app is in the background or closed
-sounds and vibrates as set in the *Alert* group of Settings, on this
-device only:
+On Android, a push sounds and vibrates as set in the *Alert* group of
+Settings, on this device only, whether the app is open, in the background
+or closed:
 
 - **Sound**: *Signal* (the default), *Beacon*, *Pulse*, *Glass* or
   *Urgent*, SignalHub's own sounds (see [sounds/](sounds/README.md) for their source
@@ -347,8 +347,10 @@ still going.
 
 Each change is saved on the phone at once and applies to the next push;
 the server never sees it. The settings survive app updates, and stay when
-the device disconnects. A push while the app is open plays nothing: it
-appears in the inbox.
+the device disconnects. A push while the app is open plays the same alert,
+under the same rules, and appears in the inbox, with no system
+notification. The app's push receiver plays every push's alert, the app
+open or not, and the app itself never plays one, so a push plays it once.
 
 Unless chosen otherwise below, the phone still decides: during Do Not
 Disturb the alert neither sounds nor vibrates, on silent mode likewise, on

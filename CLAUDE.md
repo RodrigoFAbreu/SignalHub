@@ -87,9 +87,9 @@ key, push registration and reception, with
 the server's push options when the build has none, the
 event inbox with its filters (unread only, producer, category, severity)
 and event details with opening an event's link, read state,
-push preferences, SignalHub's own alert on Android (bundled sounds or
-none, volume and vibration with its pattern and length, set in the app,
-stored on the device), sounding on silent and, with Do Not Disturb
+push preferences, SignalHub's own alert on Android, whether the app is
+open or not (bundled sounds or none, volume and vibration with its
+pattern and length, set in the app, stored on the device), sounding on silent and, with Do Not Disturb
 access, during Do Not Disturb for no push, critical ones only or all
 pushes as chosen, a
 separate alert for critical events chosen by severity alone (its own

@@ -36,6 +36,8 @@ EVENTS_CHANNEL = "signalhub_events"
 # The app's log tag for its alert (client/android, AlertPlayer.kt).
 ALERT_TAG = "SignalHubAlert"
 ALERT_WAIT = 15.0
+# How long a push's alert is given to play a second time, which it must not.
+ALERT_REPEAT_WAIT = 5.0
 IMPORTANCE_HIGH = 4
 # The windows the system shade has had across Android versions.
 SHADE_WINDOWS = frozenset({"NotificationShade", "StatusBar"})
@@ -961,12 +963,20 @@ def check_alert_critical_quiet(review: Review) -> str:
 
 def check_foreground_push(review: Review) -> str:
     review.inbox()
+    device = review.device
+    seen = len(device.alert_messages())
     title = review.title("foreground")
     review.server.publish(title)
-    review.device.wait_for(title, timeout=PUSH_WAIT)
-    if review.device.app_notifications(title):
+    device.wait_for(title, timeout=PUSH_WAIT)
+    sound = played_sound(device.wait_for_alert(seen))
+    time.sleep(ALERT_REPEAT_WAIT)
+    if len(device.alert_messages()) > seen + 1:
+        raise CheckFailed("a push in the foreground played its alert twice")
+    if device.app_notifications(title):
         raise CheckFailed("a push in the foreground posted a system notification")
-    return "in the inbox, no system notification"
+    return (
+        f"in the inbox, its alert played once (sound {sound}), no system notification"
+    )
 
 
 def open_from_shade(review: Review, title: str) -> None:
@@ -1260,7 +1270,7 @@ CHECKS = [
     Check(
         "foreground-push",
         check_foreground_push,
-        "a foreground push goes to the inbox, no notification",
+        "a foreground push plays the alert once, goes to the inbox, no notification",
     ),
     Check(
         "background-push",

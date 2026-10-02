@@ -4,7 +4,8 @@ import 'package:flutter/services.dart';
 
 /// The app's port to the platform code that plays the alert. Android's
 /// (`AlertPlayer.kt`) stores what [save] gives it on the device and plays it
-/// itself when a push arrives in the background (client/README.md, "Alert").
+/// itself when a push arrives, whether or not the app is open: the app never
+/// plays a push's alert, so it plays once (client/README.md, "Alert").
 abstract interface class AlertPlatform {
   /// What [save] stored last, or `null` if nothing was saved yet.
   Future<String?> load();
