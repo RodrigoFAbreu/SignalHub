@@ -1326,6 +1326,10 @@ and when; and when the most recent event arrived. See
   [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)
   (MIT), a Maven dependency of the backend (a WebJar) served from its jar,
   version-pinned in `pom.xml` like any other. No CDN, no network access.
+  The page loads its `dist/qrcode.js` from a path that names the version
+  (`/webjars/qrcode-generator/<version>/dist/qrcode.js`), so an update of
+  the library changes the page in the same pull request; a test fails if
+  any script the page loads is not served.
 - **Sharing a code** gives one device, whoever holds it, its own client
   until the code is used or expires. The page says so next to the buttons.
   The device is revoked like any other client, and the owner's devices are

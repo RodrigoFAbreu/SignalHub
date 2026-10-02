@@ -2073,6 +2073,57 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   (Alert); compatible (`fix(client)`), no API change. The exit criteria
   need the owner's phone
 
+### R58 - The second batch of Dependabot updates
+
+- all six Dependabot updates open on 2026-10-02 applied together, and no
+  other Dependabot pull request had opened meanwhile:
+  - #113: `actions/attest-build-provenance` 2 to 4, #114:
+    `actions/upload-artifact` 4 to 7, #115: `actions/download-artifact` 4
+    to 8, in `release.yml` (the Android app's attestation, and the APK
+    handed from the app job to the release job)
+  - #116: Maven 3.9.16 to 3.10.0 through the wrapper's
+    `maven-wrapper.properties` (the distribution's SHA-256 checked against
+    Maven Central's)
+  - #117: `org.webjars.npm:qrcode-generator` 1.4.4 to 2.0.4, with the
+    admin page and the Compose smoke test's proxy check following the
+    script to its new path, `/webjars/qrcode-generator/2.0.4/dist/qrcode.js`
+  - #118: `spotless-maven-plugin` 3.10.2 to 3.10.3
+- **none left out**. The release workflow needed no adjustment: every
+  input it passes is unchanged. `attest-build-provenance` 4 is a wrapper
+  over `actions/attest`, still taking `subject-path` with `id-token:
+  write` and `attestations: write` (its new storage records need
+  `artifact-metadata: write` only when pushing to a registry, which the
+  app's attestation does not); `upload-artifact` 7 still zips by default
+  (its unzipped uploads need `archive: false`, which would ignore `name`)
+  and keeps `name`, `path`, `if-no-files-found` and `retention-days`;
+  `download-artifact` 8 still extracts an artifact downloaded by name
+  into `path` and now fails on a digest mismatch, which only makes the
+  hand-over stricter. All three run on Node 24, as `actions/checkout@v7`
+  already does on the same hosted runners. actionlint passes
+- **decided: #116's failure was its line endings, not the wrapper**.
+  Dependabot also committed `backend/mvnw.cmd` with CRLF line endings in
+  the repository, against `.gitattributes` (LF in the repository, CRLF
+  only in a checkout), so a checkout showed it modified and the upgrade
+  job's `git checkout v0.13.0` refused to overwrite it. Its content is
+  otherwise unchanged (wrapper 3.3.4), so only the properties file is
+  taken and `mvnw.cmd` stays as it was; the upgrade job is unchanged and
+  checks out the old release over the new wrapper. A later wrapper update
+  from Dependabot needs the same: take the properties, not its
+  `mvnw.cmd`
+- qrcode-generator 2.0 keeps the API the page draws with (`qrcode(0,
+  "M")`, `addData`, `make`, `getModuleCount`, `isDark`); its `qrcode.js`
+  differs from 1.4.4's only by a fix to `renderTo2dContext`, which the
+  page does not use, so the pairing QR code is the same; the page still
+  runs only its own scripts from the backend's port, and the script is
+  not forwarded by the proxy
+- validated by `./mvnw verify` (Java 25, Maven 3.10.0, tests against
+  PostgreSQL through Dev Services, Spotless 3.10.3, SpotBugs), the admin
+  page driven in headless Chromium showing a pairing QR code that decodes
+  to its pairing link, actionlint, and CI on every job, including the
+  upgrade jobs; the Dependabot pull requests are closed as superseded
+  after it merges. Dependabot's configuration is unchanged; compatible
+  (`build`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2648,7 +2699,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 46    | R57 - The alert also plays while the app is open                                                 | Increment (`fix(client)`)              | Done (see section 3)                                                             |
-| 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Next                                                                             |
+| 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -4575,7 +4626,7 @@ shows the in-app notice, once.
 
 ### R58 - The second batch of Dependabot updates
 
-Status: planned; next. Added by the maintainer (2026-10-02).
+Status: complete (see section 3). Added by the maintainer (2026-10-02).
 
 Goal: the build, CI and admin-page library updates Dependabot proposed
 after R49 are applied, verified and released, and no Dependabot pull
@@ -4745,8 +4796,11 @@ silent and during do-not-disturb for every push; the critical alert
 inside Alert), R51 (the admin page: sections, and producers), R52 (the
 admin page: browsing events), R53 (deleting events: the API and the
 admin page), R54 (sending a test event from the admin page) and R55 (the
-admin page: a status panel), R56 (an event's delivery) and R57 (the
-alert also plays while the app is open) are done. **R58 (the second batch
-of Dependabot updates) is next.**
+admin page: a status panel), R56 (an event's delivery), R57 (the
+alert also plays while the app is open) and R58 (the second batch of
+Dependabot updates) are done. **The queue is empty: nothing further is
+scheduled.** A new item is added only by the maintainer, in a reviewed
+pull request; the deferred candidates of section 5 are not started
+without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
