@@ -22,7 +22,7 @@
     <spotless-plugin.version>3.10.2</spotless-plugin.version>
     <google-java-format.version>1.36.1</google-java-format.version>
     <spotbugs-plugin.version>4.10.4.1</spotbugs-plugin.version>
-    <qrcode-generator.version>1.4.4</qrcode-generator.version>
+    <qrcode-generator.version>2.0.4</qrcode-generator.version>
   </properties>
 
   <dependencyManagement>
