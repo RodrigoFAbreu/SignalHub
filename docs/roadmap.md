@@ -2619,6 +2619,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 44    | R55 - The admin page: a status panel                                                             | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 46    | R57 - The alert also plays while the app is open                                                 | Increment (`fix(client)`)              | Next                                                                             |
+| 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Blocked until R57 is merged                                                      |
 
 How an autonomous run uses it:
 
@@ -3009,6 +3010,13 @@ G1 → G2 → R19 v1.0.0
   notice, by design. Using the app, the owner misses those pushes, so the
   alert now plays in the foreground too, under the same rules as in the
   background, once per push.
+- **R58 was added by the maintainer on 2026-10-02**: six Dependabot pull
+  requests (#113 to #118) opened after R49. As R49 decided, they land
+  together in one pull request and one release, after R57, and are then
+  closed as superseded. Two need more than a version change (the admin
+  page's QR code library is served from a path that names its version;
+  the Maven wrapper update trips the upgrade job's checkout), and three
+  change only the release workflow, which pull-request CI cannot run.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3054,6 +3062,7 @@ advance; they follow from the queue.
 | R50           | minor (`feat(client)`)                                                                                                                                | new app choices and a reorganized settings group; no API change                                            |
 | R51 to R56    | minor (`feat`)                                                                                                                                        | admin page sections, new management endpoints, one migration with no operator action                       |
 | R57           | patch (`fix(client)`)                                                                                                                                 | the app plays its alert in the foreground too; no API change                                               |
+| R58           | patch (`build`)                                                                                                                                       | build, CI and a page library's version; no API or behaviour change                                         |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -4535,6 +4544,55 @@ Exit criteria: on the owner's phone, with the app open, a push plays the
 chosen alert, following silent mode and do-not-disturb as chosen, and
 shows the in-app notice, once.
 
+### R58 - The second batch of Dependabot updates
+
+Status: planned; blocked until R57 is merged. Added by the maintainer
+(2026-10-02).
+
+Goal: the build, CI and admin-page library updates Dependabot proposed
+after R49 are applied, verified and released, and no Dependabot pull
+request is left waiting.
+
+Scope:
+
+- the updates of the Dependabot pull requests open when this increment
+  starts, applied together on one branch from the latest `main`, as R49
+  did. On 2026-10-02 they were:
+  - #113: `actions/attest-build-provenance` 2 to 4, #114:
+    `actions/upload-artifact` 4 to 7, #115: `actions/download-artifact` 4
+    to 8, all in `release.yml` only. The release workflow runs only once
+    a change is merged, so pull-request CI never exercises them: read each
+    major version's breaking changes (artifact names, paths and
+    immutability, attestation inputs and permissions) against how
+    `release.yml` uses them, adjust it where needed, and lint it
+  - #116: Maven 3.9.16 to 3.10.0 through the Maven wrapper. Its CI failed
+    in the "upgrade from v0.13.0" job, which checks out an old release
+    over the changed wrapper files; that job is made to work with a
+    changed wrapper, without weakening what it tests
+  - #117: `org.webjars.npm:qrcode-generator` 1.4.4 to 2.0.4. It is the
+    admin page's QR code library, served from a path that names its
+    version (`/webjars/qrcode-generator/<version>/`); the page follows the
+    new version, and 2.0's API is checked against how the page draws the
+    pairing QR code (R34, R35); the QR code must still scan in the app
+  - #118: `com.diffplug.spotless:spotless-maven-plugin` 3.10.2 to 3.10.3
+- an update that cannot be taken safely is left out with the reason
+  recorded, never forced; a check that fails for a reason outside the
+  change is re-run, not worked around
+- the full validation: `./mvnw verify`, the admin page driven in a
+  headless browser showing a pairing QR code, and CI green on every job;
+  the release that follows is verified by the orchestrator as usual, with
+  extra attention to the artifact and attestation steps
+- once merged, each Dependabot pull request it covers is closed with a
+  comment naming the pull request that superseded it, if Dependabot has
+  not closed it already; one opened meanwhile is included if it is of the
+  same kind and its CI is green, as R49 decided
+
+Compatible (`build`, patch): build, CI and a page library's version; no
+API or behaviour change.
+
+Non-goals: changing Dependabot's configuration; updating dependencies
+Dependabot has not proposed; the app's or the SDK's runtime dependencies.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -4659,6 +4717,7 @@ silent and during do-not-disturb for every push; the critical alert
 inside Alert), R51 (the admin page: sections, and producers), R52 (the
 admin page: browsing events), R53 (deleting events: the API and the
 admin page), R54 (sending a test event from the admin page) and R55 (the
-admin page: a status panel) and R56 (an event's delivery) are done. **R57 (the alert also plays while the app is open) is next.**
+admin page: a status panel) and R56 (an event's delivery) are done. **R57 (the alert also plays while the app is open) is next**, then R58
+(the second batch of Dependabot updates) once R57 is merged.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
