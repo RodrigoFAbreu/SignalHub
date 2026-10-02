@@ -328,7 +328,7 @@ jobs:
               /q/info /q/health \
               /api/%2e%2e/q/metrics /q/health/ready /q/metrics \
               /q/openapi / /admin/ /admin /admin/admin.js /%61dmin/ /api/../admin/ /connect/ /connect \
-              /webjars/qrcode-generator/1.4.4/qrcode.js; do
+              /webjars/qrcode-generator/2.0.4/dist/qrcode.js; do
             status=$(https_status "$path")
             test "$status" = 404 || { echo "$path: expected 404, got $status"; exit 1; }
           done
