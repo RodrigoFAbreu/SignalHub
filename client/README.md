@@ -10,7 +10,9 @@ and its screen marks it read or unread again, whichever it is not.
 The filter button narrows the inbox to unread events, and to chosen
 producers, categories and severities; the server applies them, a bar above
 the inbox shows the active ones, and *Clear* removes them all. They last
-while the app runs and are not remembered after a restart.
+while the app runs and are not remembered after a restart. With *Unread only*
+on, an event that becomes read in the app (opened, marked read or *Mark all as
+read*) leaves the inbox, and one marked unread again returns in its place.
 An event with a link offers *Open link* on its screen, which opens it in the
 system browser (or the app the phone assigns to the address); the link is
 never opened from the inbox or the notification, only from the event.

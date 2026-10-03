@@ -2124,6 +2124,31 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   after it merges. Dependabot's configuration is unchanged; compatible
   (`build`)
 
+### R59 - A read event leaves the unread-only inbox
+
+- with *Unread only* on, an event the app marks read (opening it from the
+  inbox or a notification, *Mark as read*, or *Mark all as read*) leaves
+  the inbox, and one marked unread again returns in its newest-first place
+  (`createdAt`, then `id`, as the listing orders). The event's own screen
+  keeps showing it while it is open, and without the filter nothing changes
+- **decided: one rule, the filter's own**. `InboxFilter.admits` now checks
+  every part of the filter (read state, producer, category, severity), and
+  `AppController._replaceEvent` and *Mark all as read* apply it to what the
+  app changes, as the pages already did. An event it admits again is listed
+  again only if it is not older than the last event of the pages read; an
+  older one is left to the page that reaches it, so paging neither skips
+  nor repeats it. With *Unread only*, *Mark all as read* also ends paging
+  (everything at or before the newest event is read), so the inbox shows
+  its empty state at once. Nothing in the API, the backend or the other
+  components changed
+- tests: controller tests for opening, marking read, marking unread again
+  (in its place, at either end, not listed when another filter hides it),
+  marking all read, with and without the filter, and paging after an event
+  left the list; a widget test from the filtered inbox to an event and back;
+  the controller test that expected a read event to stay was replaced.
+  `docs/architecture.md` (Client application) and `client/README.md` say
+  it. Compatible (`fix(client)`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2700,7 +2725,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 46    | R57 - The alert also plays while the app is open                                                 | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 | 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Done (see section 3)                                                             |
-| 48    | R59 - A read event leaves the unread-only inbox                                                  | Increment (`fix(client)`)              | Next                                                                             |
+| 48    | R59 - A read event leaves the unread-only inbox                                                  | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -4682,7 +4707,7 @@ Dependabot has not proposed; the app's or the SDK's runtime dependencies.
 
 ### R59 - A read event leaves the unread-only inbox
 
-Status: next. Added by the maintainer (2026-10-03), from use on the phone.
+Status: complete (see section 3). Added by the maintainer (2026-10-03), from use on the phone.
 
 Goal: with **Unread only** on, the inbox shows only unread events, also
 after the owner reads one in the app. Today an event opened from the
@@ -4847,10 +4872,10 @@ inside Alert), R51 (the admin page: sections, and producers), R52 (the
 admin page: browsing events), R53 (deleting events: the API and the
 admin page), R54 (sending a test event from the admin page) and R55 (the
 admin page: a status panel), R56 (an event's delivery), R57 (the
-alert also plays while the app is open) and R58 (the second batch of
-Dependabot updates) are done. **R59 (a read event leaves the
-unread-only inbox) is next**, and the last item queued. A new item is
-added only by the maintainer, in a reviewed pull request; the deferred
-candidates of section 5 are not started without that.
+alert also plays while the app is open), R58 (the second batch of
+Dependabot updates) and R59 (a read event leaves the unread-only inbox)
+are done. **The queue is empty and nothing further is scheduled.** A new
+item is added only by the maintainer, in a reviewed pull request; the
+deferred candidates of section 5 are not started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

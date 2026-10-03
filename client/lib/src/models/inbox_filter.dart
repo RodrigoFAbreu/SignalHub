@@ -32,9 +32,14 @@ class InboxFilter {
   bool get narrowsEvents =>
       producerIds.isNotEmpty || categories.isNotEmpty || severities.isNotEmpty;
 
-  /// Whether the inbox shows [event] when a page brings it. A server released
-  /// before the `read` filter ignores it and returns read events too.
-  bool admits(Event event) => !unreadOnly || !event.isRead;
+  /// Whether the inbox shows [event], whether a page brings it or the app
+  /// changes it. A server released before the `read` filter ignores it and
+  /// returns read events too.
+  bool admits(Event event) =>
+      (!unreadOnly || !event.isRead) &&
+      (producerIds.isEmpty || producerIds.contains(event.producer.id)) &&
+      (categories.isEmpty || categories.contains(event.category)) &&
+      (severities.isEmpty || severities.contains(event.severity));
 
   InboxFilter copyWith({
     bool? unreadOnly,

@@ -85,7 +85,8 @@ and the Flutter client app
 in `client/` (setup by scanning or pasting a pairing code, or with a client
 key, push registration and reception, with
 the server's push options when the build has none, the
-event inbox with its filters (unread only, producer, category, severity)
+event inbox with its filters (unread only, producer, category, severity;
+an event the app reads leaves the unread-only view)
 and event details with opening an event's link, read state,
 push preferences, SignalHub's own alert on Android, whether the app is
 open or not (bundled sounds or none, volume and vibration with its

@@ -718,21 +718,140 @@ void main() {
       expect(app.events.map((e) => e.id), ['e-2', 'e-1']);
     });
 
-    test(
-      'an event read while shown stays until the inbox is read again',
-      () async {
-        backend.publish('e-1', 'Build failed');
+    group('follow an event the app reads or unreads', () {
+      Future<AppController> connected({InboxFilter filter = unreadOnly}) async {
         final app = controller();
         await app.connect(serverUrl, clientKey);
-        await app.setFilter(unreadOnly);
+        await app.setFilter(filter);
+        return app;
+      }
 
-        await app.markRead('e-1');
+      test('an event read leaves the unread-only view', () async {
+        backend
+          ..publish('e-1', 'First')
+          ..publish('e-2', 'Second');
+        final app = await connected();
 
-        expect(app.events.single.isRead, isTrue);
-        await app.refresh();
+        final opened = await app.markRead('e-2');
+
+        expect(opened.event?.isRead, isTrue);
+        expect(app.events.map((e) => e.id), ['e-1']);
+        expect(app.unreadCount, 1);
+      });
+
+      test('an event marked read leaves the view, and unread returns in '
+          'its place', () async {
+        backend
+          ..publish('e-1', 'First')
+          ..publish('e-2', 'Second')
+          ..publish('e-3', 'Third');
+        final app = await connected();
+
+        await app.setRead('e-2', read: true);
+        expect(app.events.map((e) => e.id), ['e-3', 'e-1']);
+
+        final unread = await app.setRead('e-2', read: false);
+        expect(unread.event?.isRead, isFalse);
+        expect(app.events.map((e) => e.id), ['e-3', 'e-2', 'e-1']);
+        expect(app.unreadCount, 3);
+      });
+
+      test('an event unread again returns at either end', () async {
+        backend
+          ..publish('e-1', 'First')
+          ..publish('e-2', 'Second');
+        final app = await connected();
+        await app.setRead('e-2', read: true);
+        await app.setRead('e-1', read: true);
         expect(app.events, isEmpty);
-      },
-    );
+
+        await app.setRead('e-1', read: false);
+        await app.setRead('e-2', read: false);
+
+        expect(app.events.map((e) => e.id), ['e-2', 'e-1']);
+      });
+
+      test('an event not in the view and read stays out of it', () async {
+        backend.publish('e-1', 'First');
+        final app = await connected();
+        backend.publish('e-2', 'Second');
+
+        await app.markRead('e-2');
+
+        expect(app.events.map((e) => e.id), ['e-1']);
+      });
+
+      test('marking all read leaves the unread-only view empty', () async {
+        backend
+          ..publish('e-1', 'First')
+          ..publish('e-2', 'Second');
+        final app = await connected();
+
+        expect(await app.markAllRead(), isNull);
+
+        expect(app.events, isEmpty);
+        expect(app.hasMore, isFalse);
+        expect(app.unreadCount, 0);
+      });
+
+      test('without the filter a read event stays, shown as read', () async {
+        backend
+          ..publish('e-1', 'First')
+          ..publish('e-2', 'Second');
+        final app = await connected(filter: InboxFilter.none);
+
+        await app.markRead('e-2');
+        expect(app.events.map((e) => e.id), ['e-2', 'e-1']);
+        expect(app.events.first.isRead, isTrue);
+
+        await app.markAllRead();
+        expect(app.events.map((e) => e.isRead), [true, true]);
+      });
+
+      test('an event another filter hides does not return', () async {
+        backend
+          ..publish('e-1', 'Disk full', producer: {'id': 'p-2', 'name': 'nas'})
+          ..publish('e-2', 'Build failed', readAt: '2026-09-25T12:10:00Z');
+        final app = await connected(
+          filter: const InboxFilter(unreadOnly: true, producerIds: {'p-2'}),
+        );
+
+        await app.setRead('e-2', read: false);
+
+        expect(app.events.map((e) => e.id), ['e-1']);
+      });
+
+      test('paging goes on after events left, and counts each event '
+          'once', () async {
+        backend.publish('e-000', 'Oldest', readAt: '2026-09-25T12:10:00Z');
+        for (var i = 1; i <= AppController.pageSize + 1; i++) {
+          backend.publish('e-${'$i'.padLeft(3, '0')}', 'Event $i');
+        }
+        final app = await connected();
+        final newest = app.events.first.id;
+        expect(app.hasMore, isTrue);
+
+        await app.setRead(newest, read: true);
+        // Older than every page read: the next page brings it.
+        await app.setRead('e-000', read: false);
+        expect(app.events.map((e) => e.id), isNot(contains('e-000')));
+        expect(app.events, hasLength(AppController.pageSize - 1));
+
+        await app.loadMore();
+        expect(
+          app.events.map((e) => e.id).toSet(),
+          hasLength(app.events.length),
+        );
+        expect(app.events.map((e) => e.id), contains('e-000'));
+        expect(app.events.map((e) => e.id), isNot(contains(newest)));
+        expect(app.hasMore, isFalse);
+
+        await app.setRead(newest, read: false);
+        expect(app.events.first.id, newest);
+        await app.refresh();
+        expect(app.events.first.id, newest);
+      });
+    });
 
     test('are cleared with one action', () async {
       backend
