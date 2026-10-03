@@ -135,6 +135,11 @@ class AppController extends ChangeNotifier {
 
   String? _nextCursor;
 
+  /// The last event of the newest-first pages read so far, before the filter
+  /// dropped any. An event the app changes is listed again only if it is not
+  /// older than this: an older one comes with a later page.
+  Event? _lastRead;
+
   /// Counts inbox reloads, so an older page requested before a reload is not
   /// appended after it.
   int _inboxGeneration = 0;
@@ -378,6 +383,7 @@ class AppController extends ChangeNotifier {
   void _showFirstPage(EventPage page, InboxFilter filter) {
     events = _shown(page, filter);
     _nextCursor = page.nextCursor;
+    _lastRead = page.items.lastOrNull;
     inboxLoaded = true;
     loadMoreError = null;
   }
@@ -401,6 +407,7 @@ class AppController extends ChangeNotifier {
       if (generation == _inboxGeneration) {
         events = [...events, ..._shown(page, filter)];
         _nextCursor = page.nextCursor;
+        _lastRead = page.items.lastOrNull ?? _lastRead;
       }
     } on UnauthorizedException {
       await _forgetRevokedKey();
@@ -414,8 +421,8 @@ class AppController extends ChangeNotifier {
 
   /// The events of [page] the inbox shows, noting their producers. Read
   /// events are dropped from the unread-only view because a server released
-  /// before the `read` filter ignores it; events read while shown stay until
-  /// the inbox is read again.
+  /// before the `read` filter ignores it. The same rule applies when the app
+  /// changes an event ([_replaceEvent]).
   List<Event> _shown(EventPage page, InboxFilter filter) {
     for (final event in page.items) {
       _producers[event.producer.id] = event.producer;
@@ -430,6 +437,7 @@ class AppController extends ChangeNotifier {
     filter = next;
     events = const [];
     _nextCursor = null;
+    _lastRead = null;
     inboxLoaded = false;
     loadMoreError = null;
     notifyListeners();
@@ -490,7 +498,11 @@ class AppController extends ChangeNotifier {
       // the newest one, so all of them are read now; the time is the app's
       // estimate, and a reload shows the server's.
       final now = DateTime.now().toUtc();
-      events = [for (final e in events) e.isRead ? e : e.withReadAt(now)];
+      final read = [for (final e in events) e.isRead ? e : e.withReadAt(now)];
+      events = read.where(filter.admits).toList(growable: false);
+      // Everything at or before the newest event is read, so no older page
+      // has an unread event left to bring.
+      if (filter.unreadOnly) _nextCursor = null;
       await _readUnreadCount();
     });
   }
@@ -528,8 +540,38 @@ class AppController extends ChangeNotifier {
 
   Event? _eventWithId(String id) => events.where((e) => e.id == id).firstOrNull;
 
+  /// Shows [updated] as the server returned it, as the filter allows: an
+  /// event it no longer admits (read, under unread only) leaves the list, and
+  /// one it admits again (unread) returns in its newest-first place, unless
+  /// that is beyond the pages read, which bring it themselves.
   void _replaceEvent(Event updated) {
-    events = [for (final e in events) e.id == updated.id ? updated : e];
+    final others = [
+      for (final e in events)
+        if (e.id != updated.id) e,
+    ];
+    if (!filter.admits(updated)) {
+      events = others;
+      return;
+    }
+    final index = events.indexWhere((e) => e.id == updated.id);
+    if (index >= 0) {
+      events = [...events]..[index] = updated;
+    } else if (_nextCursor == null || _notAfterLastRead(updated)) {
+      final at = others.indexWhere((e) => _isNewer(updated, e));
+      events = others..insert(at < 0 ? others.length : at, updated);
+    }
+  }
+
+  bool _notAfterLastRead(Event event) {
+    final last = _lastRead;
+    return last != null && !_isNewer(last, event);
+  }
+
+  /// Whether [a] comes before [b] in the listing's order: `createdAt`, then
+  /// `id`, both descending.
+  static bool _isNewer(Event a, Event b) {
+    final byTime = a.createdAt.compareTo(b.createdAt);
+    return byTime != 0 ? byTime > 0 : a.id.compareTo(b.id) > 0;
   }
 
   /// Replaces which events are pushed to this installation. Returns an error
@@ -884,6 +926,7 @@ class AppController extends ChangeNotifier {
     _producers.clear();
     unreadCount = null;
     _nextCursor = null;
+    _lastRead = null;
     _inboxGeneration++;
     inboxLoaded = false;
     loadingMore = false;

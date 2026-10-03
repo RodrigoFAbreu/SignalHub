@@ -1468,6 +1468,25 @@ void main() {
       }
     });
 
+    testWidgets('an event read from the unread-only view leaves it', (
+      tester,
+    ) async {
+      await connect(tester);
+      await openFilters(tester);
+      await tapInSheet(tester, find.byKey(const Key('unreadOnly')));
+      await closeSheet(tester);
+
+      await tester.tap(find.text('Nightly build failed'));
+      await settle(tester);
+      // Its own screen keeps showing it, as read.
+      expect(find.byKey(const Key('markUnread')), findsOneWidget);
+      await tester.pageBack();
+      await settle(tester);
+
+      expect(find.text('Nightly build failed'), findsNothing);
+      expect(find.text('Disk almost full'), findsOneWidget);
+    });
+
     testWidgets('say when no event matches', (tester) async {
       await connect(tester);
       await openFilters(tester);

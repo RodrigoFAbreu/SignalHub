@@ -1977,9 +1977,14 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   per-client inbox state either). Client keys cannot list producers, so the
   producers offered are those of the events the inbox has read since the
   app connected, by name, including those a filter now hides; a producer
-  appears once one of its events has been listed. An event read while shown
-  in the unread-only view stays, shown as read, until the inbox is read
-  again. The app bar's unread count is always the server's count of every
+  appears once one of its events has been listed. The inbox
+  follows its filter when the app itself changes an event, by the same rule
+  as for a page: with *Unread only*, an event marked read (opened from the
+  inbox or a notification, *Mark as read*, or *Mark all as read*) leaves the
+  list, though its own screen keeps showing it; marked unread again it
+  returns in its newest-first place, unless that is beyond the pages read,
+  which bring it themselves. Without *Unread only* a read event stays,
+  shown as read. The app bar's unread count is always the server's count of every
   unread event. *Mark all as read* is offered with *Unread only* but not
   with a producer, category or severity filter, since it would also mark
   events the filter hides. A server older than v2.5.0 ignores `read`
