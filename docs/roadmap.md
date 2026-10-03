@@ -2700,6 +2700,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 45    | R56 - An event's delivery                                                                        | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 46    | R57 - The alert also plays while the app is open                                                 | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 | 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Done (see section 3)                                                             |
+| 48    | R59 - A read event leaves the unread-only inbox                                                  | Increment (`fix(client)`)              | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3097,6 +3098,12 @@ G1 → G2 → R19 v1.0.0
   page's QR code library is served from a path that names its version;
   the Maven wrapper update trips the upgrade job's checkout), and three
   change only the release workflow, which pull-request CI cannot run.
+- **R59 was added by the maintainer on 2026-10-03**: with **Unread only**
+  on, an event opened from the inbox, and so marked read, is still listed
+  when the owner goes back to the inbox. The filter is applied only when a
+  page is read from the server, not when the app changes an event's read
+  state itself, so the inbox shows a read event under a filter that hides
+  read ones until it is reloaded.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3143,6 +3150,7 @@ advance; they follow from the queue.
 | R51 to R56    | minor (`feat`)                                                                                                                                        | admin page sections, new management endpoints, one migration with no operator action                       |
 | R57           | patch (`fix(client)`)                                                                                                                                 | the app plays its alert in the foreground too; no API change                                               |
 | R58           | patch (`build`)                                                                                                                                       | build, CI and a page library's version; no API or behaviour change                                         |
+| R59           | patch (`fix(client)`)                                                                                                                                 | the inbox follows its read-state filter after a change in the app; no API change                           |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -4672,6 +4680,48 @@ API or behaviour change.
 Non-goals: changing Dependabot's configuration; updating dependencies
 Dependabot has not proposed; the app's or the SDK's runtime dependencies.
 
+### R59 - A read event leaves the unread-only inbox
+
+Status: next. Added by the maintainer (2026-10-03), from use on the phone.
+
+Goal: with **Unread only** on, the inbox shows only unread events, also
+after the owner reads one in the app. Today an event opened from the
+inbox (and so marked read) is still listed when the owner goes back to
+it, because the filter is applied only to the pages read from the
+server, not when the app changes an event's read state itself.
+
+Scope, the app:
+
+- with **Unread only** on, an event marked read in the app (by opening
+  it from the inbox or from a notification, or with its *Mark as read*
+  action) is no longer listed when the owner is back in the inbox; the
+  event's own screen keeps showing it while it is open
+- marking it unread again from its screen, with the filter on, lists it
+  again in its place among the newest-first events
+- **Mark all as read** with the filter on leaves the inbox empty, with
+  its usual empty state, and the unread count at zero
+- without the filter, nothing changes: a read event stays listed, shown
+  as read
+- the rule is the filter's own (`InboxFilter.admits`), applied wherever
+  the app changes the events it shows, not a special case per screen;
+  paging further (the next page's position) and pull to refresh keep
+  working after events left the list
+- tests: controller tests for each case above (open, mark read, mark
+  unread again, mark all as read, with and without the filter, and
+  paging after an event left the list), and a widget test that goes from
+  the filtered inbox to an event and back and no longer finds it;
+  `docs/architecture.md` (Client application) and `client/README.md`
+  where they describe the filter, if they need it
+
+Compatible (`fix(client)`): no API change.
+
+Non-goals: other filters reacting to changes (producer, category and
+severity never change on an event); an animation or undo when an event
+leaves the list.
+
+Exit criteria: on the owner's phone, with **Unread only** on, opening an
+event and going back leaves it out of the inbox.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -4798,9 +4848,9 @@ admin page: browsing events), R53 (deleting events: the API and the
 admin page), R54 (sending a test event from the admin page) and R55 (the
 admin page: a status panel), R56 (an event's delivery), R57 (the
 alert also plays while the app is open) and R58 (the second batch of
-Dependabot updates) are done. **The queue is empty: nothing further is
-scheduled.** A new item is added only by the maintainer, in a reviewed
-pull request; the deferred candidates of section 5 are not started
-without that.
+Dependabot updates) are done. **R59 (a read event leaves the
+unread-only inbox) is next**, and the last item queued. A new item is
+added only by the maintainer, in a reviewed pull request; the deferred
+candidates of section 5 are not started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
