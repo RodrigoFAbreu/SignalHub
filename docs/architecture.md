@@ -1597,6 +1597,18 @@ key.
 - **Message.** A `PushMessage` becomes an FCM notification message: the title
   and optional body as `notification`, the data as `data`, addressed to the
   push target's token. Nothing FCM-specific leaks out of the provider.
+- **Priority.** Every message carries `android.priority` `HIGH`, whatever the
+  event's severity or producer, and `PushMessage` has no field for it: it is how
+  this provider delivers a user-visible push. Without it FCM sends a
+  normal-priority message, which Android's doze and app standby, and a
+  manufacturer's app freezer, may hold until the phone wakes. A high-priority
+  message is delivered at once and lets the app run briefly to show its
+  notification and play its alert, so a push reaches a dozing phone or a frozen
+  app in seconds. FCM keeps high priority for messages that show a notification
+  to the user and may lower the priority of high-priority messages that do not;
+  every SignalHub push shows one, and a push is sent only when the owner's
+  preferences let it through. No time to live or collapse key is set, and iOS
+  (APNs) priority is not, since no iOS build is distributed.
 - **Outcomes.**
 
   | FCM answer | Outcome |

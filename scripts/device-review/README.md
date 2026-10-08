@@ -210,6 +210,11 @@ previous release:
     one), or opening the app, stops the vibration. On silent, during Do
     Not Disturb and with the *Events* category silent, a long vibration
     follows items 6, 10 and 11 exactly as a short one does.
+17. With the screen off and the app in the background (and again once
+    the phone has dozed for a while), a push is shown and plays its
+    alert within seconds, without unlocking the phone; `adb logcat`
+    or `dumpsys` records it as a high-priority FCM message, not
+    `normal-prio FCM`.
 
 ## Published events
 

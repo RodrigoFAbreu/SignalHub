@@ -70,6 +70,17 @@ class FcmPushProviderTest {
   }
 
   @Test
+  void sendsEveryPushWithHighAndroidPriority() {
+    provider.send(TOKEN, MESSAGE);
+    provider.send(TOKEN, new PushMessage("Title only", null, Map.of()));
+
+    for (var send : fcm.sends()) {
+      assertEquals("HIGH", send.body().path("message").path("android").path("priority").asText());
+    }
+    assertEquals(2, fcm.sends().size());
+  }
+
+  @Test
   void leavesOutAnAbsentBodyAndEmptyData() {
     provider.send(TOKEN, new PushMessage("Title only", null, Map.of()));
 
