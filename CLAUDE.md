@@ -70,7 +70,8 @@ per-client push preferences (pause, minimum severity, muted categories and produ
 each client's last push results in the management API, each event's delivery
 records per device (`/api/v1/admin/events/{id}/deliveries`), and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging
-provider enabled by a service account key file (and the app's push options
+provider enabled by a service account key file (every push sent with
+high Android priority, so it reaches a dozing phone at once; and the app's push options
 served to clients at `/api/v1/client/push-config`), and event-triggered push
 dispatch through a PostgreSQL outbox with bounded retries of temporary
 failures, Prometheus metrics (`/q/metrics`) including event and push

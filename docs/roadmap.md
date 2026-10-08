@@ -2149,6 +2149,21 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `docs/architecture.md` (Client application) and `client/README.md` say
   it. Compatible (`fix(client)`)
 
+### R60 - Pushes reach a sleeping phone at once
+
+- the FCM provider sends every push with Android priority `HIGH`
+  (`message.android.priority`), whatever the event's severity or producer,
+  so FCM delivers it at once to a dozing phone or one whose app the
+  manufacturer froze, and the app shows its notification and plays its
+  alert within seconds. Nothing else in the message changed, and
+  `PushMessage` has no new field: priority is how the FCM provider
+  delivers a user-visible push, and every SignalHub push shows a
+  notification, which is what FCM keeps high priority for
+- tests: the FCM provider's test against the fake FCM checks the request
+  carries priority `HIGH` for a push with a body and one without.
+  `docs/architecture.md` (the FCM provider) says why, and the device
+  review's by-hand list has a check with the screen off. Compatible (`fix`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2726,7 +2741,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 46    | R57 - The alert also plays while the app is open                                                 | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 | 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Done (see section 3)                                                             |
 | 48    | R59 - A read event leaves the unread-only inbox                                                  | Increment (`fix(client)`)              | Done (see section 3)                                                             |
-| 49    | R60 - Pushes reach a sleeping phone at once                                                      | Increment (`fix`)                      | Next                                                                             |
+| 49    | R60 - Pushes reach a sleeping phone at once                                                      | Increment (`fix`)                      | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -4762,8 +4777,8 @@ event and going back leaves it out of the inbox.
 
 ### R60 - Pushes reach a sleeping phone at once
 
-Status: next. Added by the maintainer (2026-10-08), from use on the
-phone.
+Status: complete (see section 3). Added by the maintainer (2026-10-08),
+from use on the phone.
 
 Goal: a push wakes the owner's phone when it is sent, also when the
 phone is asleep and the app is in the background or held by the
@@ -4937,10 +4952,10 @@ admin page: browsing events), R53 (deleting events: the API and the
 admin page), R54 (sending a test event from the admin page) and R55 (the
 admin page: a status panel), R56 (an event's delivery), R57 (the
 alert also plays while the app is open), R58 (the second batch of
-Dependabot updates) and R59 (a read event leaves the unread-only inbox)
-are done. **R60 (pushes reach a sleeping phone at once) is next**, and
-the last item queued. A new item is added only by the maintainer, in a
-reviewed pull request; the deferred candidates of section 5 are not
-started without that.
+Dependabot updates), R59 (a read event leaves the unread-only inbox)
+and R60 (pushes reach a sleeping phone at once) are done. **The queue is
+empty and nothing further is scheduled.** A new item is added only by the
+maintainer, in a reviewed pull request; the deferred candidates of
+section 5 are not started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

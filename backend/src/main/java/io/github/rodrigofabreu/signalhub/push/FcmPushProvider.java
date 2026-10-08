@@ -102,6 +102,9 @@ final class FcmPushProvider implements PushProvider {
     var root = json.createObjectNode();
     var fcmMessage = root.putObject("message");
     fcmMessage.put("token", token);
+    // Every push shows a notification, which is what FCM reserves high priority for. Without it
+    // FCM delivers as normal priority, and a dozing or app-frozen phone holds the message.
+    fcmMessage.putObject("android").put("priority", "HIGH");
     var notification = fcmMessage.putObject("notification");
     notification.put("title", message.title());
     if (message.body() != null) {
