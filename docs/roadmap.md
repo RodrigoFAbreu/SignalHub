@@ -2726,6 +2726,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 46    | R57 - The alert also plays while the app is open                                                 | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 | 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Done (see section 3)                                                             |
 | 48    | R59 - A read event leaves the unread-only inbox                                                  | Increment (`fix(client)`)              | Done (see section 3)                                                             |
+| 49    | R60 - Pushes reach a sleeping phone at once                                                      | Increment (`fix`)                      | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3129,6 +3130,17 @@ G1 → G2 → R19 v1.0.0
   page is read from the server, not when the app changes an event's read
   state itself, so the inbox shows a read event under a filter that hides
   read ones until it is reloaded.
+- **R60 was added by the maintainer on 2026-10-08**: some pushes reach
+  the owner's phone only when it is unlocked. Debugged on the owner's
+  phone (a Samsung on Android 16): the backend hands every push to FCM
+  within about 2 s, and FCM brings it to the phone at once, but as a
+  normal-priority message (Android records `normal-prio FCM` for it, and
+  the broadcast lacks the foreground flag high-priority messages carry).
+  While the phone dozes, or Samsung's app freezer holds SignalHub, such a
+  message waits; on 2026-10-08 a `HIGH` push arrived at 20:38:49 and was
+  handed to the frozen app, alerted and shown only at 20:42:43, when the
+  owner unlocked the phone. The FCM message never sets its Android
+  priority, so FCM's default applies.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3176,6 +3188,7 @@ advance; they follow from the queue.
 | R57           | patch (`fix(client)`)                                                                                                                                 | the app plays its alert in the foreground too; no API change                                               |
 | R58           | patch (`build`)                                                                                                                                       | build, CI and a page library's version; no API or behaviour change                                         |
 | R59           | patch (`fix(client)`)                                                                                                                                 | the inbox follows its read-state filter after a change in the app; no API change                           |
+| R60           | patch (`fix`)                                                                                                                                         | pushes are sent to FCM with high priority; no API or schema change                                         |
 
 R26 is expected to be the first major release after 1.0. No other breaking
 change is scheduled, and no new API version (`/api/v2`) is planned.
@@ -4747,6 +4760,57 @@ leaves the list.
 Exit criteria: on the owner's phone, with **Unread only** on, opening an
 event and going back leaves it out of the inbox.
 
+### R60 - Pushes reach a sleeping phone at once
+
+Status: next. Added by the maintainer (2026-10-08), from use on the
+phone.
+
+Goal: a push wakes the owner's phone when it is sent, also when the
+phone is asleep and the app is in the background or held by the
+manufacturer's battery management, instead of waiting until the owner
+unlocks the phone.
+
+Cause, found on the owner's phone (see "Order and why"): the FCM
+message sets no Android priority, so FCM delivers SignalHub's pushes as
+normal-priority messages, which Android's doze and app standby, and
+Samsung's app freezer, may hold until the phone wakes. High-priority
+messages are delivered at once and let the app run briefly to show its
+notification and play its alert; FCM keeps them for messages that show
+a notification to the user, which every SignalHub push does.
+
+Scope:
+
+- the FCM provider sends every push with Android priority `HIGH`
+  (`message.android.priority` in the HTTP v1 request), whatever the
+  event's severity: a push is sent only when the owner's preferences let
+  it through, and each shows a notification and plays the app's alert,
+  so each is user-visible as FCM requires of high-priority messages
+- nothing else in the message changes (notification, data, the
+  notification channel the app sets); no provider-neutral field is added
+  to `PushMessage` for it, since every push needs it: priority is how
+  the FCM provider delivers a user-visible push
+- tests: the FCM provider's test against the fake FCM checks that the
+  request carries Android priority `HIGH` for every severity (a test
+  that fails without the fix); `docs/architecture.md` (Push delivery, the
+  FCM provider) says why, and that a push the phone receives with the
+  app frozen or the phone dozing is shown at once; the device review's
+  by-hand list, if it lists push checks with the screen off, adds one
+- the increment checks the current FCM HTTP v1 documentation for the
+  field and its behaviour (for example what FCM does with high-priority
+  messages that show no notification) and records anything that
+  matters in the architecture document
+
+Compatible (`fix`, patch): no API, event schema or database change; the
+app is unchanged.
+
+Non-goals: per-severity or per-event priority; a time to live or
+collapse key; iOS (APNs) priority, since no iOS build is distributed;
+asking the owner to exempt the app from battery optimization.
+
+Exit criteria: on the owner's phone, with the screen off and the app in
+the background, a push is shown and plays its alert within seconds, and
+Android records it as a high-priority FCM message.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -4874,8 +4938,9 @@ admin page), R54 (sending a test event from the admin page) and R55 (the
 admin page: a status panel), R56 (an event's delivery), R57 (the
 alert also plays while the app is open), R58 (the second batch of
 Dependabot updates) and R59 (a read event leaves the unread-only inbox)
-are done. **The queue is empty and nothing further is scheduled.** A new
-item is added only by the maintainer, in a reviewed pull request; the
-deferred candidates of section 5 are not started without that.
+are done. **R60 (pushes reach a sleeping phone at once) is next**, and
+the last item queued. A new item is added only by the maintainer, in a
+reviewed pull request; the deferred candidates of section 5 are not
+started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
