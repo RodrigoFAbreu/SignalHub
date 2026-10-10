@@ -2742,6 +2742,13 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Done (see section 3)                                                             |
 | 48    | R59 - A read event leaves the unread-only inbox                                                  | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 | 49    | R60 - Pushes reach a sleeping phone at once                                                      | Increment (`fix`)                      | Done (see section 3)                                                             |
+| 50    | R61 - Users, roles and subscriptions                                                             | Increment (`feat!`)                    | Next                                                                             |
+| 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Blocked until R61 is merged                                                      |
+| 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Blocked until R62 is merged                                                      |
+| 53    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Blocked until R63 is merged                                                      |
+| 54    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
+| 55    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
+| 56    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
 
 How an autonomous run uses it:
 
@@ -3156,6 +3163,33 @@ G1 → G2 → R19 v1.0.0
   handed to the frozen app, alerted and shown only at 20:42:43, when the
   owner unlocked the phone. The FCM message never sets its Android
   priority, so FCM's default applies.
+- **R61 to R66 and G4 were added by the maintainer on 2026-10-10**:
+  SignalHub works for one person and one phone; when a friend uses it,
+  neither may receive the other's events. The maintainer's answers:
+  - a person gets an account only by the admin's invitation (a user and
+    a pairing code), with no passwords, e-mail or open sign-up
+  - three roles, which the maintainer set: `BASIC` by default (own
+    producers and subscriptions, no device management), `MOD` (also
+    their own devices) and `ADMIN` (also every device that is not an
+    admin's, inviting users, and Basic or Mod roles); admin is granted
+    or removed only on the admin page, on the machine. They replace the
+    earlier idea of reader and producer roles, which is dropped
+  - a public producer is visible to every user and open to subscribe
+    without approval; a private one to its owner and its allow-list
+  - the admin sees all traffic, private producers included, for testing
+    and debugging; each device keeps its push preferences on top of its
+    user's subscriptions
+  - removing a user revokes their devices and disables their producers
+  - both the app and a web page for users, the web page after the app;
+    the drawings come first (R64) and the maintainer approves them (G4)
+    before either is built. The server may later move to another
+    machine; nothing here depends on where it runs
+  - this is several people on one self-hosted server with three fixed
+    roles, not the multi-tenant SaaS or enterprise IAM that section 6
+    rules out
+  - a reply to an event (an answer recorded for its producer) is wanted
+    later by the workflow controller's orchestrator, which will raise it
+    itself; it is a deferred candidate, not queued
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3204,9 +3238,15 @@ advance; they follow from the queue.
 | R58           | patch (`build`)                                                                                                                                       | build, CI and a page library's version; no API or behaviour change                                         |
 | R59           | patch (`fix(client)`)                                                                                                                                 | the inbox follows its read-state filter after a change in the app; no API change                           |
 | R60           | patch (`fix`)                                                                                                                                         | pushes are sent to FCM with high priority; no API or schema change                                         |
+| R61           | major (`feat!`)                                                                                                                                       | users, roles and subscriptions; the client API no longer sets a device's admin flag; one migration         |
+| R62, R63      | minor (`feat`)                                                                                                                                        | new client and management endpoints; no change to producers                                                |
+| R64           | patch (`docs`)                                                                                                                                        | drawings only                                                                                              |
+| R65           | minor (`feat(client)`)                                                                                                                                | the app's screens for users; no API change                                                                 |
+| R66           | minor (`feat`)                                                                                                                                        | a public web page for users; the proxy forwards it                                                         |
 
-R26 is expected to be the first major release after 1.0. No other breaking
-change is scheduled, and no new API version (`/api/v2`) is planned.
+R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
+(`v3.0.0`): the only client API change it breaks is setting a device's
+admin flag, so no new API version (`/api/v2`) is planned.
 
 ### R20 - Version identity and the published backend image
 
@@ -4826,6 +4866,265 @@ Exit criteria: on the owner's phone, with the screen off and the app in
 the background, a push is shown and plays its alert within seconds, and
 Android records it as a high-priority FCM message.
 
+### R61 - Users, roles and subscriptions
+
+Status: next. Added by the maintainer (2026-10-10).
+
+Goal: SignalHub serves several people on one self-hosted server. Each
+person is a user with their own devices, producers and subscriptions, and
+receives only events from producers they subscribed to, while SignalHub
+stays producer-agnostic and producers keep the same API.
+
+Scope, the backend and the admin page:
+
+- **users**: a user has a name and a role, `BASIC`, `MOD` or `ADMIN`.
+  Every client (device) belongs to exactly one user, and every producer
+  is owned by exactly one user. There are no passwords, e-mail
+  addresses or external identity providers: a user is identified by
+  their paired devices' client keys, as the owner is today
+- **migration**: the existing data becomes the first user's, an `ADMIN`
+  named after the instance's owner (the name is editable): every
+  existing client and producer, every event's read state, and a
+  subscription to every existing producer. After the upgrade the owner
+  sees, receives and can do exactly what they did before
+- **visibility**: a producer is `PUBLIC` (every user on the server may
+  see it and subscribe) or `PRIVATE` (its owner and the users on its
+  allow-list). New producers are `PRIVATE`
+- **subscriptions**: a user subscribes to producers they can see; a
+  producer's owner is subscribed when it is created; losing sight of a
+  private producer (taken off its allow-list) ends the subscription
+- **what a user gets**: a client's inbox (`GET /api/v1/events`), unread
+  count, `GET /api/v1/events/{id}` and pushes cover only events of
+  producers its user is subscribed to; any other event is `404`. Read
+  state is per user (an event read on one of a user's devices is read
+  on all of that user's devices, not on anyone else's). A device's push
+  preferences (pause, minimum severity, muted categories and producers)
+  apply as today, on top of the subscriptions
+- **roles** (what each can do is enforced by the backend; the app and
+  the web page follow in R65 and R66):
+  - `BASIC`: owns producers and subscribes; cannot pair, rename, revoke
+    or delete devices, not even their own
+  - `MOD`: as `BASIC`, plus pairs, renames, revokes and deletes their
+    own devices; a mod cannot revoke their own last active device
+  - `ADMIN`: as `MOD`, plus sees every user's devices, revokes and
+    deletes any device that is not an admin's, invites users and sets
+    a user's role to `BASIC` or `MOD`
+  - **making a user an admin, or no longer an admin, is done only on the
+    admin page** (on the machine itself, with the admin token), never
+    from a device: machine access stays the final authority, and an
+    admin cannot demote, revoke or delete another admin's devices
+- **the device-level admin flag is replaced by the user's role**: a
+  device is an admin device exactly when its user is an `ADMIN`. The
+  client API's device listing keeps reporting `admin` for each device,
+  from its user's role; asking from a device to make a device an admin,
+  or no longer one, is refused with a problem response that says roles
+  are set per user. This removes a capability of the client API, so the
+  increment is breaking (`feat!`) with migration notes
+- **invitations**: on the admin page the operator creates a user (name,
+  role) and a pairing code for them; the device that redeems it belongs
+  to that user. A pairing code is always for a given user; the existing
+  pairing endpoints keep working, a code made from an admin device as
+  today being for that device's own user unless it names another
+- **removing a user**: on the admin page the operator revokes a user,
+  which revokes all their devices and disables their producers (their
+  keys stop working); their events stay, and can be deleted with the
+  existing event deletion. A revoked user cannot be an admin
+- **the admin page**: a *Users* section (each user's name, role,
+  devices, producers and subscriptions; invite; rename; set the role,
+  admin included; revoke). *Devices* shows each device's user;
+  *Producers* shows each producer's owner and visibility, creates a
+  producer for a given user, and edits its visibility and allow-list;
+  the operator still sees every event (the per-user view of the traffic
+  is R63)
+- the management API (`/api/v1/admin/...`, host only) gains the user,
+  role, visibility, allow-list and subscription operations the page
+  uses; nothing new is forwarded by the proxy
+- tests: every rule above against PostgreSQL (an event reaches only
+  subscribed users, in the inbox, the unread count, by ID and by push;
+  per-user read state; each role's device rights; admin only from the
+  admin page; the migration keeps an existing single-owner database
+  working, including the upgrade jobs from the latest release and from
+  v0.13.0); the end-to-end job with two users and a private producer;
+  `docs/architecture.md` (a new Users section, and every place that
+  says SignalHub has one owner), `docs/deployment.md` (upgrade notes),
+  `README.md`
+
+Breaking (`feat!`, major): the client API no longer changes a device's
+admin flag; producers and the event schema are unchanged; one migration,
+no operator action.
+
+Non-goals: self-service from devices (R62); the app's and a web page's
+screens for it (R65, R66); passwords, e-mail, OAuth or any external
+identity provider; configurable roles or permissions; quotas.
+
+Exit criteria: after upgrading the owner's server, the owner's phone and
+producers work as before; a second user invited on the admin page,
+paired on a second device, receives nothing from the owner's private
+producers and receives a public producer's events once subscribed.
+
+### R62 - Self-service for users: the API
+
+Status: blocked until R61 is merged. Added by the maintainer
+(2026-10-10).
+
+Goal: a user manages their own producers and subscriptions, and devices
+as their role allows, from their device, with no work on the machine
+and no keys handed over by hand.
+
+Scope, the client API (`/api/v1/client/...`, a client key; forwarded by
+the proxy like the rest of `/api/`):
+
+- **own producers**: create one (its key shown once in the answer),
+  list them with their keys (prefixes only) and last event, issue and
+  revoke keys, disable and enable, rename, set `PUBLIC` or `PRIVATE`,
+  and add or remove users on a private producer's allow-list
+- **the users on the server**: their names only, for choosing whom to
+  add to an allow-list
+- **producers a user can see**: the public ones and the private ones
+  they are allowed on, with their owner's name; subscribe and
+  unsubscribe
+- **devices, by role**: a `MOD` lists, pairs (a pairing code for
+  themselves), renames, revokes and deletes their own devices; an
+  `ADMIN` does the same for every user's devices that are not an
+  admin's, sees every device, creates pairing codes for any user,
+  invites a user (name, `BASIC` or `MOD`, and their first pairing code)
+  and sets a user's role to `BASIC` or `MOD`; a `BASIC` user gets `403`
+  for every device operation except reading their own devices
+- every answer is limited to what the caller's role and visibility
+  allow; a producer's key is never shown again after it is created;
+  logs carry IDs only
+- the Python SDK and command are unchanged (they publish with a
+  producer key)
+- tests: each operation for each role, visibility and allow-list
+  changes and their effect on subscriptions, keys created here
+  publishing events; `docs/architecture.md`
+
+Compatible (`feat`, minor).
+
+Non-goals: screens for it (R65, R66); inviting admins; transferring a
+producer to another user.
+
+Exit criteria: from the API alone, a basic user creates a producer,
+publishes with its key, makes it public, and a second user subscribes
+and receives its events; a mod pairs a second device of their own.
+
+### R63 - The admin page: traffic by user
+
+Status: blocked until R62 is merged. Added by the maintainer
+(2026-10-10).
+
+Goal: the operator (an admin) watches all traffic per user, for testing
+and debugging.
+
+Scope, the admin page and the management API:
+
+- *Events* filters by user (events of the producers a user owns, and
+  events a user is subscribed to), and an event shows which users it
+  reached and its delivery to each of their devices
+- *Users* shows, for each user, their recent events and deliveries
+- tests and `docs/architecture.md`
+
+Compatible (`feat`, minor). Non-goals: showing traffic to anyone but the
+operator; analytics.
+
+Exit criteria: on the owner's server with two users, the operator finds
+each user's events and deliveries on the admin page.
+
+### R64 - Designs for users in the app and on a web page
+
+Status: blocked until R63 is merged. Added by the maintainer
+(2026-10-10).
+
+Goal: before the app and a web page get the users' features, their
+screens are designed and agreed, so they are usable.
+
+Scope, documentation only (`docs/design/users/`):
+
+- wireframe drawings (SVG, readable in the repository and in the pull
+  request), one per screen or state, for the app and for the web page,
+  covering what R61 and R62 allow each role: first run from an
+  invitation, the user's producers (create, the key shown once, keys,
+  public or private, the allow-list), browsing and subscribing, devices
+  by role (`BASIC` read only, `MOD` their own, `ADMIN` everyone's and
+  inviting users and setting Basic or Mod), and the web page's sign-in
+  by pairing the browser and signing out
+- where each screen lives in the app's existing navigation (the inbox,
+  the gear icon's *Settings* with its folding groups, the *Devices*
+  screen), how a role changes what is shown, empty states and errors
+- the web page's layout on a phone and on a desktop browser
+- a written walk-through of the main flows, and the choices made with
+  their alternatives
+
+Docs (`docs`, patch). Non-goals: implementation; visual branding beyond
+the app's existing look.
+
+Exit criteria: the drawings are merged and G4 is put to the maintainer.
+
+### G4 - The maintainer approves the user designs
+
+Status: blocked until R64 is merged. A human gate.
+
+The maintainer reviews the drawings of R64 (`docs/design/users/`) and
+approves them, with or without changes, in a pull request or issue. R65
+and R66 build what was approved, with the changes asked for. An
+orchestrator stops here and never answers it.
+
+### R65 - Users in the app
+
+Status: blocked until G4 is passed. Added by the maintainer
+(2026-10-10).
+
+Goal: the app does everything R62 allows each role, as designed in R64
+and approved at G4.
+
+Scope: the screens of R64 as approved (with any changes the maintainer
+asked for at G4), on the R62 API; the app's *Devices* screen follows the
+user's role; the device admin switch is replaced by roles; tests (widget
+and controller tests per role), `client/README.md`,
+`docs/architecture.md` (Client application).
+
+Compatible (`feat(client)`, minor). Non-goals: anything not in the
+approved designs.
+
+Exit criteria: on the owner's phone and a second device, every flow of
+the approved designs works for an admin and for a basic user.
+
+### R66 - Users' web page
+
+Status: blocked until R65 is merged. Added by the maintainer
+(2026-10-10).
+
+Goal: a user can do from a browser what R62 allows their role, and read
+their inbox, as designed in R64 and approved at G4.
+
+Scope:
+
+- a web page served by the backend for users, separate from the admin
+  page (which stays host only), and forwarded by the proxy, so it is
+  public like `/api/`
+- **signing in pairs the browser**: the user approves it from a device
+  of theirs (for example with a code the page shows), and the browser
+  becomes a client of that user, revocable like any device and listed
+  as a browser; it is a device in every rule (roles, revocation)
+- the session is a cookie that is `HttpOnly`, `Secure` and
+  `SameSite=Strict`, expires, and is ended by signing out; state-changing
+  requests are protected against cross-site request forgery; the page
+  runs only its own scripts under a strict content security policy,
+  renders every server value as text, and cannot be framed
+- the inbox (filters, details, read state) and the screens of R64 as
+  approved
+- tests (the page driven in a headless browser, the cookie, CSRF and
+  CSP rules, a revoked browser signed out), the Compose smoke test
+  through the proxy, `docs/architecture.md`, `docs/deployment.md`
+  (what the proxy now forwards)
+
+Compatible (`feat`, minor). Non-goals: passwords or external sign-in;
+admin functions beyond R62's; offline use or web push.
+
+Exit criteria: on the owner's server, the owner and a second user sign
+in from a browser through the public address, do the approved flows, and
+sign out; revoking the browser from a device signs it out.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -4858,7 +5157,7 @@ itself.
 | Rate limiting and brute-force resistance                                                                  | Keys and pairing codes make guessing infeasible; the management API is not forwarded (`docs/architecture.md#security-limitations`)    | Abusive or heavy traffic seen in logs or metrics; the proxy is the first place to limit.                              |
 | Key expiry, key scopes, a separate management port                                                        | One owner; rotation and revocation exist; the documented mitigations hold                                                             | A producer that must be restricted, or managing from another host.                                                    |
 | Richer metadata rendering, notification action buttons, several or labelled links, attachments and images | Metadata is opaque by principle; actions need generic semantics in the event schema; one link per event is scheduled as R30 and R31   | Several unrelated producers needing the same generic capability, with a design that keeps the core producer-agnostic. |
-| Web or desktop client                                                                                     | The app covers the owner's phones                                                                                                     | The owner needs the inbox away from the phone; the API assumes no platform, so no backend change.                     |
+| A reply to an event                                                                                       | No producer reads answers yet; the workflow controller will raise its need                                                            | A producer that must read the owner's answer to an event, such as an orchestrator's escalation question.              |
 | Distributed iOS builds, APNs directly                                                                     | iOS builds need the owner's Apple team; FCM already relays to APNs                                                                    | An iOS user of released builds.                                                                                       |
 | The SDK on PyPI                                                                                           | The release's wheel (R22) and installing from a tag suffice                                                                           | Producers that cannot install from GitHub.                                                                            |
 | SDKs in more languages                                                                                    | `curl`, the command and Python cover the examples' producers                                                                          | A producer ecosystem where plain HTTP is a real burden.                                                               |
@@ -4872,8 +5171,9 @@ itself.
 - App store distribution and AABs: SignalHub is self-hosted for one owner.
 - Another general deployment-hardening milestone: R16 covers it; R21 only
   moves the procedure to published images.
-- A general rules engine, enterprise IAM (OAuth, Keycloak, RBAC) and
-  multi-tenancy, as section 6 already says.
+- A general rules engine, enterprise IAM (OAuth, Keycloak, configurable
+  RBAC) and multi-tenant SaaS, as section 6 already says. R61's users
+  with three fixed roles on one self-hosted server are neither.
 - An observability platform (tracing, a log stack, dashboards) beyond the
   metrics and logs of R15.
 
@@ -4953,9 +5253,10 @@ admin page), R54 (sending a test event from the admin page) and R55 (the
 admin page: a status panel), R56 (an event's delivery), R57 (the
 alert also plays while the app is open), R58 (the second batch of
 Dependabot updates), R59 (a read event leaves the unread-only inbox)
-and R60 (pushes reach a sleeping phone at once) are done. **The queue is
-empty and nothing further is scheduled.** A new item is added only by the
-maintainer, in a reviewed pull request; the deferred candidates of
-section 5 are not started without that.
+and R60 (pushes reach a sleeping phone at once) are done. **R61 (users,
+roles and subscriptions) is next**, followed by R62 to R64, the human
+gate G4 (the maintainer approves the user designs), R65 and R66. A new
+item is added only by the maintainer, in a reviewed pull request; the
+deferred candidates of section 5 are not started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
