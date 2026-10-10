@@ -698,7 +698,6 @@ jobs:
             --header "Authorization: Bearer $restored_key" \
             --data-urlencode "producerId=$PRODUCER_ID" \
             http://localhost:8080/api/v1/events)
-          jq '[.items[] | {title, readAt}]' <<<"$restored"
           jq --exit-status '[.items[].title] == ["From the command", "Smoke test"]
               and .items[1].readAt != null' <<<"$restored"
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
@@ -709,7 +708,7 @@ jobs:
           # Restoring over existing data fails and changes nothing.
           if restore 2> /dev/null; then echo "restored over existing data"; exit 1; fi
           curl --fail --silent --show-error \
-            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header "Authorization: Bearer $restored_key" \
             http://localhost:8080/api/v1/events/unread-count \
             | jq --exit-status '.unread == 2'
           docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt \
