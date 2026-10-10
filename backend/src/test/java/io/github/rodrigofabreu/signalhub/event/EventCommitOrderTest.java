@@ -78,7 +78,11 @@ class EventCommitOrderTest {
       var slowEvent = slow.get(30, TimeUnit.SECONDS);
 
       assertEquals(List.of(fastId, slowEvent.id().toString()), listed);
-      Instant fastCreatedAt = events.find(UUID.fromString(fastId)).orElseThrow().createdAt();
+      Instant fastCreatedAt =
+          events
+              .find(UUID.fromString(fastId), java.util.Optional.empty())
+              .orElseThrow()
+              .createdAt();
       assertTrue(fastCreatedAt.isAfter(slowEvent.createdAt()));
     }
   }

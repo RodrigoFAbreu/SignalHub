@@ -2,7 +2,10 @@ package io.github.rodrigofabreu.signalhub.producer;
 
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 
+import io.github.rodrigofabreu.signalhub.user.UserDirectory;
+import io.github.rodrigofabreu.signalhub.user.UserRef;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
@@ -13,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.jboss.logging.Logger;
 
 /**
@@ -30,10 +34,18 @@ public class ProducerService {
 
   private final ProducerRepository producers;
   private final ApiKeyRepository keys;
+  private final ProducerAccess access;
+  private final UserDirectory users;
 
-  ProducerService(ProducerRepository producers, ApiKeyRepository keys) {
+  ProducerService(
+      ProducerRepository producers,
+      ApiKeyRepository keys,
+      ProducerAccess access,
+      UserDirectory users) {
     this.producers = producers;
     this.keys = keys;
+    this.access = access;
+    this.users = users;
   }
 
   /**
@@ -88,16 +100,75 @@ public class ProducerService {
         .collect(toMap(ProducerEntity::id, p -> new ProducerIdentity(p.id(), p.name())));
   }
 
-  /** Registers a producer with its first API key; empty if the name is taken. */
+  /**
+   * Registers a producer owned by the user, with its first API key; empty if the name is taken. The
+   * owner is subscribed to it from the start.
+   */
   @Transactional
-  Optional<IssuedApiKey> create(String name) {
+  Optional<IssuedApiKey> create(String name, UUID ownerId, Visibility visibility) {
     if (producers.nameExists(name)) {
       return Optional.empty();
     }
-    var producer = new ProducerEntity(name, now());
+    var producer = new ProducerEntity(name, ownerId, visibility, now());
     producers.persist(producer);
-    LOG.infof("Registered producer %s (%s)", producer.id(), name);
+    producers.flush();
+    access.subscribeOwner(ownerId, producer.id());
+    LOG.infof("Registered producer %s (%s) for user %s", producer.id(), name, ownerId);
     return Optional.of(issueKey(producer));
+  }
+
+  /**
+   * Sets the producer's visibility and replaces its allow-list; a null leaves that as it is. Users
+   * who no longer see a private producer stop receiving it. Empty if no producer has this ID.
+   */
+  @Transactional
+  Optional<Update> update(UUID id, Visibility visibility, List<UUID> allowedUserIds) {
+    return producers
+        .findByIdOptional(id)
+        .<Update>map(
+            producer -> {
+              if (allowedUserIds != null) {
+                var unknown =
+                    allowedUserIds.stream()
+                        .filter(user -> !users.isActive(user))
+                        .distinct()
+                        .toList();
+                if (!unknown.isEmpty()) {
+                  return new Update.UnknownUsers(unknown);
+                }
+                access.setAllowed(
+                    id,
+                    allowedUserIds.stream().filter(u -> !u.equals(producer.ownerId())).toList());
+              }
+              if (visibility != null) {
+                producer.setVisibility(visibility);
+              }
+              producers.flush();
+              access.endSubscriptionsWithoutSight(id);
+              LOG.infof("Updated producer %s: %s", id, producer.visibility());
+              return new Update.Updated(toResponse(producer));
+            });
+  }
+
+  /** What {@link #update} did to a producer that exists. */
+  sealed interface Update {
+    record Updated(ProducerResponse producer) implements Update {}
+
+    /** The allow-list names users that do not exist or are revoked. */
+    record UnknownUsers(List<UUID> ids) implements Update {
+      public UnknownUsers {
+        ids = List.copyOf(ids);
+      }
+    }
+  }
+
+  /** Disables every producer the user owns, so their keys stop working. */
+  @Transactional
+  public void disableAllOwnedBy(UUID ownerId) {
+    for (var producer : producers.list("ownerId", ownerId)) {
+      producer.disable(now());
+      LOG.infof("Disabled producer %s of revoked user %s", producer.id(), ownerId);
+    }
   }
 
   /** Issues an additional key. Existing keys stay valid until revoked, so rotation has no gap. */
@@ -152,11 +223,23 @@ public class ProducerService {
   List<ProducerResponse> list() {
     var keysByProducer = keys.ofAllProducers().stream().collect(groupingBy(k -> k.producer().id()));
     var lastEvents = producers.lastEventTimes();
-    return producers.listAll(Sort.by("name")).stream()
+    var all = producers.listAll(Sort.by("name"));
+    var allowed = access.allowedByProducer();
+    var people =
+        users.find(
+            Stream.concat(
+                    all.stream().map(ProducerEntity::ownerId),
+                    allowed.values().stream().flatMap(List::stream))
+                .collect(toSet()));
+    return all.stream()
         .map(
             p ->
                 toResponse(
-                    p, lastEvents.get(p.id()), keysByProducer.getOrDefault(p.id(), List.of())))
+                    p,
+                    lastEvents.get(p.id()),
+                    keysByProducer.getOrDefault(p.id(), List.of()),
+                    people,
+                    allowed.getOrDefault(p.id(), List.of())))
         .toList();
   }
 
@@ -169,14 +252,23 @@ public class ProducerService {
   }
 
   private ProducerResponse toResponse(ProducerEntity producer) {
+    var allowed = access.allowed(producer.id());
+    var people =
+        users.find(Stream.concat(Stream.of(producer.ownerId()), allowed.stream()).collect(toSet()));
     return toResponse(
         producer,
         producers.lastEventAt(producer.id()).orElse(null),
-        keys.ofProducer(producer.id()));
+        keys.ofProducer(producer.id()),
+        people,
+        allowed);
   }
 
   private static ProducerResponse toResponse(
-      ProducerEntity producer, Instant lastEventAt, List<ApiKeyEntity> keys) {
+      ProducerEntity producer,
+      Instant lastEventAt,
+      List<ApiKeyEntity> keys,
+      Map<UUID, UserRef> people,
+      List<UUID> allowed) {
     return new ProducerResponse(
         producer.id(),
         producer.name(),
@@ -185,6 +277,13 @@ public class ProducerService {
         lastEventAt,
         keys.stream()
             .map(k -> new ProducerResponse.ApiKey(k.id(), k.createdAt(), k.revokedAt()))
+            .toList(),
+        people.get(producer.ownerId()),
+        producer.visibility(),
+        allowed.stream()
+            .map(people::get)
+            .filter(java.util.Objects::nonNull)
+            .sorted(java.util.Comparator.comparing(UserRef::name, String.CASE_INSENSITIVE_ORDER))
             .toList());
   }
 

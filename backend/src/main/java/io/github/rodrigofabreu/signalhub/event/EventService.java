@@ -3,6 +3,7 @@ package io.github.rodrigofabreu.signalhub.event;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 
+import io.github.rodrigofabreu.signalhub.producer.ProducerAccess;
 import io.github.rodrigofabreu.signalhub.producer.ProducerIdentity;
 import io.github.rodrigofabreu.signalhub.producer.ProducerService;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -11,6 +12,8 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,11 +29,20 @@ class EventService {
   private final EventRepository repository;
   private final ProducerService producers;
   private final PushDispatches dispatches;
+  private final ProducerAccess access;
+  private final EventReads reads;
 
-  EventService(EventRepository repository, ProducerService producers, PushDispatches dispatches) {
+  EventService(
+      EventRepository repository,
+      ProducerService producers,
+      PushDispatches dispatches,
+      ProducerAccess access,
+      EventReads reads) {
     this.repository = repository;
     this.producers = producers;
     this.dispatches = dispatches;
+    this.access = access;
+    this.reads = reads;
   }
 
   /** The outcome of publishing: the event, and whether this request stored it. */
@@ -71,12 +83,12 @@ class EventService {
         if (!sameRequest(stored.get(), event)) {
           throw new IdempotencyKeyReusedException();
         }
-        return new Published(toResponse(stored.get(), producer), false);
+        return new Published(toResponse(stored.get(), producer, null), false);
       }
     }
     repository.persist(event);
     dispatches.add(event);
-    return new Published(toResponse(event, producer), true);
+    return new Published(toResponse(event, producer, null), true);
   }
 
   /**
@@ -121,21 +133,53 @@ class EventService {
     return repository.findByIdOptional(id).map(EventPush::of);
   }
 
+  /**
+   * The event, if it exists and the user receives it: the operator ({@code user} empty) sees every
+   * event with their own read state, a user only the events of the producers they are subscribed
+   * to, with their read state. Any other event is empty, whether it exists or not.
+   */
   @Transactional
-  Optional<EventResponse> find(UUID id) {
-    return repository.findByIdOptional(id).map(event -> toResponse(event, producerOf(event)));
+  Optional<EventResponse> find(UUID id, Optional<UUID> user) {
+    return repository
+        .findByIdOptional(id)
+        .filter(event -> receivedBy(event, user))
+        .map(
+            event ->
+                toResponse(
+                    event,
+                    producerOf(event),
+                    user.isPresent()
+                        ? reads.readAt(user.get(), List.of(id)).get(id)
+                        : event.readAt()));
+  }
+
+  private boolean receivedBy(EventEntity event, Optional<UUID> user) {
+    return user.isEmpty() || access.subscribedProducerIds(user.get()).contains(event.producerId());
   }
 
   /**
-   * One page of events matching the query, newest first. Reads one row more than the page holds to
-   * learn whether another page follows, and loads the page's producers in one query.
+   * One page of the events the user receives (every event for the operator, who is no user),
+   * matching the query, newest first. Reads one row more than the page holds to learn whether
+   * another page follows, and loads the page's producers in one query.
    */
   @Transactional
-  EventPage list(EventQuery query) {
-    var rows = repository.find(query, query.limit() + 1);
+  EventPage list(EventQuery query, Optional<UUID> user) {
+    var viewer = user.map(u -> new EventRepository.Viewer(u, access.subscribedProducerIds(u)));
+    var rows = repository.find(query, query.limit() + 1, viewer);
     var page = rows.subList(0, Math.min(rows.size(), query.limit()));
     var producersById = producers.find(page.stream().map(EventEntity::producerId).collect(toSet()));
-    var items = page.stream().map(e -> toResponse(e, producersById.get(e.producerId()))).toList();
+    var readAt =
+        user.map(u -> reads.readAt(u, page.stream().map(EventEntity::id).toList()))
+            .orElse(Map.of());
+    var items =
+        page.stream()
+            .map(
+                e ->
+                    toResponse(
+                        e,
+                        producersById.get(e.producerId()),
+                        user.isPresent() ? readAt.get(e.id()) : e.readAt()))
+            .toList();
     String nextCursor = null;
     if (rows.size() > page.size()) {
       var last = page.get(page.size() - 1);
@@ -144,35 +188,57 @@ class EventService {
     return new EventPage(items, nextCursor);
   }
 
-  /** Marks the event read; the event, or empty if it does not exist. */
+  /** Marks the event read; the event, or empty if it does not exist or the user lacks it. */
   @Transactional
-  Optional<EventResponse> markRead(UUID id) {
-    return repository.markRead(id, toStoredInstant(Instant.now())) ? find(id) : Optional.empty();
+  Optional<EventResponse> markRead(UUID id, Optional<UUID> user) {
+    if (user.isPresent()) {
+      if (find(id, user).isEmpty()) {
+        return Optional.empty();
+      }
+      reads.markRead(user.get(), id, toStoredInstant(Instant.now()));
+      return find(id, user);
+    }
+    return repository.markRead(id, toStoredInstant(Instant.now()))
+        ? find(id, user)
+        : Optional.empty();
   }
 
-  /** Marks the event unread; the event, or empty if it does not exist. */
+  /** Marks the event unread; the event, or empty if it does not exist or the user lacks it. */
   @Transactional
-  Optional<EventResponse> markUnread(UUID id) {
-    return repository.markUnread(id) ? find(id) : Optional.empty();
+  Optional<EventResponse> markUnread(UUID id, Optional<UUID> user) {
+    if (user.isPresent()) {
+      if (find(id, user).isEmpty()) {
+        return Optional.empty();
+      }
+      reads.markUnread(user.get(), id);
+      return find(id, user);
+    }
+    return repository.markUnread(id) ? find(id, user) : Optional.empty();
   }
 
   /**
-   * Marks read every unread event up to the given one in listing order. The count of events marked,
-   * or empty if the given event does not exist.
+   * Marks read every unread event the user receives up to the given one in listing order. The count
+   * of events marked, or empty if the given event does not exist or the user lacks it.
    */
   @Transactional
-  Optional<MarkReadResult> markReadThrough(UUID id) {
+  Optional<MarkReadResult> markReadThrough(UUID id, Optional<UUID> user) {
     return repository
         .findByIdOptional(id)
+        .filter(through -> receivedBy(through, user))
         .map(
-            through ->
-                new MarkReadResult(
-                    repository.markReadThrough(through, toStoredInstant(Instant.now()))));
+            through -> {
+              var now = toStoredInstant(Instant.now());
+              return new MarkReadResult(
+                  user.isPresent()
+                      ? reads.markReadThrough(user.get(), through.createdAt(), through.id(), now)
+                      : repository.markReadThrough(through, now));
+            });
   }
 
   @Transactional
-  UnreadCount countUnread() {
-    return new UnreadCount(repository.countUnread());
+  UnreadCount countUnread(Optional<UUID> user) {
+    return new UnreadCount(
+        user.isPresent() ? reads.countUnread(user.get()) : repository.countUnread());
   }
 
   /**
@@ -245,7 +311,8 @@ class EventService {
     return instant.truncatedTo(ChronoUnit.MICROS);
   }
 
-  private static EventResponse toResponse(EventEntity event, ProducerIdentity producer) {
+  private static EventResponse toResponse(
+      EventEntity event, ProducerIdentity producer, Instant readAt) {
     return new EventResponse(
         event.id(),
         new EventResponse.Producer(producer.id(), producer.name()),
@@ -258,6 +325,6 @@ class EventService {
         event.link(),
         event.occurredAt(),
         event.createdAt(),
-        event.readAt());
+        readAt);
   }
 }

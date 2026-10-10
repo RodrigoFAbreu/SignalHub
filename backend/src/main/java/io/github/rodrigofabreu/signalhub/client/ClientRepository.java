@@ -37,6 +37,20 @@ class ClientRepository implements PanacheRepositoryBase<ClientEntity, UUID> {
         keptBy);
   }
 
+  /** How many of the user's clients are not revoked. */
+  long countActive(UUID userId) {
+    return count("userId = ?1 and revokedAt is null", userId);
+  }
+
+  /** Revokes every client of the user, dropping their push targets. */
+  void revokeAllOf(UUID userId, Instant now) {
+    update(
+        "revokedAt = coalesce(revokedAt, ?1), pushProvider = null, pushToken = null,"
+            + " pushUpdatedAt = null where userId = ?2",
+        now,
+        userId);
+  }
+
   /** Overwrites the client's last successful push. */
   void recordPushSuccess(UUID id, UUID eventId, Instant at) {
     getEntityManager()

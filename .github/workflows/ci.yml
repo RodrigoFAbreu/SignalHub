@@ -376,11 +376,12 @@ jobs:
             http://localhost:8080/api/v1/client/push-preferences \
             | jq --exit-status '.pushPreferences == {"enabled": true, "minimumSeverity": "HIGH",
                 "mutedCategories": ["INFO"], "mutedProducerIds": []}'
-          # The operator renames it and makes it an admin; the client reads both from its registration.
+          # The operator renames it; the client reads its name and that it is an admin device (it
+          # belongs to the owner, an admin) from its registration.
           curl --fail --silent --show-error --request PATCH \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
             --header 'Content-Type: application/json' \
-            --data '{"name": "ci-smoke-admin", "admin": true}' \
+            --data '{"name": "ci-smoke-admin"}' \
             "http://localhost:8080/api/v1/admin/clients/$client_id" \
             | jq --exit-status '.name == "ci-smoke-admin" and .admin == true'
           curl --fail --silent --show-error --header "Authorization: Bearer $client_key" \
@@ -409,14 +410,27 @@ jobs:
           test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
           status=$(manage --request DELETE "http://localhost:8080/api/v1/admin/clients/$client_id")
           test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
-          curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+          # Read state is the user's: a new device of the same user finds the event still read.
+          other_key=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data '{"name": "ci-smoke-other"}' \
+            http://localhost:8080/api/v1/admin/clients | jq --raw-output .clientKey)
+          echo "::add-mask::$other_key"
+          curl --fail --silent --show-error --header "Authorization: Bearer $other_key" \
             "http://localhost:8080/api/v1/events/$newest" | jq --exit-status '.readAt != null'
       - name: A device pairs through the proxy with a code the operator made on the host, and an admin device pairs another, sees it used, revokes it and deletes it
         run: |
+          # A second user, who is not an admin, so that the device paired for them is not an admin device.
+          basic_id=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data '{"name": "ci-basic", "role": "BASIC"}' \
+            http://localhost:8080/api/v1/admin/users | jq --raw-output .id)
           pairing=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
             --header 'Content-Type: application/json' \
-            --data '{"name": "ci-paired-phone"}' \
+            --data "{\"name\": \"ci-paired-phone\", \"userId\": \"$basic_id\"}" \
             http://localhost:8080/api/v1/admin/pairings)
           code=$(jq --raw-output .code <<<"$pairing")
           echo "::add-mask::$code"
@@ -446,6 +460,11 @@ jobs:
           curl --fail --silent --show-error --cacert "$RUNNER_TEMP/proxy-ca.crt" \
             --header "Authorization: Bearer $client_key" https://localhost/api/v1/client \
             | jq --exit-status '.name == "ci-paired-phone" and .revokedAt == null'
+          # The device belongs to the second user, who is subscribed to nothing: the owner's events
+          # are not theirs.
+          curl --fail --silent --show-error --cacert "$RUNNER_TEMP/proxy-ca.crt" \
+            --header "Authorization: Bearer $client_key" https://localhost/api/v1/events \
+            | jq --exit-status '.items == []'
           # The code works once.
           status=$(redeem --output /dev/null --write-out '%{http_code}')
           test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
@@ -459,20 +478,25 @@ jobs:
           devices() {
             curl --silent --cacert "$RUNNER_TEMP/proxy-ca.crt" "$@"
           }
-          # Device management answers only an admin device's key, through the proxy too.
-          status=$(devices --output /dev/null --write-out '%{http_code}' \
-            --header "Authorization: Bearer $client_key" https://localhost/api/v1/client/devices)
+          # Device management is refused to a basic user's key, through the proxy too.
+          # A basic user's key lists only its own user's devices, and changes none.
+          devices --fail --show-error --header "Authorization: Bearer $client_key" \
+            https://localhost/api/v1/client/devices \
+            | jq --exit-status --arg id "$paired_id" '[.items[].id] == [$id]'
+          status=$(devices --output /dev/null --write-out '%{http_code}' --request POST \
+            --header "Authorization: Bearer $client_key" \
+            "https://localhost/api/v1/client/devices/$paired_id/revoke")
           test "$status" = 403 || { echo "expected 403, got $status"; exit 1; }
           admin_key=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $ADMIN_TOKEN" --header 'Content-Type: application/json' \
-            --data '{"name": "ci-admin-device", "admin": true}' \
+            --data '{"name": "ci-admin-device"}' \
             http://localhost:8080/api/v1/admin/clients | jq --raw-output .clientKey)
           echo "::add-mask::$admin_key"
           devices --fail --show-error --header "Authorization: Bearer $admin_key" \
             https://localhost/api/v1/client/devices \
             | jq --exit-status --arg id "$paired_id" \
                 '.items | map(select(.id == $id)) | .[0].name == "ci-paired-phone"'
-          # An admin device creates pairing codes through the proxy too; no other device can.
+          # An admin device creates pairing codes through the proxy too; a basic user's device cannot.
           status=$(devices --output /dev/null --write-out '%{http_code}' --request POST \
             --header "Authorization: Bearer $client_key" --header 'Content-Type: application/json' \
             --data '{"name": "x"}' https://localhost/api/v1/client/pairings)
@@ -482,13 +506,13 @@ jobs:
             --data '{"name": "ci-device-paired"}' https://localhost/api/v1/client/pairings)
           device_code=$(jq --raw-output .code <<<"$device_pairing")
           echo "::add-mask::$device_code"
-          jq --exit-status '.admin == false
+          jq --exit-status '.admin == true
               and .uri == "signalhub://pair?server=https%3A%2F%2Flocalhost&code=" + .code' \
             <<<"$device_pairing" > /dev/null
           device_pairing_id=$(jq --raw-output .id <<<"$device_pairing")
           devices --fail --show-error --request POST \
             --header "Authorization: Bearer $device_code" https://localhost/api/v1/pairing \
-            | jq --exit-status '.client.name == "ci-device-paired" and .client.admin == false'
+            | jq --exit-status '.client.name == "ci-device-paired" and .client.admin == true'
           # The admin device learns through the proxy that its code was used; no other device can.
           devices --fail --show-error --header "Authorization: Bearer $admin_key" \
             "https://localhost/api/v1/client/pairings/$device_pairing_id" \
@@ -663,12 +687,19 @@ jobs:
           restore
           docker compose up --wait --wait-timeout 120
           # Events from before the backup are back, with their read state; later ones are gone.
-          curl --fail --silent --show-error --get \
+          # (Read state is the user's, so it is read with a device of the owner.)
+          restored_key=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data '{"name": "ci-restored"}' \
+            http://localhost:8080/api/v1/admin/clients | jq --raw-output .clientKey)
+          echo "::add-mask::$restored_key"
+          restored=$(curl --fail --silent --show-error --get \
+            --header "Authorization: Bearer $restored_key" \
             --data-urlencode "producerId=$PRODUCER_ID" \
-            http://localhost:8080/api/v1/events \
-            | jq --exit-status '[.items[].title] == ["From the command", "Smoke test"]
-                and .items[1].readAt != null'
+            http://localhost:8080/api/v1/events)
+          jq --exit-status '[.items[].title] == ["From the command", "Smoke test"]
+              and .items[1].readAt != null' <<<"$restored"
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Authorization: Bearer $ADMIN_TOKEN" "http://localhost:8080/api/v1/events/$later")
           test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
@@ -677,7 +708,7 @@ jobs:
           # Restoring over existing data fails and changes nothing.
           if restore 2> /dev/null; then echo "restored over existing data"; exit 1; fi
           curl --fail --silent --show-error \
-            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header "Authorization: Bearer $restored_key" \
             http://localhost:8080/api/v1/events/unread-count \
             | jq --exit-status '.unread == 2'
           docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt \
@@ -955,7 +986,16 @@ jobs:
           curl --fail --silent --show-error \
             --header "Authorization: Bearer $CLIENT_KEY" \
             http://localhost:8080/api/v1/client \
-            | jq --exit-status '.pushPreferences.minimumSeverity == "HIGH"'
+            | jq --exit-status '.pushPreferences.minimumSeverity == "HIGH"
+                and .admin == true and .user.role == "ADMIN"'
+          # The existing data became the first user's: one admin who owns the producer, is
+          # subscribed to it and has the client.
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            http://localhost:8080/api/v1/admin/users \
+            | jq --exit-status '(.items | length) == 1 and .items[0].role == "ADMIN"
+                and (.items[0].devices | length) == 1 and (.items[0].producers | length) == 1
+                and (.items[0].subscriptions | length) == 1 and .items[0].producers[0].visibility == "PRIVATE"'
           curl --fail --silent --show-error --output /dev/null \
             --header "Authorization: Bearer $API_KEY" \
             --header 'Content-Type: application/json' \
@@ -1162,6 +1202,50 @@ jobs:
           client --request PUT "$SIGNALHUB_URL/api/v1/events/$pushed/read" \
             | jq --exit-status '.readAt != null'
           client "$SIGNALHUB_URL/api/v1/events/unread-count" | jq --exit-status '.unread == 1'
+      - name: A second user with a private producer gets only their own events, by inbox and by push
+        run: |
+          admin() {
+            curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+              --header 'Content-Type: application/json' --data "$2" "$SIGNALHUB_URL$1"
+          }
+          guest_id=$(admin /api/v1/admin/users '{"name": "e2e-guest", "role": "BASIC"}' | jq --raw-output .id)
+          guest_key=$(admin /api/v1/admin/clients "{\"name\": \"e2e-guest-phone\", \"userId\": \"$guest_id\"}" \
+            | jq --raw-output .clientKey)
+          echo "::add-mask::$guest_key"
+          curl --fail --silent --show-error --output /dev/null --request PUT \
+            --header "Authorization: Bearer $guest_key" --header 'Content-Type: application/json' \
+            --data '{"provider": "fcm", "token": "e2e-guest-token"}' \
+            "$SIGNALHUB_URL/api/v1/client/push-target"
+          guest_api_key=$(admin /api/v1/admin/producers \
+            "{\"name\": \"e2e-guest-producer\", \"ownerId\": \"$guest_id\"}" | jq --raw-output .apiKey)
+          echo "::add-mask::$guest_api_key"
+          guest_event=$(SIGNALHUB_API_KEY=$guest_api_key signalhub send --category ACTION_REQUIRED \
+            --severity CRITICAL --title "For the guest only")
+          guest() {
+            curl --silent --show-error --header "Authorization: Bearer $guest_key" "$@"
+          }
+          for _ in $(seq 60); do
+            if jq --exit-status --slurp --arg id "$guest_event" 'any(.[]; .message.data.eventId == $id
+                  and .message.token == "e2e-guest-token")' "$SENDS" > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          # Only the guest's device was pushed: the owner's phone and the stale client got nothing.
+          jq --exit-status --slurp --arg id "$guest_event" '[.[] | select(.message.data.eventId == $id)
+              | .message.token] == ["e2e-guest-token"]' "$SENDS"
+          # The guest's inbox holds their event alone, and the owner's events are not found for them.
+          guest "$SIGNALHUB_URL/api/v1/events" | jq --exit-status --arg id "$guest_event" '[.items[].id] == [$id]'
+          guest "$SIGNALHUB_URL/api/v1/events/unread-count" | jq --exit-status '.unread == 1'
+          status=$(guest --output /dev/null --write-out '%{http_code}' "$SIGNALHUB_URL/api/v1/events/$HIGH_ID")
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
+          # And the owner's phone does not find the guest's.
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $PHONE_KEY" "$SIGNALHUB_URL/api/v1/events/$guest_event")
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
+          # The operator sees it too, for testing and debugging.
+          curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+            "$SIGNALHUB_URL/api/v1/events/$guest_event" | jq --exit-status '.title == "For the guest only"'
       - if: failure()
         run: |
           docker compose logs

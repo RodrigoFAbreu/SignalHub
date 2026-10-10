@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.agroal.api.AgroalDataSource;
 import io.github.rodrigofabreu.signalhub.TestClients;
 import io.github.rodrigofabreu.signalhub.TestProducers;
+import io.github.rodrigofabreu.signalhub.TestUsers;
 import io.github.rodrigofabreu.signalhub.producer.ApiKeys;
 import io.github.rodrigofabreu.signalhub.push.DeviceNotifier;
 import io.quarkus.test.junit.QuarkusTest;
@@ -66,7 +67,9 @@ class PairingApiTest {
     var pairing =
         createPairing("Pixel 8")
             .body("name", equalTo("Pixel 8"))
-            .body("admin", equalTo(false))
+            // With no user named, the owner's: an admin, so the device is an admin device.
+            .body("admin", equalTo(true))
+            .body("user.role", equalTo("ADMIN"))
             .body("code", startsWith(PairingCodes.PREFIX))
             .body("id", notNullValue())
             .header("Location", nullValue())
@@ -95,7 +98,7 @@ class PairingApiTest {
             .statusCode(201)
             .header("Location", endsWith(CLIENT))
             .body("client.name", equalTo("Paired phone"))
-            .body("client.admin", equalTo(false))
+            .body("client.admin", equalTo(true))
             .body("client.revokedAt", nullValue())
             .body("clientKey", startsWith("shck1_"))
             .extract();
@@ -108,22 +111,75 @@ class PairingApiTest {
   }
 
   @Test
-  void aPairingCanMakeAnAdminDevice() {
-    String code =
-        asAdmin()
-            .contentType(ContentType.JSON)
-            .body("{\"name\": \"Admin phone\", \"admin\": true}")
-            .post(PAIRINGS)
-            .then()
-            .statusCode(201)
-            .body("admin", equalTo(true))
-            .extract()
-            .path("code");
+  void aPairingIsForAUserAndTheDeviceIsAnAdminDeviceWhenTheUserIsAnAdmin() {
+    for (var role : new String[] {"BASIC", "MOD", "ADMIN"}) {
+      var user = TestUsers.create("pairing-" + role, role);
+      String code =
+          asAdmin()
+              .contentType(ContentType.JSON)
+              .body(Map.of("name", role + " phone", "userId", user.id().toString()))
+              .post(PAIRINGS)
+              .then()
+              .statusCode(201)
+              .body("admin", equalTo(role.equals("ADMIN")))
+              .body("user.id", equalTo(user.id().toString()))
+              .extract()
+              .path("code");
 
-    var issued = redeem(code).statusCode(201).body("client.admin", equalTo(true)).extract();
+      var issued =
+          redeem(code)
+              .statusCode(201)
+              .body("client.admin", equalTo(role.equals("ADMIN")))
+              .body("client.user.id", equalTo(user.id().toString()))
+              .body("client.user.role", equalTo(role))
+              .extract();
 
-    asClient(issued.path("clientKey")).get(CLIENT).then().body("admin", equalTo(true));
-    asAdmin().get(ADMIN + "/" + issued.path("client.id")).then().body("admin", equalTo(true));
+      asClient(issued.path("clientKey"))
+          .get(CLIENT)
+          .then()
+          .body("admin", equalTo(role.equals("ADMIN")))
+          .body("user.name", equalTo(user.name()));
+    }
+  }
+
+  @Test
+  void anAdminDeviceCannotBeAskedForAUserWhoIsNotAnAdmin() {
+    var user = TestUsers.create("pairing-not-admin", "MOD");
+
+    asAdmin()
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", "Phone", "userId", user.id().toString(), "admin", true))
+        .post(PAIRINGS)
+        .then()
+        .statusCode(409)
+        .body("title", equalTo("Roles are set per user, not per device"));
+    // Said by the flag that can only be true for an admin's device, false is just what it is.
+    asAdmin()
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", "Phone", "userId", user.id().toString(), "admin", false))
+        .post(PAIRINGS)
+        .then()
+        .statusCode(201);
+  }
+
+  @Test
+  void aPairingNeedsAnActiveUser() {
+    var user = TestUsers.create("pairing-revoked", "BASIC");
+    asAdmin().post(TestUsers.ADMIN + "/" + user.id() + "/revoke").then().statusCode(200);
+
+    asAdmin()
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", "Phone", "userId", user.id().toString()))
+        .post(PAIRINGS)
+        .then()
+        .statusCode(409)
+        .body("title", equalTo("User is revoked"));
+    asAdmin()
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", "Phone", "userId", UUID.randomUUID().toString()))
+        .post(PAIRINGS)
+        .then()
+        .statusCode(404);
   }
 
   @Test
@@ -238,7 +294,7 @@ class PairingApiTest {
 
   @Test
   void anAdminDevicesPairingIsUnknownToTheAdminToken() {
-    var admin = TestClients.registerAdmin("device-with-pairing");
+    var admin = TestClients.registerAs("ADMIN", "device-with-pairing");
     String id =
         asClient(admin.clientKey())
             .contentType(ContentType.JSON)

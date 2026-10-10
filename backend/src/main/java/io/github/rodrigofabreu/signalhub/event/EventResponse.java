@@ -49,8 +49,9 @@ public record EventResponse(
         Instant createdAt,
     @Schema(
             description =
-                "When the owner marked the event read, from any client, in UTC; null while it is"
-                    + " unread.",
+                "When the caller's user marked the event read, from any of their devices, in UTC; null"
+                    + " while it is unread. The admin token sees the operator's own read state."
+                    + " Always null in a producer's response.",
             examples = "2026-09-25T12:10:44.019273Z",
             nullable = true)
         Instant readAt) {

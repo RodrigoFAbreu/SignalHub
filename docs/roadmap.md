@@ -2164,6 +2164,52 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `docs/architecture.md` (the FCM provider) says why, and the device
   review's by-hand list has a check with the screen off. Compatible (`fix`)
 
+### R61 - Users, roles and subscriptions
+
+- **users and roles**: `users` (name, `BASIC`, `MOD` or `ADMIN`; no
+  passwords or identity provider), every client belongs to one user and
+  every producer is owned by one. A device is an admin device exactly
+  when its user is an `ADMIN`; `clients.admin` and `pairings.admin` are
+  gone. One migration (`V17`) makes the existing data the first user's,
+  an admin named `Owner`: every client, producer, a subscription to each
+  producer and the read marks, so the owner sees, receives and can do
+  what they did before (their devices are all admin devices now)
+- **visibility and subscriptions**: a producer is `PUBLIC` or `PRIVATE`
+  (the default) with an allow-list; users subscribe to producers they see
+  and the owner is subscribed on creation; losing sight of a private
+  producer ends the subscription. A client's inbox, unread count, event by
+  ID, read marks and pushes cover only its user's subscriptions (any other
+  event is `404`); read state is per user (`event_reads`), the operator's
+  own stays in `events.read_at`
+- **roles in the backend**: a basic user changes no device; a mod pairs,
+  revokes and deletes their own devices, never their last active one; an
+  admin sees every device, revokes and deletes those of users who are not
+  admins and pairs for any user. A user is made an admin or not only with
+  the admin token. Asking a device to make a device an admin is refused
+  with `409`; the management API's `admin` fields are kept but powerless
+  (breaking, `feat!`, `v3.0.0`)
+- **management API and admin page**: `/api/v1/admin/users` (invite,
+  rename, role, revoke, subscribe), producers with owner, visibility and
+  allow-list, clients and pairings for a user; the page's *Users* section
+  and the owner and user shown in *Producers* and *Devices*. Revoking a
+  user revokes their devices and disables their producers; their events
+  stay
+- decisions the section left open: requests that name no user act for the
+  oldest admin who is not revoked (so scripts keep working); revoking an
+  admin makes them basic; user names are unique ignoring case; a mod
+  cannot rename (the operator does, until R62); notices about devices go to
+  the user's devices and the admins'; the operator's read state is
+  separate from every user's; pairing from a device for an admin user
+  makes an admin device
+- tests: every rule above against PostgreSQL, including the negative
+  cases (`EventVisibilityApiTest`, `DeviceApiTest`, `DevicePairingApiTest`,
+  `UserAdminApiTest`, `ProducerVisibilityApiTest`, `UsersMigrationTest`),
+  the admin page, the Compose smoke test (a basic user's device sees none
+  of the owner's events), the upgrade jobs (the owner after the upgrade)
+  and the end-to-end job with a second user and a private producer.
+  `docs/architecture.md` (Users, roles and subscriptions),
+  `docs/deployment.md` (upgrade notes to v3.0.0)
+
 ---
 
 ## 4. Planned roadmap
@@ -2742,8 +2788,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Done (see section 3)                                                             |
 | 48    | R59 - A read event leaves the unread-only inbox                                                  | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 | 49    | R60 - Pushes reach a sleeping phone at once                                                      | Increment (`fix`)                      | Done (see section 3)                                                             |
-| 50    | R61 - Users, roles and subscriptions                                                             | Increment (`feat!`)                    | Next                                                                             |
-| 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Blocked until R61 is merged                                                      |
+| 50    | R61 - Users, roles and subscriptions                                                             | Increment (`feat!`)                    | Done (see section 3)                                                             |
+| 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Next                                                                             |
 | 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Blocked until R62 is merged                                                      |
 | 53    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Blocked until R63 is merged                                                      |
 | 54    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
@@ -4868,7 +4914,7 @@ Android records it as a high-priority FCM message.
 
 ### R61 - Users, roles and subscriptions
 
-Status: next. Added by the maintainer (2026-10-10).
+Status: complete (see section 3). Added by the maintainer (2026-10-10).
 
 Goal: SignalHub serves several people on one self-hosted server. Each
 person is a user with their own devices, producers and subscriptions, and
@@ -4964,8 +5010,7 @@ producers and receives a public producer's events once subscribed.
 
 ### R62 - Self-service for users: the API
 
-Status: blocked until R61 is merged. Added by the maintainer
-(2026-10-10).
+Status: next. Added by the maintainer (2026-10-10).
 
 Goal: a user manages their own producers and subscriptions, and devices
 as their role allows, from their device, with no work on the machine
@@ -5252,10 +5297,10 @@ admin page: browsing events), R53 (deleting events: the API and the
 admin page), R54 (sending a test event from the admin page) and R55 (the
 admin page: a status panel), R56 (an event's delivery), R57 (the
 alert also plays while the app is open), R58 (the second batch of
-Dependabot updates), R59 (a read event leaves the unread-only inbox)
-and R60 (pushes reach a sleeping phone at once) are done. **R61 (users,
-roles and subscriptions) is next**, followed by R62 to R64, the human
-gate G4 (the maintainer approves the user designs), R65 and R66. A new
+Dependabot updates), R59 (a read event leaves the unread-only inbox),
+R60 (pushes reach a sleeping phone at once) and R61 (users, roles and
+subscriptions) are done. **R62 (self-service for users: the API) is
+next**, followed by R63, R64, the human gate G4 (the maintainer approves the user designs), R65 and R66. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
 

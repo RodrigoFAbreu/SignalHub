@@ -133,16 +133,19 @@ class AdminPageTest {
   void thePageHasSectionsKeptInItsAddress() {
     var page = given().get("/admin/").then().extract().asString();
     assertTrue(page.contains("<a href=\"#devices\" data-section=\"devices\">Devices</a>"));
+    assertTrue(page.contains("<a href=\"#users\" data-section=\"users\">Users</a>"));
     assertTrue(page.contains("<a href=\"#producers\" data-section=\"producers\">Producers</a>"));
     assertTrue(page.contains("<a href=\"#events\" data-section=\"events\">Events</a>"));
     assertTrue(page.contains("<a href=\"#status\" data-section=\"status\">Status</a>"));
     assertTrue(page.contains("<div id=\"section-devices\" data-section=\"devices\">"));
+    assertTrue(page.contains("<div id=\"section-users\" data-section=\"users\" hidden>"));
     assertTrue(page.contains("<div id=\"section-producers\" data-section=\"producers\" hidden>"));
     assertTrue(page.contains("<div id=\"section-events\" data-section=\"events\" hidden>"));
     assertTrue(page.contains("<div id=\"section-status\" data-section=\"status\" hidden>"));
     var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
     assertTrue(
-        script.contains("const SECTIONS = [\"devices\", \"producers\", \"events\", \"status\"];"));
+        script.contains(
+            "const SECTIONS = [\"devices\", \"users\", \"producers\", \"events\", \"status\"];"));
     // The fragment names the section, Devices when it names none, so a reload stays on it; Events
     // may name an event too (#events/<id>).
     assertTrue(script.contains("const [first, eventId] = location.hash.slice(1).split(\"/\");"));
@@ -186,12 +189,64 @@ class AdminPageTest {
   }
 
   @Test
+  void thePageManagesUsersWithTheManagementApiAndAsksBeforeWhatCannotBeUndone() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    assertTrue(script.contains("const USERS = \"/api/v1/admin/users\";"));
+    // Inviting, renaming, setting the role (admin included) and revoking go through the API.
+    assertTrue(
+        script.contains(
+            "await call(\"POST\", USERS, { name: $(\"invite-name\").value.trim(), role:"
+                + " $(\"invite-role\").value });"));
+    assertTrue(script.contains("call(\"PATCH\", `${USERS}/${user.id}`, { role })"));
+    assertTrue(script.contains("call(\"PATCH\", `${USERS}/${user.id}`, { name: name.trim() })"));
+    // Making a user an admin and revoking a user each ask first.
+    assertTrue(
+        Pattern.compile(
+                "if \\(!confirm\\(question\\)\\) return;\\s*"
+                    + "changeUser\\(\\(\\) => call\\(\"PATCH\", `\\$\\{USERS\\}/\\$\\{user\\.id\\}`, \\{ role \\}\\)\\);")
+            .matcher(script)
+            .find());
+    assertTrue(
+        Pattern.compile(
+                "if \\(!confirm\\(question\\)\\) return;\\s*"
+                    + "changeUser\\(\\(\\) => call\\(\"POST\", `\\$\\{USERS\\}/\\$\\{user\\.id\\}/revoke`\\)\\);")
+            .matcher(script)
+            .find());
+    // A device is connected to a user: the pairing names the user, and no admin flag is sent.
+    assertTrue(script.contains("call(\"POST\", PAIRINGS, { name: name.trim(), userId: user.id })"));
+    assertFalse(script.contains("admin: $(\"pair-admin\")"));
+    // The role is only ever changed from this page, through the admin token.
+    var page = given().get("/admin/").then().extract().asString();
+    assertTrue(page.contains("Making someone an admin"));
+    assertTrue(page.contains("id=\"invite-role\""));
+  }
+
+  @Test
+  void thePageShowsWhoOwnsAProducerAndWhoSeesIt() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    assertTrue(script.contains("fact(\"Owner\", p.owner.name);"));
+    assertTrue(script.contains("fact(\"User\", `${client.user.name}"));
+    assertTrue(script.contains("call(\"PATCH\", `${PRODUCERS}/${p.id}`, { allowedUserIds })"));
+    assertTrue(script.contains("{ visibility: toPublic ? \"PUBLIC\" : \"PRIVATE\" }"));
+    var page = given().get("/admin/").then().extract().asString();
+    assertTrue(page.contains("id=\"producer-owner\""));
+    assertTrue(page.contains("id=\"producer-visibility\""));
+    assertTrue(page.contains("id=\"pair-user\""));
+  }
+
+  @Test
   void thePageManagesProducersWithTheManagementApi() {
     var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
     assertTrue(script.contains("const PRODUCERS = \"/api/v1/admin/producers\";"));
+    // A producer is created for an owner, private or public.
     assertTrue(
-        script.contains(
-            "const issued = await call(\"POST\", PRODUCERS, { name: $(\"producer-name\").value.trim() });"));
+        Pattern.compile(
+                "const issued = await call\\(\"POST\", PRODUCERS, \\{\\s*"
+                    + "name: \\$\\(\"producer-name\"\\)\\.value\\.trim\\(\\),\\s*"
+                    + "ownerId: \\$\\(\"producer-owner\"\\)\\.value,\\s*"
+                    + "visibility: \\$\\(\"producer-visibility\"\\)\\.value,")
+            .matcher(script)
+            .find());
     assertTrue(script.contains("showKey(await call(\"POST\", `${PRODUCERS}/${p.id}/keys`))"));
     // Revoking a key and disabling a producer each ask first.
     assertTrue(

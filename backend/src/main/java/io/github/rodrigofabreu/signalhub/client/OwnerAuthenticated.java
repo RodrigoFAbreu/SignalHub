@@ -9,9 +9,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * Requires one of the owner's credentials: a valid client key, or the admin token when one is
- * configured. Guards reading the owner's events, which every client needs and the operator may also
- * do with the admin token.
+ * Requires a valid client key, or the admin token when one is configured. Guards reading events,
+ * which every client needs, limited to its user's subscriptions, and the operator may also do with
+ * the admin token, seeing every event.
  */
 @NameBinding
 @Target({TYPE, METHOD})

@@ -1,12 +1,15 @@
 package io.github.rodrigofabreu.signalhub.producer;
 
 import io.github.rodrigofabreu.signalhub.api.ApiError;
+import io.github.rodrigofabreu.signalhub.user.UserDirectory;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -53,16 +56,21 @@ public class ProducerAdminResource {
   public static final String SECURITY_SCHEME = "adminToken";
 
   private final ProducerService producers;
+  private final UserDirectory users;
 
-  ProducerAdminResource(ProducerService producers) {
+  ProducerAdminResource(ProducerService producers, UserDirectory users) {
     this.producers = producers;
+    this.users = users;
   }
 
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(
       summary = "Register a producer",
-      description = "Creates the producer and its first API key, which is shown only once.")
+      description =
+          "Creates the producer, owned by the given user (the oldest admin who is not revoked when"
+              + " none is given) and private unless made public, and its first API key, which is"
+              + " shown only once. The owner is subscribed to it.")
   @APIResponse(
       responseCode = "201",
       description = "Producer created. The Location header points to it.",
@@ -72,13 +80,20 @@ public class ProducerAdminResource {
       description = "The body is malformed or fails validation.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
+      responseCode = "404",
+      description = "No user has the given owner ID.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
       responseCode = "409",
-      description = "A producer with this name exists.",
+      description =
+          "A producer with this name exists, or the owner is revoked, or none is given and no"
+              + " admin is available.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public Response create(@NotNull @Valid CreateProducerRequest request) {
+    var owner = ownerOf(request.ownerId());
     var issued =
         producers
-            .create(request.name())
+            .create(request.name(), owner, request.visibilityOrDefault())
             .orElseThrow(
                 () ->
                     new ClientErrorException(
@@ -113,6 +128,39 @@ public class ProducerAdminResource {
   @APIResponse(responseCode = "404", description = "No producer has this ID.")
   public ProducerResponse get(@PathParam("id") UUID id) {
     return orNotFound(producers.get(id));
+  }
+
+  @PATCH
+  @Path("/{id}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Change who sees a producer",
+      description =
+          "Sets the producer's visibility, replaces its allow-list, or both. A subscriber who"
+              + " no longer sees a private producer (neither its owner nor allowed) is"
+              + " unsubscribed.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The producer, changed.",
+      content = @Content(schema = @Schema(implementation = ProducerResponse.class)))
+  @APIResponse(
+      responseCode = "400",
+      description =
+          "The body is malformed, changes nothing, or the allow-list names users that do not"
+              + " exist or are revoked.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(responseCode = "404", description = "No producer has this ID.")
+  public ProducerResponse update(
+      @PathParam("id") UUID id, @NotNull @Valid UpdateProducerRequest request) {
+    if (request.changesNothing()) {
+      throw badRequest("", "must give visibility, allowedUserIds or both");
+    }
+    return switch (orNotFound(
+        producers.update(id, request.visibility(), request.allowedUserIds()))) {
+      case ProducerService.Update.Updated updated -> updated.producer();
+      case ProducerService.Update.UnknownUsers unknown ->
+          throw badRequest("allowedUserIds", "names unknown or revoked users: " + unknown.ids());
+    };
   }
 
   @POST
@@ -177,6 +225,39 @@ public class ProducerAdminResource {
   @APIResponse(responseCode = "404", description = "The producer has no key with this ID.")
   public ProducerResponse revokeKey(@PathParam("id") UUID id, @PathParam("keyId") UUID keyId) {
     return orNotFound(producers.revokeKey(id, keyId));
+  }
+
+  /** The given owner, or the default one; refused if unknown, revoked or there is none. */
+  private UUID ownerOf(UUID requested) {
+    var owner = requested == null ? users.defaultOwner() : users.find(requested);
+    if (owner.isEmpty()) {
+      throw requested == null
+          ? conflict("No admin to own the producer; give ownerId")
+          : new NotFoundException(
+              Response.status(Response.Status.NOT_FOUND)
+                  .entity(new ApiError("User not found", 404, List.of()))
+                  .build());
+    }
+    if (!users.isActive(owner.get().id())) {
+      throw conflict("User is revoked");
+    }
+    return owner.get().id();
+  }
+
+  private static ClientErrorException conflict(String title) {
+    return new ClientErrorException(
+        Response.status(Response.Status.CONFLICT)
+            .entity(new ApiError(title, 409, List.of()))
+            .build());
+  }
+
+  private static BadRequestException badRequest(String field, String message) {
+    return new BadRequestException(
+        Response.status(Response.Status.BAD_REQUEST)
+            .entity(
+                new ApiError(
+                    "Invalid request", 400, List.of(new ApiError.Violation(field, message))))
+            .build());
   }
 
   private static <T> T orNotFound(Optional<T> result) {

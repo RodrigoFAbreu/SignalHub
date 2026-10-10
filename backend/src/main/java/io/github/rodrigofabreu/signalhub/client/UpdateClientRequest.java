@@ -8,8 +8,8 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(
     name = "UpdateClientRequest",
     description =
-        "What to change on a client: its name, whether it is an admin device, or both. A field"
-            + " that is omitted or null stays as it is; at least one must be given.")
+        "What to change on a client: its name. A field that is omitted or null stays as it is;"
+            + " at least one must be given.")
 public record UpdateClientRequest(
     @Schema(
             description =
@@ -20,7 +20,10 @@ public record UpdateClientRequest(
         @Pattern(regexp = NOT_BLANK, message = "must not be blank")
         @Pattern(regexp = CreateClientRequest.NO_NUL, message = CreateClientRequest.NO_NUL_MESSAGE)
         String name,
-    @Schema(description = "true makes the client an admin device; false takes admin rights away.")
+    @Schema(
+            description =
+                "Deprecated. Roles are set per user, so a client's admin flag cannot be changed:"
+                    + " a value other than the client's current one is refused (409).")
         Boolean admin) {
 
   // A present name has a character that is not whitespace, as @NotBlank requires of a new client.

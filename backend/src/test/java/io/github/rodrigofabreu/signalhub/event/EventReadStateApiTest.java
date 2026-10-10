@@ -43,11 +43,12 @@ class EventReadStateApiTest {
   }
 
   @Test
-  void marksAnEventReadForEveryClientAndKeepsTheFirstReadTime() {
-    var producer = TestProducers.register("read-one");
+  void marksAnEventReadForEveryDeviceOfTheUserAndNoOneElse() {
+    var producer = TestProducers.registerPublic("read-one");
     var event = publish(producer, "Read me");
-    var phone = TestClients.register("read-phone");
-    var tablet = TestClients.register("read-tablet");
+    var phone = TestClients.registerSubscribed("MOD", "read-phone", producer);
+    var tablet = TestClients.registerFor(phone.userId(), "read-tablet");
+    var stranger = TestClients.registerSubscribed("MOD", "read-stranger", producer);
 
     var readAt =
         asClient(phone.clientKey())
@@ -60,22 +61,63 @@ class EventReadStateApiTest {
             .extract()
             .<String>path("readAt");
 
-    // Another client sees it read, in the listing and by ID.
+    // Another device of the same user sees it read, in the listing and by ID.
     asClient(tablet.clientKey())
         .queryParam("producerId", producer.id().toString())
         .get(EVENTS)
         .then()
         .statusCode(200)
         .body("items[0].readAt", equalTo(readAt));
-    asAdmin().get(EVENTS + "/" + event).then().body("readAt", equalTo(readAt));
+    asClient(tablet.clientKey()).get(EVENTS + "/" + event).then().body("readAt", equalTo(readAt));
+    // Another user's read state, and the operator's, are their own.
+    asClient(stranger.clientKey())
+        .get(EVENTS + "/" + event)
+        .then()
+        .statusCode(200)
+        .body("readAt", nullValue());
+    asAdmin().get(EVENTS + "/" + event).then().body("readAt", nullValue());
 
-    // Marking it read again, from any client, changes nothing.
+    // Marking it read again, from any device of the user, changes nothing.
     asClient(tablet.clientKey())
         .put(EVENTS + "/" + event + "/read")
         .then()
         .statusCode(200)
         .body("readAt", equalTo(readAt));
     assertTrue(!Instant.parse(readAt).isAfter(Instant.now()));
+  }
+
+  @Test
+  void aUserMarksEventsUnreadAndReadThroughOneOfTheirOwn() {
+    var producer = TestProducers.registerPublic("read-user-through");
+    var device = TestClients.registerSubscribed("BASIC", "read-user-through", producer);
+    var oldest = publish(producer, "Oldest");
+    var through = publish(producer, "Through");
+    var newer = publish(producer, "Newer");
+    var other = TestClients.registerSubscribed("BASIC", "read-user-through-other", producer);
+
+    asClient(device.clientKey())
+        .contentType(ContentType.JSON)
+        .body("{\"through\": \"" + through + "\"}")
+        .post(MARK_READ)
+        .then()
+        .statusCode(200)
+        .body("marked", equalTo(2));
+    asClient(device.clientKey())
+        .queryParam("producerId", producer.id().toString())
+        .get(EVENTS)
+        .then()
+        .body(
+            "items.id",
+            equalTo(List.of(newer, through, oldest).stream().map(UUID::toString).toList()))
+        .body("items.readAt.collect { it == null }", equalTo(List.of(true, false, false)));
+    asClient(device.clientKey())
+        .delete(EVENTS + "/" + oldest + "/read")
+        .then()
+        .statusCode(200)
+        .body("readAt", nullValue());
+    assertEquals(2, unreadCountOf(device));
+    // The other user read nothing.
+    assertEquals(3, unreadCountOf(other));
   }
 
   @Test
@@ -158,13 +200,17 @@ class EventReadStateApiTest {
     asAdmin().delete(EVENTS + "/" + first + "/read").then().statusCode(200);
     assertEquals(2, unreadCount());
 
-    var client = TestClients.register("read-count-client");
+    // A device counts its user's unread events of the producers it is subscribed to, so only the
+    // three of this producer.
+    var client = TestClients.registerSubscribed("MOD", "read-count-client", publicCopy(producer));
     asClient(client.clientKey())
         .get(UNREAD_COUNT)
         .then()
         .statusCode(200)
         .contentType(ContentType.JSON)
-        .body("unread", equalTo(2));
+        .body("unread", equalTo(3));
+    asClient(client.clientKey()).put(EVENTS + "/" + second + "/read").then().statusCode(200);
+    assertEquals(2, unreadCountOf(client));
   }
 
   @Test
@@ -260,6 +306,26 @@ class EventReadStateApiTest {
         .post(MARK_READ)
         .then()
         .statusCode(200);
+  }
+
+  /** The producer made public, so that any user may subscribe to it. */
+  private static TestProducers.Registered publicCopy(TestProducers.Registered producer) {
+    asAdmin()
+        .contentType(ContentType.JSON)
+        .body("{\"visibility\": \"PUBLIC\"}")
+        .patch(TestProducers.ADMIN + "/" + producer.id())
+        .then()
+        .statusCode(200);
+    return producer;
+  }
+
+  private static int unreadCountOf(TestClients.Registered device) {
+    return asClient(device.clientKey())
+        .get(UNREAD_COUNT)
+        .then()
+        .statusCode(200)
+        .extract()
+        .path("unread");
   }
 
   private static int unreadCount() {

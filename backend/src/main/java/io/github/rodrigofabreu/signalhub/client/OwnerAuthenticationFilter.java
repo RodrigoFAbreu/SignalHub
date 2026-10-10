@@ -11,9 +11,10 @@ import jakarta.ws.rs.ext.Provider;
 import org.jboss.logging.Logger;
 
 /**
- * Guards {@link OwnerAuthenticated} endpoints: a client key or the admin token, else the same 401
- * as every other credential failure. Unlike the management API these endpoints exist without an
- * admin token, because clients read through them.
+ * Guards {@link OwnerAuthenticated} endpoints: a client key, which identifies the user whose events
+ * are read, or the admin token, which reads every event as no user; else the same 401 as every
+ * other credential failure. Unlike the management API these endpoints exist without an admin token,
+ * because clients read through them.
  */
 @Provider
 @OwnerAuthenticated
@@ -24,10 +25,13 @@ class OwnerAuthenticationFilter implements ContainerRequestFilter {
 
   private final ClientService clients;
   private final AdminToken adminToken;
+  private final AuthenticatedClient authenticated;
 
-  OwnerAuthenticationFilter(ClientService clients, AdminToken adminToken) {
+  OwnerAuthenticationFilter(
+      ClientService clients, AdminToken adminToken, AuthenticatedClient authenticated) {
     this.clients = clients;
     this.adminToken = adminToken;
+    this.authenticated = authenticated;
   }
 
   @Override
@@ -39,9 +43,17 @@ class OwnerAuthenticationFilter implements ContainerRequestFilter {
       return;
     }
     var token = presented.get();
-    if (!adminToken.matches(token) && clients.authenticate(token).isEmpty()) {
-      LOG.debug("Rejected owner credential: not a valid client key or admin token");
-      request.abortWith(BearerToken.unauthorized());
+    if (adminToken.matches(token)) {
+      // The operator acts for no user: every event, and a read state of their own.
+      return;
     }
+    clients
+        .authenticate(token)
+        .ifPresentOrElse(
+            authenticated::set,
+            () -> {
+              LOG.debug("Rejected owner credential: not a valid client key or admin token");
+              request.abortWith(BearerToken.unauthorized());
+            });
   }
 }
