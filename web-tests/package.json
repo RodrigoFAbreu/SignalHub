@@ -1,0 +1,12 @@
+{
+  "name": "signalhub-web-tests",
+  "private": true,
+  "description": "Browser tests for the users' web page (backend/src/main/resources/META-INF/resources/app). Test tooling only: never shipped.",
+  "scripts": {
+    "test": "playwright test",
+    "compare": "node visual/compare.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}

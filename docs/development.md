@@ -1115,6 +1115,78 @@ example workflow. The example workflow is linted by actionlint with the
 repository's own, and the Compose smoke test runs the examples against the
 real backend, each as its own producer.
 
+## Users' web page
+
+The page signed-in users run in a browser is plain HTML, CSS and ES modules in
+`backend/src/main/resources/META-INF/resources/app/`, served by the backend at
+`/app/` (see [Signing in a browser](architecture.md#signing-in-a-browser)). It has
+no framework, no build step and no runtime dependency: nothing to install to
+change it, and in dev mode (`./mvnw quarkus:dev`) an edit shows on reload. Its
+rules, which the tests below hold:
+
+- every server value is shown as text (`el()` and `textContent` in `js/dom.js`),
+  never as markup: no `innerHTML`, `eval`, inline script, `on*=` or `style=`;
+- it talks to its own origin only: its fonts, icons and QR encoder are bundled
+  (`licenses/README.md` says which, in which version, under which licence), and
+  the Content-Security-Policy in `application.properties` (`quarkus.http.filter.app`)
+  refuses anything else;
+- it never calls `/api/v1/admin/` and never has the admin token;
+- nothing in it special-cases a producer: style depends on an event's category and
+  severity only.
+
+### Browser tests
+
+`web-tests/` holds the tests, run by Playwright in headless Chromium against a
+running backend. It is test tooling only: nothing in it is shipped. The tests set
+up users, devices and producers through the management API, so they need the
+operator's token (it never reaches a page), and a phone is simulated with plain HTTP
+calls and a client key. Against a database you can throw away:
+
+```sh
+# a backend and PostgreSQL, as Compose runs them
+cp .env.example .env     # set SIGNALHUB_ADMIN_TOKEN, as in Docker Compose above
+docker compose up --build --wait
+cd web-tests
+npm ci
+npx playwright install chromium   # or point PLAYWRIGHT_CHROMIUM_EXECUTABLE at a Chromium
+SIGNALHUB_URL=http://localhost:8080 ADMIN_TOKEN=<the same token> npx playwright test
+```
+
+`SIGNALHUB_URL` defaults to `http://localhost:8080`. Chromium treats `localhost`
+as secure, so the `Secure` cookie of a session works over plain HTTP there. The
+tests give every user and producer a new name, so they can run again on the same
+database. They cover signing in on a desktop and at phone width, the codes
+running out and refreshing, a cancel, the cookie's attributes, the CSRF
+token and a page on another origin, a session that ends, the inbox and its
+filters, producers and keys, people and devices for each role, every server
+value rendered as text (an event, a name and a link full of markup), the policy
+headers of every file, that no request leaves the page's origin and no script
+or policy violation happens on any screen, framing, focus order, dialogs and
+the light theme. The "Web page (browser tests)" job runs them in CI.
+
+`AppPageTest` (`./mvnw -Dtest=AppPageTest test`, part of `./mvnw verify`)
+checks without a browser that every file the page loads is served, with the policy
+headers, that no file names another server, and that the bundled QR encoder is
+the one the backend's pinned WebJar has.
+
+### Comparing the page with its drawings
+
+The approved drawings are in `docs/design/users/source/` (`Web - *.dc.html`). To see
+the page beside them, frame by frame (drawing, page, and their difference), run
+against an **empty** database (it makes the drawings' sample people and
+producers: Rodrigo, Ana, ...; never a server with real data):
+
+```sh
+cd web-tests
+SIGNALHUB_URL=http://localhost:8080 ADMIN_TOKEN=<token> node visual/compare.mjs          # every frame
+SIGNALHUB_URL=http://localhost:8080 ADMIN_TOKEN=<token> node visual/compare.mjs 7a 8c2   # some
+```
+
+It serves the drawings itself with `python3 -m http.server`, renders each at its
+size and writes `web-tests/.visual/<frame>.png` (not in git). The sample world
+is kept in `.visual/world.json`; `--fresh` makes it again. Times differ from the
+drawings (they show fixed sample times), and the QR codes are real ones.
+
 ## Local validation
 
 CI runs:
@@ -1149,6 +1221,9 @@ flutter test
 # run from the repository's root):
 #   python3 scripts/release/app_files.py 0.0.0-ci "$(git rev-parse HEAD)" "$(mktemp -d)"
 flutter build ios --debug --no-codesign
+
+# Users' web page (needs Docker for the backend, and Node.js; see "Browser tests"):
+#   (cd web-tests && npm ci && npx playwright install chromium && npx playwright test)
 
 # Backend (needs Docker)
 (cd backend && ./mvnw verify)
