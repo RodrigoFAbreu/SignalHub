@@ -2280,6 +2280,24 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `docs/architecture.md` (Traffic by user, Delivery records, the admin page).
   Compatible (`feat`)
 
+### R67 - The third batch of Dependabot updates
+
+- four of the five Dependabot updates open on 2026-10-10 applied together
+  on one branch from the latest `main`, as R49 and R58 did:
+  - #127: the `caddy:2-alpine` image in `compose.yaml` moved to its new
+    multi-platform index digest (same tag)
+  - #128: `quarkus.platform.version` 3.39.5 to 3.40.1 in `backend/pom.xml`
+  - #130: `ruff` 0.16.9 to 0.16.10 in `.github/tools/requirements.txt`;
+    `ruff check` and `ruff format --check` report nothing new
+  - #131: `url_launcher` 6.3.2 to 6.3.3 in `client/pubspec.yaml` and
+    `client/pubspec.lock`
+- **not taken: #129**, the build image moving to the non-LTS JDK 26
+  (`maven:3.9-eclipse-temurin-26-noble`). SignalHub stays on Java 25 LTS
+  (decision D2), so it is closed with that reason, as #48 and #49 were
+- no API or behaviour change; CI runs the backend build and tests, the
+  app's analysis and tests, and the Compose smoke tests with the proxy
+  Compatible (`build`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2861,8 +2879,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 50    | R61 - Users, roles and subscriptions                                                             | Increment (`feat!`)                    | Done (see section 3)                                                             |
 | 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 53    | R67 - The third batch of Dependabot updates                                                      | Increment (`build`)                    | Next                                                                             |
-| 54    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next, after R67                                                                  |
+| 53    | R67 - The third batch of Dependabot updates                                                      | Increment (`build`)                    | Done (see section 3)                                                             |
+| 54    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next                                                                             |
 | 55    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
 | 56    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
 | 57    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
@@ -5249,7 +5267,7 @@ sign out; revoking the browser from a device signs it out.
 
 ### R67 - The third batch of Dependabot updates
 
-Status: Next. Added by the maintainer (2026-10-10).
+Status: done (see section 3). Added by the maintainer (2026-10-10).
 
 Goal: the build, CI, image and app library updates Dependabot proposed
 after R58 are applied, verified and released, and no Dependabot pull
@@ -5424,9 +5442,9 @@ alert also plays while the app is open), R58 (the second batch of
 Dependabot updates), R59 (a read event leaves the unread-only inbox),
 R60 (pushes reach a sleeping phone at once), R61 (users, roles and
 subscriptions), R62 (self-service for users: the API) and R63 (the admin
-page: traffic by user) are done. **R67 (the third batch of Dependabot
-updates) is next**, while the users' designs are being made; then R64
-(designs for users in the app and on a web page), the human gate G4 (the
+page: traffic by user), and R67 (the third batch of Dependabot
+updates) are done. **R64 (designs for users in the app and on a web page) is
+next**, then the human gate G4 (the
 maintainer approves the user designs), R65 and R66. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
