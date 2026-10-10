@@ -3071,6 +3071,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 60    | R70 - CI in reusable workflows, container checks as tests, and faster                            | Increment (`ci`)                       | Done (see section 3)                                                             |
+| 61    | R71 - An upgrade puts the proxy's new configuration in effect                                    | Increment (`fix`)                      | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3555,6 +3556,11 @@ G1 → G2 → R19 v1.0.0
   testing tool), and asked that CI be made genuinely faster, not only
   split further; a new testing tool is allowed only for a significant
   improvement with a very good reason.
+- **R71 was added by the maintainer on 2026-10-11**, after R70: opening
+  the users' web page on the owner's server showed that the documented
+  upgrade keeps the proxy on its old configuration. The maintainer chose a
+  fix with a test that fails without it and a note for installs already
+  upgraded.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3612,6 +3618,7 @@ advance; they follow from the queue.
 | R68           | minor (`feat`)                                                                                                                                        | admin-only fields and endpoints in the client API; nothing changes for other roles                         |
 | R69           | minor (`feat`)                                                                                                                                        | last-used times and the server version in the client API; one additive migration                           |
 | R70           | patch (`ci`)                                                                                                                                          | CI only; nothing a user, producer or operator sees                                                         |
+| R71           | patch (`fix`)                                                                                                                                         | upgrades put a changed proxy configuration in effect; nothing else changes                                 |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -5759,6 +5766,48 @@ tab; the container tests run against a local `docker compose up`; and
 the PR reports the durations and runner minutes before and after, both
 lower, or why one could not be lowered.
 
+### R71 - An upgrade puts the proxy's new configuration in effect
+
+Status: next. Added by the maintainer (2026-10-11).
+
+Goal: an upgrade done as `docs/deployment.md` says always runs the proxy
+with the release's `proxy/Caddyfile`, so what a release forwards (such as
+R66's `/app/`) works right after the upgrade.
+
+Found on the owner's server after the upgrade to 3.6.0: the proxy
+mounts the single file `proxy/Caddyfile`; extracting a release replaces
+that file, but the running container keeps reading the old one, and
+`docker compose up --wait` does not recreate the proxy when only the file
+changed. The proxy kept answering `404` for `/app/` until it was
+recreated by hand. CI did not notice, because the upgrade jobs do not
+check the proxy after an upgrade.
+
+Scope:
+
+- the fix: the smallest change, proven to work, so that the documented
+  upgrade puts a changed `proxy/Caddyfile` in effect (for example
+  mounting the proxy's folder rather than the single file together with
+  a step that restarts or reloads the proxy, or letting Compose recreate
+  the proxy when the file changes); decided in the increment and
+  recorded in `docs/architecture.md` or `docs/deployment.md`
+- a test that fails without the fix: an upgrade job runs the proxy of
+  an earlier release, upgrades in place as documented, and checks
+  through the proxy that a path only the new configuration forwards
+  works (and that what must stay `404` still does)
+- `docs/deployment.md`: the upgrade steps, and a note for an install
+  already on 3.6.0 or later whose proxy still answers `404` for `/app/`
+  (recreate the proxy once)
+
+Compatible (`fix`, patch): no change to the API, the schema or what the
+proxy forwards; an operator's existing setup keeps working.
+
+Non-goals: changing what the proxy forwards; other proxies an operator
+runs themselves (their configuration is theirs).
+
+Exit criteria: CI's upgrade job proves a changed `proxy/Caddyfile` is in
+effect after the documented upgrade; on the owner's server, the next
+upgrade done by the documented steps keeps `/app/` working.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -5896,8 +5945,9 @@ updates), R68 (people's details for admins in the client API) and R69
 maintainer approved the designs at G4, and R65 (users in the app) is
 done, and so is R66 (users' web page) with the app's *Sign in a browser*.
 So is R70 (CI in reusable workflows, container checks as tests, and
-faster). **No item is next.** A new item is added only by the maintainer, in
-a reviewed pull request; the deferred candidates of section 5 are not
+faster). **R71 (an upgrade puts the proxy's new configuration in
+effect) is next.** A new item is added only by the maintainer, in a
+reviewed pull request; the deferred candidates of section 5 are not
 started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
