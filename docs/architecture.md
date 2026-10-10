@@ -1415,8 +1415,8 @@ so a user can add a device from the app, away from the host:
 
 ### Signing in a browser
 
-> Status: implemented (the server and the app's side). The users' web page that
-> uses it follows.
+> Status: implemented, with the app's side (*Sign in a browser* in Settings)
+> and [the users' web page](#the-users-web-page).
 
 There are no passwords. A browser becomes one of a user's clients by being
 approved from a device the user already has, as WhatsApp Web is. Every role may
@@ -1506,6 +1506,65 @@ script of the page, because no other origin may read a response), and if it has
 an `Origin` it must be the request's own host. Otherwise it is `403`, after the
 `401` check. A request with a bearer key has no cookie to forge and needs
 neither. There is no CORS, so no other origin reads any response.
+
+### The users' web page
+
+`/app/` is the page signed-in users run in a browser: static files in
+`backend/src/main/resources/META-INF/resources/app/` on the backend's own port,
+**separate from the [admin page](#the-admin-page)**, which stays host only. The
+[proxy](deployment.md#network-exposure) forwards `/app/` like `/api/` and
+nothing else static (`/admin/` and `/q/` stay unreachable, and `/app/../admin/`
+is `404`). It is plain HTML, CSS and JavaScript modules: no framework, no build
+step, no dependency at runtime. It needs the page's own address only: no CDN,
+no web font, no outside request of any kind. Its Roboto, Roboto Mono and
+Material Symbols fonts and its QR encoder (qrcode-generator, the library the
+admin page uses) are bundled with their licences.
+
+- **Screens.** The approved designs in `docs/design/users/`: signing in (a QR
+  code on a desktop; at phone width, below 600 px, the typed code and *Open the
+  app*; the codes refresh themselves up to five times, then the page says it
+  stopped waiting), the inbox (filters, details, read state, the link opened in
+  a new tab), Producers, People (admins only), Settings with Devices by role,
+  About this server and *This browser* (rename, sign out), and the offline,
+  not found and ended-session states, in the dark and light themes. It
+  follows the user's role from the client API: nothing is drawn that the
+  server would refuse. The routes are hash routes (`#inbox/<id>`,
+  `#producers/<id>`, `#settings/devices`), so a reload returns to the same
+  place and there is no server fallback.
+- **Decided.** The page polls a sign-in every 1.5 s, which is how it notices a
+  cancel. The *Open the app* link is the QR link
+  (`signalhub://signin?server=…&code=…`). A sign-out in another tab is noticed
+  through a `BroadcastChannel`. A `401` before the session's end means it was
+  revoked ("You're signed out"), after it that it ended ("Your sign-in
+  ended"); either way the address is kept and signing in returns to it.
+  Nothing secret is stored in the browser: only a non-secret "had a session"
+  hint and which settings groups are folded.
+- **Content security policy.** Every response under `/app/` carries
+  `default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self';
+  font-src 'self'; img-src 'self'; form-action 'none'; frame-ancestors 'none';
+  base-uri 'none'; object-src 'none'`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff` and
+  `Cache-Control: no-cache`. The page has no inline script, style attribute or
+  event handler, so it can be framed by no one and runs only its own scripts.
+- **Every server value is text.** Titles, summaries, metadata, producer and
+  user names and device names are put in the page with `textContent` only; no
+  code path builds markup from a value of the server or of the address, and an
+  event's link is opened only if it is an absolute `http` or `https` URL,
+  otherwise shown as text. Tests publish markup and scripts in every field and
+  check that nothing runs.
+- **The session** is the cookie described in [Signing in a
+  browser](#signing-in-a-browser); the page never sees the key, sends
+  `X-SignalHub-CSRF` on every state-changing request, and keeps the poll
+  secret in memory. The cookie is `Secure`, so over plain HTTP it works only on
+  `localhost`: through the proxy, with TLS, it works everywhere.
+- **Tests.** `web-tests/` drives the page in headless Chromium (Playwright,
+  test tooling only) against a running backend: signing in, the session's
+  cookie and CSRF rules, a cross-origin page, revocation, the inbox, markup in
+  every field, the headers on every file, framing, no outside request,
+  accessibility (names, focus, dialogs, light theme, reduced motion) and each
+  role; `AppPageTest` checks the served files and headers; the Compose smoke
+  test checks the page through the proxy. A script renders each drawing and
+  the page side by side for comparison (`docs/development.md`).
 
 ### Traffic by user
 
@@ -2739,6 +2798,19 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
 - **Tests.** Unit and widget tests run against an in-memory fake of the
   client API (`MockClient`) and a fake `PushService`; no device, network or
   credentials. CI also compiles the Android and iOS apps.
+
+### Signing in a browser (app)
+
+*Settings › Sign in a browser* is a row for every role. It opens the camera to
+scan the code a [web page](#the-users-web-page) shows, or a field for the typed
+code (`K7Q-4MX`), looks it up, and asks *Sign in this browser?* naming the
+browser and system. *Sign in* approves it and *Cancel* (or leaving the sheet)
+tells the page. A `signalhub://signin?server=…&code=…` link opens the same
+confirmation on Android (the *Open the app* button); the app refuses a link for
+a server other than the one it is connected to, and registers no URL scheme on
+iOS. Devices lists browsers with a *Browser* tag and lets every role sign out,
+rename (mods and admins) and delete its own browsers. See
+[`client/README.md`](../client/README.md).
 
 ## Producer SDK and CLI
 

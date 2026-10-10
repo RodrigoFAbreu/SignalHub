@@ -2415,6 +2415,47 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   in CI. `docs/architecture.md` (Client application), `client/README.md`,
   `docs/development.md`. Compatible (`feat(client)`)
 
+### R66 - Users' web page
+
+- **built** from the approved designs in `docs/design/users/` (G4), with each
+  screen compared with its rendered drawing: signing a browser in from a device
+  (the server: `POST /api/v1/web/sign-ins`, a poll that issues the session,
+  `GET /api/v1/web/session`, `POST /api/v1/web/session/sign-out`, and the
+  device's `/api/v1/client/web-sign-ins/lookup`, `approve` and `cancel`; one
+  migration, `V20`, adds `clients.kind` and `clients.expires_at` and the
+  `web_sign_ins` table); a browser is a client of its user, listed and revoked
+  like a device, whose key lives only in an `HttpOnly`, `Secure`,
+  `SameSite=Strict` cookie for a fixed 30 days; every role approves signing a
+  browser in and renames, revokes and deletes its own browsers; CSRF protection
+  (a token and a same-host origin on every state-changing request made with
+  the cookie); wrong codes bounded; the users' web page at `/app/` (sign in,
+  inbox, producers, people, settings and devices, sign out, the ended-session
+  and offline states, dark and light) under a strict content security policy,
+  forwarded by the proxy; and the app's *Sign in a browser* (the Settings row,
+  scanner, typed code, confirmation, and an Android link)
+- **decided** where the entry left a choice: the session is the browser
+  client's own key, so the cookie authenticates the same client API with the
+  same role rules; codes live three minutes, the page refreshes them five
+  times, the typed code is six characters (about 30 bits) and is safe because
+  only a device may try it and wrong tries are bounded (five per device, thirty
+  in all, in ten minutes); a Cancel is noticed by the page's one-and-a-half
+  second poll; the browser is named from its `User-Agent`; signing out revokes
+  the browser; only a device, never a browser, approves a sign-in; browsers do
+  not count as a mod's devices for the last-device rule; the page bundles its
+  own fonts, icons and QR encoder; the *Open the app* link is the QR link
+  (`signalhub://signin?server=…&code=…`), handled on Android only (the app
+  registers no URL scheme on iOS); details in `docs/architecture.md`
+  (Signing in a browser, The users' web page)
+- **deliberate differences from the drawings** are listed in the pull request
+  that did it (for example the success card does not name the approving
+  device, the server does not say which; the app's Basic user has no Rename on
+  their own browser, as drawn, though the server allows it)
+- tests: the server's API tests per role (cookie, CSRF, expiry, revocation,
+  bounds, the migration), the page driven in headless Chromium (sign-in,
+  session, inbox, XSS, security headers, accessibility, roles, producers,
+  people), the app's widget and controller tests, and the Compose smoke test
+  through the proxy. Compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -3002,7 +3043,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 56    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Done (see section 3)                                                             |
 | 57    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Passed (2026-10-10, approved without changes)                                    |
 | 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Done (see section 3)                                                             |
-| 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Next                                                                             |
+| 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -5460,7 +5501,7 @@ the approved designs works for an admin and for a basic user.
 
 ### R66 - Users' web page
 
-Status: next (R65 is done). Added by the maintainer
+Status: done (see section 3). Added by the maintainer
 (2026-10-10).
 
 Goal: a user can do from a browser what R62 allows their role, and read
@@ -5752,8 +5793,8 @@ updates), R68 (people's details for admins in the client API) and R69
 (when devices and keys were last used, and the server's version) and R64
 (designs for users in the app and on a web page) are done, the
 maintainer approved the designs at G4, and R65 (users in the app) is
-done. **R66 (users' web page) is next**, with the app's *Sign in a browser*
-that R65 left to it. A new
+done, and so is R66 (users' web page) with the app's *Sign in a browser*.
+**Nothing is queued: the queue is complete.** A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
 
