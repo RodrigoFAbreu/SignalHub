@@ -59,6 +59,8 @@ class ProducerPersistenceTest {
     keys.put("key_hash", "bytea NO");
     keys.put("created_at", "timestamp with time zone NO");
     keys.put("revoked_at", "timestamp with time zone YES");
+    // Added by V19: empty until the key first publishes.
+    keys.put("last_used_at", "timestamp with time zone YES");
     assertEquals(keys, columnsOf("producer_api_keys"));
   }
 

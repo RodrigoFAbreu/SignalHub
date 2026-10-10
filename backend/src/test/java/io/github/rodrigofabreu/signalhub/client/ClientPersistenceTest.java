@@ -45,6 +45,8 @@ class ClientPersistenceTest {
     columns.put("last_push_failed_result", "text YES");
     // Added by V17: the user the client belongs to; the admin flag V13 added is gone.
     columns.put("user_id", "uuid NO");
+    // Added by V19: empty until the client's first request.
+    columns.put("last_active_at", "timestamp with time zone YES");
     assertEquals(columns, columnsOf("clients"));
   }
 

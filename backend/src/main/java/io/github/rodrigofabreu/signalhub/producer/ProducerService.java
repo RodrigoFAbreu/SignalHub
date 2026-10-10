@@ -4,6 +4,7 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
+import io.github.rodrigofabreu.signalhub.LastUsed;
 import io.github.rodrigofabreu.signalhub.user.NamedUser;
 import io.github.rodrigofabreu.signalhub.user.UserDirectory;
 import io.github.rodrigofabreu.signalhub.user.UserRef;
@@ -75,6 +76,10 @@ public class ProducerService {
     if (!producer.enabled()) {
       LOG.debugf("Rejected producer credential: producer %s is disabled", producer.id());
       return Optional.empty();
+    }
+    var at = now();
+    if (LastUsed.due(key.get().lastUsedAt(), at)) {
+      keys.recordUse(keyId.get(), at, at.minus(LastUsed.INTERVAL));
     }
     return Optional.of(new ProducerIdentity(producer.id(), producer.name()));
   }
@@ -530,7 +535,11 @@ public class ProducerService {
             .map(
                 k ->
                     new OwnProducerResponse.Key(
-                        k.id(), ApiKeys.prefixOf(k.id()), k.createdAt(), k.revokedAt()))
+                        k.id(),
+                        ApiKeys.prefixOf(k.id()),
+                        k.createdAt(),
+                        k.lastUsedAt(),
+                        k.revokedAt()))
             .toList(),
         producer.visibility(),
         allowed.stream()
@@ -575,7 +584,10 @@ public class ProducerService {
         producer.disabledAt(),
         lastEventAt,
         keys.stream()
-            .map(k -> new ProducerResponse.ApiKey(k.id(), k.createdAt(), k.revokedAt()))
+            .map(
+                k ->
+                    new ProducerResponse.ApiKey(
+                        k.id(), k.createdAt(), k.lastUsedAt(), k.revokedAt()))
             .toList(),
         people.get(producer.ownerId()),
         producer.visibility(),

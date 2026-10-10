@@ -34,6 +34,10 @@ class ApiKeyEntity {
   @Column(name = "revoked_at")
   private Instant revokedAt;
 
+  // Written only by ApiKeyRepository's own statement, at most once per LastUsed.INTERVAL.
+  @Column(name = "last_used_at", insertable = false, updatable = false)
+  private Instant lastUsedAt;
+
   protected ApiKeyEntity() {}
 
   ApiKeyEntity(UUID id, ProducerEntity producer, byte[] keyHash, Instant createdAt) {
@@ -57,6 +61,11 @@ class ApiKeyEntity {
 
   Instant createdAt() {
     return createdAt;
+  }
+
+  /** When the key last authenticated a publish, to within a minute; null if never. */
+  Instant lastUsedAt() {
+    return lastUsedAt;
   }
 
   Instant revokedAt() {

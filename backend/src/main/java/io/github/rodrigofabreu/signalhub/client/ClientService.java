@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.client;
 
+import io.github.rodrigofabreu.signalhub.LastUsed;
 import io.github.rodrigofabreu.signalhub.producer.ApiKeys;
 import io.github.rodrigofabreu.signalhub.push.DeliveryResult;
 import io.github.rodrigofabreu.signalhub.user.Role;
@@ -66,6 +67,10 @@ public class ClientService {
     if (user.isEmpty()) {
       LOG.debugf("Rejected client credential: the user of client %s is revoked", clientId.get());
       return Optional.empty();
+    }
+    var at = now();
+    if (LastUsed.due(client.get().lastActiveAt(), at)) {
+      clients.recordActivity(clientId.get(), at, at.minus(LastUsed.INTERVAL));
     }
     return Optional.of(
         new ClientIdentity(
@@ -537,6 +542,7 @@ public class ClientService {
         user.admin(),
         user,
         client.createdAt(),
+        client.lastActiveAt(),
         client.revokedAt(),
         pushTarget,
         client.pushPreferences());

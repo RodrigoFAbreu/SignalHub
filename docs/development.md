@@ -400,7 +400,7 @@ doubt.
 | `/q/health` | Both of the above combined. |
 | `/q/openapi` | OpenAPI document (YAML; `?format=json` for JSON). |
 | `/q/metrics` | Prometheus metrics: HTTP, JVM, database pool, events and push delivery. See [Metrics](architecture.md#metrics). |
-| `/q/info` | The release and commit the backend was built from (`signalhub`), Java and the OS. See [Version](architecture.md#version). |
+| `/q/info` | The release and commit the backend was built from (`signalhub`), Java and the OS. See [Version](architecture.md#version). Clients read the same two values at `GET /api/v1/client/server`. |
 | `/q/swagger-ui` | Swagger UI, dev mode only. |
 
 ### Producers and API keys
@@ -434,7 +434,7 @@ curl -s http://localhost:8080/api/v1/admin/producers \
     "disabledAt": null,
     "lastEventAt": null,
     "keys": [
-      {"id": "b49cd36a-84ed-4581-b4bb-9b89f170a57c", "createdAt": "2026-09-25T16:34:40.417295Z", "revokedAt": null}
+      {"id": "b49cd36a-84ed-4581-b4bb-9b89f170a57c", "createdAt": "2026-09-25T16:34:40.417295Z", "lastUsedAt": null, "revokedAt": null}
     ]
   },
   "keyId": "b49cd36a-84ed-4581-b4bb-9b89f170a57c",
@@ -444,7 +444,9 @@ curl -s http://localhost:8080/api/v1/admin/producers \
 
 Give `apiKey` to the producer through its own secret store, never through the
 repository. `lastEventAt` is when SignalHub received the producer's newest
-event still stored (`null` before its first one). The
+event still stored (`null` before its first one), and a key's `lastUsedAt` when
+it last published (`null` before it first does; kept to within a minute, see
+[When devices and keys were last used](architecture.md#when-devices-and-keys-were-last-used)). The
 [admin page](architecture.md#the-admin-page) at `http://localhost:8080/admin/#producers`
 does all of this in a browser; with curl, manage it (`$PRODUCER` and `$KEY`
 are the IDs above):
@@ -493,6 +495,7 @@ curl -s http://localhost:8080/api/v1/admin/clients \
     "admin": true,
     "user": {"id": "01a0da2b-0000-7000-8000-000000000001", "name": "Owner", "role": "ADMIN"},
     "createdAt": "2026-09-25T18:02:11.108811Z",
+    "lastActiveAt": null,
     "revokedAt": null,
     "pushTarget": null,
     "pushPreferences": {

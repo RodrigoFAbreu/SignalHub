@@ -1155,7 +1155,7 @@ the operator's, is `404`, the same answer as for an ID that does not exist.
 |---|---|
 | `POST /api/v1/client/producers` | Registers a producer owned by the caller's user (`{"name", "visibility"}`; `visibility` is `PRIVATE` when omitted; the name is as in [Producer management](#producer-management)). The owner is subscribed. `201` with `{"producer", "keyId", "apiKey"}` (`IssuedOwnApiKey`) and `Location`; **the key is shown only in this answer**. `409` if the name is taken. |
 | `GET /api/v1/client/producers` | The caller's producers by name, `{"items": [...]}`. |
-| `GET /api/v1/client/producers/{id}` | One of them (`OwnProducer`): `id`, `name`, `createdAt`, `disabledAt`, `disabledByOperator`, `lastEventAt`, `visibility`, `subscribed`, `allowedUsers` (`{"id", "name"}`) and `keys`: for each key its `id`, `prefix` (`shpk1_` and the key ID, which starts the key and is not secret), `createdAt` and `revokedAt`. **Never a key.** |
+| `GET /api/v1/client/producers/{id}` | One of them (`OwnProducer`): `id`, `name`, `createdAt`, `disabledAt`, `disabledByOperator`, `lastEventAt`, `visibility`, `subscribed`, `allowedUsers` (`{"id", "name"}`) and `keys`: for each key its `id`, `prefix` (`shpk1_` and the key ID, which starts the key and is not secret), `createdAt`, `lastUsedAt` (`null` until the key publishes) and `revokedAt`. **Never a key.** |
 | `PATCH /api/v1/client/producers/{id}` | Renames the producer and/or sets its `visibility` (at least one; `400` otherwise); `409` if another producer has the name. Keys keep working and events stay the producer's own (they show the new name). Making a producer private ends the subscriptions of users who are neither its owner nor on its allow-list. |
 | `POST /api/v1/client/producers/{id}/keys` | Issues an additional key (rotate: issue, switch, revoke). `201` with `IssuedOwnApiKey`. |
 | `POST /api/v1/client/producers/{id}/keys/{keyId}/revoke` | Revokes a key at once and for good. Idempotent. `404` for a key of another producer. |
@@ -1798,6 +1798,7 @@ suppressed push is simply not sent to that client.
 | `DELETE /api/v1/client/push-target` | client key | Removes the push target. Idempotent. `200` with the client. |
 | `PUT /api/v1/client/push-preferences` | client key | Replaces the push preferences (`{"enabled", "minimumSeverity", "mutedCategories", "mutedProducerIds"}`, each optional). `200` with the client. |
 | `GET /api/v1/client/push-config` | client key | The options an app needs to set up push with the server's provider, `{"provider", "options"}` (see [Push client options](#push-client-options)); `404` if the operator configured none. |
+| `GET /api/v1/client/server` | client key, any role | The release the server runs, `{"version", "commit"}`, as `/q/info` reports it: `version` is `development` and `commit` `null` for a build the release did not make. For an app's *About this server*. |
 | `GET /api/v1/client/devices` | client key | An admin: every client, as `GET /api/v1/admin/clients` lists them; anyone else: the clients of their own user. See [Device management from a device](#device-management-from-a-device). |
 | `PATCH /api/v1/client/devices/{id}` | client key | Renames a client (`{"name"}`): a mod their own, an admin those of users who are not admins. `200` with the client (`ManagedClient`); `409` for an admin's device or a revoked client; `403` for a basic user. |
 | `POST /api/v1/client/devices/{id}/admin` | client key | Always `409`: roles are set per user, only with the admin token. |
@@ -1808,6 +1809,10 @@ suppressed push is simply not sent to that client.
 | `GET /api/v1/client/users` | client key, any role | The users who are not revoked: names only, and for an admin's key also role, active devices and whether they have paired. |
 | `GET /api/v1/client/users/{id}/producers` | client key of an admin | The producers a user owns (ID, name, visibility, disabled). |
 | `POST /api/v1/client/users`, `PATCH /api/v1/client/users/{id}` | client key of an admin | Invites a user with a first pairing code, and sets a role: see [Users from a device](#users-from-a-device). |
+
+Every client, as `Client` or `ManagedClient`, carries `lastActiveAt` and
+every producer key `lastUsedAt` (see [When devices and keys were last
+used](#when-devices-and-keys-were-last-used)).
 
 The management paths behave like producer management: `404` for every path
 while no admin token is configured, `404` for unknown IDs, and `400` for
@@ -1867,6 +1872,41 @@ retention may delete the event. Changes
 to one client lock its
 row, so a revocation and a concurrent push-target update apply in order
 rather than one overwriting the other.
+
+### When devices and keys were last used
+
+So the owner can tell a device or a producer key in use from one forgotten,
+SignalHub records when each client last made a request and when each
+producer key last authenticated a publish (`POST /api/v1/events`):
+
+- `lastActiveAt` on every client, in `Client` and `ManagedClient`: wherever a
+  client is already shown, so each role sees it on exactly the devices it may
+  already list (a basic user or a mod their own, an admin every device, the
+  operator all of them), and a device sees its own.
+- `lastUsedAt` on every key, in `ApiKey` (management API) and `OwnApiKey`
+  (the caller's own producers).
+- `null` until first use, and kept after revocation. A rejected key, revoked,
+  wrong or unknown, records nothing. A publish the server then refuses (for
+  example an invalid body) still counts as the key's use, as the key
+  authenticated.
+
+A time is rewritten only when the recorded one is at least one minute old
+(`LastUsed.INTERVAL`), so a time may be up to a minute behind and a busy
+client or producer costs one small write a minute, not one per request.
+Whether a write is due is decided from the row authentication has already
+read, so most requests add no statement at all; the write itself is a
+conditional `UPDATE` that also skips a row another request just updated.
+Event ingestion's durability and latency do not change: the persisted event is
+acknowledged as before, and the extra statement runs in the authentication
+transaction at most once a minute per key. Only the latest time is kept, not
+a history, and nothing is recorded per event. The columns are written only by
+these statements, never by Hibernate's own updates, so a rename or a
+revocation never overwrites a time recorded meanwhile.
+
+`V19__add_last_used_times.sql` adds the nullable columns
+`clients.last_active_at` and `producer_api_keys.last_used_at`; existing rows
+start `null`. Nothing needs the operator. Logs are unchanged: they carry
+client and key IDs only, never keys or tokens.
 
 ### Logging
 
@@ -2628,7 +2668,8 @@ release bakes its version and commit into the image, and the backend
 reports them:
 
 - at `/q/info`, beside health and metrics, and so not forwarded by the
-  proxy; the product API has no version endpoint:
+  proxy; the client API serves the same two values to any client key at
+  `GET /api/v1/client/server` (see [Client API](#client-api)):
 
   ```json
   {"signalhub": {"version": "1.2.3", "revision": "0123456789abcdef0123456789abcdef01234567"}, "java": {...}, "os": {...}}
