@@ -163,6 +163,43 @@ jobs:
       # owner's Apple account and happens on their machine.
       - run: flutter build ios --debug --no-codesign
 
+  # The users' web page (backend/src/main/resources/META-INF/resources/app) in a
+  # real browser, against the backend built from this commit and PostgreSQL, as
+  # Compose runs them. web-tests/ is test tooling only: nothing in it is shipped.
+  web:
+    name: Web page (browser tests)
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: http://localhost:8080
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start PostgreSQL and the backend
+        run: |
+          cp .env.example .env
+          admin_token=$(openssl rand -hex 32)
+          echo "::add-mask::$admin_token"
+          echo "ADMIN_TOKEN=$admin_token" >> "$GITHUB_ENV"
+          sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" .env
+          docker compose up --build --wait --wait-timeout 180
+      # The runner image ships Node.js; the version of Playwright and of its
+      # Chromium is pinned by web-tests/package-lock.json.
+      - run: npm ci
+        working-directory: web-tests
+      - run: npx playwright install --with-deps chromium
+        working-directory: web-tests
+      - run: npx playwright test
+        working-directory: web-tests
+      - if: failure()
+        run: docker compose logs backend
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-test-results
+          path: web-tests/.results
+          if-no-files-found: ignore
+      - if: always()
+        run: docker compose down --volumes
+
   # Runs natively on x86-64 and on ARM64 (such as a Raspberry Pi 5), so the
   # image is built and the whole stack is checked on both. The x86-64 job keeps
   # its name, which branch protection requires.
@@ -328,10 +365,32 @@ jobs:
               /q/info /q/health \
               /api/%2e%2e/q/metrics /q/health/ready /q/metrics \
               /q/openapi / /admin/ /admin /admin/admin.js /%61dmin/ /api/../admin/ /connect/ /connect \
+              /app/../admin/ /app/%2e%2e/admin/ /app/../q/info /application /app.css \
               /webjars/qrcode-generator/2.0.4/dist/qrcode.js; do
             status=$(https_status "$path")
             test "$status" = 404 || { echo "$path: expected 404, got $status"; exit 1; }
           done
+          # The users' web page is the one static path forwarded: /app/ is served with its
+          # policy and revalidated, and a bundled font comes with it.
+          page() {
+            curl --silent --cacert "$RUNNER_TEMP/proxy-ca.crt" "$@"
+          }
+          headers=$(page --fail --show-error --dump-header - --output /dev/null https://localhost/app/)
+          grep --ignore-case --quiet "^content-security-policy: default-src 'none'; script-src 'self'" <<< "$headers"
+          grep --ignore-case --quiet "frame-ancestors 'none'" <<< "$headers"
+          grep --ignore-case --quiet '^cache-control: no-cache' <<< "$headers"
+          grep --ignore-case --quiet '^x-frame-options: DENY' <<< "$headers"
+          grep --ignore-case --quiet '^referrer-policy: no-referrer' <<< "$headers"
+          test "$(page --output /dev/null --write-out '%{http_code} %{redirect_url}' https://localhost/app)" = '301 https://localhost/app/'
+          page --fail --show-error https://localhost/app/ | grep --quiet '<title>SignalHub</title>'
+          font=$(page --fail --show-error https://localhost/app/fonts/fonts.css \
+            | grep --only-matching --extended-regexp 'roboto-v51-[A-Za-z0-9_-]+\.woff2' | head -1)
+          test -n "$font"
+          test "$(page --output /dev/null --write-out '%{http_code} %{content_type}' "https://localhost/app/fonts/$font")" = '200 font/woff2'
+          page --fail --show-error https://localhost/app/js/main.js | grep --quiet 'SignalHub'
+          # Signing in starts through the proxy; the cookie is set only on approval, so none yet.
+          page --fail --show-error --request POST https://localhost/api/v1/web/sign-ins \
+            | jq --exit-status '.code != null and .pollSecret != null'
           # Plain HTTP only redirects to HTTPS.
           test "$(curl --silent --output /dev/null --write-out '%{http_code} %{redirect_url}' \
             http://localhost/api/v1/events)" = '308 https://localhost/api/v1/events'

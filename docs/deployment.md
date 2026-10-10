@@ -16,14 +16,14 @@ handling of secrets and health monitoring.
 ## Topology
 
 ```
-phone, producers ──HTTPS :443──▶ proxy (Caddy) ──/api/ only──▶ backend :8080 ──▶ PostgreSQL
-                    HTTP :80 ──▶ redirect to HTTPS, certificate challenges
+phone, producers, ──HTTPS :443──▶ proxy (Caddy) ──/api/ and /app/ only──▶ backend :8080 ──▶ PostgreSQL
+users' browsers      HTTP :80 ──▶ redirect to HTTPS, certificate challenges
 
 operator on the host ──http://localhost:8080──▶ backend (management API, health, metrics)
 ```
 
-- **proxy** terminates TLS and forwards only the product API (`/api/`) to
-  the backend. It is [Caddy](https://caddyserver.com/), which obtains and
+- **proxy** terminates TLS and forwards only the product API (`/api/`) and
+  the users' web page (`/app/`) to the backend. It is [Caddy](https://caddyserver.com/), which obtains and
   renews certificates itself, from the `proxy` profile of `compose.yaml`
   and configured by `proxy/Caddyfile`.
 - **backend** publishes its plain-HTTP port on `127.0.0.1` only, for the
@@ -162,8 +162,10 @@ trust again). Keep it out of reach like the database.
 
 To serve on other ports, or behind a reverse proxy the host already runs,
 leave the `proxy` profile off and let that proxy terminate TLS and forward
-what `proxy/Caddyfile` forwards: `/api/` except `/api/v1/admin/`, to
-`127.0.0.1:8080`, matched on the normalized path.
+what `proxy/Caddyfile` forwards: `/api/` except `/api/v1/admin/`, and the
+users' page, `/app/` (with `/app` redirected to `/app/`), to
+`127.0.0.1:8080`, matched on the normalized path. Forward nothing else: the
+page's folder is the only static path that leaves the host.
 
 ## Network exposure
 
@@ -171,7 +173,7 @@ What other machines can reach, with the proxy enabled:
 
 | Port | Serves |
 |---|---|
-| 443 (TCP and UDP for HTTP/3) | `/api/`: publishing, the inbox and read state, the client API (including device management, and creating pairing codes and learning whether they were used, from a device of a mod or an admin, as [its user's role](architecture.md#roles) allows), redeeming a pairing code. Everything else answers `404`. |
+| 443 (TCP and UDP for HTTP/3) | `/api/`: publishing, the inbox and read state, the client API (including device management, and creating pairing codes and learning whether they were used, from a device of a mod or an admin, as [its user's role](architecture.md#roles) allows), redeeming a pairing code, and a browser signing in. Also `/app/`, [the users' web page](#the-users-web-page). Everything else answers `404`. |
 | 80 | Redirects to HTTPS; Let's Encrypt's certificate challenges. |
 
 Not reachable from other machines:
@@ -197,8 +199,37 @@ Not reachable from other machines:
   exposed.
 - **PostgreSQL**: no published port at all.
 
-Every request through the proxy carries a producer API key, a client key or
-a one-time pairing code; none of the product API answers without one. On the host,
+### The users' web page
+
+`https://<your domain>/app/` is the page signed-in users run in a browser
+([Signing in a browser](architecture.md#signing-in-a-browser)). It is static
+files the backend serves from its own jar, so it needs no configuration, and
+the proxy forwards it like `/api/`:
+
+- **Only `/app/` is forwarded.** `/app` redirects to `/app/`; the root, `/admin/`,
+  `/q/` and the WebJars the admin page loads stay `404` through the proxy, however
+  the path is spelled.
+- **Sessions need HTTPS.** A browser's session is a `Secure` cookie
+  (`__Host-signalhub_session`), which a browser sets only on an HTTPS page, or on
+  `localhost`. Through the proxy that is always so; a reverse proxy of your own must
+  serve the page over HTTPS too, or signing in will not stick.
+- **It runs only its own files**: the page's `Content-Security-Policy` allows
+  scripts, styles, fonts and requests from its own address only, it cannot be
+  framed, sends no referrer and is revalidated on every load (`no-cache`), so an
+  upgrade reaches browsers at once. Its fonts, icons and QR encoder are bundled
+  (`licenses/` in its folder); it loads nothing from any other server.
+- **It holds no secret of the host.** It never uses the admin token and never
+  calls `/api/v1/admin/`.
+- **The `Open the app` link** and the QR code carry `SIGNALHUB_PUBLIC_URL`, or, if
+  it is unset, the address the page was opened at.
+
+The Compose smoke test in CI checks this through the proxy over TLS: `/app/` is
+served with its policy and `no-cache`, `/app` redirects, a bundled font is served,
+and `/admin/`, `/api/v1/admin/`, the root and a `..` out of `/app/` answer `404`.
+
+Every request through the proxy carries a producer API key, a client key, a
+browser's session cookie or a one-time pairing code (or starts a browser's sign-in,
+which asks for nothing); none of the rest of the product API answers without one. On the host,
 allow only ports 22 (SSH, from the home network), 80 and 443 in the
 firewall. Ports 80 and 443 need to be open to the internet only for Let's
 Encrypt, or for clients outside the home network; a VPN is the tighter
