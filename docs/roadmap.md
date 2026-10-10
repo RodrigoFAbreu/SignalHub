@@ -2345,6 +2345,31 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   lists, `OpenApiTest`. `docs/architecture.md` (When devices and keys were
   last used), `docs/development.md`. Compatible (`feat`)
 
+### R64 - Designs for users in the app and on a web page
+
+- **made** in a Claude Design project by the orchestrator with the
+  maintainer, the design work done by local Sonnet workers, each design
+  skill only in its fixed role: first a SignalHub design system from the
+  released app (Material 3 from its indigo seed, dark first, Roboto), then
+  every screen and state for the app and the web page by role, two
+  clickable prototypes of the main flows, a review (design quality and
+  every line of copy checked against the server) and its fixes
+- **chosen by the maintainer** from drawn options: a bottom bar (Inbox,
+  Producers, Settings; People for an admin), Producers as one list with
+  search and filter chips, a new key on a full screen with *Copy and
+  close*, People in sections by role, and web sign-in by a QR code the app
+  scans (a typed code at phone width); the answers to ten open questions
+  and six later decisions are in the walkthrough
+- **server needs** found by the design became their own items: R68
+  (people's details for admins) and R69 (when devices and keys were last
+  used, and the server's version); what the designs show and the server
+  doesn't provide was otherwise cut, or left to R66 where R66 decides it
+- **exported** to `docs/design/users/`: an image of every screen and state
+  (WebP), `DESIGN.md` (tokens, components, patterns, wording,
+  accessibility, contrast and R64's rules), `WALKTHROUGH.md` (the flows,
+  each choice with its alternatives, what the server must provide, what
+  was left out) and an index, `README.md`. Documentation only (`docs`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2929,8 +2954,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 53    | R67 - The third batch of Dependabot updates                                                      | Increment (`build`)                    | Done (see section 3)                                                             |
 | 54    | R68 - People's details for admins in the client API                                              | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 55    | R69 - When devices and keys were last used, and the server's version                             | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 56    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next                                                                             |
-| 57    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
+| 56    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Done (see section 3)                                                             |
+| 57    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Next: waiting for the maintainer                                                 |
 | 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
 | 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
 
@@ -5249,7 +5274,7 @@ each user's events and deliveries on the admin page.
 
 ### R64 - Designs for users in the app and on a web page
 
-Status: next. Added by the maintainer
+Status: complete (see section 3). Added by the maintainer
 (2026-10-10); amended the same day: made in Claude Design, with the
 design skills given fixed roles.
 
@@ -5340,7 +5365,7 @@ exported again before G4 is marked passed.
 
 ### G4 - The maintainer approves the user designs
 
-Status: blocked until R64 is merged. A human gate.
+Status: next, waiting for the maintainer. A human gate.
 
 The maintainer reviews the drawings of R64 (`docs/design/users/`) and
 approves them, with or without changes, in a pull request or issue. R65
@@ -5660,10 +5685,11 @@ R60 (pushes reach a sleeping phone at once), R61 (users, roles and
 subscriptions), R62 (self-service for users: the API) and R63 (the admin
 page: traffic by user), R67 (the third batch of Dependabot
 updates), R68 (people's details for admins in the client API) and R69
-(when devices and keys were last used, and the server's version) are
-done. **R64 (designs for users in the app and on a web page) is next**,
-then the human gate G4 (the
-maintainer approves the user designs), R65 and R66. A new
+(when devices and keys were last used, and the server's version) and R64
+(designs for users in the app and on a web page) are done. **The human
+gate G4 is next**: the maintainer reviews `docs/design/users/` and approves
+the designs, with or without changes; an orchestrator stops there. Then
+R65 and R66. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
 
