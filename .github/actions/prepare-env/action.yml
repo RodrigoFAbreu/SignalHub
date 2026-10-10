@@ -1,7 +1,8 @@
 name: Prepare the Compose settings
 description: >-
   Makes .env from .env.example with a random database password and admin
-  token, masked in the logs, and exports the token as SIGNALHUB_ADMIN_TOKEN for
+  token, masked in the logs, and exports the token as SIGNALHUB_TEST_ADMIN_TOKEN (not the name Compose
+  reads, which would override .env) for
   the container tests.
 
 inputs:
@@ -21,6 +22,6 @@ runs:
         admin_token=$(openssl rand -hex 32)
         echo "::add-mask::$db_password"
         echo "::add-mask::$admin_token"
-        echo "SIGNALHUB_ADMIN_TOKEN=$admin_token" >> "$GITHUB_ENV"
+        echo "SIGNALHUB_TEST_ADMIN_TOKEN=$admin_token" >> "$GITHUB_ENV"
         sed -i "s/^SIGNALHUB_DB_PASSWORD=.*/SIGNALHUB_DB_PASSWORD=$db_password/" .env
         sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" .env

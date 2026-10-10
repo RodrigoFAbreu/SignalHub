@@ -8,7 +8,7 @@ Settings come from the environment, so the same tests run in CI and by hand
 against a local `docker compose up`:
 
 SIGNALHUB_URL            the backend on the host (default http://localhost:8080)
-SIGNALHUB_ADMIN_TOKEN    the operator's token; default: the one in .env of the
+SIGNALHUB_TEST_ADMIN_TOKEN the operator's token; default: SIGNALHUB_ADMIN_TOKEN in .env of the
                          Compose folder
 SIGNALHUB_COMPOSE_DIR    the folder of the stack's compose.yaml and .env
                          (default: the current folder)
@@ -264,12 +264,12 @@ def host() -> Endpoint:
 
 @functools.cache
 def admin_token() -> str:
-    token = os.environ.get("SIGNALHUB_ADMIN_TOKEN") or env_file_value(
+    token = os.environ.get("SIGNALHUB_TEST_ADMIN_TOKEN") or env_file_value(
         "SIGNALHUB_ADMIN_TOKEN"
     )
     if not token:
         raise unittest.SkipTest(
-            "set SIGNALHUB_ADMIN_TOKEN (or SIGNALHUB_ADMIN_TOKEN in .env of the Compose folder)"
+            "set SIGNALHUB_TEST_ADMIN_TOKEN (or SIGNALHUB_ADMIN_TOKEN in .env of the Compose folder)"
         )
     return mask(token)
 

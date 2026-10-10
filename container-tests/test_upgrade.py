@@ -8,6 +8,7 @@ phase with, for example:
     python container-tests/test_upgrade.py StoreData
 
 Settings: SIGNALHUB_COMPOSE_DIR (the folder of the stack the phase talks to),
+SIGNALHUB_REPO (the checkout of this commit, when the tests run from a copy),
 SIGNALHUB_UPGRADE_STATE (a file the first phase writes the keys to, for the
 others), SIGNALHUB_EXPECT_RELEASE and SIGNALHUB_EXPECT_REVISION (what the
 upgraded stack reports) and the setting of the other test modules.
@@ -19,6 +20,7 @@ release restores its backup", the events it lists.
 """
 
 import json
+import os
 import unittest
 from pathlib import Path
 
@@ -34,7 +36,7 @@ from signalhub_stack import (
     required,
 )
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(os.environ.get("SIGNALHUB_REPO") or Path(__file__).resolve().parent.parent)
 MIGRATIONS = ROOT / "backend/src/main/resources/db/migration"
 
 

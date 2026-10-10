@@ -40,7 +40,7 @@ jobs:
       - run: npx playwright test
         working-directory: web-tests
         env:
-          ADMIN_TOKEN: ${{ env.SIGNALHUB_ADMIN_TOKEN }}
+          ADMIN_TOKEN: ${{ env.SIGNALHUB_TEST_ADMIN_TOKEN }}
       - if: failure()
         run: docker compose logs backend
       - if: failure()
