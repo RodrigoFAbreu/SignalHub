@@ -66,7 +66,10 @@ revoked, and says which device used the code shown, with a push to the
 user's devices and the admins' when a device pairs, and a device does so
 as its user's role allows (a mod their own devices, an admin those of
 users who are not admins, a basic user none; a device is an admin device
-exactly when its user is an admin) through
+exactly when its user is an admin; an admin's device also invites users
+and sets basic or mod roles, and any user's device manages that user's
+own producers, subscribes and lists users' names, all under
+`/api/v1/client/`) through
 `/api/v1/client/devices`, with a push naming it (none for a deletion), and
 creates pairing codes at `/api/v1/client/pairings`; whoever
 created a pairing asks whether it was used, and by which device, at

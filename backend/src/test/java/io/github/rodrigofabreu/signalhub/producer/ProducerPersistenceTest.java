@@ -49,6 +49,8 @@ class ProducerPersistenceTest {
     // Added by V17.
     producers.put("owner_id", "uuid NO");
     producers.put("visibility", "text NO");
+    // Added by V18.
+    producers.put("disabled_by_owner", "boolean NO");
     assertEquals(producers, columnsOf("producers"));
 
     var keys = new LinkedHashMap<String, String>();

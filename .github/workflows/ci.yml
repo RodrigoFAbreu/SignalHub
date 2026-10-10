@@ -501,6 +501,44 @@ jobs:
             --header "Authorization: Bearer $client_key" --header 'Content-Type: application/json' \
             --data '{"name": "x"}' https://localhost/api/v1/client/pairings)
           test "$status" = 403 || { echo "expected 403, got $status"; exit 1; }
+          # Self-service is forwarded like the rest of /api/: a basic user's device registers a
+          # producer, sees its key once and only by prefix afterwards, lists the users' names (no
+          # roles) and cannot invite; an admin device can.
+          own=$(devices --fail --show-error --request POST \
+            --header "Authorization: Bearer $client_key" --header 'Content-Type: application/json' \
+            --data '{"name": "ci-own-producer"}' https://localhost/api/v1/client/producers)
+          own_key=$(jq --raw-output .apiKey <<<"$own")
+          echo "::add-mask::$own_key"
+          own_id=$(jq --raw-output .producer.id <<<"$own")
+          devices --fail --show-error --header "Authorization: Bearer $client_key" \
+            https://localhost/api/v1/client/producers \
+            | jq --exit-status --arg id "$own_id" \
+                '.items | map(select(.id == $id)) | .[0] | .visibility == "PRIVATE"
+                  and (.keys[0].prefix | startswith("shpk1_"))'
+          if devices --header "Authorization: Bearer $client_key" \
+              https://localhost/api/v1/client/producers | grep --quiet --fixed-strings "$own_key"; then
+            echo "the producer list holds a key"; exit 1
+          fi
+          devices --fail --show-error --header "Authorization: Bearer $client_key" \
+            https://localhost/api/v1/client/users \
+            | jq --exit-status '.items | length >= 2 and all(.[]; keys == ["id", "name"])'
+          status=$(devices --output /dev/null --write-out '%{http_code}' --request POST \
+            --header "Authorization: Bearer $client_key" --header 'Content-Type: application/json' \
+            --data '{"name": "ci-invited"}' https://localhost/api/v1/client/users)
+          test "$status" = 403 || { echo "expected 403, got $status"; exit 1; }
+          devices --fail --show-error --request POST \
+            --header "Authorization: Bearer $admin_key" --header 'Content-Type: application/json' \
+            --data '{"name": "ci-invited", "role": "MOD"}' https://localhost/api/v1/client/users \
+            | jq --exit-status '.user.role == "MOD" and (.pairing.code | startswith("shpc1_"))' \
+            > /dev/null
+          # Another user's producer is not found, and the owner's admin token is no client key.
+          status=$(devices --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $admin_key" \
+            "https://localhost/api/v1/client/producers/$own_id")
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
+          status=$(devices --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $ADMIN_TOKEN" https://localhost/api/v1/client/producers)
+          test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
           device_pairing=$(devices --fail --show-error --request POST \
             --header "Authorization: Bearer $admin_key" --header 'Content-Type: application/json' \
             --data '{"name": "ci-device-paired"}' https://localhost/api/v1/client/pairings)

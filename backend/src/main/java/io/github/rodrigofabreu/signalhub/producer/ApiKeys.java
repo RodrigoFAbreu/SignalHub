@@ -38,14 +38,19 @@ public final class ApiKeys {
 
   private ApiKeys() {}
 
+  /**
+   * What identifies a key without revealing it: the format and the key ID, as the key starts. Safe
+   * to show, as the ID is not secret.
+   */
+  static String prefixOf(UUID keyId) {
+    return PREFIX + HEX.formatHex(toBytes(keyId));
+  }
+
   /** A new random key for the given key ID. */
   static String generate(UUID keyId) {
     var secret = new byte[SECRET_BYTES];
     RANDOM.nextBytes(secret);
-    return PREFIX
-        + HEX.formatHex(toBytes(keyId))
-        + "_"
-        + Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
+    return prefixOf(keyId) + "_" + Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
   }
 
   /** The key ID of a well-formed key; empty for anything else. Never inspects the secret. */

@@ -1,6 +1,8 @@
 package io.github.rodrigofabreu.signalhub.user;
 
 import io.github.rodrigofabreu.signalhub.client.ClientService;
+import io.github.rodrigofabreu.signalhub.client.IssuedPairing;
+import io.github.rodrigofabreu.signalhub.client.PairingService;
 import io.github.rodrigofabreu.signalhub.producer.ProducerService;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -29,16 +31,19 @@ public class UserService {
   private final ClientService clients;
   private final ProducerService producers;
   private final EntityManager entityManager;
+  private final PairingService pairings;
 
   UserService(
       UserRepository users,
       ClientService clients,
       ProducerService producers,
-      EntityManager entityManager) {
+      EntityManager entityManager,
+      PairingService pairings) {
     this.users = users;
     this.clients = clients;
     this.producers = producers;
     this.entityManager = entityManager;
+    this.pairings = pairings;
   }
 
   /** Invites a user; empty if another user has this name. */
@@ -122,6 +127,108 @@ public class UserService {
               LOG.infof("Revoked user %s", id);
               return summarize(List.of(user)).getFirst();
             });
+  }
+
+  /**
+   * An admin's device invites a user as BASIC or MOD and creates their first pairing code, in one
+   * transaction: either both exist or neither. Locks the caller's user and reads their role under
+   * the lock, so an operator demoting or revoking them meanwhile applies before this or after it.
+   *
+   * @throws Refused if the caller may not, or the invitation is not valid
+   */
+  @Transactional
+  Invited inviteBy(
+      UUID callerUserId, UUID callerClientId, String name, Role role, String deviceName) {
+    requireAdmin(callerUserId);
+    requireAssignable(role);
+    if (users.nameTaken(name, new UUID(0, 0))) {
+      throw new Refused(Refusal.NAME_TAKEN);
+    }
+    var user = new UserEntity(name, role, now());
+    users.persist(user);
+    users.flush();
+    var pairing =
+        pairings
+            .createForInvited(callerClientId, deviceName, user.id())
+            .orElseThrow(() -> new Refused(Refusal.CALLER_REVOKED));
+    LOG.infof("User %s invited user %s as %s", callerUserId, user.id(), role);
+    return new Invited(user.ref(), pairing);
+  }
+
+  /**
+   * An admin's device sets the role of a user who is not an admin to BASIC or MOD. Making a user an
+   * admin, or no longer one, stays with the operator.
+   *
+   * @throws Refused if the caller may not, the user is unknown, revoked or an admin
+   */
+  @Transactional
+  UserRef setRoleBy(UUID callerUserId, UUID id, Role role) {
+    requireAdmin(callerUserId);
+    requireAssignable(role);
+    var user = users.findForUpdate(id).orElseThrow(() -> new Refused(Refusal.UNKNOWN_USER));
+    if (user.revoked()) {
+      throw new Refused(Refusal.USER_REVOKED);
+    }
+    if (user.role() == Role.ADMIN) {
+      throw new Refused(Refusal.USER_IS_ADMIN);
+    }
+    if (user.role() != role) {
+      user.setRole(role);
+      LOG.infof("User %s made user %s %s", callerUserId, id, role);
+    }
+    users.flush();
+    return user.ref();
+  }
+
+  /** A user invited from a device, with the code that pairs their first device. */
+  record Invited(UserRef user, IssuedPairing pairing) {}
+
+  /** Why a device's request about users was refused. */
+  enum Refusal {
+    /** The caller's user is not an admin. */
+    NOT_ALLOWED,
+    /** The caller, or its user, was revoked after it authenticated. */
+    CALLER_REVOKED,
+    /** ADMIN is not given from a device. */
+    INVALID_ROLE,
+    NAME_TAKEN,
+    UNKNOWN_USER,
+    USER_REVOKED,
+    USER_IS_ADMIN
+  }
+
+  /** Thrown to refuse, which rolls the transaction back. Carries no stack trace. */
+  static final class Refused extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    private final transient Refusal refusal;
+
+    Refused(Refusal refusal) {
+      super(refusal.name(), null, false, false);
+      this.refusal = refusal;
+    }
+
+    Refusal refusal() {
+      return refusal;
+    }
+  }
+
+  /** The caller's user, locked, must still be an active admin. */
+  private void requireAdmin(UUID callerUserId) {
+    var caller =
+        users
+            .findForUpdate(callerUserId)
+            .filter(user -> !user.revoked())
+            .orElseThrow(() -> new Refused(Refusal.CALLER_REVOKED));
+    if (caller.role() != Role.ADMIN) {
+      throw new Refused(Refusal.NOT_ALLOWED);
+    }
+  }
+
+  private static void requireAssignable(Role role) {
+    if (role == Role.ADMIN) {
+      throw new Refused(Refusal.INVALID_ROLE);
+    }
   }
 
   private List<UserResponse> summarize(List<UserEntity> found) {

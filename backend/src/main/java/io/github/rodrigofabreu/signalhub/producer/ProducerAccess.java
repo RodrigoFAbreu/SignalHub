@@ -51,6 +51,12 @@ public class ProducerAccess {
    */
   @Transactional
   public boolean subscribe(UUID userId, UUID producerId) {
+    // The producer's row lock serialises this with a change of its visibility or allow-list, which
+    // takes the same lock, so a user who just lost sight of it cannot subscribe behind that change.
+    entityManager
+        .createNativeQuery("SELECT 1 FROM producers WHERE id = :producer FOR UPDATE")
+        .setParameter("producer", producerId)
+        .getResultList();
     if (!canSee(userId, producerId)) {
       return false;
     }
@@ -72,6 +78,33 @@ public class ProducerAccess {
       LOG.infof("User %s unsubscribed from producer %s", userId, producerId);
     }
     return ended > 0;
+  }
+
+  /** Whether the user receives the producer's events. */
+  @Transactional
+  public boolean isSubscribed(UUID userId, UUID producerId) {
+    return exists(
+        "SELECT 1 FROM subscriptions WHERE user_id = :user AND producer_id = :producer",
+        userId,
+        producerId);
+  }
+
+  /** The producers the user sees: public ones, their own, and those they are allowed on. */
+  @Transactional
+  public List<UUID> visibleProducerIds(UUID userId) {
+    List<?> ids =
+        entityManager
+            .createNativeQuery(
+                """
+                SELECT p.id FROM producers p
+                WHERE p.visibility = 'PUBLIC'
+                   OR p.owner_id = :user
+                   OR EXISTS (SELECT 1 FROM producer_allowed_users a
+                              WHERE a.producer_id = p.id AND a.user_id = :user)
+                """)
+            .setParameter("user", userId)
+            .getResultList();
+    return ids.stream().map(UUID.class::cast).toList();
   }
 
   /** The producers the user receives events from. */
@@ -115,6 +148,32 @@ public class ProducerAccess {
           .setParameter("user", userId)
           .executeUpdate();
     }
+  }
+
+  /** Puts the user on the allow-list; false if they already were. */
+  boolean allow(UUID producerId, UUID userId) {
+    return entityManager
+            .createNativeQuery(
+                """
+                INSERT INTO producer_allowed_users (producer_id, user_id) VALUES (:producer, :user)
+                ON CONFLICT DO NOTHING
+                """)
+            .setParameter("producer", producerId)
+            .setParameter("user", userId)
+            .executeUpdate()
+        > 0;
+  }
+
+  /** Takes the user off the allow-list; false if they were not on it. */
+  boolean disallow(UUID producerId, UUID userId) {
+    return entityManager
+            .createNativeQuery(
+                "DELETE FROM producer_allowed_users WHERE producer_id = :producer"
+                    + " AND user_id = :user")
+            .setParameter("producer", producerId)
+            .setParameter("user", userId)
+            .executeUpdate()
+        > 0;
   }
 
   /** The users on the producer's allow-list. */

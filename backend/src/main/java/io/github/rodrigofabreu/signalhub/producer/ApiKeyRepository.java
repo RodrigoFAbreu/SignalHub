@@ -13,6 +13,10 @@ class ApiKeyRepository implements PanacheRepositoryBase<ApiKeyEntity, UUID> {
     return list("producer.id", Sort.by("createdAt").and("id"), producerId);
   }
 
+  List<ApiKeyEntity> ofOwner(UUID ownerId) {
+    return list("producer.ownerId", Sort.by("createdAt").and("id"), ownerId);
+  }
+
   List<ApiKeyEntity> ofAllProducers() {
     return listAll(Sort.by("createdAt").and("id"));
   }

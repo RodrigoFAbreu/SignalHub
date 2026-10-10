@@ -569,6 +569,34 @@ curl -s http://localhost:8080/api/v1/client/pairings \
   -d '{"name": "Tablet"}' | jq -r .uri   # add "userId" to pair for another user
 ```
 
+Every user, whatever the role, manages their own producers and subscriptions
+with their client key (see [Own producers from a
+device](architecture.md#own-producers-from-a-device)). The key is in the
+answer that creates the producer, and nowhere else:
+
+```sh
+C=http://localhost:8080/api/v1/client
+curl -s -X POST "$C/producers" -H "Authorization: Bearer $CLIENT_KEY" \
+  -H 'Content-Type: application/json' -d '{"name": "my-script"}'              # creates it; shows apiKey once
+curl -s "$C/producers" -H "Authorization: Bearer $CLIENT_KEY"                  # mine, keys by prefix only
+curl -s -X PATCH "$C/producers/$ID" -H "Authorization: Bearer $CLIENT_KEY" \
+  -H 'Content-Type: application/json' -d '{"visibility": "PUBLIC"}'            # make it public
+curl -s "$C/users" -H "Authorization: Bearer $CLIENT_KEY"                      # names, to allow someone
+curl -s -X PUT "$C/producers/$ID/allowed-users/$USER" -H "Authorization: Bearer $CLIENT_KEY"
+curl -s "$C/visible-producers" -H "Authorization: Bearer $CLIENT_KEY"          # what I may subscribe to
+curl -s -X PUT "$C/visible-producers/$ID/subscription" -H "Authorization: Bearer $CLIENT_KEY"
+```
+
+An admin's device also invites a user with a first pairing code and sets a
+role:
+
+```sh
+curl -s -X POST "$C/users" -H "Authorization: Bearer $ADMIN_KEY" \
+  -H 'Content-Type: application/json' -d '{"name": "Anna", "role": "MOD"}'     # user and pairing code
+curl -s -X PATCH "$C/users/$USER" -H "Authorization: Bearer $ADMIN_KEY" \
+  -H 'Content-Type: application/json' -d '{"role": "BASIC"}'
+```
+
 #### Users
 
 Users, their roles, producers' visibility and subscriptions are in

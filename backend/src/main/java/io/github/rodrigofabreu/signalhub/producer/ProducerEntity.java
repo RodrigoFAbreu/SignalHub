@@ -19,7 +19,7 @@ class ProducerEntity {
   @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
   private UUID id;
 
-  @Column(nullable = false, updatable = false)
+  @Column(nullable = false)
   private String name;
 
   @Column(name = "created_at", nullable = false, updatable = false)
@@ -27,6 +27,10 @@ class ProducerEntity {
 
   @Column(name = "disabled_at")
   private Instant disabledAt;
+
+  // Whether the owner, not the operator, disabled it: only then may the owner enable it again.
+  @Column(name = "disabled_by_owner", nullable = false)
+  private boolean disabledByOwner;
 
   @Column(name = "owner_id", nullable = false, updatable = false)
   private UUID ownerId;
@@ -76,14 +80,35 @@ class ProducerEntity {
     return disabledAt == null;
   }
 
-  /** Keeps the original time if already disabled, so repeating the request changes nothing. */
+  void rename(String name) {
+    this.name = name;
+  }
+
+  /**
+   * Disabled by the operator: keeps the original time if already disabled, so repeating the request
+   * changes nothing, but the owner can no longer enable it, even if they had disabled it.
+   */
   void disable(Instant now) {
     if (disabledAt == null) {
       disabledAt = now;
     }
+    disabledByOwner = false;
+  }
+
+  /** Disabled by the owner; a producer already disabled stays as it was, whoever disabled it. */
+  void disableByOwner(Instant now) {
+    if (disabledAt == null) {
+      disabledAt = now;
+      disabledByOwner = true;
+    }
+  }
+
+  boolean disabledByOperator() {
+    return disabledAt != null && !disabledByOwner;
   }
 
   void enable() {
     disabledAt = null;
+    disabledByOwner = false;
   }
 }

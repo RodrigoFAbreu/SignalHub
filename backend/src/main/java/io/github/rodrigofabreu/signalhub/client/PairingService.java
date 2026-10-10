@@ -19,7 +19,7 @@ import org.jboss.logging.Logger;
  * keys or hashes.
  */
 @ApplicationScoped
-class PairingService {
+public class PairingService {
 
   private static final Logger LOG = Logger.getLogger(PairingService.class);
 
@@ -100,6 +100,17 @@ class PairingService {
         "Client %s created pairing %s for user %s, expires at %s",
         callerId, issued.id(), userId, issued.expiresAt());
     return new DevicePairing.Created(issued);
+  }
+
+  /**
+   * {@link #createBy} for a user another service has just invited in the same transaction; empty if
+   * the caller may not create it (it or its user was revoked, or it is not an admin's).
+   */
+  @Transactional
+  public Optional<IssuedPairing> createForInvited(UUID callerId, String clientName, UUID userId) {
+    return createBy(callerId, clientName, userId) instanceof DevicePairing.Created created
+        ? Optional.of(created.pairing())
+        : Optional.empty();
   }
 
   /** A mod pairs for themselves, an admin for anyone, a basic user for no one. */

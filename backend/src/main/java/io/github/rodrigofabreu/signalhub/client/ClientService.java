@@ -251,6 +251,34 @@ public class ClientService {
   }
 
   /**
+   * A device renames a device, as its user's role allows: a mod their own, an admin those of users
+   * who are not admins, a basic user none. A revoked device never changes. Renaming to the name it
+   * has changes nothing.
+   */
+  @Transactional
+  DeviceChange renameBy(UUID callerId, UUID id, String name) {
+    return changeBy(
+        callerId,
+        id,
+        (caller, client) -> {
+          var refusal = scopeRefusal(caller, client);
+          if (refusal != null) {
+            return new DeviceChange.Refused(refusal);
+          }
+          if (client.revoked()) {
+            return new DeviceChange.Refused(Refusal.CLIENT_REVOKED);
+          }
+          var renamed = !name.equals(client.name());
+          if (renamed) {
+            client.rename(name);
+            LOG.infof("Client %s renamed client %s", callerId, id);
+          }
+          return done(client, renamed);
+        },
+        DeviceChange.Refused::new);
+  }
+
+  /**
    * A device deletes a revoked device, as its user's role allows: a mod their own, an admin those
    * of users who are not admins. Empty once deleted; an active device, the caller included, must be
    * revoked first.
@@ -345,6 +373,8 @@ public class ClientService {
     UNKNOWN_CLIENT,
     CLIENT_IS_ADMIN,
     CLIENT_NOT_REVOKED,
+    /** A revoked client never changes. */
+    CLIENT_REVOKED,
     /** The caller is a mod and the device is their last active one. */
     LAST_DEVICE,
     /** No pairing with this ID that the caller created. */

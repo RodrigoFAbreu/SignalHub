@@ -3,10 +3,14 @@ package io.github.rodrigofabreu.signalhub.client;
 import io.github.rodrigofabreu.signalhub.api.ApiError;
 import io.github.rodrigofabreu.signalhub.producer.BearerToken;
 import jakarta.enterprise.event.Event;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.ClientErrorException;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -24,18 +28,18 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 /**
- * Device management from a device, as its user's role allows: list devices, revoke one and delete a
- * revoked one. Under {@code /api/v1/client}, so the proxy forwards it; making a user an admin, and
- * anything done to an admin's devices, stays with the operator's admin token.
+ * Device management from a device, as its user's role allows: list devices, rename one, revoke one
+ * and delete a revoked one. Under {@code /api/v1/client}, so the proxy forwards it; making a user
+ * an admin, and anything done to an admin's devices, stays with the operator's admin token.
  */
 @Path("/api/v1/client/devices")
 @Tag(
     name = "Device management",
     description =
         "Devices, managed from a device as its user's role allows. A basic user reads their own"
-            + " devices and changes none (403). A mod also revokes and deletes their own devices,"
-            + " but not their last active one. An admin also lists every device and revokes and"
-            + " deletes those of users who are not admins. Roles are set per user, only by the"
+            + " devices and changes none (403). A mod also renames, revokes and deletes their own"
+            + " devices, but may not revoke their last active one. An admin also lists every"
+            + " device and renames, revokes and deletes those of users who are not admins. Roles are set per user, only by the"
             + " operator with the admin token.")
 @SecurityRequirement(name = ClientResource.SECURITY_SCHEME)
 @APIResponse(
@@ -98,6 +102,40 @@ public class DeviceResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public ManagedClientResponse makeAdmin(@PathParam("id") UUID id) {
     throw error(Response.Status.CONFLICT, OperatorUsers.ROLES_ARE_PER_USER);
+  }
+
+  @PATCH
+  @Path("/{id}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Rename a device",
+      description =
+          "Sets the client's name; its key keeps working. A mod renames their own devices, an"
+              + " admin those of users who are not admins; an admin's devices, this one included,"
+              + " are renamed only by the operator. A revoked device is not renamed. Naming it as"
+              + " it is changes nothing. No push is sent.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The client, with its name.",
+      content = @Content(schema = @Schema(implementation = ManagedClientResponse.class)))
+  @APIResponse(
+      responseCode = "400",
+      description = "The body is malformed or fails validation.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No client has this ID, or a mod's is not theirs.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "409",
+      description = "The client is an admin device, or it is revoked; nothing changed.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public ManagedClientResponse rename(
+      @PathParam("id") UUID id, @NotNull @Valid RenameDeviceRequest request) {
+    return switch (clients.renameBy(caller.get().id(), id, request.name())) {
+      case ClientService.DeviceChange.Done done -> done.client();
+      case ClientService.DeviceChange.Refused refused -> throw refusal(refused.refusal());
+    };
   }
 
   @POST
@@ -190,6 +228,7 @@ public class DeviceResource {
           error(Response.Status.NOT_FOUND, "Not found");
       case CLIENT_IS_ADMIN -> error(Response.Status.CONFLICT, "Client is an admin device");
       case CLIENT_NOT_REVOKED -> error(Response.Status.CONFLICT, "Client is not revoked");
+      case CLIENT_REVOKED -> error(Response.Status.CONFLICT, "Client is revoked");
       case LAST_DEVICE ->
           error(Response.Status.CONFLICT, "Cannot revoke the last active device of a user");
       case USER_REVOKED -> error(Response.Status.CONFLICT, "User is revoked");
