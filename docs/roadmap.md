@@ -3187,6 +3187,12 @@ G1 → G2 → R19 v1.0.0
   - this is several people on one self-hosted server with three fixed
     roles, not the multi-tenant SaaS or enterprise IAM that section 6
     rules out
+  - R64 was amended the same day: the designs are made with the
+    maintainer in a Claude Design project, and the design skills installed
+    for it (impeccable, ui-ux-pro-max, Emil Kowalski's design engineering,
+    frontend-design, taste, web-design-guidelines, playwright-cli) are all
+    kept, each with a fixed role and a settled precedence so they never
+    contradict each other
   - a reply to an event (an answer recorded for its producer) is wanted
     later by the workflow controller's orchestrator, which will raise it
     itself; it is a deferred candidate, not queued
@@ -5033,32 +5039,93 @@ each user's events and deliveries on the admin page.
 ### R64 - Designs for users in the app and on a web page
 
 Status: blocked until R63 is merged. Added by the maintainer
-(2026-10-10).
+(2026-10-10); amended the same day: made in Claude Design, with the
+design skills given fixed roles.
 
 Goal: before the app and a web page get the users' features, their
 screens are designed and agreed, so they are usable.
 
-Scope, documentation only (`docs/design/users/`):
+How it is made (decided by the maintainer):
 
-- wireframe drawings (SVG, readable in the repository and in the pull
-  request), one per screen or state, for the app and for the web page,
-  covering what R61 and R62 allow each role: first run from an
-  invitation, the user's producers (create, the key shown once, keys,
-  public or private, the allow-list), browsing and subscribing, devices
-  by role (`BASIC` read only, `MOD` their own, `ADMIN` everyone's and
-  inviting users and setting Basic or Mod), and the web page's sign-in
-  by pairing the browser and signing out
+- in a Claude Design project, by the orchestrator's own session with the
+  maintainer, not by a cloud worker: Claude Design and the design skills
+  below are only on the maintainer's machine. The orchestrator opens
+  R64's pull request
+- first a SignalHub design system in that project, built from the
+  released app (a screenshot of every screen and state, and its Flutter
+  theme): the app's existing look (Material 3 from its indigo seed, its
+  dark theme, its icons and wording) is extended, not replaced.
+  Screenshots carry sample events and no real addresses
+- then every screen and state below, and a clickable prototype of the
+  main flows, from that design system; the maintainer comments in the
+  project
+- exported to `docs/design/users/`: an image per screen and state,
+  `DESIGN.md` (the design system: tokens, type, components, patterns,
+  and the rules below), and a written walk-through of the main flows
+  with the choices made and their alternatives
+
+Scope, what is designed:
+
+- for the app and for the web page, what R61 and R62 allow each role:
+  first run from an invitation, the user's producers (create, the key
+  shown once, keys, public or private, the allow-list), browsing and
+  subscribing, devices by role (`BASIC` read only, `MOD` their own,
+  `ADMIN` everyone's and inviting users and setting Basic or Mod), and
+  the web page's sign-in by pairing the browser and signing out
 - where each screen lives in the app's existing navigation (the inbox,
   the gear icon's *Settings* with its folding groups, the *Devices*
   screen), how a role changes what is shown, empty states and errors
-- the web page's layout on a phone and on a desktop browser
-- a written walk-through of the main flows, and the choices made with
-  their alternatives
+- the web page's layout on a phone and on a desktop browser, and its
+  inbox
 
-Docs (`docs`, patch). Non-goals: implementation; visual branding beyond
-the app's existing look.
+The design skills and their roles. All are kept; each is used only for
+its role, one at a time for its step, so they never contradict:
 
-Exit criteria: the drawings are merged and G4 is put to the maintainer.
+- **precedence**: the maintainer's words, then `DESIGN.md` (once
+  exported; the project's design system until then), then the
+  platform's conventions (Material 3 for the Android app, the Web
+  Interface Guidelines for the web page), then a skill's own defaults.
+  No skill changes SignalHub's palette, type or patterns on its own
+- **direction and critique**: `impeccable`, in its *Operate* mode (app
+  and product screens) and with its Android reference for the app; it
+  refines the incumbent look, never starts a new visual world; its
+  `critique`, `audit` and `polish` review the screens, and its
+  `document` writes `DESIGN.md` (and `PRODUCT.md`). Its hooks stay off
+- **reference data and checklists**: `ui-ux-pro-max`'s search for
+  patterns and UX rules (its `flutter` stack for the app; for the web
+  page only its general UX and style domains, since its web stacks
+  assume a framework or Tailwind), and its pre-delivery checklist; it
+  does not persist its own
+  `MASTER.md`, so `DESIGN.md` stays the only design system file
+- **polish and motion**: `emil-design-eng` for timing, easing and
+  interruptible feedback; in the app its principles are carried to
+  Flutter's animations, not its CSS
+- **generic-look checks**: `frontend-design` and `design-taste-frontend`
+  serve only as lists of tells to check the screens against, never to
+  choose a new aesthetic (taste is, by its own scope, for landing pages
+  and portfolios, not product screens)
+- **code audit** (in R65 and R66, not R64): `web-design-guidelines` and
+  `playwright-cli` on the web page, and `impeccable`'s `audit`
+- **not used for SignalHub**: `ui-ux-pro-max`'s `design` (logo
+  generation through outside AI services), `ui-styling` (shadcn and
+  Tailwind), `design-system` (CSS tokens and slides), `brand`,
+  `banner-design` and `slides`
+- **disagreements settled**: touch targets are 48 dp (Material), not
+  44 pt; the app keeps the Material type scale with Roboto (a brand
+  face only through the theme); SignalHub's middle-dot summaries
+  (*Info · Normal · producer*) are its own established pattern and stay,
+  although `frontend-design` lists such strings as a generic tell;
+  product screens favour restraint (one expressive element at most,
+  where `DESIGN.md` allows it) over `impeccable`'s "go all out" and
+  taste's motion showcases
+
+Docs (`docs`, patch). Non-goals: implementation; a new brand for
+SignalHub; design skills in cloud workers.
+
+Exit criteria: the design system, every screen and the prototype are in
+the Claude Design project, the export is merged, and G4 is put to the
+maintainer. Changes asked for at G4 are made in the project and
+exported again before G4 is marked passed.
 
 ### G4 - The maintainer approves the user designs
 
