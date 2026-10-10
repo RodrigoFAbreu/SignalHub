@@ -2880,10 +2880,11 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 53    | R67 - The third batch of Dependabot updates                                                      | Increment (`build`)                    | Done (see section 3)                                                             |
-| 54    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next                                                                             |
-| 55    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
-| 56    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
-| 57    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
+| 54    | R68 - People's details for admins in the client API                                              | Increment (`feat`)                     | Next                                                                             |
+| 55    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next, after R68                                                                  |
+| 56    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
+| 57    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
+| 58    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
 
 How an autonomous run uses it:
 
@@ -3331,6 +3332,17 @@ G1 → G2 → R19 v1.0.0
   superseded; #129 moves the build image to the non-LTS JDK 26 and is
   closed instead (D2). It runs after R63, while the users' designs (R64)
   are still being made, since it touches nothing they depend on.
+- **R68 was added by the maintainer on 2026-10-10**, from the design work
+  of R64: the People screens the maintainer chose (people in sections by
+  role, with their devices, an invited person not paired yet, and a
+  person's producers) need what `GET /api/v1/client/users` does not give
+  (names only, by R62's rule). Asked to choose between reducing the
+  design and a small admin-only addition, the maintainer chose the
+  addition. It runs before R64 is finished, as a server item that does not
+  need the designs. The same answers settled R65's and R66's open points:
+  a basic user may sign in a browser of their own, a phone-width page
+  signs in with a typed code, a web session lasts 30 days, and the app
+  calls the server's operator "the host".
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3385,6 +3397,7 @@ advance; they follow from the queue.
 | R65           | minor (`feat(client)`)                                                                                                                                | the app's screens for users; no API change                                                                 |
 | R66           | minor (`feat`)                                                                                                                                        | a public web page for users; the proxy forwards it                                                         |
 | R67           | patch (`build`)                                                                                                                                       | build, CI, image and app library versions; no API or behaviour change                                      |
+| R68           | minor (`feat`)                                                                                                                                        | admin-only fields and endpoints in the client API; nothing changes for other roles                         |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -5223,6 +5236,14 @@ user's role; the device admin switch is replaced by roles; tests (widget
 and controller tests per role), `client/README.md`,
 `docs/architecture.md` (Client application).
 
+Decided with the designs (2026-10-10): People shows each person's role,
+devices and producers from R68's fields; an existing device shows a
+one-time *What's new* card after the update (the bottom bar, producers,
+people); *Settings* gains *About this server* ("The host runs this
+server and can see every event on it.") and a *Sign in a browser* row
+for every role (R66); a producer the user loses access to just leaves
+their list.
+
 Compatible (`feat(client)`, minor). Non-goals: anything not in the
 approved designs.
 
@@ -5246,8 +5267,15 @@ Scope:
   of theirs (for example with a code the page shows), and the browser
   becomes a client of that user, revocable like any device and listed
   as a browser; it is a device in every rule (roles, revocation)
+  except one: every role, a basic user included, may approve signing in
+  a browser of their own from their device and sign out or revoke their
+  own browsers (a basic user still cannot pair or remove other devices).
+  The page shows a QR code that the app scans; at phone width, where a
+  phone cannot scan its own screen, it shows a short code typed in the
+  app and an *Open the app* button
 - the session is a cookie that is `HttpOnly`, `Secure` and
-  `SameSite=Strict`, expires, and is ended by signing out; state-changing
+  `SameSite=Strict`, lasts a fixed 30 days, and is ended by signing out
+  or by revoking the browser from a device; state-changing
   requests are protected against cross-site request forgery; the page
   runs only its own scripts under a strict content security policy,
   renders every server value as text, and cannot be framed
@@ -5311,6 +5339,37 @@ or behaviour change.
 
 Non-goals: changing Dependabot's configuration; updating dependencies
 Dependabot has not proposed; moving off Java 25.
+
+### R68 - People's details for admins in the client API
+
+Status: Next. Added by the maintainer (2026-10-10), from the design work
+of R64.
+
+Goal: an admin's device can show who each person is on the server: their
+role, their devices and their producers, as the approved People screens
+need. Today `GET /api/v1/client/users` gives every role names only.
+
+Scope:
+
+- for an admin's client key, each user listed by `GET
+  /api/v1/client/users` also carries their role, how many active devices
+  they have, and whether they have ever paired a device (an invited user
+  who has not paired yet); and an admin can read one user's producers
+  (id, name, visibility, disabled) by user, through `/api/v1/client/`
+  (the exact shape is the increment's choice, documented in
+  `docs/architecture.md`)
+- any other role gets exactly what it gets today: names only, never a
+  role, a device or a producer
+- revoked users stay out of the list, as today
+- tests per role (admin sees the fields; mod and basic do not; a user
+  with no device; a user whose devices are all revoked), `OpenApiTest`,
+  `docs/architecture.md`
+
+Compatible (`feat`, minor): additive fields and endpoints for admins; no
+change for other roles, producers or the schema; no migration.
+
+Non-goals: the app's screens (R65); changing roles or removing users from
+a device; anything for non-admins.
 
 ### Already in place (not scheduled again)
 
@@ -5443,8 +5502,9 @@ Dependabot updates), R59 (a read event leaves the unread-only inbox),
 R60 (pushes reach a sleeping phone at once), R61 (users, roles and
 subscriptions), R62 (self-service for users: the API) and R63 (the admin
 page: traffic by user), and R67 (the third batch of Dependabot
-updates) are done. **R64 (designs for users in the app and on a web page) is
-next**, then the human gate G4 (the
+updates) are done. **R68 (people's details for admins in the client
+API) is next**, while the users' designs are being made; then R64
+(designs for users in the app and on a web page), the human gate G4 (the
 maintainer approves the user designs), R65 and R66. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
