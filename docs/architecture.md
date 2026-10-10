@@ -2219,8 +2219,10 @@ management API:
 > Status: implemented in `client/`: setup by [pairing](#pairing) or with a
 > client key, push
 > registration and reception, the inbox and event details (including
-> opening an event's [link](#link)), [read state](#read-state), and
-> [push preferences](#push-preferences).
+> opening an event's [link](#link)), [read state](#read-state),
+> [push preferences](#push-preferences), and, for users, producers and
+> subscriptions, people, devices by role and inviting, as drawn in
+> `docs/design/users/` (the app's *Sign in a browser* comes with the web page).
 
 **Technology: Flutter**, chosen by the maintainer for roadmap R9. One Dart
 codebase targets Android and iOS. Other platforms Flutter supports (web,
@@ -2375,7 +2377,7 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   generic fields. The time is always shown in full; a long producer name
   gives way instead. An event with a [link](#link) has a small link icon;
   tapping the row still opens the event, not the link.
-- **Inbox filters.** A filter button in the app bar opens a sheet with an
+- **Inbox filters.** A filter button (*Filter events*) in the app bar opens a sheet with an
   *Unread only* switch and chips for producers, categories and severities;
   each change applies at once. The server applies them, through the
   listing's `read=false`, `producerId`, `category` and `severity` parameters
@@ -2388,10 +2390,10 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   matches. The filters are kept only while the app runs: they are not
   remembered on the device, so the inbox always starts with every event and
   never hides new events behind a filter set days ago (the server keeps no
-  per-client inbox state either). Client keys cannot list producers, so the
-  producers offered are those of the events the inbox has read since the
-  app connected, by name, including those a filter now hides; a producer
-  appears once one of its events has been listed. The inbox
+  per-client inbox state either). The
+  producers offered are the ones the user is subscribed to
+  (`GET /api/v1/client/visible-producers`), by name, including any a filter
+  names after it was unsubscribed from, so the filter can be taken off. The inbox
   follows its filter when the app itself changes an event, by the same rule
   as for a page: with *Unread only*, an event marked read (opened from the
   inbox or a notification, *Mark as read*, or *Mark all as read*) leaves the
@@ -2442,33 +2444,41 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   newest event shown as `through` (`POST /api/v1/events/read`), so events
   that arrived since stay unread; older events not paged in yet are read
   too, as the owner asked for everything up to that point.
-- **Settings.** One *Settings* screen, opened by the gear icon in the
-  inbox's top bar, holds every setting of the app: the *Push
-  notifications* switch at the top, then groups that fold, in this order:
-  *Push filters*, *Alert* and *This device*; inside *Alert*, below the
-  general alert, the silent and do-not-disturb choices and the switch for
-  a different critical alert, the *Critical alert* sub-group, greyed and
-  closed while that switch is off. Folded, a group's header sums up its
-  values in one line, so the owner sees what each is set to without
-  opening it. Groups start folded; the ones the
-  owner leaves open are kept on the device (in the platform's secure
-  storage, the store the app already has, though nothing in them is
-  secret) and are open the next time, the sub-group too. While push is
-  paused, *Push filters* and *Alert* are greyed with a line saying they
-  apply once push is on, and still change. On an admin device a *Devices*
-  row, summing up the devices and admins, opens device management on a
-  screen of its own. Reorganising the settings changed none of them: the
-  push preferences stay on the server and the alert on the device.
+- **Settings.** One *Settings* screen, the last tab of the bottom bar
+  (below), holds every setting of the app: the *Push notifications* switch at
+  the top, then, in one order for every role, *Push filters*, *Alert*,
+  *Devices*, *About this server* and *This device*. *Push filters*, *Alert*
+  and *This device* fold; folded, a group's header sums up its values in one
+  line, so the owner sees what each is set to without opening it. Groups
+  start folded; the ones the owner leaves open are kept on the device (in the
+  platform's secure storage, the store the app already has, though nothing in
+  them is secret) and are open the next time, the sub-group too. Inside
+  *Alert*, below the general alert, are the silent and do-not-disturb choices
+  and the switch for a different critical alert, the *Critical alert*
+  sub-group, greyed and closed while that switch is off. While push is paused,
+  *Push filters* and *Alert* are greyed with a line saying they apply once
+  push is on, and still change. *Devices* is a row for every role, summing up
+  the devices the role may see (`4 devices · 1 browser` for an admin, who
+  counts everyone's, `2 devices` for anyone else's own) and opening the
+  [Devices screen](#devices-by-role). *About this server* opens a screen with
+  the server's address, who the person is and their role, the app's build, the
+  server's own release (`GET /api/v1/client/server`: `Server: SignalHub 3.4.0
+  · commit a1b2c3d`; *This server does not say* when the server is older than
+  that endpoint) and the sentence `The host runs this server and can see every
+  event on it.`, the same for every role: the host is whoever runs the server,
+  and no screen names a person as its admin. A *Sign in a browser* row
+  between *Devices* and *About this server* is drawn in the designs and comes
+  with the web page (R66): the app does not have it yet.
 - **Push preferences.** The *Push notifications* switch and the *Push
   filters* group of Settings set this installation's
   [push preferences](#push-preferences): pause, minimum severity, and a
   switch for each category and each producer. Every change is saved at once
   with `PUT /api/v1/client/push-preferences`, sending all of them (the
   server replaces them), and the screen then shows what the server stored;
-  a failed change says so and leaves the switches as they were. Client keys
-  cannot list producers, so the producers offered are those of the events
-  the inbox has read since the app connected, by name; a muted producer with no event there is listed by ID so
-  it can be unmuted. Severities and categories are sent back as the server
+  a failed change says so and leaves the switches as they were. The
+  producers offered are the ones the user is subscribed to, by name; a muted
+  producer that is not listed (unsubscribed since) stays, by name when known
+  and otherwise by ID, so it can be unmuted. Severities and categories are sent back as the server
   sent them, so values added in a later backend release survive a change. A
   server without push preferences (older than the app) is reported in
   *Push filters* instead, and there is no switch.
@@ -2479,76 +2489,141 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   from, or "Commit unknown" (see [Version](#version)). Its *Disconnect this
   device*, after a confirmation, removes the push target and forgets the
   credentials, and the app returns to setup.
-- **Managing devices.** On an [admin device](#admin-devices) (its
-  registration says `admin`), the *Devices* screen, opened from Settings,
-  lists every device with `GET /api/v1/client/devices`, read when Settings
-  or that screen opens and when either is pulled down: active devices first, each with its name and
-  whether it is this device, an admin or revoked. A device that is neither
-  an admin nor revoked offers *Make an admin* and *Revoke*, each after a
-  confirmation ([Device management from a device](#device-management-from-a-device));
-  admins, this device included, offer neither, as the server would refuse
-  them. A revoked device, an admin or not, offers *Delete*, after a
-  confirmation, with `DELETE /api/v1/client/devices/{id}`
-  ([Deleting a revoked client](#deleting-a-revoked-client)); an active
-  device offers none, since it must be revoked first. The list shows each
-  change as the server returned it, and a deleted device leaves it; a
-  refused change says why and re-reads the list. A `404` for a delete
-  re-reads the list too: a device no longer listed was deleted meanwhile
-  (by the operator or another admin device) and is gone, while one still
-  listed means a server released before deleting devices (older than
-  v2.12.0), which has no such route; so does a `405`. The app then says the
-  server cannot delete devices and stops offering *Delete*, which is shown
-  until that first try because the server does not say which endpoints it
-  has, and that try changes nothing. It lives on a screen of its own,
-  reached from Settings, not in a tab: the app has no tabs, managing
-  devices is occasional, and a long list with actions per device reads
-  better on its own screen than folded among the settings. A `403` from the device
-  endpoints, or a registration read since without admin rights, says "This
-  device is no longer an admin device" in place of the list and the app
-  stops offering it. Devices that are not admins, and servers without
-  admin devices (no `admin` field) or without the device endpoints (`404`
-  for the listing), show nothing new. Renaming and taking admin rights away
-  stay on the [admin page](#the-admin-page).
-- **Connecting a device.** Above the list, an admin device offers *Connect
-  a device*: it asks for the new device's name, creates a pairing code with
-  `POST /api/v1/client/pairings`
-  ([Pairing from a device](#pairing-from-a-device)) and shows
-  it as the admin page does: the pairing URI as a QR code, a countdown to
-  its expiry ("Expires in 9:59. It works once."), which hides the code once
-  it has expired, and the URI as text with *Copy link*, to send to whoever
-  sets up the new device. The server pairs it for this device's own user, so
-  the new device is an admin device, as this one is. The QR code is drawn by
-  the app itself with the pure-Dart [`qr`](https://pub.dev/packages/qr)
-  package, black on white with a quiet zone whatever the theme. When the
-  server has no public address (`uri` is `null`), the app builds the same
-  URI from the address it reaches the server at. The code is kept in memory
-  only while the screen shows it, and the device list is read again when
-  the screen closes. A `403` says "This device is no longer an admin
-  device" as for the list; a server without the endpoint (`404`) says it
-  cannot create pairing codes from a device, and the app stops offering it.
-- **With users.** From backend v3.0.0 a device is an admin device exactly when
-  its user is an admin ([Users, roles and
-  subscriptions](#users-roles-and-subscriptions)). The app keeps working with
-  such a server: it reads `admin` from its registration as before, and shows
-  the events of its user's subscriptions. Its *Make an admin* action, which
-  the server now refuses with `409 Roles are set per user, not per device`,
-  shows that refusal; the app's own screens for users and roles come later,
-  and until then roles are set on the admin page. Devices of mods and basic
-  users do not show *Devices*, as they are not admin devices.
-- **A used code.** While a code is shown, and only while the screen is
-  open and the app in the foreground, the screen asks
-  `GET /api/v1/client/pairings/{id}`
-  ([Whether a code was used](#whether-a-code-was-used)) every 2.5 seconds,
-  as the admin page does, and once more as the code expires; it stops when
-  the screen closes, the code expires or it is used. Once it is used, a
-  message names the device ("Tablet" connected with the pairing code), the
-  QR code and link disappear and the screen goes back to its first state,
-  ready for the next device; the device list, read again when the screen
-  closes, shows the new device. A `403` says "This device is no longer an
-  admin device" and drops the code, which no longer works. A server older
-  than the status (no `id` in the `Pairing`, or `404` or `405` for it) is
-  not asked, or asked no more about that code, and the screen stays as it
-  was; any other failure is left to the next time it asks.
+- **Bottom navigation.** The connected app has a bottom bar: *Inbox*,
+  *Producers*, *Settings*, and *People* for an admin, with the unread count
+  (the server's, of the producers the user subscribes to) as a badge on
+  *Inbox* (`99+` above 99, none at zero; the screen reader says the real
+  count). It is 80 dp high, its labels never wrap (their text scale stops at
+  about 1.3x) and switching tabs is not animated. A pushed screen hides it.
+  Tabs are built when first shown and keep their state, also when the bar gains
+  or loses *People*. The inbox has no gear: *Settings* is a tab. The role is
+  the one the registration says (`user.role`, or `admin` for a server released
+  before users); the app learns of a change when a request is refused (`403`)
+  or the registration is read again, never by push, rebuilds the bar and the
+  screens, and says once `Your role changed. You're now a Mod.`; a tab the
+  role lost (*People* after a demotion) shows a screen that says it is not
+  available to the role and goes back to the inbox, and the action that was
+  refused is not retried.
+- **One path for the API's failures.** Every screen's calls go through the
+  app's gateway: a `401` (a revoked device and a removed person look the same)
+  clears the connection, returns to setup without showing the old content and
+  says `This device is no longer connected to SignalHub. To use it again, ask
+  for a new code, or ask the host.`; a `403` reads the registration again; any
+  other failure is the screen's own. Lists show skeleton rows while the first
+  read runs, an empty state with *Try again* when it failed, and, when a refresh
+  fails, the older list under a neutral banner (offline, or an older list with
+  its time); what writes is greyed while the connection is down, and a failed
+  change goes back to what it was with a snackbar and *Retry*.
+- **First run.** The setup screen scans the invitation with an inline camera
+  or takes a pasted link (*Paste link*, which also starts from the clipboard
+  when it holds one); setting up with a client key is behind *With a client key
+  instead*. Each failure is one sentence that says what to do and leaves the
+  scanner usable: camera not allowed (with *Open settings*), a code that is
+  not an invitation, a web sign-in code, a server that cannot be reached
+  (named; the code is not used up, so *Try again* reuses it), a code that
+  expired or was used, a wrong key. A device that connects gets a welcome
+  once, by role, before the bar (*Find producers* opens *Producers*, *Later*
+  the inbox); a device that was connected before the update gets, once, a
+  *What's new* card at the top of the inbox (the bar, producers and, for an
+  admin, people). Which of the two is pending is kept on the device (secure
+  storage, `signalhub.onboarding.step`). An empty inbox says what fills it
+  (`No events yet`, with *Find producers*, while nothing is subscribed;
+  `Nothing new from your producers` otherwise); an event that can no longer be
+  read (a `404`: usually because the producer was unsubscribed) shows a
+  neutral screen with one button and leaves the inbox. A push whose data has a
+  `notice` (a device paired or revoked) is not an event: it has no inbox row
+  and tapping it opens *Devices*.
+- **Producers.** The *Producers* tab lists every producer the user sees
+  (`GET /api/v1/client/visible-producers`, with the ones they own,
+  `GET /api/v1/client/producers`, read together) under a search field and
+  single-choice chips (*All*, *Yours*, *Subscribed*, *Can subscribe*), ordered
+  *Yours*, *Subscribed*, *Can subscribe*, each A to Z. A row has a neutral
+  avatar (never per producer), the name, a one-line summary (`Public · 2 keys
+  · last event 01:19`, `Private · 2 people · last event 00:36`, `Ana ·
+  Public`, `Paused by you`, `Disabled by the host`, `Disabled`) and a bell:
+  tapping it subscribes or unsubscribes in place (`PUT`/`DELETE
+  /api/v1/client/visible-producers/{id}/subscription`), with a snackbar and
+  *Undo* (an unsubscribe hides stored events, nothing is deleted) and *Retry*
+  when it failed. A producer the user loses sight of simply leaves the list.
+  The list is read when the tab opens, each time it comes back to the front, on
+  a pull and after a producer's screen closes; the inbox's producer filter and
+  *Push filters* list the producers the user is subscribed to (a muted
+  producer that is no longer listed stays, by name or ID, so it can be
+  unmuted). *See its events* opens the inbox narrowed to one producer on a
+  screen of its own, with its own list and filters.
+- **Own producers.** *New producer* names a producer (the server's rule,
+  checked while typing; a taken name is a `409`) and chooses who can see it
+  (private by default). The key the server answers with
+  (`POST /api/v1/client/producers`) is shown **once**, on a full screen with
+  *Copy*, *Share*, one plain warning and a `curl` example with the sample host
+  and key; the close icon and the system Back ask once, only if the key was
+  neither copied nor shared. If the answer was lost, creating again answers
+  *taken* and the app checks the user's own producers before saying what
+  happened. Sharing goes through the platform's share sheet over a method
+  channel of the app (`io.github.rodrigofabreu.signalhub/share`), so there is
+  no sharing package. A producer's own screen (`GET
+  /api/v1/client/producers/{id}`) renames it, sets who can see it (making a
+  public producer private asks first), shows `Only you`, `Shared with N
+  people` and the allow-list (adding people from `GET /api/v1/client/users`;
+  removing anyone asks first, since adding them back does not bring their
+  subscription back), lists the keys by prefix with when each was last used,
+  issues and revokes keys (revoking asks first) and disables or enables the
+  producer; a producer the host disabled is shown as such and the app never
+  asks to enable it. Someone else's producer has only the subscription switch,
+  its owner and `See its events`. A `404` on a producer shows a plain
+  screen that says it is not available any more.
+- **People.** An admin's tab lists everyone on the server in sections
+  (*Admins*, *Mods*, *Basic*, each with a count and a sentence on what the
+  role can do; an empty one is hidden) from `GET /api/v1/client/users`, whose
+  admin form gives each person's role, active devices and whether they paired:
+  a row says `2 devices`, `Invited · not paired yet` or `No devices`. *Invite*
+  (`POST /api/v1/client/users`) takes a name, *Basic* or *Mod* and a first
+  device's name and shows the pairing code like *Connect a device* does, with a
+  warning naming the person. A person's page shows their role (changing it
+  between *Basic* and *Mod* asks first; *Admin* is shown but off, since only the
+  host makes an admin, on the admin page), their devices (revoke, asking first)
+  and their producers (`GET /api/v1/client/users/{id}/producers`); an admin and
+  the person's own page are read only, and a person removed meanwhile (`404` or
+  `409`) shows a page that says so.
+- **Devices by role.** *Devices*, opened from Settings, follows the role
+  (`GET /api/v1/client/devices`): a basic user sees their own devices read only
+  (`To add or remove a device, ask an admin of this server.`); a mod sees their
+  own and may connect, rename and revoke them (not the one in use, and the
+  server refuses their last active device, which the app says in words); an
+  admin sees everyone's grouped by person, with the role as a tag, and may
+  rename, revoke and delete any that is not an admin's (those carry an *Admin
+  device* tag and no menu). A revoked device stays listed, quiet, offering only
+  *Delete*. A row shows its name, its tags and when the device was last active
+  (`lastActiveAt`; `Not used yet`) or was revoked. A browser a web page signed
+  in is a device with a globe icon and a *Browser* tag, and signing it out
+  asks `Sign out NAME?`; the server cannot yet say that a client is a browser
+  (R66 gives it a way), so the app draws that row but no device read from the
+  API is one.
+- **Connecting a device.** *Connect a device* asks for the new device's name
+  (required), and an admin first chooses who it is for (themselves or anyone
+  who is not removed); a mod connects for themselves and a basic user cannot.
+  It creates the code with `POST /api/v1/client/pairings` (`userId` only for
+  an admin) and shows it as the admin page does: the pairing URI as a QR code,
+  drawn by the app itself with the pure-Dart [`qr`](https://pub.dev/packages/qr)
+  package, black on white with a quiet zone whatever the theme, a countdown
+  (announced to screen readers at one minute and at the end only), the link
+  with *Copy link* and *Share*, and a warning that names the person: `Whoever
+  uses this code gets a device of yours. Share it only with yourself.` for
+  one's own, `Whoever uses this code joins as Rui. Share it only with Rui.` for
+  an invitation. While the code is shown, and only while the screen is open
+  and the app in the foreground, the screen asks
+  `GET /api/v1/client/pairings/{id}` every 2.5 seconds
+  ([Whether a code was used](#whether-a-code-was-used)) and once more as the
+  code expires, and says which device used it. When the server has no public
+  address (`uri` is `null`) the app builds the same URI from the address it
+  reaches the server at. The code is kept in memory only while its screen
+  lives. A server without the endpoints (`404`) says it cannot do it.
+- **With users.** A device is an admin device exactly when its user is an
+  admin ([Users, roles and subscriptions](#users-roles-and-subscriptions)); the
+  app no longer has *Make an admin* (the server answers `409` to it): only the
+  host makes an admin, on the admin page. What each role may do is enforced by
+  the server; the app shows what the role can do and hides what it cannot, or
+  says who can help (`Ask an admin of this server.`).
 - **Events.** The app maps the API's events to a typed model. A category or
   severity added in a later backend release maps to *unknown* rather than
   failing, so older apps keep working (see

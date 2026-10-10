@@ -16,15 +16,13 @@ read*) leaves the inbox, and one marked unread again returns in its place.
 An event with a link offers *Open link* on its screen, which opens it in the
 system browser (or the app the phone assigns to the address); the link is
 never opened from the inbox or the notification, only from the event.
-The gear icon on the inbox opens [Settings](#settings): whether and which
+A bottom bar switches between the inbox, [Producers and People](#navigation-and-roles)
+and [Settings](#settings): whether and which
 events are pushed to this device, how pushes sound and vibrate on Android,
 with SignalHub's own sounds, which pushes sound on silent and during Do
 Not Disturb, and a separate alert for critical events (see
-[Alert](#alert)), and this device, from which it is disconnected.
-On an [admin device](../docs/architecture.md#admin-devices), its *Devices*
-row opens every device of the owner, with *Make an admin*
-and *Revoke* on those that are not admins, and *Delete* on revoked ones (see
-[Manage devices](#manage-devices)).
+[Alert](#alert)), the devices the role may see, and this device, from which
+it is disconnected.
 See
 [docs/architecture.md](../docs/architecture.md#client-application) for its
 design and [docs/development.md](../docs/development.md#client) for the
@@ -125,8 +123,9 @@ says so: create a new one. The URI names the server by its
 and names it. Without `SIGNALHUB_PUBLIC_URL` a pairing has no URI: set it,
 or set the app up by hand.
 
-An [admin device](#manage-devices) makes the same code in the app, with
-**Connect a device**, so no one needs the host.
+A mod or an admin makes the same code in the app, with **Connect a device**
+in *Devices* (an admin also for anyone else, and *Invite* in *People*), so no
+one needs the host.
 
 **By hand**, under **Or set up by hand**: enter the server address and a
 client key the operator registered for this device
@@ -163,19 +162,49 @@ The server address is `http://10.0.2.2:8080` from the Android emulator and
 Android debug builds and, on iOS, to local addresses; anything reachable from
 elsewhere needs HTTPS through a reverse proxy.
 
+## Navigation and roles
+
+The connected app has a bottom bar: **Inbox**, **Producers**, **Settings**,
+and **People** for an admin, with the unread count on *Inbox*. What a person
+can do follows their role on the server (*Basic*, *Mod* or *Admin*); the app
+shows what the role can do and hides what it cannot, or says who can help.
+Only the host makes an admin, on the admin page. If the role changes while
+the app is open, it learns of it when an action is refused or when it reads
+the registration again, rebuilds the screens and says so once.
+
+A device that connects gets a short welcome, once. A device that was
+connected before an update that added new screens gets a **What's new** card
+at the top of the inbox, once.
+
+- **Producers** lists every producer you can see, under a search field and
+  the chips *All*, *Yours*, *Subscribed* and *Can subscribe*. The bell
+  subscribes or unsubscribes in place (with *Undo*). **New producer** names
+  one and shows its key **once**: copy or share it before leaving. A
+  producer's screen renames it, sets who can see it, adds people to a private
+  one, lists its keys, issues and revokes keys and disables or enables it.
+- **People** (admins) lists everyone in sections by role, invites someone
+  with a pairing code, and shows a person's role (*Basic* or *Mod*; *Admin* is
+  set on the admin page), devices and producers.
+- **Devices** (Settings, every role) lists the devices your role may see: your
+  own for a basic user (read only) and a mod (who connects, renames and
+  revokes them), everyone's, grouped by person, for an admin (who also
+  deletes revoked ones and connects a device for anyone).
+
 ## Settings
 
-The gear icon in the inbox's top bar opens **Settings**. At the top, always
+The **Settings** tab holds every setting of the app. At the top, always
 shown, the **Push notifications** switch pauses or resumes pushes to this
-device (events are kept in the inbox either way). Below it, the settings
-sit in groups that fold; folded, each header sums up the group's values in
-one line, such as *Normal and up · Info, Completed muted · all producers*
-or *Signal · 80 % · Medium · Short, short, long · Short*. Tap a header to
-unfold or fold it:
+device (events are kept in the inbox either way). Below it, in one order for
+every role: **Push filters**, **Alert**, **Devices**, **About this server**
+and **This device**. The groups that fold show, folded, a one-line summary
+of their values, such as *Normal and up · Info, Completed muted · all
+producers* or *Signal · 80 % · Medium · Short, short, long · Short*. Tap a
+header to unfold or fold it:
 
 - **Push filters**: the minimum severity, and the categories and producers
-  pushed, saved on the server at every change. A producer is listed once
-  its events are in the inbox; a muted one stays listed to unmute it.
+  pushed, saved on the server at every change. The producers listed are the
+  ones you subscribe to; a muted one that is no longer listed stays, to
+  unmute it.
 - **Alert**: the general alert's sound, volume, vibration, pattern and
   length, with their previews, then which pushes sound on silent and
   during Do Not Disturb (see [Alert](#alert)), and **Different alert for
@@ -187,6 +216,11 @@ unfold or fold it:
   folded as they are. The *Alert* summary also names the silent and Do
   Not Disturb choices that are not *Off*, such as *Signal · 80 % · Medium
   · Short, short, long · Short · sounds on silent: critical*.
+- **Devices** opens the devices screen (above), summing them up, such as
+  *4 devices · 1 browser*.
+- **About this server**: the server's address, its version and commit (from
+  the server itself), who you are, this app's build, and the sentence *The
+  host runs this server and can see every event on it.*
 - **This device**: its name and server, its push status, its build (see
   [Build identity](#build-identity)), and **Disconnect this device**,
   which asks first. Disconnecting removes this device's push target and
@@ -199,9 +233,11 @@ filters* and *Alert* are greyed, saying they apply once
 push notifications are on; they can still be changed. With a server
 released before push preferences, there is no switch and *Push filters*
 says the server does not support them. Where the app plays no alert of its
-own (iOS), there are no alert groups. On an admin device, a **Devices** row
-below the groups opens the owner's devices (see [Manage devices](#manage-devices)).
+own (iOS), there are no alert groups.
 Pull down to read the registration, the push status and the devices again.
+
+A **Sign in a browser** row, to sign a web page in by scanning its code, is
+drawn in the designs and comes with the web page.
 
 Updating from a release with the *Notifications* and *This device* screens
 keeps every setting: the push preferences stay on the server and the alert
@@ -209,55 +245,6 @@ settings on the device, as before. Updating from a release with a
 top-level *Critical alert* group keeps its settings, now inside *Alert*;
 if it was left open, the sub-group opens with *Alert* once critical events
 have their own alert.
-
-## Manage devices
-
-A device the operator made an admin device, on the
-[admin page](../docs/architecture.md#the-admin-page) or when pairing it,
-manages the owner's other devices from the app. Its Settings screen (the
-gear icon on the inbox) has a **Devices** row below the groups, which says
-how many devices and admins there are (such as *7 devices · 2 admins*) and
-opens the *Devices* screen: every device, active ones first, marked *This
-device*, *Admin device* or *Revoked*. Pull down to read it again. A device
-that is not an admin has no *Devices* row.
-
-- **Make an admin** and **Revoke** are in the menu of each device that is
-  neither an admin nor revoked, and each asks for a confirmation first.
-  Revoking stops the device's client key at once and removes its push
-  target; to use it again, set it up again.
-- **Admins**, this device included, offer neither: a device cannot take
-  admin rights away or revoke an admin. Only the operator can, on the admin
-  page, which is also where devices are renamed.
-- **Delete** is in the menu of each revoked device, an admin or not, after
-  a confirmation, so a device paired again is not listed twice. Deleted, it
-  leaves the list for good; events and their read state stay. An active
-  device has no *Delete*: revoke it first. A device the operator or another
-  admin device deleted meanwhile simply leaves the list. With a server
-  older than v2.12.0, which cannot delete devices, the first *Delete* says
-  so, changes nothing, and the app stops offering it.
-- **Connect a device**, above the list, pairs a new device: enter its name
-  and tap **Create pairing code**. The screen shows the code as a QR code
-  to scan with the new device, counts down to its expiry (10 minutes; it
-  works once) and hides it once expired, and shows the pairing link with
-  **Copy link**, to paste into a message to whoever sets up the new device;
-  **Create another code** starts over. Once a device has used the code,
-  the screen says so, naming it ("Tablet" connected with the pairing
-  code), and goes back to its first state, ready for the next device; the
-  new device is in the list on the way back. While a code is shown and
-  the app is in the foreground, the screen asks the server every 2.5
-  seconds, and once more as the code expires; with a server older than
-  v2.14.0, which cannot say, the screen stays as it was. The new device is
-  never an admin: make it one from the list once it has paired. The owner's devices are
-  told when it pairs, naming this device, and the code stops working if
-  this device is revoked or loses its admin rights first. The code is kept
-  only while the screen shows it. With a server released before pairing
-  from a device, the screen says so and the app stops offering it.
-- **If this device loses its admin rights** meanwhile, the section (or
-  *Connect a device*) says
-  *This device is no longer an admin device* instead of the list, and the
-  app stops offering it until it is made an admin again.
-- Devices that are not admins show nothing new, and neither does any
-  device with a server older than v2.9.0, which has no device management.
 
 ## Push notifications
 

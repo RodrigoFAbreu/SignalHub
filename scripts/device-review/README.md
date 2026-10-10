@@ -88,7 +88,7 @@ it. Titles of the events they publish start with `Device review:`.
 | Check | What it does | What it changes |
 |---|---|---|
 | `connected-start` | Force-stops and starts the app; it must open on the inbox, not the setup screen, with the server's unread count on its badge. | Stops the app. |
-| `device-push-on` | Opens *Settings* (the inbox's gear icon) and unfolds its *This device* group, unless the app left it open; it must say *Push notifications are on*. | May leave the group open. |
+| `device-push-on` | Opens *Settings* (the bottom bar's tab) and unfolds its *This device* group, unless the app left it open; it must say *Push notifications are on*. | May leave the group open. |
 | `server-push-target` | Reads the client with the admin token; its push target must be `fcm`. | Nothing. |
 | `events-channel` | The app's `signalhub_events` notification channel must be at high importance (4) or more, with no sound and no vibration of its own (the app plays its alert). | Nothing. |
 | `foreground-push` | Publishes with the app in front; the event must appear in the inbox, with no system notification, and the app must log that it played its alert (`SignalHubAlert` in `logcat`), once: no second alert message within 5 s. | Publishes 1 event; plays the alert. |

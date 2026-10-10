@@ -110,13 +110,15 @@ pushes as chosen, a
 separate alert for critical events chosen by severity alone (its own
 sound, volume, vibration, pattern and length when switched on, in a
 sub-group of the alert's settings that opens only then), all on one
-*Settings* screen from a gear icon on the inbox, in folding groups that
+*Settings* screen, a tab of a bottom bar (Inbox, Producers, People for an
+admin, Settings), in folding groups that
 sum up their values and stay open as left, with its build
-and commit and disconnecting in its *This device* group, and on an admin
-device a *Devices* row opening a screen that lists
-every device to make one an admin, revoke one that is not an admin or
-delete a revoked one, and connects a new device with a pairing code shown as a QR code with its
-countdown and a link to copy, saying which device used it; every release attaches it as an
+and commit and disconnecting in its *This device* group, the producers
+the user sees to subscribe to and their own with the key shown once, people
+(invited and given roles by an admin, who sets basic or mod) and devices by
+role (a mod's own, an admin's everyone's, connected with a pairing code shown
+as a QR code with its countdown and a link to copy, saying which device used
+it), as drawn in `docs/design/users/`; every release attaches it as an
 Android APK signed with SignalHub's release key), and the
 Python producer package and `signalhub` command in `sdk/python/` (its wheel
 attached to every release, reporting that release), and

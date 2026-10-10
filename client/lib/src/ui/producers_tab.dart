@@ -397,6 +397,7 @@ class _NewProducerButton extends StatelessWidget {
   Widget build(BuildContext context) => Opacity(
     opacity: onPressed == null ? 0.38 : 1,
     child: FloatingActionButton.extended(
+      heroTag: 'new-producer',
       // Tonal and flat, as drawn.
       elevation: 0,
       focusElevation: 0,

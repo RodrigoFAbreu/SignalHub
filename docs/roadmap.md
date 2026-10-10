@@ -2370,6 +2370,51 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   each choice with its alternatives, what the server must provide, what
   was left out) and an index, `README.md`. Documentation only (`docs`)
 
+### R65 - Users in the app
+
+- **built** from the approved designs in `docs/design/users/` (G4), on the
+  R62, R68 and R69 API, with each screen compared with its rendered drawing:
+  a bottom bar (Inbox, Producers, Settings, and People for an admin; the
+  unread count as its badge; no gear); the Producers tab (search, chips, the
+  bell that subscribes in place with Undo and Retry, offline and older-list
+  states, a producer's events); a producer's key shown once on a full screen
+  with a leave guard, a producer's own screen (rename, who can see it, the
+  allow-list, keys, disable and enable, the host's disabling), and someone
+  else's; People, an invitation, and a person (role, devices, producers);
+  Devices by role and Connect a device (`userId` for an admin); setup that
+  scans the invitation inline, a welcome once and a *What's new* card once,
+  *About this server* (`GET /api/v1/client/server`), the neutral
+  "no longer connected" after any `401`, an event that is no longer in the
+  inbox, device notices that open *Devices*; the role is re-read when an
+  action is refused and the screens follow it; the device admin switch is
+  gone (roles replace it)
+- **decided** where the entry left a choice: the app's calls go through one
+  gateway (a `401` returns to setup quietly, a `403` re-reads the
+  registration); each feature has its own controller beside `AppController`;
+  the Producers tab reads the visible and the owned producers together; the
+  inbox's producer filter and *Push filters* list the producers the user
+  subscribes to; sharing a key or a pairing link uses the platform's share
+  sheet over a method channel of the app, so there is no sharing package;
+  the welcome and *What's new* are kept on the device
+  (`signalhub.onboarding.step`); a browser is drawn as a device row (a globe,
+  a *Browser* tag, *Sign out*) but no device is one yet, because the server
+  does not say (R66 gives it a way); the app's *Sign in a browser* (the
+  Settings row, scanner, typed code and confirmation) is left to R66, as the
+  entry says
+- **deliberate differences from the drawings** (each is data or a rule the
+  server does not give, or Flutter's own metrics): the inbox row keeps the full
+  time the app already shows (the drawings show `01:19` and `Yesterday`);
+  Settings keeps its *Push notifications* switch and the existing groups'
+  summaries; some sentences the drawings do not draw were written in the
+  drawings' words (stale list, a missing producer, About's unknown version);
+  Material's letter spacing wraps a few lines earlier than the browser
+  drawings; touch targets of 48 dp sit a few dp lower than drawn
+- tests: controller and widget tests per role for every screen and state
+  (BASIC, MOD, ADMIN), 360 dp at 200 % text, the light theme where drawn,
+  the gateway, models and API calls; the Flutter formatter, analyzer and tests
+  in CI. `docs/architecture.md` (Client application), `client/README.md`,
+  `docs/development.md`. Compatible (`feat(client)`)
+
 ---
 
 ## 4. Planned roadmap
