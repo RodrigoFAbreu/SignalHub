@@ -2902,10 +2902,11 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 53    | R67 - The third batch of Dependabot updates                                                      | Increment (`build`)                    | Done (see section 3)                                                             |
 | 54    | R68 - People's details for admins in the client API                                              | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 55    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next                                                                             |
-| 56    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
-| 57    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
-| 58    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
+| 55    | R69 - When devices and keys were last used, and the server's version                             | Increment (`feat`)                     | Next                                                                             |
+| 56    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next, after R69                                                                  |
+| 57    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
+| 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
+| 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
 
 How an autonomous run uses it:
 
@@ -3370,6 +3371,15 @@ G1 → G2 → R19 v1.0.0
   a basic user may sign in a browser of their own, a phone-width page
   signs in with a typed code, a web session lasts 30 days, and the app
   calls the server's operator "the host".
+- **R69 was added by the maintainer on 2026-10-10**, as the user designs
+  were settled: the maintainer asked that every server change the
+  designs need becomes its own item once the design is locked in. Three
+  details cut from the designs because the server did not provide them
+  were brought back (when a device was last active, when a key was last
+  used, the server's version); the producer's last event title, separate
+  messages for a used or expired code and a browser's approximate place
+  were left out. It runs before R64 is merged, as a server item that does
+  not need the designs.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3425,6 +3435,7 @@ advance; they follow from the queue.
 | R66           | minor (`feat`)                                                                                                                                        | a public web page for users; the proxy forwards it                                                         |
 | R67           | patch (`build`)                                                                                                                                       | build, CI, image and app library versions; no API or behaviour change                                      |
 | R68           | minor (`feat`)                                                                                                                                        | admin-only fields and endpoints in the client API; nothing changes for other roles                         |
+| R69           | minor (`feat`)                                                                                                                                        | last-used times and the server version in the client API; one additive migration                           |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -5212,7 +5223,7 @@ each user's events and deliveries on the admin page.
 
 ### R64 - Designs for users in the app and on a web page
 
-Status: next, now that R68 is done. Added by the maintainer
+Status: next, after R69. Added by the maintainer
 (2026-10-10); amended the same day: made in Claude Design, with the
 design skills given fixed roles.
 
@@ -5330,7 +5341,8 @@ one-time *What's new* card after the update (the bottom bar, producers,
 people); *Settings* gains *About this server* ("The host runs this
 server and can see every event on it.") and a *Sign in a browser* row
 for every role (R66); a producer the user loses access to just leaves
-their list.
+their list. Devices show when each was last active, keys when each was
+last used, and *About this server* the server's version, from R69.
 
 Compatible (`feat(client)`, minor). Non-goals: anything not in the
 approved designs.
@@ -5458,6 +5470,37 @@ change for other roles, producers or the schema; no migration.
 
 Non-goals: the app's screens (R65); changing roles or removing users from
 a device; anything for non-admins.
+
+### R69 - When devices and keys were last used, and the server's version
+
+Status: Next. Added by the maintainer (2026-10-10), from the design work
+of R64.
+
+Goal: the approved designs show when each device was last active, when
+each producer key was last used, and the server's version in the app's
+*About this server*; the server records and serves them.
+
+Scope:
+
+- each client (device or browser) records when it last made a request,
+  and each producer key when it last published an event, without a
+  database write on every request (updated at most about once a minute
+  per client or key; the exact interval is the increment's choice)
+- the client API serves them where the designs show them: `lastActiveAt`
+  on the devices a caller may list (`GET /api/v1/client/devices`, by
+  role as today), `lastUsedAt` on the keys of the caller's own producers;
+  the management API serves both too. `null` until first used
+- the client API serves the server's version and commit (as `/q/info`
+  reports them) to any client key, for *About this server*
+- one additive Flyway migration (nullable columns); tests (recorded,
+  throttled, served per role, `null` before first use, the version), the
+  OpenAPI document, `docs/architecture.md`
+
+Compatible (`feat`, minor): additive fields and an additive migration; no
+change to producers or to what a role may see otherwise.
+
+Non-goals: the app's or the web page's screens (R65, R66); a history of
+activity; anything per event.
 
 ### Already in place (not scheduled again)
 
@@ -5591,8 +5634,9 @@ R60 (pushes reach a sleeping phone at once), R61 (users, roles and
 subscriptions), R62 (self-service for users: the API) and R63 (the admin
 page: traffic by user), R67 (the third batch of Dependabot
 updates) and R68 (people's details for admins in the client API) are
-done. **R64 (designs for users in the app and on a web page) is next**;
-then the human gate G4 (the
+done. **R69 (when devices and keys were last used, and the server's
+version) is next**, while the users' designs are exported; then R64
+(designs for users in the app and on a web page), the human gate G4 (the
 maintainer approves the user designs), R65 and R66. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
