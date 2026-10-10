@@ -137,6 +137,19 @@ class OwnProducer {
 
   bool get isDisabled => disabledAt != null;
 
+  OwnProducer withSubscribed(bool subscribed) => OwnProducer(
+    id: id,
+    name: name,
+    createdAt: createdAt,
+    visibility: visibility,
+    subscribed: subscribed,
+    allowedUsers: allowedUsers,
+    keys: keys,
+    disabledAt: disabledAt,
+    disabledByOperator: disabledByOperator,
+    lastEventAt: lastEventAt,
+  );
+
   /// Keys that still work.
   List<ProducerKeyInfo> get workingKeys =>
       keys.where((k) => !k.isRevoked).toList(growable: false);
