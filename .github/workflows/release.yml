@@ -21,7 +21,7 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/rodrigofabreu/signalhub
-  FLUTTER_VERSION: 3.47.5 # the same as in ci.yml
+  FLUTTER_VERSION: 3.47.5 # the same as in ci-app.yml
 
 jobs:
   ci:

@@ -1,0 +1,381 @@
+name: CI - Containers
+
+# The Compose stack and the deployment procedures of docs/deployment.md, started
+# from the backend images and checked by the Python tests of container-tests/
+# (container-tests/README.md). Called by ci.yml, which hands it the images its
+# image part built, one build per architecture; run alone from the Actions tab,
+# every job builds them itself.
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: The prefix of the image part's artifacts (backend-images); empty to build the images in each job.
+        type: string
+        default: ""
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Runs natively on x86-64 and on ARM64 (such as a Raspberry Pi 5), so the
+  # whole stack is checked on both. One stack for all the checks of the stack's
+  # API, then the checks that restart, stop or empty parts of it.
+  compose:
+    name: Compose smoke test (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      SIGNALHUB_URL: http://localhost:8080
+      SIGNALHUB_PROXY_URL: https://localhost
+      SIGNALHUB_EXPECT_ARCH: ${{ matrix.arch }}
+      SIGNALHUB_EXPECT_LIMITS: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/load-backend-images
+        with:
+          artifact: ${{ inputs.images && format('{0}-{1}', inputs.images, matrix.arch) || '' }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      # The Python command and the examples the tests run.
+      - run: pip install ./sdk/python
+      - uses: ./.github/actions/prepare-env
+      - name: Start PostgreSQL and the backend
+        run: |
+          # The TLS reverse proxy of docs/deployment.md, with Caddy's own CA.
+          printf '%s\n' COMPOSE_PROFILES=proxy SIGNALHUB_DOMAIN=localhost SIGNALHUB_TLS=internal >> .env
+          # The resource limits recommended in docs/architecture.md#resources.
+          cat > compose.override.yaml <<'YAML'
+          services:
+            backend:
+              mem_limit: 512m
+              cpus: 1
+            postgres:
+              mem_limit: 256m
+          YAML
+          docker compose up --no-build --wait --wait-timeout 180
+      - name: The stack's checks
+        run: python -m unittest discover --start-directory container-tests --pattern 'test_compose_*.py' --verbose
+      # They stop PostgreSQL, restart the backend with other settings and
+      # replace the database from a backup: after the others.
+      - name: Restarts, outages and backups
+        run: python -m unittest discover --start-directory container-tests --pattern 'test_operations_*.py' --verbose
+      - if: always()
+        run: docker stats --no-stream
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down --volumes
+
+  # The upgrade and rollback of docs/deployment.md#upgrades: a stack of an
+  # earlier release, with data, upgraded in place to this commit's deployment
+  # files and rolled back to the release again by restoring a backup. From the
+  # latest release, and from the oldest one docs/deployment.md#upgrades says is
+  # tested, which skips every release and migration in between. The image built
+  # for this commit stands in for the one its release will publish.
+  upgrade:
+    name: Backend container (upgrade from ${{ matrix.from }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - from: the latest release
+          # The oldest release that stores every kind of data this job
+          # checks: events, producer keys, clients, read state and push
+          # preferences.
+          - from: v0.13.0
+            release: v0.13.0
+    env:
+      IMAGE: ghcr.io/rodrigofabreu/signalhub
+      SIGNALHUB_URL: http://localhost:8080
+    steps:
+      - run: echo "SIGNALHUB_UPGRADE_STATE=$RUNNER_TEMP/upgrade-state.json" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the release tags
+      # The job checks out earlier releases in the workspace; the tests stay here.
+      - run: |
+          cp -r container-tests "$RUNNER_TEMP/container-tests"
+          echo "SIGNALHUB_REPO=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      # Not the development build: an earlier release without a published
+      # image would run it instead of building itself.
+      - uses: ./.github/actions/load-backend-images
+        with:
+          artifact: ${{ inputs.images && format('{0}-amd64', inputs.images) || '' }}
+          development: "false"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Start ${{ matrix.from }}
+        env:
+          RELEASE: ${{ matrix.release }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Otherwise the newest release before this commit (HEAD^ is main's tip on a pull request).
+          previous=${RELEASE:-$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD^)}
+          echo "upgrading from $previous"
+          current=$(git rev-parse HEAD)
+          install=$RUNNER_TEMP/signalhub
+          mkdir "$install"
+          cp .env.example "$install/.env"
+          admin_token=$(openssl rand -hex 32)
+          echo "::add-mask::$admin_token"
+          sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" "$install/.env"
+          # The checkout's compose commands (logs, clean-up) need the settings too.
+          cp "$install/.env" .env
+          # Releases that attach their deployment files are installed from them,
+          # as docs/deployment.md#setup says; older ones from their tag.
+          archive=signalhub-${previous#v}-deployment.tar.gz
+          if gh release view "$previous" --json assets --jq '.assets[].name' | grep --quiet --line-regexp --fixed-strings "$archive"; then
+            gh release download "$previous" --pattern "$archive" --dir "$RUNNER_TEMP"
+            tar --extract --file "$RUNNER_TEMP/$archive" --directory "$install"
+            previous_dir=$install
+          else
+            archive=
+            previous_dir=$GITHUB_WORKSPACE
+            git checkout --quiet "$previous"
+            # With its published image if it has one (releases since R20 of
+            # docs/roadmap.md); Compose builds the missing image otherwise.
+            if docker pull "$IMAGE:${previous#v}"; then
+              docker tag "$IMAGE:${previous#v}" signalhub-backend:local
+            fi
+          fi
+          {
+            echo "PREVIOUS=$previous"
+            echo "PREVIOUS_ARCHIVE=$archive"
+            echo "PREVIOUS_DIR=$previous_dir"
+            echo "CURRENT=$current"
+            echo "INSTALL=$install"
+            echo "SIGNALHUB_TEST_ADMIN_TOKEN=$admin_token"
+          } >> "$GITHUB_ENV"
+          cd "$previous_dir"
+          echo "PREVIOUS_POSTGRES=$(sed -n 's/^ *image: postgres:\([0-9]*\).*/\1/p' compose.yaml)" >> "$GITHUB_ENV"
+          docker compose up --wait --wait-timeout 180
+      - name: Store a producer, a client and a read event
+        run: python "$RUNNER_TEMP/container-tests/test_upgrade.py" --verbose StoreData
+      - name: Back up and upgrade to this commit's deployment files
+        run: |
+          docker compose exec -T postgres sh -c \
+            'pg_dump --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --format=custom' \
+            > "$RUNNER_TEMP/signalhub.dump"
+          git checkout --quiet "$CURRENT"
+          # What the release of this commit would publish and attach; the image
+          # is the one built for this commit.
+          python3 scripts/release/deployment_files.py signalhub-backend:check 0.0.0-ci "$RUNNER_TEMP"
+          # As docs/deployment.md#upgrades: the new files over the old ones, or
+          # beside the .env of an install from a checkout; .env stays.
+          tar --extract --file "$RUNNER_TEMP/signalhub-0.0.0-ci-deployment.tar.gz" --directory "$INSTALL"
+          cd "$INSTALL"
+          postgres=$(sed -n 's/^ *image: postgres:\([0-9]*\).*/\1/p' compose.yaml)
+          if [ "$postgres" != "$PREVIOUS_POSTGRES" ]; then
+            echo "PostgreSQL $PREVIOUS_POSTGRES to $postgres, as docs/deployment.md#a-new-postgresql-major-version"
+            # The new major version refuses the old volume and leaves its data alone.
+            if docker compose up --wait --wait-timeout 60; then
+              echo "PostgreSQL $postgres started on a volume of $PREVIOUS_POSTGRES"; exit 1
+            fi
+            docker compose logs postgres | grep 'there appears to be PostgreSQL data in' > /dev/null
+            docker compose down
+            image=$(sed -n 's/^ *image: \(postgres:.*\)/\1/p' compose.yaml)
+            docker run --rm --volume signalhub_postgres-data:/data "$image" \
+              grep -qx "$PREVIOUS_POSTGRES" /data/PG_VERSION  # BusyBox grep
+            # The move: the backup of the previous step, restored into a new volume.
+            docker volume rm signalhub_postgres-data
+            docker compose up --wait --wait-timeout 120 postgres
+            docker compose exec -T postgres sh -c \
+              'pg_restore --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-owner --no-privileges --exit-on-error --single-transaction' \
+              < "$RUNNER_TEMP/signalhub.dump"
+            docker compose exec -T postgres sh -c 'psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --tuples-only --no-align --command "SHOW server_version_num"' \
+              | grep --quiet "^$postgres"
+          fi
+          docker compose up --wait --wait-timeout 180
+          docker compose ps --format '{{.Service}}: {{.Health}}' | sort | tee "$RUNNER_TEMP/health"
+          test "$(cat "$RUNNER_TEMP/health")" = "$(printf 'backend: healthy\npostgres: healthy')"
+          # Nothing was built: the backend runs the image of the deployment files.
+          test "$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps --quiet backend)")" = signalhub-backend:check
+      - name: The data and keys of the release survive the upgrade
+        env:
+          SIGNALHUB_COMPOSE_DIR: ${{ env.INSTALL }}
+          SIGNALHUB_EXPECT_RELEASE: 0.0.0-ci
+          SIGNALHUB_EXPECT_REVISION: ${{ env.CURRENT }}
+        run: python "$RUNNER_TEMP/container-tests/test_upgrade.py" --verbose AfterUpgrade
+      - name: Rolling back to the release restores its backup
+        run: |
+          # The release's own deployment files, or its tag.
+          up=(up --wait --wait-timeout 180)
+          if [ -n "$PREVIOUS_ARCHIVE" ]; then
+            tar --extract --file "$RUNNER_TEMP/$PREVIOUS_ARCHIVE" --directory "$INSTALL"
+          else
+            git checkout --quiet "$PREVIOUS"
+            up+=(--build)
+          fi
+          cd "$PREVIOUS_DIR"
+          docker compose down
+          docker volume rm signalhub_postgres-data
+          docker compose up --wait --wait-timeout 120 postgres
+          docker compose exec -T postgres sh -c \
+            'pg_restore --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-owner --no-privileges --exit-on-error --single-transaction' \
+            < "$RUNNER_TEMP/signalhub.dump"
+          docker compose "${up[@]}"
+          cd "$GITHUB_WORKSPACE"
+          python "$RUNNER_TEMP/container-tests/test_upgrade.py" --verbose AfterRollback
+          git checkout --quiet "$CURRENT"
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down --volumes
+
+  # The whole path of an event, with FCM push enabled against a fake FCM: a
+  # producer publishes, the clients' preferences decide who is pushed, and the
+  # client opens the event from its inbox.
+  e2e:
+    name: End-to-end (producer to push and client inbox)
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: http://localhost:8080
+    steps:
+      - run: |
+          echo "SIGNALHUB_FCM_SENDS=$RUNNER_TEMP/fcm-sends.jsonl" >> "$GITHUB_ENV"
+          echo "SIGNALHUB_FIREBASE_OPTIONS=$RUNNER_TEMP/firebase-options.json" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/load-backend-images
+        with:
+          artifact: ${{ inputs.images && format('{0}-amd64', inputs.images) || '' }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install ./sdk/python
+      - uses: ./.github/actions/prepare-env
+      - name: Start a fake FCM, PostgreSQL and the backend with FCM push enabled
+        run: |
+          python scripts/e2e/fake_fcm.py --port 8099 --record "$SIGNALHUB_FCM_SENDS" \
+            > "$RUNNER_TEMP/fake-fcm.log" 2>&1 &
+          # A throwaway service account key that only the fake accepts; no real
+          # Firebase credential is ever needed in CI.
+          openssl genpkey -quiet -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$RUNNER_TEMP/fcm-key.pem"
+          jq --null-input --rawfile key "$RUNNER_TEMP/fcm-key.pem" '{
+              type: "service_account", project_id: "signalhub-e2e", private_key_id: "e2e",
+              private_key: $key, client_email: "signalhub@signalhub-e2e.iam.gserviceaccount.com",
+              token_uri: "http://host.docker.internal:8099/token"}' > "$RUNNER_TEMP/fcm.json"
+          chmod a+r "$RUNNER_TEMP/fcm.json" # the backend runs as UID 10001
+          # The app's Firebase options, served to clients (client/firebase-options.example.json).
+          jq '.FIREBASE_PROJECT_ID = "signalhub-e2e"' client/firebase-options.example.json \
+            > "$SIGNALHUB_FIREBASE_OPTIONS"
+          chmod a+r "$SIGNALHUB_FIREBASE_OPTIONS"
+          # The key mount of docs/development.md#firebase-cloud-messaging, with the
+          # FCM API pointed at the fake on the runner.
+          cat > compose.override.yaml <<YAML
+          services:
+            backend:
+              environment:
+                SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE: /run/secrets/fcm.json
+                SIGNALHUB_PUSH_FCM_CLIENT_OPTIONS_FILE: /run/config/firebase-options.json
+                SIGNALHUB_PUSH_FCM_API_URL: http://host.docker.internal:8099
+              volumes:
+                - $RUNNER_TEMP/fcm.json:/run/secrets/fcm.json:ro
+                - $SIGNALHUB_FIREBASE_OPTIONS:/run/config/firebase-options.json:ro
+              extra_hosts:
+                - host.docker.internal:host-gateway
+          YAML
+          docker compose up --no-build --wait --wait-timeout 180
+      - name: The end-to-end checks
+        run: python -m unittest discover --start-directory container-tests --pattern 'test_e2e.py' --verbose
+      - if: failure()
+        run: |
+          docker compose logs
+          cat "$RUNNER_TEMP/fake-fcm.log"
+      - if: always()
+        run: docker compose down --volumes
+
+  # A fresh install that follows docs/deployment.md#setup to the letter, from
+  # a release's deployment files, with the FCM key and resource limits it
+  # points to, then the tightest secret setup and a restart of Docker, as after
+  # a host reboot. The image built for this commit, and the deployment files
+  # naming it, stand in for what its release will publish and attach.
+  fresh-install:
+    name: Deployment (fresh install from docs/deployment.md)
+    runs-on: ubuntu-latest
+    env:
+      DOMAIN: signalhub.home.arpa
+      SIGNALHUB_URL: http://localhost:8080
+      SIGNALHUB_PROXY_URL: https://signalhub.home.arpa
+      SIGNALHUB_EXPECT_IMAGE: signalhub-backend:check
+      SIGNALHUB_EXPECT_RELEASE: 0.0.0-ci
+      SIGNALHUB_EXPECT_FCM_PROJECT: signalhub-fresh-install
+      SIGNALHUB_ALLOW_DOCKER_RESTART: "1"
+    steps:
+      - run: echo "SIGNALHUB_COMPOSE_DIR=$RUNNER_TEMP/signalhub" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/load-backend-images
+        with:
+          artifact: ${{ inputs.images && format('{0}-amd64', inputs.images) || '' }}
+          development: "false"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install ./sdk/python
+      - name: Pack what the release attaches
+        run: |
+          mkdir "$RUNNER_TEMP/release"
+          python scripts/release/deployment_files.py signalhub-backend:check 0.0.0-ci "$RUNNER_TEMP/release"
+          (cd "$RUNNER_TEMP/release" && sha256sum signalhub-0.0.0-ci-deployment.tar.gz > SHA256SUMS)
+      - name: Get the deployment files as documented
+        run: |
+          mkdir "$SIGNALHUB_COMPOSE_DIR"
+          cd "$SIGNALHUB_COMPOSE_DIR"
+          # Stands in for the download from the release.
+          cp "$RUNNER_TEMP"/release/* .
+          sha256sum --check --ignore-missing SHA256SUMS
+          tar --extract --file signalhub-0.0.0-ci-deployment.tar.gz
+      # .env from the example, with generated secrets and mode 600.
+      - uses: ./.github/actions/prepare-env
+        with:
+          directory: ${{ env.SIGNALHUB_COMPOSE_DIR }}
+      - name: Set up the proxy, the FCM key and the resource limits as documented
+        working-directory: ${{ env.SIGNALHUB_COMPOSE_DIR }}
+        run: |
+          # The name clients use resolves to this host.
+          echo "127.0.0.1 $DOMAIN" | sudo tee --append /etc/hosts
+          printf '%s\n' COMPOSE_PROFILES=proxy "SIGNALHUB_DOMAIN=$DOMAIN" SIGNALHUB_TLS=internal >> .env
+          # A throwaway service account key outside the repository; nothing is
+          # sent, so it never reaches Google.
+          key_file="$RUNNER_TEMP/fcm-service-account.json"
+          openssl genpkey -quiet -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$RUNNER_TEMP/fcm-key.pem"
+          jq --null-input --rawfile key "$RUNNER_TEMP/fcm-key.pem" '{
+              type: "service_account", project_id: "signalhub-fresh-install", private_key_id: "ci",
+              private_key: $key, client_email: "signalhub@signalhub-fresh-install.iam.gserviceaccount.com",
+              token_uri: "https://oauth2.googleapis.com/token"}' > "$key_file"
+          # The permissions of docs/deployment.md#secrets.
+          chmod 400 "$key_file" && sudo chown 10001 "$key_file"
+          # docs/development.md#firebase-cloud-messaging and architecture.md#resources.
+          cat > compose.override.yaml <<YAML
+          services:
+            backend:
+              mem_limit: 512m
+              cpus: 1
+              environment:
+                SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE: /run/secrets/fcm.json
+              volumes:
+                - $key_file:/run/secrets/fcm.json:ro
+            postgres:
+              mem_limit: 256m
+          YAML
+      - name: Start the stack
+        working-directory: ${{ env.SIGNALHUB_COMPOSE_DIR }}
+        run: docker compose up --wait
+      - name: The install's checks, then the tightest setup and a restart of Docker
+        run: python -m unittest discover --start-directory container-tests --pattern 'test_install.py' --verbose
+      - if: failure()
+        working-directory: ${{ env.SIGNALHUB_COMPOSE_DIR }}
+        run: docker compose logs
+      - if: always()
+        working-directory: ${{ env.SIGNALHUB_COMPOSE_DIR }}
+        run: docker compose down --volumes

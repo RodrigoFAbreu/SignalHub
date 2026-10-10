@@ -1,0 +1,68 @@
+name: CI - Python and workflows
+
+# The repository's Python tooling, the SDK and the examples, and the workflows
+# themselves. Called by ci.yml; also runnable alone from the Actions tab.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python (lint + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          # The last one is the default. 3.10 is the oldest the SDK supports
+          # (sdk/python/pyproject.toml, requires-python).
+          python-version: |
+            3.10
+            3.12
+          cache: pip
+          cache-dependency-path: |
+            .github/tools/requirements.txt
+            sdk/python/pyproject.toml
+      - run: pip install --requirement .github/tools/requirements.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - name: Test release versioning
+        run: python -m unittest discover --start-directory scripts/release --verbose
+      # The device run itself stays manual (scripts/device-review/README.md).
+      - name: Test the device-review script
+        run: python -m unittest discover --start-directory scripts/device-review --verbose
+      # Installing the SDK also checks its build and the `signalhub` command.
+      - run: pip install ./sdk/python && signalhub send --help
+      - name: Test the Python SDK
+        run: python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python --verbose
+      # The release attaches these files; the build checks that the wheel,
+      # installed, reports the version it was built with.
+      - name: Build the SDK files as the release does
+        run: python scripts/release/sdk_files.py 0.0.0+ci "$RUNNER_TEMP/sdk"
+      - name: Test the Python SDK on its oldest supported Python
+        run: |
+          python3.10 -m pip install ./sdk/python
+          python3.10 -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python
+      # The helpers of the container tests, which the container jobs then run
+      # against a stack (container-tests/README.md).
+      - name: Test the helpers of the container tests
+        run: python -m unittest discover --start-directory container-tests --pattern 'test_helpers.py' --verbose
+      # shellcheck comes with the runner image; the tests need curl and jq too.
+      - name: Lint and test the integration examples
+        run: |
+          shellcheck examples/*/*.sh scripts/release/*.sh scripts/ci/*.sh
+          python -m unittest discover --start-directory examples/tests --verbose
+
+  workflows:
+    name: GitHub Actions lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The actionlint image bundles shellcheck, so `run:` scripts are checked too.
+      # It is pinned in .github/tools/actionlint/Dockerfile for Dependabot.
+      # The example workflow of examples/github-actions is checked with the repository's own.
+      - run: docker build --quiet --tag actionlint .github/tools/actionlint
+      - run: docker run --rm --volume "$PWD:/repo" --workdir /repo actionlint -color .github/workflows/*.yml examples/github-actions/*.yml

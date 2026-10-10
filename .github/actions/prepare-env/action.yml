@@ -1,0 +1,27 @@
+name: Prepare the Compose settings
+description: >-
+  Makes .env from .env.example with a random database password and admin
+  token, masked in the logs, and exports the token as SIGNALHUB_TEST_ADMIN_TOKEN (not the name Compose
+  reads, which would override .env) for
+  the container tests.
+
+inputs:
+  directory:
+    description: The folder of the stack's compose.yaml.
+    default: .
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      working-directory: ${{ inputs.directory }}
+      run: |
+        cp .env.example .env
+        chmod 600 .env
+        db_password=$(openssl rand -hex 24)
+        admin_token=$(openssl rand -hex 32)
+        echo "::add-mask::$db_password"
+        echo "::add-mask::$admin_token"
+        echo "SIGNALHUB_TEST_ADMIN_TOKEN=$admin_token" >> "$GITHUB_ENV"
+        sed -i "s/^SIGNALHUB_DB_PASSWORD=.*/SIGNALHUB_DB_PASSWORD=$db_password/" .env
+        sed -i "s/^SIGNALHUB_ADMIN_TOKEN=.*/SIGNALHUB_ADMIN_TOKEN=$admin_token/" .env

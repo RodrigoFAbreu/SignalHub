@@ -1,0 +1,57 @@
+name: CI - Web page
+
+# The users' web page (backend/src/main/resources/META-INF/resources/app) in a
+# real browser, against the backend built from this commit and PostgreSQL, as
+# Compose runs them. web-tests/ is test tooling only: nothing in it is shipped.
+# Called by ci.yml, which hands it the images its image part built; run alone
+# from the Actions tab, it builds them itself.
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: The artifact of the image part with the x86-64 images; empty to build them here.
+        type: string
+        default: ""
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web page (browser tests)
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: http://localhost:8080
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/load-backend-images
+        with:
+          artifact: ${{ inputs.images }}
+      - uses: ./.github/actions/prepare-env
+      - name: Start PostgreSQL and the backend
+        run: docker compose up --no-build --wait --wait-timeout 180
+      # The runner image ships Node.js; the version of Playwright and of its
+      # Chromium is pinned by web-tests/package-lock.json.
+      - run: npm ci
+        working-directory: web-tests
+      - run: npx playwright install --with-deps chromium
+        working-directory: web-tests
+      - run: npx playwright test
+        working-directory: web-tests
+        env:
+          ADMIN_TOKEN: ${{ env.SIGNALHUB_TEST_ADMIN_TOKEN }}
+      - if: failure()
+        run: docker compose logs backend
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-test-results
+          path: |
+            web-tests/.results
+            web-tests/playwright-report
+          # The folder starts with a dot, which the action skips unless told otherwise.
+          include-hidden-files: true
+          if-no-files-found: ignore
+      - if: always()
+        run: docker compose down --volumes

@@ -1,0 +1,35 @@
+name: Load the backend images
+description: >-
+  Loads the backend images that the image part built for this commit and
+  architecture, or builds them here when no artifact is given (a part run alone).
+
+inputs:
+  artifact:
+    description: The artifact of the image part (backend-images-<arch>), or empty to build here.
+    default: ""
+  development:
+    description: >-
+      Keep signalhub-backend:local, the development build `docker compose up
+      --build` makes. "false" removes it, so that a stack of an earlier release
+      cannot run it by mistake.
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - if: inputs.artifact != ''
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.artifact }}
+        path: ${{ runner.temp }}/backend-images
+    - if: inputs.artifact != ''
+      shell: bash
+      run: |
+        gzip --decompress --stdout "$RUNNER_TEMP/backend-images/backend-images.tar.gz" | docker load
+        rm -rf "$RUNNER_TEMP/backend-images"
+    - if: inputs.artifact == ''
+      shell: bash
+      run: scripts/ci/build-backend-images.sh
+    - if: inputs.development != 'true'
+      shell: bash
+      run: docker image rm signalhub-backend:local

@@ -1,7 +1,12 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: /
+    # The workflows, and the composite actions they use.
+    directories:
+      - /
+      - /.github/actions/load-backend-images
+      - /.github/actions/prepare-env
+      - /.github/actions/setup-flutter
     schedule:
       interval: weekly
     commit-message:
