@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -178,6 +179,53 @@ public class UserService {
     }
     users.flush();
     return user.ref();
+  }
+
+  /** The users who are not revoked, with their role and devices, by name ignoring case. */
+  @Transactional
+  List<DetailedUser> detailedActive() {
+    var counts = new HashMap<UUID, long[]>();
+    for (var row :
+        rows(
+            "SELECT user_id, count(*), count(*) FILTER (WHERE revoked_at IS NULL)"
+                + " FROM clients GROUP BY user_id")) {
+      counts.put(
+          (UUID) row[0], new long[] {((Number) row[1]).longValue(), ((Number) row[2]).longValue()});
+    }
+    return users.list("revokedAt is null").stream()
+        .sorted(Comparator.comparing(UserEntity::name, String.CASE_INSENSITIVE_ORDER))
+        .map(
+            user -> {
+              var count = counts.getOrDefault(user.id(), new long[] {0, 0});
+              return new DetailedUser(user.id(), user.name(), user.role(), count[1], count[0] > 0);
+            })
+        .toList();
+  }
+
+  /**
+   * The producers a user who is not revoked owns, by name ignoring case.
+   *
+   * @throws Refused with UNKNOWN_USER if there is no such user or they are revoked
+   */
+  @Transactional
+  List<PersonProducer> producersOf(UUID id) {
+    var user = users.findByIdOptional(id).filter(found -> !found.revoked());
+    if (user.isEmpty()) {
+      throw new Refused(Refusal.UNKNOWN_USER);
+    }
+    List<?> found =
+        entityManager
+            .createNativeQuery(
+                "SELECT id, name, visibility, disabled_at FROM producers WHERE owner_id = :owner"
+                    + " ORDER BY lower(name), id")
+            .setParameter("owner", id)
+            .getResultList();
+    return found.stream()
+        .map(Object[].class::cast)
+        .map(
+            row ->
+                new PersonProducer((UUID) row[0], (String) row[1], (String) row[2], row[3] != null))
+        .toList();
   }
 
   /** A user invited from a device, with the code that pairs their first device. */

@@ -1116,16 +1116,23 @@ What a stolen admin key can do, and how to recover, is in
 
 ### Users from a device
 
-A device reads the users on the server, and an admin's device invites users and
-sets their role, with its client key under `/api/v1/client/users`, so the
+A device reads the users on the server, and an admin's device also reads their
+details, invites users and sets their role, with its client key under `/api/v1/client/users`, so the
 proxy forwards it. The operator keeps making and unmaking admins and revoking
 users, with the admin token: no device can.
 
 | Method and path | Result |
 |---|---|
-| `GET /api/v1/client/users` | Any role. The users who are not revoked, by name ignoring case, as `{"items": [{"id", "name"}]}`: to choose whom to allow on a producer. **Never a role**, so admins are not told apart, and never a device or a producer. |
+| `GET /api/v1/client/users` | The users who are not revoked, by name ignoring case, as `{"items": [...]}`. For a **basic or mod** key each item is `{"id", "name"}`, to choose whom to allow on a producer: never a role, so admins are not told apart, and never a device or a producer. For an **admin's** key each item is `{"id", "name", "role", "activeDevices", "hasPaired"}`: `activeDevices` counts the user's devices that are not revoked, and `hasPaired` is whether they have ever had a device, revoked or not (`false` for an invited user who has not paired yet). |
+| `GET /api/v1/client/users/{id}/producers` | Admin only (`403` for anyone else, whatever the ID, so a non-admin learns nothing about which users exist). The producers the user owns, by name ignoring case, as `{"items": [{"id", "name", "visibility", "disabled"}]}`: never a key, an event or an allow-list. `404` for an unknown or a revoked user. |
 | `POST /api/v1/client/users` | Admin only (`403` for anyone else, before the body's meaning is looked at). Invites a user (`{"name", "role", "deviceName"}`; `role` is `BASIC` or `MOD`, `BASIC` when omitted, and `ADMIN` is `400`; `deviceName` defaults to `First device`) and creates a [pairing code](#pairing-from-a-device) for their first device, in one transaction: either both exist or neither. `201` with `{"user": {"id", "name", "role"}, "pairing": {...}}`, the pairing as `POST /api/v1/client/pairings` answers it, its code shown only here; `409` if the name is taken (ignoring case). The code is valid for 10 minutes, and its status is asked at `GET /api/v1/client/pairings/{id}`. |
 | `PATCH /api/v1/client/users/{id}` | Admin only. Sets the role of a user who is not an admin to `BASIC` or `MOD` (`{"role"}`); `200` with `{"id", "name", "role"}`. `400` for `ADMIN` or no role, `404` for an unknown ID, `409` for a revoked user or an admin (the caller included): no device demotes an admin. The user's devices stay as they are; what they may do follows the role from their next request. Setting the role they have changes nothing. |
+
+The two reads use the role read when the key authenticated the request, without
+locking the caller's user: a demotion applies from the next request. They are
+the only fields a device gets about other users beyond their names, and they
+log nothing. Producers are listed for any owner alike; nothing in them depends
+on what a producer is called or publishes.
 
 The caller's user is locked and its role read in the transaction that changes
 anything, so an operator demoting or revoking the admin meanwhile applies
@@ -1798,7 +1805,8 @@ suppressed push is simply not sent to that client.
 | `DELETE /api/v1/client/devices/{id}` | client key | Deletes a revoked client, with the same reach. `204`; `409` if it is not revoked or is an admin's; `404` for an unknown ID; `403` for a basic user. |
 | `GET`, `POST /api/v1/client/producers`, `GET`, `PATCH /api/v1/client/producers/{id}`, and the paths below it | client key, any role | The caller's own producers, their keys, state and allow-list: see [Own producers from a device](#own-producers-from-a-device). |
 | `GET /api/v1/client/visible-producers`, `PUT`, `DELETE /api/v1/client/visible-producers/{id}/subscription` | client key, any role | The producers the caller sees, and subscribing to them: see [Subscriptions from a device](#subscriptions-from-a-device). |
-| `GET /api/v1/client/users` | client key, any role | The names of the users who are not revoked. |
+| `GET /api/v1/client/users` | client key, any role | The users who are not revoked: names only, and for an admin's key also role, active devices and whether they have paired. |
+| `GET /api/v1/client/users/{id}/producers` | client key of an admin | The producers a user owns (ID, name, visibility, disabled). |
 | `POST /api/v1/client/users`, `PATCH /api/v1/client/users/{id}` | client key of an admin | Invites a user with a first pairing code, and sets a role: see [Users from a device](#users-from-a-device). |
 
 The management paths behave like producer management: `404` for every path

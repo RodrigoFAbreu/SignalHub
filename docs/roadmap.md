@@ -2298,6 +2298,27 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   app's analysis and tests, and the Compose smoke tests with the proxy
   Compatible (`build`)
 
+### R68 - People's details for admins in the client API
+
+- **the list**: for an admin's client key, each user of
+  `GET /api/v1/client/users` also carries `role`, `activeDevices` (devices
+  not revoked) and `hasPaired` (the user has ever had a device, revoked or
+  not; false for an invited user who has not paired). Any other role gets
+  the names only, as before; revoked users stay out
+- **a person's producers**: `GET /api/v1/client/users/{id}/producers`, for
+  an admin's key only (`403` for anyone else, whatever the ID; `404` for an
+  unknown or revoked user): the producers the user owns by name, each with
+  `id`, `name`, `visibility` and `disabled`, never a key, an event or an
+  allow-list
+- decisions the entry left open: the shape above; the caller's role is the
+  one read when the key authenticated, since both are reads; a revoked
+  user's producers are not readable; no migration, nothing logged beyond
+  what exists
+- tests: `UserSelfApiTest` against PostgreSQL (the admin's fields, a user
+  with no device, one whose devices are all revoked, a revoked user, mod and
+  basic getting names only and `403`, unknown IDs), `OpenApiTest`.
+  `docs/architecture.md` (Users from a device). Compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2880,8 +2901,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 53    | R67 - The third batch of Dependabot updates                                                      | Increment (`build`)                    | Done (see section 3)                                                             |
-| 54    | R68 - People's details for admins in the client API                                              | Increment (`feat`)                     | Next                                                                             |
-| 55    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next, after R68                                                                  |
+| 54    | R68 - People's details for admins in the client API                                              | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 55    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next                                                                             |
 | 56    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
 | 57    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
 | 58    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
@@ -5185,7 +5206,7 @@ each user's events and deliveries on the admin page.
 
 ### R64 - Designs for users in the app and on a web page
 
-Status: next. Added by the maintainer
+Status: next, now that R68 is done. Added by the maintainer
 (2026-10-10).
 
 Goal: before the app and a web page get the users' features, their
@@ -5342,8 +5363,8 @@ Dependabot has not proposed; moving off Java 25.
 
 ### R68 - People's details for admins in the client API
 
-Status: Next. Added by the maintainer (2026-10-10), from the design work
-of R64.
+Status: done (see section 3). Added by the maintainer (2026-10-10), from the
+design work of R64.
 
 Goal: an admin's device can show who each person is on the server: their
 role, their devices and their producers, as the approved People screens
@@ -5501,10 +5522,10 @@ alert also plays while the app is open), R58 (the second batch of
 Dependabot updates), R59 (a read event leaves the unread-only inbox),
 R60 (pushes reach a sleeping phone at once), R61 (users, roles and
 subscriptions), R62 (self-service for users: the API) and R63 (the admin
-page: traffic by user), and R67 (the third batch of Dependabot
-updates) are done. **R68 (people's details for admins in the client
-API) is next**, while the users' designs are being made; then R64
-(designs for users in the app and on a web page), the human gate G4 (the
+page: traffic by user), R67 (the third batch of Dependabot
+updates) and R68 (people's details for admins in the client API) are
+done. **R64 (designs for users in the app and on a web page) is next**;
+then the human gate G4 (the
 maintainer approves the user designs), R65 and R66. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
