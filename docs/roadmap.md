@@ -2955,8 +2955,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 54    | R68 - People's details for admins in the client API                                              | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 55    | R69 - When devices and keys were last used, and the server's version                             | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 56    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Done (see section 3)                                                             |
-| 57    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Next: waiting for the maintainer                                                 |
-| 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
+| 57    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Passed (2026-10-10, approved without changes)                                    |
+| 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Next                                                                             |
 | 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
 
 How an autonomous run uses it:
@@ -5365,7 +5365,8 @@ exported again before G4 is marked passed.
 
 ### G4 - The maintainer approves the user designs
 
-Status: next, waiting for the maintainer. A human gate.
+Status: passed. The maintainer approved the designs of R64 without changes
+on 2026-10-10. A human gate.
 
 The maintainer reviews the drawings of R64 (`docs/design/users/`) and
 approves them, with or without changes, in a pull request or issue. R65
@@ -5374,7 +5375,7 @@ orchestrator stops here and never answers it.
 
 ### R65 - Users in the app
 
-Status: blocked until G4 is passed. Added by the maintainer
+Status: next (G4 passed). Added by the maintainer
 (2026-10-10).
 
 Goal: the app does everything R62 allows each role, as designed in R64
@@ -5395,6 +5396,13 @@ for every role (R66); a producer the user loses access to just leaves
 their list. Devices show when each was last active, keys when each was
 last used, and *About this server* the server's version, from R69.
 
+Built from `docs/design/users/` (approved at G4): `DESIGN.md` for tokens,
+components, wording and accessibility, `WALKTHROUGH.md` for the flows, and
+the images of every screen and state, which each screen is compared with.
+The app's *Sign in a browser* (its *Settings* row, the scanner, the typed
+code and the confirmation) needs R66's server and is built in R66; R65
+builds everything else.
+
 Compatible (`feat(client)`, minor). Non-goals: anything not in the
 approved designs.
 
@@ -5408,6 +5416,9 @@ Status: blocked until R65 is merged. Added by the maintainer
 
 Goal: a user can do from a browser what R62 allows their role, and read
 their inbox, as designed in R64 and approved at G4.
+
+Built from `docs/design/users/` (approved at G4), each screen compared
+with its image.
 
 Scope:
 
@@ -5424,6 +5435,9 @@ Scope:
   The page shows a QR code that the app scans; at phone width, where a
   phone cannot scan its own screen, it shows a short code typed in the
   app and an *Open the app* button
+- the app's side of signing in a browser, as designed in
+  `docs/design/users/` (the *Settings* row for every role, the scanner,
+  the typed code and the confirmation), since it needs this item's server
 - the session is a cookie that is `HttpOnly`, `Secure` and
   `SameSite=Strict`, lasts a fixed 30 days, and is ended by signing out
   or by revoking the browser from a device; state-changing
@@ -5686,10 +5700,9 @@ subscriptions), R62 (self-service for users: the API) and R63 (the admin
 page: traffic by user), R67 (the third batch of Dependabot
 updates), R68 (people's details for admins in the client API) and R69
 (when devices and keys were last used, and the server's version) and R64
-(designs for users in the app and on a web page) are done. **The human
-gate G4 is next**: the maintainer reviews `docs/design/users/` and approves
-the designs, with or without changes; an orchestrator stops there. Then
-R65 and R66. A new
+(designs for users in the app and on a web page) are done, and the
+maintainer approved the designs at G4. **R65 (users in the app) is next**,
+then R66 (users' web page). A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
 
