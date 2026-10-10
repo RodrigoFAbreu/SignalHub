@@ -2956,8 +2956,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 55    | R69 - When devices and keys were last used, and the server's version                             | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 56    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Done (see section 3)                                                             |
 | 57    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Passed (2026-10-10, approved without changes)                                    |
-| 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Next                                                                             |
-| 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
+| 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -5375,7 +5375,7 @@ orchestrator stops here and never answers it.
 
 ### R65 - Users in the app
 
-Status: next (G4 passed). Added by the maintainer
+Status: done (see section 3). Added by the maintainer
 (2026-10-10).
 
 Goal: the app does everything R62 allows each role, as designed in R64
@@ -5415,7 +5415,7 @@ the approved designs works for an admin and for a basic user.
 
 ### R66 - Users' web page
 
-Status: blocked until R65 is merged. Added by the maintainer
+Status: next (R65 is done). Added by the maintainer
 (2026-10-10).
 
 Goal: a user can do from a browser what R62 allows their role, and read
@@ -5705,9 +5705,10 @@ subscriptions), R62 (self-service for users: the API) and R63 (the admin
 page: traffic by user), R67 (the third batch of Dependabot
 updates), R68 (people's details for admins in the client API) and R69
 (when devices and keys were last used, and the server's version) and R64
-(designs for users in the app and on a web page) are done, and the
-maintainer approved the designs at G4. **R65 (users in the app) is next**,
-then R66 (users' web page). A new
+(designs for users in the app and on a web page) are done, the
+maintainer approved the designs at G4, and R65 (users in the app) is
+done. **R66 (users' web page) is next**, with the app's *Sign in a browser*
+that R65 left to it. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
 
