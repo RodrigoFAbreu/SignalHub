@@ -55,7 +55,8 @@ export function deviceRow(device, { reload, report }) {
   const browser = isBrowser(device);
   const tags = [];
   if (device.admin && !device.revokedAt && !browser) tags.push(tag("Admin device", "me"));
-  if (browser) tags.push(isThisBrowser(device) && !device.revokedAt ? tag("This browser", "me") : tag("Browser"));
+  if (browser) tags.push(tag("Browser"));
+  if (browser && isThisBrowser(device) && !device.revokedAt) tags.push(tag("This browser", "me"));
   if (device.revokedAt) tags.push(tag("Revoked"));
   const trailing = [];
   if (can.revoke) trailing.push(button("Revoke", { kind: "text-error", ariaLabel: `Revoke ${device.name}`, onClick: () => revoke(device, { reload, report }) }));

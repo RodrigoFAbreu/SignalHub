@@ -226,7 +226,8 @@ function route(force = false) {
     const controller = target.mount(shell.main, parsed, { wide });
     screen = { name: target.name, controller, wide };
   }
-  if (!previous || previous.name !== target.name || (!wide && previous.depth !== parsed.segments.length)) focusHeading();
+  // The first screen leaves focus where the browser put it (the top of the page: the rail first).
+  if (previous && (previous.name !== target.name || (!wide && previous.depth !== parsed.segments.length))) focusHeading();
   screen.depth = parsed.segments.length;
 }
 
