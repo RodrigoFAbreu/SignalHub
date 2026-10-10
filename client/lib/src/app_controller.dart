@@ -9,6 +9,7 @@ import 'api_gateway.dart';
 import 'build_identity.dart';
 import 'connection/pairing_uri.dart';
 import 'connection/server_credentials.dart';
+import 'connection/setup_failure.dart';
 import 'features/devices_controller.dart';
 import 'features/own_producers_controller.dart';
 import 'features/people_controller.dart';
@@ -18,6 +19,7 @@ import 'models/event.dart';
 import 'models/inbox_filter.dart';
 import 'models/push_config.dart';
 import 'models/users.dart';
+import 'onboarding/onboarding_store.dart';
 import 'push/push_registration.dart';
 import 'push/push_service.dart';
 import 'settings/settings_groups.dart';
@@ -57,7 +59,9 @@ class AppController extends ChangeNotifier implements ApiGateway {
   /// serves; the build's own options take precedence. [alertPlatform] plays
   /// SignalHub's own alert; without one (iOS, tests) there are no alert
   /// settings. [openGroups] keeps which groups of the Settings screen are
-  /// open; without one, they are kept only while the app runs.
+  /// open; without one, they are kept only while the app runs. [onboarding]
+  /// keeps whether the welcome and the _What's new_ card were said; without
+  /// one the app says neither.
   AppController({
     required this._store,
     required this._apiFactory,
@@ -67,8 +71,10 @@ class AppController extends ChangeNotifier implements ApiGateway {
     this.build = BuildIdentity.compiled,
     AlertPlatform? alertPlatform,
     OpenGroupsStore? openGroups,
+    OnboardingStore? onboarding,
   }) : _push = push,
        _openGroupsStore = openGroups,
+       _onboardingStore = onboarding,
        alert = alertPlatform == null ? null : AlertController(alertPlatform),
        _startServedPush = push == null ? startServedPush : null {
     _notices = push?.notices.listen(_onNotice);
@@ -83,6 +89,7 @@ class AppController extends ChangeNotifier implements ApiGateway {
   PushService? _push;
   final ServedPushStarter? _startServedPush;
   final OpenGroupsStore? _openGroupsStore;
+  final OnboardingStore? _onboardingStore;
   StreamSubscription<PushNotice>? _notices;
 
   /// The served options push was set up with; `null` until then.
@@ -117,6 +124,16 @@ class AppController extends ChangeNotifier implements ApiGateway {
   /// worked.
   String? error;
 
+  /// Whether the app is at setup because the server stopped accepting this
+  /// device (any `401`): setup says so in one neutral sentence. A new
+  /// connection, or disconnecting on purpose, clears it.
+  bool signedOut = false;
+
+  /// What this device still has to say to its owner, once: the welcome after
+  /// connecting, or _What's new_ on a device that was connected before the
+  /// app updated.
+  OnboardingStep onboarding = OnboardingStep.done;
+
   /// Whether the last refresh got no answer from the server at all. Nothing
   /// else can reach it then either, so push registration is not tried and
   /// [error] is the one thing to tell the owner.
@@ -137,6 +154,9 @@ class AppController extends ChangeNotifier implements ApiGateway {
   /// Whether the first page of the inbox has been read since connecting.
   bool inboxLoaded = false;
 
+  /// When the first page of the inbox was last read; `null` until it was.
+  DateTime? inboxLoadedAt;
+
   /// Whether an older page is being read.
   bool loadingMore = false;
 
@@ -156,6 +176,10 @@ class AppController extends ChangeNotifier implements ApiGateway {
 
   /// The event of a notification the owner tapped, until the inbox opens it.
   String? _eventToOpen;
+
+  /// Whether the owner tapped a notice about a device, until the inbox opens
+  /// the devices.
+  bool _deviceNoticeToOpen = false;
 
   /// Whether a change to the push preferences is being saved.
   bool savingPushPreferences = false;
@@ -336,14 +360,14 @@ class AppController extends ChangeNotifier implements ApiGateway {
   bool get hasMore => _nextCursor != null;
 
   /// The producers of the events the inbox has read since connecting, by id:
-  /// kept when a filter hides their events, so they can still be chosen.
+  /// names for a producer the user no longer sees, such as one a filter or a
+  /// muted list still names.
   final _producers = <String, EventProducer>{};
 
-  /// The producers of the events the inbox has read since connecting, by
-  /// name. Client keys cannot list producers, so these are the ones the owner
-  /// can filter by or mute by name.
-  List<EventProducer> get inboxProducers =>
-      _producers.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+  /// The name of the producer with [id], from the producers this user sees or
+  /// else from an event the inbox has read; `null` if neither knows it.
+  String? producerName(String id) =>
+      producers.byId(id)?.name ?? _producers[id]?.name;
 
   /// Whether _Mark all as read_ can be offered: it marks every unread event
   /// up to the newest one shown, so not while the filter hides some of them.
@@ -356,12 +380,52 @@ class AppController extends ChangeNotifier implements ApiGateway {
     final saved = await _store.load();
     if (saved == null) {
       _eventToOpen = null;
+      _deviceNoticeToOpen = false;
       _setPhase(ConnectionPhase.disconnected);
       return;
     }
     _open(saved);
+    await _loadOnboarding();
     _setPhase(ConnectionPhase.connected);
     await refresh();
+  }
+
+  /// A device that starts with saved credentials and no record was connected
+  /// before the app kept one: it gets _What's new_ once.
+  Future<void> _loadOnboarding() async {
+    final store = _onboardingStore;
+    if (store == null) return;
+    try {
+      onboarding = await store.load() ?? OnboardingStep.whatsNew;
+    } on Exception catch (e) {
+      debugPrint('Onboarding step not read: ${e.runtimeType}');
+    }
+  }
+
+  /// Ends the welcome: [findProducers] opens the Producers tab, otherwise the
+  /// inbox shows.
+  Future<void> finishWelcome({bool findProducers = false}) async {
+    if (onboarding != OnboardingStep.welcome) return;
+    if (findProducers) tab = HomeTab.producers;
+    await _finishOnboarding();
+  }
+
+  /// Dismisses _What's new_ for good; [seeProducers] first opens the
+  /// Producers tab.
+  Future<void> dismissWhatsNew({bool seeProducers = false}) async {
+    if (onboarding != OnboardingStep.whatsNew) return;
+    if (seeProducers) tab = HomeTab.producers;
+    await _finishOnboarding();
+  }
+
+  Future<void> _finishOnboarding() async {
+    onboarding = OnboardingStep.done;
+    notifyListeners();
+    try {
+      await _onboardingStore?.save(OnboardingStep.done);
+    } on Exception catch (e) {
+      debugPrint('Onboarding step not saved: ${e.runtimeType}');
+    }
   }
 
   Future<void> _loadOpenSettingsGroups() async {
@@ -391,21 +455,27 @@ class AppController extends ChangeNotifier implements ApiGateway {
   }
 
   /// Connects to a server with a client key typed by the owner. Saves them
-  /// only once the server accepts the key. Returns an error message, or
-  /// `null` on success.
-  Future<String?> connect(String serverUrl, String clientKey) async {
+  /// only once the server accepts the key. Returns why it failed, or `null`
+  /// on success.
+  Future<SetupFailure?> connect(String serverUrl, String clientKey) async {
     final ServerCredentials parsed;
     try {
       parsed = ServerCredentials.parse(serverUrl, clientKey);
     } on FormatException catch (e) {
-      return e.message;
+      final badAddress = ServerCredentials.parseServerUrl(serverUrl) == null;
+      return SetupFailure(
+        badAddress ? SetupFailureKind.badAddress : SetupFailureKind.badKey,
+        e.message,
+      );
     }
     final api = _apiFactory(parsed);
     final ClientRegistration accepted;
     try {
       accepted = await api.getClient();
+    } on UnauthorizedException {
+      return SetupFailure.keyRejected;
     } on ApiException catch (e) {
-      return e.message;
+      return _failure(e, parsed.baseUrl);
     }
     await _connected(parsed, accepted);
     return null;
@@ -413,33 +483,46 @@ class AppController extends ChangeNotifier implements ApiGateway {
 
   /// Registers this installation with a pairing code the owner scanned or
   /// pasted ([PairingUri]), and connects with the client key it returns.
-  /// Returns an error message, or `null` on success.
-  Future<String?> pair(String pairingUri) async {
+  /// Returns why it failed, or `null` on success.
+  Future<SetupFailure?> pair(String pairingUri) async {
     final PairingUri parsed;
     try {
       parsed = PairingUri.parse(pairingUri);
-    } on FormatException catch (e) {
-      return e.message;
+    } on FormatException {
+      return PairingUri.isWebSignIn(pairingUri)
+          ? SetupFailure.webSignIn
+          : SetupFailure.notInvitation;
     }
     final PairedClient paired;
     final ServerCredentials credentials;
     try {
       paired = await _redeemPairing(parsed.serverUrl, parsed.code);
       credentials = ServerCredentials.parse(parsed.serverUrl, paired.clientKey);
+    } on PairingRejectedException {
+      return const SetupFailure(
+        SetupFailureKind.codeRejected,
+        'This pairing code has expired or was already used. '
+        'Ask for a new one.',
+      );
     } on ApiException catch (e) {
-      // Name the server the code points to: it may not be reachable from
-      // this device.
-      return e.statusCode == null
-          ? '${e.message} (${parsed.serverUrl})'
-          : e.message;
+      return _failure(e, parsed.serverUrl);
     } on FormatException {
-      return 'The server sent an unexpected answer';
+      return SetupFailure.unexpectedAnswer;
     }
     await _connected(credentials, paired.registration);
     return null;
   }
 
-  /// Saves credentials the server has accepted and shows the inbox.
+  /// A failed request of setup. An unreachable server is named by its
+  /// address, as the code or the owner gave it.
+  static SetupFailure _failure(ApiException e, String serverUrl) =>
+      e.statusCode == null
+      ? SetupFailure.unreachable(Uri.tryParse(serverUrl)?.authority ?? '')
+      : SetupFailure.serverProblem;
+
+  /// Saves credentials the server has accepted and shows the inbox. A
+  /// connection made in this version of the app gets the welcome, and so no
+  /// _What's new_ later.
   Future<void> _connected(
     ServerCredentials accepted,
     ClientRegistration client,
@@ -449,8 +532,21 @@ class AppController extends ChangeNotifier implements ApiGateway {
     await _store.save(accepted);
     _open(accepted);
     error = null;
+    signedOut = false;
+    await _startOnboarding();
     _setPhase(ConnectionPhase.connected);
     await refresh(includeClient: false);
+  }
+
+  Future<void> _startOnboarding() async {
+    final store = _onboardingStore;
+    if (store == null) return;
+    onboarding = OnboardingStep.welcome;
+    try {
+      await store.save(OnboardingStep.welcome);
+    } on Exception catch (e) {
+      debugPrint('Onboarding step not saved: ${e.runtimeType}');
+    }
   }
 
   /// Re-reads the registration and the newest page of the inbox, and
@@ -493,6 +589,7 @@ class AppController extends ChangeNotifier implements ApiGateway {
     _nextCursor = page.nextCursor;
     _lastRead = page.items.lastOrNull;
     inboxLoaded = true;
+    inboxLoadedAt = DateTime.now();
     loadMoreError = null;
   }
 
@@ -547,6 +644,7 @@ class AppController extends ChangeNotifier implements ApiGateway {
     _nextCursor = null;
     _lastRead = null;
     inboxLoaded = false;
+    inboxLoadedAt = null;
     loadMoreError = null;
     notifyListeners();
     await _reload(includeClient: false);
@@ -556,12 +654,36 @@ class AppController extends ChangeNotifier implements ApiGateway {
   Future<void> clearFilter() => setFilter(InboxFilter.none);
 
   /// The event with [id]: from the inbox if it is there, otherwise from the
-  /// server. Throws an [ApiException] if it cannot be read.
+  /// server. Throws an [ApiException] if it cannot be read: an
+  /// [EventNotFoundException] when it is not in this user's inbox any more
+  /// (deleted, or its producer unsubscribed), which also takes it out of the
+  /// inbox list.
   Future<Event> event(String id) async {
     if (_eventWithId(id) case final event?) return event;
-    final api = _api;
-    if (api == null) throw const ApiException('Not connected to a server');
-    return api.getEvent(id);
+    try {
+      return await call((api) => api.getEvent(id));
+    } on EventNotFoundException {
+      await _removeEvent(id);
+      rethrow;
+    }
+  }
+
+  /// Takes the event with [id] out of the inbox, which the server can no
+  /// longer read it from.
+  Future<void> _removeEvent(String id) async {
+    if (_eventWithId(id) == null) return;
+    events = [
+      for (final e in events)
+        if (e.id != id) e,
+    ];
+    notifyListeners();
+    try {
+      await _readUnreadCount();
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return;
+    }
+    notifyListeners();
   }
 
   /// Marks the event with [id] read, for every client of the owner, when the
@@ -585,9 +707,14 @@ class AppController extends ChangeNotifier implements ApiGateway {
     Event? changed;
     final error = await _changeReadState(() async {
       final api = _api!;
-      final event = await (read ? api.markRead(id) : api.markUnread(id));
-      _replaceEvent(event);
-      changed = event;
+      try {
+        final event = await (read ? api.markRead(id) : api.markUnread(id));
+        _replaceEvent(event);
+        changed = event;
+      } on EventNotFoundException {
+        await _removeEvent(id);
+        rethrow;
+      }
       await _readUnreadCount();
     });
     return (event: error == null ? changed : null, error: error);
@@ -939,7 +1066,15 @@ class AppController extends ChangeNotifier implements ApiGateway {
   /// Stops pushes to this installation and forgets the server.
   Future<void> disconnect() async {
     await _pushRegistration?.unregister();
-    await _forget(null);
+    await _forget(signedOut: false);
+  }
+
+  /// Whether the owner tapped a notice about a device, once: the inbox opens
+  /// the devices.
+  bool takeDeviceNoticeToOpen() {
+    final open = _deviceNoticeToOpen;
+    _deviceNoticeToOpen = false;
+    return open;
   }
 
   void _open(ServerCredentials saved) {
@@ -1006,15 +1141,14 @@ class AppController extends ChangeNotifier implements ApiGateway {
     return _pushRegistration != null;
   }
 
-  /// Revoked or replaced: nothing works with this key any more.
-  Future<void> _forgetRevokedKey() => _forget(
-    'The server no longer accepts this client key. '
-    'Set it up again with a new key.',
-  );
+  /// Revoked or replaced, or its person removed: any `401` means nothing works
+  /// with this key any more, and the server cannot say which.
+  Future<void> _forgetRevokedKey() => _forget(signedOut: true);
 
-  Future<void> _forget(String? reason) async {
-    await _pushRegistration?.dispose();
-    await _store.clear();
+  /// Returns to setup. The state is dropped, and setup shown, before anything
+  /// is awaited, so no frame shows the old content.
+  Future<void> _forget({required bool signedOut}) async {
+    final pushRegistration = _pushRegistration;
     _api = null;
     _pushRegistration = null;
     credentials = null;
@@ -1027,6 +1161,7 @@ class AppController extends ChangeNotifier implements ApiGateway {
     _lastRead = null;
     _inboxGeneration++;
     inboxLoaded = false;
+    inboxLoadedAt = null;
     loadingMore = false;
     loadMoreError = null;
     savingPushPreferences = false;
@@ -1041,13 +1176,18 @@ class AppController extends ChangeNotifier implements ApiGateway {
     _pairingUnsupported = false;
     _pairingStatusUnknown = false;
     _eventToOpen = null;
+    _deviceNoticeToOpen = false;
     _roleChange = null;
+    onboarding = OnboardingStep.done;
     tab = HomeTab.inbox;
     _resetFeatures();
     pushStatus = _initialPushStatus;
-    error = reason;
+    error = null;
+    this.signedOut = signedOut;
     serverUnreachable = false;
     _setPhase(ConnectionPhase.disconnected);
+    await pushRegistration?.dispose();
+    await _store.clear();
   }
 
   void _resetFeatures() {
@@ -1066,6 +1206,10 @@ class AppController extends ChangeNotifier implements ApiGateway {
     // push delivered twice (delivery is at least once) changes nothing.
     if (notice.opened && notice.eventId != null) {
       _eventToOpen = notice.eventId;
+      notifyListeners();
+    } else if (notice.opened && notice.notice != null) {
+      // A notice is about a device and has no event: it opens the devices.
+      _deviceNoticeToOpen = true;
       notifyListeners();
     }
     if (phase == ConnectionPhase.connected) unawaited(_reload());

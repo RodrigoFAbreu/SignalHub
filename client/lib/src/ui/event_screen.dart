@@ -6,6 +6,8 @@ import '../api/signalhub_api.dart';
 import '../models/event.dart';
 import 'event_style.dart';
 import 'link_opener.dart';
+import 'widgets/empty_state.dart';
+import 'widgets/snack.dart';
 
 /// One event with every field the API returns. Opened from the inbox with
 /// the event at hand, or from a notification with only its ID.
@@ -14,6 +16,10 @@ import 'link_opener.dart';
 /// event stays shown as unread. Its one read-state action, labelled, follows
 /// the event's state as the server last returned it: *Mark as read* while it
 /// is unread, *Mark as unread* once it is read.
+///
+/// An event the server can no longer read (deleted, or its producer
+/// unsubscribed from) is not an error: the screen says it is not in the inbox
+/// any more and goes back to it.
 ///
 /// An event with a link offers *Open link*, which hands it to the system
 /// browser; a link that cannot be opened is reported here.
@@ -53,6 +59,9 @@ class _EventScreenState extends State<EventScreen> {
   String? _error;
   bool _changing = false;
 
+  /// Whether the server says the event is not in this user's inbox any more.
+  bool _gone = false;
+
   /// Whether the owner changed the read state here; marking read on opening
   /// then answers with older state.
   bool _changed = false;
@@ -71,9 +80,19 @@ class _EventScreenState extends State<EventScreen> {
       final event = await widget.load();
       // Marking read on opening may have answered first, with newer state.
       if (mounted) setState(() => _event ??= event);
+    } on EventNotFoundException {
+      if (mounted) setState(() => _gone = true);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     }
+  }
+
+  /// Whether [error], from marking the event, says it is gone; the inbox has
+  /// dropped it already.
+  bool _saysGone(String? error) {
+    if (error != const EventNotFoundException().message) return false;
+    setState(() => _gone = true);
+    return true;
   }
 
   Future<void> _markOpened(
@@ -82,10 +101,8 @@ class _EventScreenState extends State<EventScreen> {
     final (:event, :error) = await markOpened();
     if (!mounted || _changed) return;
     if (event != null) setState(() => _event = event);
-    if (error != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Not marked as read: $error')));
-    }
+    if (_saysGone(error)) return;
+    if (error != null) showAppSnackBar(context, 'Not marked as read: $error');
   }
 
   Future<void> _setRead(
@@ -99,12 +116,11 @@ class _EventScreenState extends State<EventScreen> {
       _changing = false;
       if (event != null) _event = event;
     });
+    if (_saysGone(error)) return;
     if (error != null) {
       // The newest outcome replaces an older message, such as the one about
       // marking on opening.
-      ScaffoldMessenger.of(context)
-        ..removeCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(error)));
+      showAppSnackBar(context, error);
     } else if (event != null && !read) {
       // Marked unread to come back to later: back to the inbox.
       Navigator.of(context).pop();
@@ -113,9 +129,7 @@ class _EventScreenState extends State<EventScreen> {
 
   Future<void> _openLink(Uri link) async {
     if (await widget.openLink(link) || !mounted) return;
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Could not open the link')));
+    showAppSnackBar(context, 'Could not open the link');
   }
 
   @override
@@ -123,23 +137,35 @@ class _EventScreenState extends State<EventScreen> {
     appBar: AppBar(
       title: const Text('Event'),
       actions: [
-        if ((_event, widget.setRead) case (final event?, final setRead?))
-          event.isRead
-              ? TextButton.icon(
-                  key: const Key('markUnread'),
-                  icon: const Icon(Icons.mark_email_unread_outlined),
-                  label: const Text('Mark as unread'),
-                  onPressed: _changing ? null : () => _setRead(setRead, false),
-                )
-              : TextButton.icon(
-                  key: const Key('markRead'),
-                  icon: const Icon(Icons.mark_email_read_outlined),
-                  label: const Text('Mark as read'),
-                  onPressed: _changing ? null : () => _setRead(setRead, true),
-                ),
+        if (!_gone)
+          if ((_event, widget.setRead) case (final event?, final setRead?))
+            event.isRead
+                ? TextButton.icon(
+                    key: const Key('markUnread'),
+                    icon: const Icon(Icons.mark_email_unread_outlined),
+                    label: const Text('Mark as unread'),
+                    onPressed: _changing
+                        ? null
+                        : () => _setRead(setRead, false),
+                  )
+                : TextButton.icon(
+                    key: const Key('markRead'),
+                    icon: const Icon(Icons.mark_email_read_outlined),
+                    label: const Text('Mark as read'),
+                    onPressed: _changing ? null : () => _setRead(setRead, true),
+                  ),
       ],
     ),
     body: switch ((_event, _error)) {
+      _ when _gone => EmptyState(
+        icon: Icons.event_busy,
+        title: "This event isn't in your inbox any more",
+        body:
+            'You may have unsubscribed from its producer, or it was deleted. '
+            'If you subscribe again, its older events come back.',
+        actionLabel: 'Back to Inbox',
+        onAction: () => Navigator.of(context).maybePop(),
+      ),
       (final Event event, _) => _EventDetails(event, openLink: _openLink),
       (null, final String error) => Center(
         child: Padding(

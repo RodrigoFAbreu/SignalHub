@@ -16,6 +16,8 @@ class AppBanner extends StatelessWidget {
     this.error = false,
     this.actionLabel,
     this.onAction,
+    this.margin = const EdgeInsets.fromLTRB(16, 8, 16, 0),
+    this.iconAtTop = false,
   });
 
   final IconData icon;
@@ -23,6 +25,14 @@ class AppBanner extends StatelessWidget {
   final bool error;
   final String? actionLabel;
   final VoidCallback? onAction;
+
+  /// Space around it: 16 dp at the sides under an app bar, none where a
+  /// screen already pads its content.
+  final EdgeInsetsGeometry margin;
+
+  /// Whether the icon stays beside the first line of a message that wraps,
+  /// rather than centred beside all of it.
+  final bool iconAtTop;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +42,7 @@ class AppBanner extends StatelessWidget {
         : colors.surfaceContainerHigh;
     final foreground = error ? colors.onErrorContainer : colors.onSurface;
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      margin: margin,
       constraints: const BoxConstraints(minHeight: 56),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
@@ -40,8 +50,14 @@ class AppBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
+        crossAxisAlignment: iconAtTop
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         children: [
-          Icon(icon, size: 24, color: foreground),
+          Padding(
+            padding: EdgeInsets.only(top: iconAtTop ? 6 : 0),
+            child: Icon(icon, size: 24, color: foreground),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Padding(

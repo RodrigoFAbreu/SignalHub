@@ -27,7 +27,9 @@ class EmptyState extends StatelessWidget {
     final theme = Theme.of(context);
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+        // The drawings keep 80 dp under it, so what it says sits a little
+        // above the middle of the space, where the eye rests.
+        padding: const EdgeInsets.fromLTRB(40, 0, 40, 80),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

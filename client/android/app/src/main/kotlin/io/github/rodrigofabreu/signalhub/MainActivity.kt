@@ -3,6 +3,7 @@ package io.github.rodrigofabreu.signalhub
 import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -42,6 +43,24 @@ class MainActivity : FlutterActivity() {
                     result.error("unavailable", e.message, null)
                 }
             }
+        // The setup screen's way to the camera permission (lib/src/ui/app_settings.dart).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, APP_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "openAppSettings" -> try {
+                        startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:$packageName"),
+                            ),
+                        )
+                        result.success(null)
+                    } catch (e: ActivityNotFoundException) {
+                        result.error("unavailable", e.message, null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     // The share sheet of a key shown once (lib/src/ui/text_sharer.dart).
@@ -73,5 +92,6 @@ class MainActivity : FlutterActivity() {
     private companion object {
         const val ALERT_CHANNEL = "io.github.rodrigofabreu.signalhub/alert"
         const val SHARE_CHANNEL = "io.github.rodrigofabreu.signalhub/share"
+        const val APP_CHANNEL = "io.github.rodrigofabreu.signalhub/app"
     }
 }

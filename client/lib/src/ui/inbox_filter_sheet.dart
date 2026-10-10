@@ -4,8 +4,9 @@ import '../app_controller.dart';
 import '../models/event.dart';
 import '../models/inbox_filter.dart';
 
-/// Chooses which events the inbox shows: unread only, and producers,
-/// categories and severities. Every change applies at once.
+/// Chooses which events the inbox shows: unread only, and the producers this
+/// user subscribes to, categories and severities. Every change applies at
+/// once.
 class InboxFilterSheet extends StatelessWidget {
   const InboxFilterSheet({super.key, required this.controller});
 
@@ -21,13 +22,26 @@ class InboxFilterSheet extends StatelessWidget {
       if (s != EventSeverity.unknown) s,
   ];
 
+  /// The producers to choose from: the ones this user subscribes to, A to Z,
+  /// and any the filter still names that they no longer do, so it can be
+  /// taken off.
+  static List<(String, String)> producerChoices(AppController controller) {
+    final subscribed = controller.producers.subscribed;
+    final listed = {for (final p in subscribed) p.id};
+    return [
+      for (final p in subscribed) (p.id, p.name),
+      for (final id in controller.filter.producerIds)
+        if (!listed.contains(id)) (id, controller.producerName(id) ?? id),
+    ]..sort((a, b) => a.$2.toLowerCase().compareTo(b.$2.toLowerCase()));
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: controller,
+    listenable: Listenable.merge([controller, controller.producers]),
     builder: (context, _) {
       final filter = controller.filter;
       void apply(InboxFilter next) => controller.setFilter(next);
-      final producers = controller.inboxProducers;
+      final producers = producerChoices(controller);
       return SafeArea(
         child: ListView(
           shrinkWrap: true,
@@ -54,20 +68,17 @@ class InboxFilterSheet extends StatelessWidget {
             if (producers.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Producers appear here once their events are in the '
-                  'inbox.',
-                ),
+                child: Text('Producers you subscribe to appear here.'),
               ),
             _Chips([
-              for (final producer in producers)
+              for (final (id, name) in producers)
                 FilterChip(
-                  key: Key('filterProducer-${producer.id}'),
-                  label: Text(producer.name),
-                  selected: filter.producerIds.contains(producer.id),
+                  key: Key('filterProducer-$id'),
+                  label: Text(name),
+                  selected: filter.producerIds.contains(id),
                   onSelected: (_) => apply(
                     filter.copyWith(
-                      producerIds: toggled(filter.producerIds, producer.id),
+                      producerIds: toggled(filter.producerIds, id),
                     ),
                   ),
                 ),
@@ -123,10 +134,9 @@ class ActiveFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final filter = controller.filter;
-    final names = {for (final p in controller.inboxProducers) p.id: p.name};
     final labels = [
       if (filter.unreadOnly) 'Unread',
-      for (final id in filter.producerIds) names[id] ?? id,
+      for (final id in filter.producerIds) controller.producerName(id) ?? id,
       for (final c in InboxFilterSheet.categories)
         if (filter.categories.contains(c)) c.label,
       for (final s in InboxFilterSheet.severities)
