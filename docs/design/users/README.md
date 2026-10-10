@@ -14,7 +14,8 @@ Everything is sample data. The host is `signalhub.example`. The only key is
 | --- | --- |
 | [DESIGN.md](DESIGN.md) | The design system: tokens, components, patterns, wording, accessibility, contrast, and R64's rules. |
 | [WALKTHROUGH.md](WALKTHROUGH.md) | The main flows step by step, with the choices made, the alternatives, what the server must provide, and what was left out. |
-| `images/` | One image per screen and state: 147 images in WebP, in 9 folders. |
+| [source/](source/README.md) | **The drawings themselves**, the source of truth: the same `.dc.html` pages as the design project (the screen pages and both clickable prototypes), with the fonts and scripts they load vendored, so they render the same with no network. Serve the folder and open a page; read its source for exact sizes, colours, icons and copy. |
+| `images/` | Previews: one image per screen and state: 147 images in WebP, in 9 folders. |
 
 The designs were made in a Claude Design project, with a design system page,
 nine screen pages and two clickable prototypes:

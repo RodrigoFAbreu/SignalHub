@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono-400-500.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--error:#ffb4ab;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-lowest:#0d0e13;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f}
+          body{margin:0;background:#0b0c10;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          .dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(255,255,255,.08);background:#0b0c10}
+          .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+          .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#e4e1e9;color:#121318;border-radius:4px;text-decoration:none}
+          .dv-tname{font:600 14px/1.2 Roboto,sans-serif;color:#e4e1e9}
+          .dv-why{font:14px/20px Roboto,sans-serif;color:#c7c5d0;max-width:960px;margin:0 0 24px}
+          .dv-opts{display:flex;flex-direction:column;gap:48px}
+          .dv-opt{display:flex;flex-direction:column;gap:10px}
+          .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#e4e1e9;border-radius:5px;text-decoration:none}
+          .dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 13px/1.3 Roboto,sans-serif;color:#e4e1e9}
+          .dv-onote{font:13px/19px Roboto,sans-serif;color:#9a98a3;margin:0;max-width:1000px;text-wrap:pretty}
+          .dv-opt:target .dv-oid{background:#bac3ff;color:#222c61}
+          .dv-next{margin:24px 0 0;font:13px/1.5 Roboto,sans-serif;color:#9a98a3}
+          .pair{display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .br{width:960px;height:600px;background:var(--surface);border-radius:12px;border:1px solid #2c2d33;overflow:hidden;display:flex;flex-direction:column;flex:none}
+          .br.sm{width:470px;height:430px}
+          .br.sm .page{padding:16px}
+          .br.sm .card{width:100%;padding:24px}
+          .chrome{height:40px;flex:none;background:#1b1c21;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid #2c2d33}
+          .dots{display:flex;gap:6px}.dots span{width:10px;height:10px;border-radius:5px;background:#3a3b42}
+          .url{flex:1;height:26px;border-radius:13px;background:#0f1014;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;color:#9a98a3;min-width:0;white-space:nowrap;overflow:hidden}
+          .url .ms{font-size:14px;width:14px;height:14px}
+          .page{flex:1;display:flex;align-items:center;justify-content:center;padding:32px;position:relative;flex-direction:column}
+          .card{width:420px;background:var(--sc-low);border-radius:24px;padding:32px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box}
+          .card.tight{gap:8px;padding:24px 32px}
+          .h{font-size:24px;line-height:32px;margin:0;font-weight:400}
+          .p{font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0;text-wrap:pretty}
+          .brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:500;color:var(--on-surface)}
+          .logo{width:28px;height:28px;border-radius:8px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center}
+          .logo .ms{font-size:18px;width:18px;height:18px}
+          .qr{width:168px;height:168px;border-radius:12px;background:repeating-linear-gradient(45deg,#e4e1e9 0 6px,#cfccd6 6px 12px);color:#121318;display:flex;align-items:center;justify-content:center;font:12px "Roboto Mono",monospace;margin:0 auto;position:relative;flex:none}
+          .qr.stale{opacity:.25}
+          .qrwrap{position:relative;display:flex;justify-content:center}
+          .qrover{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;color:var(--on-surface)}
+          .code{font:500 32px/40px "Roboto Mono",monospace;letter-spacing:6px;text-align:center;background:var(--sc-high);border-radius:12px;padding:12px}
+          .tf{border:1px solid var(--outline);border-radius:4px;height:56px;display:flex;align-items:center;padding:0 16px;font-size:16px;position:relative;box-sizing:border-box}
+          .tf.focus{border:2px solid var(--primary);padding:0 15px}
+          .tf.err{border:2px solid var(--error);padding:0 15px}
+          .tf .fl{position:absolute;top:-9px;left:12px;padding:0 4px;background:var(--surface);font-size:12px;line-height:16px;color:var(--primary)}
+          .tf.err .fl{color:var(--error)}
+          .btn-f{height:48px;border-radius:24px;background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-f.off{background:rgba(228,225,233,.12);color:rgba(228,225,233,.38)}
+          .btn-x{height:48px;border-radius:24px;color:var(--primary);display:inline-flex;align-items:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500}
+          .btn-f .ms,.btn-x .ms{font-size:18px;width:18px;height:18px}
+          .link{color:var(--primary);font-size:14px;font-weight:500;text-align:center;text-decoration:underline;min-height:48px;display:flex;align-items:center;justify-content:center}
+          .full{width:100%}
+          .wait{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--on-surface-variant);justify-content:center}
+          .spin{width:18px;height:18px;border-radius:9px;border:2px solid var(--outline-variant);border-top-color:var(--primary);box-sizing:border-box}
+          .okmark{width:56px;height:56px;border-radius:28px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;align-self:center}
+          .okmark.n{background:var(--sc-highest);color:var(--on-surface-variant)}
+          .okmark .ms{font-size:32px;width:32px;height:32px}
+          .ph{width:300px;height:620px;background:var(--surface);border-radius:24px;border:1px solid #2c2d33;overflow:hidden;display:flex;flex-direction:column;position:relative;flex:none}
+          .sb{height:24px;flex:none;display:flex;align-items:center;padding:0 16px;font-size:12px}
+          .appbar{height:56px;flex:none;display:flex;align-items:center;gap:4px;padding:0 4px}
+          .appbar .t{font-size:20px;line-height:26px;flex:1}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);flex:none}
+          .scrim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+          .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--sc-low);border-radius:28px 28px 0 0;padding:8px 24px 24px;display:flex;flex-direction:column;gap:14px}
+          .sheet .h{font-size:20px;line-height:26px}
+          .handle{width:32px;height:4px;border-radius:2px;background:var(--outline);margin:6px auto 4px}
+          .fact{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:18px;color:var(--on-surface-variant)}
+          .fact .ms{font-size:18px;width:18px;height:18px}
+          .fact b{color:var(--on-surface);font-weight:500}
+          .acts{display:flex;justify-content:flex-end;gap:8px}
+          .scan{flex:1;margin:12px;border-radius:16px;background:repeating-linear-gradient(45deg,#1f1f25 0 8px,#29292f 8px 16px);display:flex;align-items:center;justify-content:center;font:11px "Roboto Mono",monospace;color:var(--on-surface-variant);position:relative}
+          .frame{position:absolute;inset:60px;border:2px solid var(--primary);border-radius:16px}
+          .banner{display:flex;gap:12px;align-items:flex-start;background:var(--sc-high);border-radius:12px;padding:12px 14px;margin:0 12px;font-size:13px;line-height:18px}
+          .abanner{display:flex;gap:12px;align-items:center;background:var(--sc-high);color:var(--on-surface);padding:4px 8px 4px 16px;font-size:14px;line-height:20px;min-height:56px;box-sizing:border-box;align-self:stretch;flex:none}
+          .abanner .tx{flex:1}
+          .mchrome{height:36px;flex:none;background:#1b1c21;display:flex;align-items:center;padding:0 10px;border-bottom:1px solid #2c2d33}
+          .mpage{flex:1;padding:20px 16px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+          .mpage .code{font-size:26px;line-height:32px;letter-spacing:4px}
+          .notpossible{display:flex;gap:10px;font-size:13px;line-height:18px;color:var(--on-surface-variant);background:var(--sc);border-radius:12px;padding:10px 12px}
+          .notpossible .ms{font-size:18px;width:18px;height:18px}
+          .steps{margin:0;padding-left:20px;font-size:14px;line-height:22px;color:var(--on-surface-variant)}
+          .skel{height:14px;border-radius:7px;background:var(--sc-highest)}
+          .behind{align-self:stretch;flex:1;padding:20px 24px;display:flex;flex-direction:column;gap:14px}
+          .errtxt{font-size:12px;line-height:16px;color:var(--error);padding:0 16px}
+          .r66{font:12px/16px Roboto,sans-serif;color:#9a98a3;border:1px dashed #46464f;border-radius:6px;padding:4px 8px;display:inline-block}
+        </style>
+      </helmet>
+
+      <section class="dv-turn" id="t6" data-screen-label="Turn 6: signing in on the web">
+        <div class="dv-thd"><a class="dv-tid" href="#t6">6</a><span class="dv-tname">Signing in to the web page: a QR code the app scans, or a code typed on a phone</span></div>
+        <p class="dv-why">There are no passwords: a browser becomes one of your devices by being approved from a device you already have, and every role can do it, a Basic user included. <a class="dv-oid" href="#6a">6a</a> is the sign-in on a screen wide enough for a camera to see (with a code as the alternative); <a class="dv-oid" href="#6d">6d</a> is the sign-in on a phone's own browser (a short code typed in the app, plus an Open the app button). After approval the browser shows up in Devices as a browser and can be revoked like any device. A sign-in lasts a fixed 30 days. Below: the waiting state, the code expiring, the app's scanner and confirm sheet, success, the phone-width sign-in, the problem states, and the signed-out states that keep the address to return to. This page signs in as Rodrigo (Admin) throughout. Dashed notes marked R66 decides are left to the web increment (R66) and are not specified here.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="6a" data-screen-label="6a Waiting for the phone">
+            <div class="dv-olabel"><a class="dv-oid" href="#6a">6a</a>The page waits; the app scans</div>
+            <div class="pair">
+              <div class="br">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/</div></div>
+                <div class="page"><div class="card tight">
+                  <div class="brand"><span class="logo"><span class="ms">sensors</span></span>SignalHub</div>
+                  <h1 class="h">Sign in with your phone</h1>
+                  <p class="p">Open SignalHub on your phone, go to Settings › Sign in a browser, and scan this code.</p>
+                  <div class="qrwrap"><div class="qr" role="img" aria-label="Sign-in QR code. To sign in without scanning, use a code instead.">sign-in QR code</div></div>
+                  <div class="wait"><span class="spin"></span>Waiting for your phone · 2:41</div>
+                  <div class="link">Use a code instead</div>
+                </div></div>
+              </div>
+              <div class="ph">
+                <div class="sb">20:05</div>
+                <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Sign in a browser</div></div>
+                <div class="scan"><div class="frame"></div>camera preview</div>
+                <div style="padding:0 16px 8px"><p class="p" style="text-align:center">Point the camera at the code on the page.</p></div>
+                <div style="display:flex;justify-content:center;padding-bottom:12px"><span class="btn-x">Type a code</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">Like WhatsApp Web: the code lives on the page, so only someone holding your phone and looking at that screen can approve it. Needs a camera on the phone, or the typed code under it (6a5, 6d). Works for every role (approving a browser isn't pairing a new person). The countdown is how long this browser can still be approved. For a screen reader the QR is one image labelled "Sign-in QR code. To sign in without scanning, use a code instead.", and the link Use a code instead comes before the QR in the focus order. The phone's Type a code button opens the code entry of 6d.</p>
+            <span class="r66">R66 decides: the countdown length, how many times the page refreshes itself, and the code format.</span>
+          </div>
+
+          <div class="dv-opt" id="6a2" data-screen-label="6a2 The code expires and refreshes">
+            <div class="dv-olabel"><a class="dv-oid" href="#6a2">6a2</a>The code expires and refreshes itself</div>
+            <div class="pair">
+              <div class="br">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/</div></div>
+                <div class="page"><div class="card tight">
+                  <div class="brand"><span class="logo"><span class="ms">sensors</span></span>SignalHub</div>
+                  <h1 class="h">Sign in with your phone</h1>
+                  <p class="p">Open SignalHub on your phone, go to Settings › Sign in a browser, and scan this code.</p>
+                  <div class="qrwrap"><div class="qr stale" role="img" aria-label="Sign-in QR code, expired"></div><div class="qrover"><span class="ms">timer_off</span>This code ran out</div></div>
+                  <div class="wait"><span class="spin"></span>Making a new code…</div>
+                  <div class="link">Use a code instead</div>
+                </div></div>
+              </div>
+              <div class="ph">
+                <div class="sb">20:08</div>
+                <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Sign in a browser</div></div>
+                <div class="banner"><span class="ms" style="color:var(--on-surface-variant)">timer_off</span><span>That code has run out. The page makes a new one by itself; scan again.</span></div>
+                <div class="scan"><div class="frame"></div>camera preview</div>
+              </div>
+            </div>
+            <p class="dv-onote">At zero the page swaps in a fresh code on its own, without a reload and without losing the page; the old one stops working at once. After a few refreshes with nobody approving, it stops and offers "Show a new code" (6e), so an abandoned tab doesn't keep asking. The app's side of an old code is one plain sentence, with the camera still ready.</p>
+            <span class="r66">R66 decides: how many refreshes before the page stops.</span>
+          </div>
+
+          <div class="dv-opt" id="6a3" data-screen-label="6a3 Confirm in the app">
+            <div class="dv-olabel"><a class="dv-oid" href="#6a3">6a3</a>The app asks: Sign in this browser?</div>
+            <div class="pair">
+              <div class="ph">
+                <div class="sb">20:05</div>
+                <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Sign in a browser</div></div>
+                <div class="scan"><div class="frame"></div>camera preview</div>
+                <div class="scrim"></div>
+                <div class="sheet">
+                  <div class="handle"></div>
+                  <h2 class="h">Sign in this browser?</h2>
+                  <div class="fact"><span class="ms">language</span><span><b>Firefox on Linux</b></span></div>
+                  <div class="fact"><span class="ms">schedule</span><span>Asked just now</span></div>
+                  <p class="p" style="font-size:13px;line-height:18px">Only sign in a browser you are looking at right now. It can read and send what you can for 30 days, or until you sign it out.</p>
+                  <div class="acts"><span class="btn-x">Cancel</span><span class="btn-f">Sign in</span></div>
+                </div>
+              </div>
+              <div class="ph">
+                <div class="sb">20:05</div>
+                <div class="appbar"><div class="t" style="padding-left:12px">Settings</div></div>
+                <div style="padding:8px 0">
+                  <div style="display:flex;align-items:center;gap:16px;padding:12px 16px;min-height:56px;box-sizing:border-box"><span class="ms" style="color:var(--on-surface-variant)">devices</span><div style="flex:1"><div style="font-size:16px;line-height:24px">Devices</div><div style="font-size:14px;line-height:20px;color:var(--on-surface-variant)">4 devices · 1 browser</div></div><span class="ms" style="color:var(--on-surface-variant)">chevron_right</span></div>
+                  <div style="display:flex;align-items:center;gap:16px;padding:12px 16px;min-height:56px;box-sizing:border-box"><span class="ms" style="color:var(--primary)">qr_code_scanner</span><div style="flex:1"><div style="font-size:16px;line-height:24px">Sign in a browser</div><div style="font-size:14px;line-height:20px;color:var(--on-surface-variant)">Scan the code a page shows</div></div></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">Left: the confirm sheet names the browser and system, read from the browser's user agent ("Firefox on Linux"), with the globe icon the Devices list uses. It shows no place: the server does not look places up, so none is drawn. Right: where the scanner lives, a Settings row beside Devices for every role (an admin's Devices summary counts every device). The sheet always makes the person choose; scanning alone never signs anyone in. Cancel leaves the page waiting (or shows 6e's "Sign-in was cancelled").</p>
+            <span class="r66">R66 decides: the exact wording of the browser line and the sign-out path for a Basic user.</span>
+          </div>
+
+          <div class="dv-opt" id="6a4" data-screen-label="6a4 Signed in">
+            <div class="dv-olabel"><a class="dv-oid" href="#6a4">6a4</a>Success: the page opens the inbox</div>
+            <div class="pair">
+              <div class="br">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/</div></div>
+                <div class="page"><div class="card">
+                  <div class="brand"><span class="logo"><span class="ms">sensors</span></span>SignalHub</div>
+                  <span class="okmark"><span class="ms">check</span></span>
+                  <h1 class="h" style="text-align:center">Signed in as Rodrigo</h1>
+                  <p class="p" style="text-align:center">Approved from Rodrigo - Pixel 9. Opening your inbox…</p>
+                  <div class="wait"><span class="spin"></span></div>
+                </div></div>
+              </div>
+              <div class="ph">
+                <div class="sb">20:05</div>
+                <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Sign in a browser</div></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 28px 60px;text-align:center">
+                  <span class="okmark"><span class="ms">check</span></span>
+                  <div style="font-size:20px;line-height:26px">Browser signed in</div>
+                  <p class="p">Firefox on Linux can now use your SignalHub for 30 days. You can sign it out any time in Devices.</p>
+                  <span class="btn-f" style="margin-top:8px">Done</span>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">The page moves on by itself after about a second, into the inbox (see <code>Web - Inbox and producers</code>), or to the address it was asked for (6f). The phone confirms in one line and has no further step. The browser appears in Devices as a browser, with the same Revoke as any device.</p>
+          </div>
+
+          <div class="dv-opt" id="6a5" data-screen-label="6a5 Use a code instead">
+            <div class="dv-olabel"><a class="dv-oid" href="#6a5">6a5</a>On a desktop: Use a code instead</div>
+            <div class="pair">
+              <div class="br">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/</div></div>
+                <div class="page"><div class="card tight">
+                  <div class="brand"><span class="logo"><span class="ms">sensors</span></span>SignalHub</div>
+                  <h1 class="h">Sign in with a code</h1>
+                  <p class="p">Open SignalHub on your phone, go to Settings › Sign in a browser, choose Type a code and enter this code.</p>
+                  <div class="code">K7Q-4MX</div>
+                  <div class="wait"><span class="spin"></span>Waiting for your phone · 2:41</div>
+                  <div class="link">Back to the QR code</div>
+                </div></div>
+              </div>
+            </div>
+            <p class="dv-onote">The same code the phone-width page shows (6d), offered on a desktop when there is no camera to scan with. Back to the QR code returns to 6a. Both links are 48 px tall.</p>
+            <span class="r66">R66 decides: the code's format and lifetime (K7Q-4MX is a sample).</span>
+          </div>
+
+          <div class="dv-opt" id="6d" data-screen-label="6d Signing in on a phone's own browser">
+            <div class="dv-olabel"><a class="dv-oid" href="#6d">6d</a>Signing in on a phone's own browser: type a short code in the app, or open the app</div>
+            <div class="pair">
+              <div class="ph" style="height:660px">
+                <div class="mchrome"><div class="url" style="height:24px"><span class="ms">lock</span>signalhub.example/app/</div></div>
+                <div class="mpage">
+                  <div class="brand"><span class="logo"><span class="ms">sensors</span></span>SignalHub</div>
+                  <h1 class="h">Sign in with the app</h1>
+                  <p class="p">A phone can't scan its own screen, so type this code in the SignalHub app.</p>
+                  <div class="code">K7Q-4MX</div>
+                  <div class="wait"><span class="spin"></span>Waiting for the app · 2:41</div>
+                  <span class="btn-f full"><span class="ms">open_in_new</span>Open the app</span>
+                  <ol class="steps"><li>Open the app.</li><li>Go to Settings › Sign in a browser.</li><li>Choose "Type a code" and enter the code above.</li></ol>
+                  <p class="p" style="font-size:13px">No app on this phone? Ask an admin of this server.</p>
+                </div>
+              </div>
+              <div class="ph" style="height:660px">
+                <div class="sb">20:06</div>
+                <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Sign in a browser</div></div>
+                <div style="display:flex;flex-direction:column;gap:14px;padding:12px 16px">
+                  <p class="p">Enter the code the page shows.</p>
+                  <div class="tf focus"><span class="fl">Code</span><span style="font-family:'Roboto Mono',monospace;letter-spacing:3px">K7Q-4MX</span></div>
+                  <div class="acts"><span class="btn-f">Continue</span></div>
+                  <p class="p" style="font-size:13px">Then the same "Sign in this browser?" sheet appears, as in 6a3.</p>
+                </div>
+              </div>
+              <div class="ph" style="height:660px">
+                <div class="sb">20:06</div>
+                <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Sign in a browser</div></div>
+                <div style="display:flex;flex-direction:column;gap:6px;padding:12px 16px">
+                  <p class="p">Enter the code the page shows.</p>
+                  <div class="tf err" style="margin-top:8px"><span class="fl">Code</span><span style="font-family:'Roboto Mono',monospace;letter-spacing:3px">K7Q-4MY</span></div>
+                  <div class="errtxt">That code isn't right or has run out. Check the page and try again.</div>
+                  <div class="acts" style="margin-top:8px"><span class="btn-f">Continue</span></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">On a phone-width page the QR code is not shown: the page shows a short code and an Open the app button (a link into the app that opens it on the code entry; if the app isn't installed nothing happens, and the line under the steps says who to ask). Left: the page, with the countdown, the three steps and the button; all targets are 48 px or taller. Middle: the app's code entry, reached from the scanner's Type a code button. Right: a wrong or run-out code, one plain sentence, the field kept. The code is single use and short lived, and wrong tries are limited (6e, "Too many tries"). After the code, the same confirm sheet as 6a3. The same code is also offered on a desktop under the QR as the link "Use a code instead" (6a5).</p>
+            <span class="r66">R66 decides: the code's format and lifetime, the try limit, and the Open the app link (it needs an intent filter in the app).</span>
+          </div>
+
+          <div class="dv-opt" id="6e" data-screen-label="6e Sign-in problems">
+            <div class="dv-olabel"><a class="dv-oid" href="#6e">6e</a>When something is not right while signing in</div>
+            <div class="pair">
+              <div class="br sm">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/</div></div>
+                <div class="page"><div class="card">
+                  <span class="okmark n"><span class="ms">cancel</span></span>
+                  <h1 class="h" style="text-align:center">Sign-in was cancelled</h1>
+                  <p class="p" style="text-align:center">Nothing was signed in on this browser.</p>
+                  <span class="btn-f">Show a new code</span>
+                </div></div>
+              </div>
+              <div class="br sm">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/</div></div>
+                <div class="page"><div class="card">
+                  <span class="okmark n"><span class="ms">hourglass_top</span></span>
+                  <h1 class="h" style="text-align:center">Too many tries</h1>
+                  <p class="p" style="text-align:center">Wait a few minutes, then try again.</p>
+                  <span class="btn-f off">Try again in 4:58</span>
+                </div></div>
+              </div>
+              <div class="br sm">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/</div></div>
+                <div class="page"><div class="card">
+                  <span class="okmark n"><span class="ms">cloud_off</span></span>
+                  <h1 class="h" style="text-align:center">Can't reach SignalHub</h1>
+                  <p class="p" style="text-align:center">Check your connection. This page keeps trying.</p>
+                  <div class="wait"><span class="spin"></span>Trying again…</div>
+                  <span class="btn-x" style="align-self:center"><span class="ms">refresh</span>Try now</span>
+                </div></div>
+              </div>
+              <div class="br sm">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/</div></div>
+                <div class="page"><div class="card">
+                  <span class="okmark n"><span class="ms">schedule</span></span>
+                  <h1 class="h" style="text-align:center">Still waiting for your phone</h1>
+                  <p class="p" style="text-align:center">This page stopped asking, so it doesn't wait forever.</p>
+                  <span class="btn-f">Show a new code</span>
+                </div></div>
+              </div>
+              <div class="br sm">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/</div></div>
+                <div class="page"><div class="card">
+                  <span class="okmark"><span class="ms">check</span></span>
+                  <h1 class="h" style="text-align:center">You're already signed in</h1>
+                  <p class="p" style="text-align:center">This browser is signed in as Rodrigo in another tab.</p>
+                  <span class="btn-f">Open the inbox</span>
+                </div></div>
+              </div>
+            </div>
+            <p class="dv-onote">In order: the phone's person chose Cancel; wrong or run-out codes were tried too often (the button counts down and then turns into Show a new code); the server can't be reached (the page keeps trying on its own); a few refreshes with nobody approving; and a second tab of a browser that is already signed in. Each is one heading, one sentence and at most one button, and the buttons are 48 px tall. A new sign-in is not blocked by a full or revoked device list: a revoked browser simply signs in again as a new browser.</p>
+            <span class="r66">R66 decides: the try limit, the wait before trying again, and how the page notices a Cancel.</span>
+          </div>
+
+          <div class="dv-opt" id="6f" data-screen-label="6f Signed out: expired, revoked, another tab">
+            <div class="dv-olabel"><a class="dv-oid" href="#6f">6f</a>Signed out while using the page: the 30 days ended, the browser was revoked, or a sign-out in another tab</div>
+            <div class="pair">
+              <div class="br sm">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox/01997d5e-8a3c-7b1e…</div></div>
+                <div class="page" style="padding:0;justify-content:flex-start">
+                  <div class="abanner"><span class="ms">lock_clock</span><span class="tx">Your sign-in ended.</span><span class="btn-x">Sign in again</span></div>
+                  <div class="behind"><div style="font-size:22px;line-height:28px">Disk almost full on nas-01</div><div class="skel" style="width:80%"></div><div class="skel" style="width:55%"></div><div class="skel" style="width:70%"></div></div>
+                </div>
+              </div>
+              <div class="br sm">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox/01997d5e-8a3c-7b1e…</div></div>
+                <div class="page"><div class="card">
+                  <div class="brand"><span class="logo"><span class="ms">sensors</span></span>SignalHub</div>
+                  <h1 class="h">Sign in again</h1>
+                  <p class="p">Your sign-in on this browser ended. Sign in with your phone and you'll come back to the page you were on.</p>
+                  <div class="qrwrap"><div class="qr" style="width:128px;height:128px"></div></div>
+                  <div class="wait"><span class="spin"></span>Waiting for your phone · 2:41</div>
+                </div></div>
+              </div>
+              <div class="br sm">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox/01997d5e-8a3c-7b1e…</div></div>
+                <div class="page"><div class="wait"><span class="spin"></span>Checking…</div></div>
+              </div>
+              <div class="br sm">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox/01997d5e-8a3c-7b1e…</div></div>
+                <div class="page"><div class="card">
+                  <div class="brand"><span class="logo"><span class="ms">sensors</span></span>SignalHub</div>
+                  <h1 class="h">You're signed out</h1>
+                  <p class="p">This browser isn't signed in. Sign in with your phone to use SignalHub here.</p>
+                  <div class="qrwrap"><div class="qr" style="width:128px;height:128px"></div></div>
+                  <div class="wait"><span class="spin"></span>Waiting for your phone · 2:41</div>
+                </div></div>
+              </div>
+              <div class="br sm">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox</div></div>
+                <div class="page" style="padding:0;justify-content:flex-start">
+                  <div class="abanner"><span class="ms">logout</span><span class="tx">You signed out in another tab.</span><span class="btn-x">Sign in again</span></div>
+                  <div class="behind"><div style="font-size:22px;line-height:28px">Inbox</div><div class="skel" style="width:80%"></div><div class="skel" style="width:55%"></div></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">Left to right. (1) The 30 days end while a page is open: a banner (surface container high, like the app's banners), with the page's text kept so nothing is lost mid-read, and Sign in again. (2) That button, or a reload, shows the sign-in page at the same address; after approval the page opens that address, not the inbox. (3) A browser that was revoked: on its next request the page shows only a blank surface and "Checking…", never the old content. (4) Then "You're signed out", the same page as (2) apart from the heading and one sentence: both say nothing about why, so a revoked browser learns no more than an expired one (the server answers both the same way). (5) Signing out in another tab of this browser: the same banner pattern. Every banner button is 48 px tall.</p>
+            <span class="r66">R66 decides: how the page notices the other tab's sign-out.</span>
+          </div>
+
+        </div>
+        <p class="dv-next">Every role can sign in a browser, a sign-in lasts a fixed 30 days and revoking a browser signs it out. "Sign in a browser" is a Settings row beside Devices for every role.</p>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

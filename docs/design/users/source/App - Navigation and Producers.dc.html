@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--error:#ffb4ab;--on-error:#690005;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f;--inv-surface:#e4e1e9;--on-inv:#2f3036;--inv-primary:#515b92}
+          body{margin:0;background:#0b0c10;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          .dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(255,255,255,.08);background:#0b0c10}
+          .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+          .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#e4e1e9;color:#121318;border-radius:4px;text-decoration:none}
+          .dv-tname{font:600 14px/1.2 Roboto,sans-serif;color:#e4e1e9}
+          .dv-why{font:14px/20px Roboto,sans-serif;color:#c7c5d0;max-width:900px;margin:0 0 24px}
+          .dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+          .dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;width:412px}
+          .dv-opt.n360{width:360px}
+          .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#e4e1e9;border-radius:5px;text-decoration:none}
+          .dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 13px/1.3 Roboto,sans-serif;color:#e4e1e9}
+          .dv-onote{font:13px/19px Roboto,sans-serif;color:#9a98a3;margin:0;text-wrap:pretty}
+          .dv-opt:target .dv-oid{background:#bac3ff;color:#222c61}
+          .dv-next{margin:24px 0 0;font:13px/1.5 Roboto,sans-serif;color:#9a98a3}
+          .ph{width:412px;height:892px;background:var(--surface);border-radius:28px;border:1px solid #2c2d33;overflow:hidden;display:flex;flex-direction:column;position:relative}
+          .ph.s{height:660px}
+          .ph.w360{width:360px;height:820px}
+          .sb{height:28px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:13px;color:var(--on-surface)}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms.spin{font-size:0;width:24px;height:24px;box-sizing:border-box;border:2.5px solid var(--on-secondary-container);border-top-color:transparent;border-radius:50%;animation:sp 1s linear infinite}
+          @keyframes sp{to{transform:rotate(360deg)}}
+          @media (prefers-reduced-motion:reduce){.ms.spin{animation:none}}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .appbar{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 4px 0 16px}
+          .appbar .t{font-size:22px;line-height:28px;flex:1;min-width:0;display:flex;flex-direction:column}
+          .appbar .t small{font-size:12px;line-height:16px;color:var(--on-surface-variant)}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .body{flex:1;overflow:hidden;display:flex;flex-direction:column}
+          .lt{display:flex;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .lt.br{padding-right:4px}
+          .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t1b{font-size:16px;line-height:24px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2{font-size:14px;line-height:20px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .meta{display:flex;gap:12px;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .meta .m1{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .dot{width:10px;height:10px;border-radius:5px;background:var(--primary);flex:none}
+          .nodot{width:10px;flex:none}
+          .c-primary{color:var(--primary)}.c-error{color:var(--error)}.c-var{color:var(--on-surface-variant)}
+          .nav{height:80px;flex:none;background:var(--sc);display:flex;padding:12px 8px 16px;box-sizing:border-box}
+          .nv{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant)}
+          .nv .pill{width:64px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .nv.on{color:var(--on-surface)}
+          .nv.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .nbadge{position:absolute;top:0;left:34px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:var(--on-error);font-size:11px;line-height:16px;text-align:center;box-sizing:border-box;white-space:nowrap}
+          .av{width:40px;height:40px;border-radius:20px;background:var(--sc-highest);color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;flex:none}
+          .tbtn{width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex:none}
+          .bl{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+          .bl.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .bl.off{border:1px solid var(--outline);color:var(--on-surface-variant)}
+          .fab{position:absolute;right:16px;bottom:96px;height:56px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;gap:12px;padding:0 20px 0 16px;font-size:14px;font-weight:500}
+          .search{margin:4px 16px 8px;height:56px;border-radius:28px;background:var(--sc-high);display:flex;align-items:center;gap:16px;padding:0 16px;color:var(--on-surface-variant);font-size:16px;flex:none}
+          .search .q{flex:1;color:var(--on-surface)}
+          .fchips{display:flex;gap:8px;padding:0 16px 8px;flex:none;overflow:hidden}
+          .fc{height:32px;border-radius:8px;border:1px solid var(--outline);display:flex;align-items:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500;color:var(--on-surface-variant);box-sizing:border-box;white-space:nowrap;flex:none}
+          .fc.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container);padding-left:8px}
+          .fc.x{padding-right:8px}
+          .rowlink{display:flex;align-items:center;gap:16px;padding:16px 24px 16px 16px}
+          .nm{display:flex;align-items:center;min-width:0}
+          .nm .t1{flex:0 1 auto;min-width:0}
+          .own{display:inline-flex;align-items:center;flex:none;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;vertical-align:middle}
+          .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 40px 80px;text-align:center}
+          .empty>.ms{font-size:48px;width:48px;height:48px;color:var(--outline)}
+          .empty .h{font-size:22px;line-height:28px}
+          .empty .p{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .tonal{margin-top:12px;height:40px;border-radius:20px;padding:0 24px;display:flex;align-items:center;background:var(--secondary-container);color:var(--on-secondary-container);font-size:14px;font-weight:500}
+          .snack{position:absolute;left:8px;right:8px;bottom:92px;min-height:48px;box-sizing:border-box;border-radius:4px;background:var(--inv-surface);color:var(--on-inv);display:flex;align-items:center;gap:8px;padding:6px 8px 6px 16px;font-size:14px;line-height:20px}
+          .snack span:first-child{flex:1}
+          .snack b{font-weight:500;color:var(--inv-primary);min-height:48px;min-width:48px;display:flex;align-items:center;justify-content:center;padding:0 8px;box-sizing:border-box}
+          .x2 .appbar .t{font-size:44px;line-height:52px}
+          .x2 .appbar{height:72px}
+          .x2 .search{height:72px;font-size:32px}
+          .x2 .fc{height:48px;font-size:28px}
+          .x2 .t1{font-size:32px;line-height:44px}
+          .x2 .t2{font-size:28px;line-height:36px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+          .x2 .nav{height:84px}
+          .x2 .nv{font-size:15.6px;line-height:20px;white-space:nowrap}
+          .rule{width:100%;max-width:860px;border-collapse:collapse;font:13px/19px Roboto,sans-serif;color:#c7c5d0}
+          .rule td,.rule th{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.1);text-align:left;vertical-align:top}
+          .rule th{color:#e4e1e9;font-weight:500}
+          .navstrip{width:412px;border-radius:12px;overflow:hidden;border:1px solid #2c2d33;background:var(--sc)}
+          .navstrip .nav{height:72px;padding-top:8px}
+        </style>
+      </helmet>
+
+      <section class="dv-turn" id="t1" data-screen-label="Turn 1: navigation and Producers">
+        <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Bottom navigation and the Producers tab</span></div>
+        <p class="dv-why">A bottom navigation bar. Everyone gets <b>Inbox · Producers · Settings</b>; admins also get <b>People</b> (4 destinations, within Material's 3 to 5). The unread count is a badge on the Inbox tab, and the inbox app bar has no gear icon since Settings is a tab. Producers is <b>search plus filter chips</b> (<a class="dv-oid" href="#1d">1d</a>): one list, narrowed by All, Yours, Subscribed and Can subscribe, with a New producer button. <a class="dv-oid" href="#1f">1f</a> is the no-results state. Every icon button, the bell included, has a 48dp target. The bar is 80dp high plus the system navigation inset; the New producer button sits 16dp above it.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="1a" data-screen-label="1a Inbox, basic user">
+            <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Inbox with the bar (Basic and Mod)</div>
+            <div class="ph">
+              <div class="sb"><span>01:32</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">SignalHub</div><span class="ib"><span class="ms">filter_list</span></span><span class="ib"><span class="ms">done_all</span></span></div>
+              <div class="body">
+                <sc-for list="{{ inbox }}" as="e" hint-placeholder-count="6">
+                  <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms {{ e.tone }}" style="margin-top:2px">{{ e.icon }}</span><div class="tx"><span class="{{ e.tcls }}">{{ e.title }}</span><div class="meta"><span class="m1">{{ e.meta }}</span><span>{{ e.time }}</span></div></div><span class="{{ e.dot }}" style="margin-top:7px"></span></div>
+                </sc-for>
+              </div>
+              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The unread count sits on the Inbox tab, so it's visible from every tab. Filter and Mark all as read stay in the inbox app bar. Accessible names: the filter icon is “Filter events”, the double check is “Mark all as read”, the Inbox tab is “Inbox, 3 unread”.</p>
+          </div>
+
+          <div class="dv-opt" id="1d" data-screen-label="1d Producers">
+            <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Producers: search and filter chips</div>
+            <div class="ph">
+              <div class="sb"><span>01:32</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span></div>
+              <div class="body">
+                <sc-for list="{{ all }}" as="p" hint-placeholder-count="8">
+                  <div class="lt br"><span class="av"><span class="ms">{{ p.av }}</span></span><div class="tx"><div class="nm"><span class="t1">{{ p.name }}</span><span class="{{ p.own }}">{{ p.ownText }}</span></div><span class="t2">{{ p.sub }}</span></div><span class="tbtn"><span class="bl {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></span></div>
+                </sc-for>
+              </div>
+              <div class="fab"><span class="ms">add</span>New producer</div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The row: a neutral avatar, the name, a summary line, and the bell (filled tonal = subscribed, outlined = not). The name takes the free width and ends with an ellipsis; the Yours tag, the bell and the chevron keep their size, so a long name such as quarterly-finance-report-generator never hides the tag. Tapping the row opens the producer, tapping the bell subscribes or unsubscribes in place. The bell's visible circle is 40dp inside a 48dp target. Chips scroll sideways like the inbox filters; the chip's hit area is padded to 48dp. Search covers only producers you can see. Order: Yours first, then Subscribed, then Can subscribe, each A to Z. Summaries: yours Public “Public · 2 keys · last event 01:19” (keys that still work), yours Private “Private · 2 people · last event 00:36”, with no event yet “Private · 1 key · no events yet”; others' “Ana · Public”. The list has 88dp of bottom padding so the last row scrolls clear of the New producer button. Screen-reader labels: “Subscribed to ci-pipeline. Double tap to unsubscribe” and “Not subscribed to price-watch. Double tap to subscribe”; the search field is “Find a producer”.</p>
+          </div>
+
+          <div class="dv-opt" id="1f" data-screen-label="1f Producers, no results">
+            <div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>Producers: a search with no results</div>
+            <div class="ph">
+              <div class="sb"><span>01:32</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span><span class="q">zebra</span><span class="ms">close</span></div>
+              <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span></div>
+              <div class="body">
+                <div class="empty"><span class="ms">search_off</span><span class="h">No producers match</span><span class="p">Nothing you can see is named “zebra”. Check the spelling, or clear the search.</span><span class="tonal">Clear search</span></div>
+              </div>
+              <div class="fab"><span class="ms">add</span>New producer</div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The chips stay, so a narrowed search can be widened with one tap. The New producer button stays too (here it is not an empty-state button, so it keeps the FAB). The x in the field is “Clear search”.</p>
+          </div>
+
+          <div class="dv-opt" id="1e" data-screen-label="1e Admin bar">
+            <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>The bar for an admin: People added, and Settings in its one order</div>
+            <div class="ph">
+              <div class="sb"><span>01:32</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Settings</div></div>
+              <div class="body">
+                <div class="lt" style="border-bottom:1px solid var(--outline-variant)"><div class="tx"><span class="t1">Push filters</span><span class="t2">Normal and up · Completed, Info muted</span></div><span class="ms c-var">expand_more</span></div>
+                <div class="lt" style="border-bottom:1px solid var(--outline-variant)"><div class="tx"><span class="t1">Alert</span><span class="t2">Signal · 50 % · Medium · Short, short, long</span></div><span class="ms c-var">expand_more</span></div>
+                <div class="rowlink" style="border-bottom:1px solid var(--outline-variant)"><span class="ms c-var">devices</span><div class="tx"><span class="t1">Devices</span><span class="t2">4 devices · 1 browser</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="rowlink" style="border-bottom:1px solid var(--outline-variant)"><span class="ms c-var">qr_code_scanner</span><div class="tx"><span class="t1">Sign in a browser</span><span class="t2">Scan the code a web page shows</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="lt" style="border-bottom:1px solid var(--outline-variant)"><div class="tx"><span class="t1">About this server</span><span class="t2">signalhub.example · SignalHub 3.4.0 · commit a1b2c3d</span></div><span class="ms c-var">expand_more</span></div>
+                <div class="lt" style="border-bottom:1px solid var(--outline-variant)"><div class="tx"><span class="t1">This device</span><span class="t2">Rodrigo - Pixel 9 · Push notifications are on</span></div><span class="ms c-var">expand_more</span></div>
+              </div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">One Settings order on every page and every role: Push filters, Alert, Devices, Sign in a browser, About this server, This device. The folding groups stay as today. An admin's Devices row counts every device (“4 devices · 1 browser”); a Basic or Mod user's counts their own (“2 devices”). About this server shows the server's address, version and commit (sample values), and the app's own build once opened. People is only in an admin's bar. Needs a server change (queued with the design lock-in)</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t3" data-screen-label="Turn 3: producer rows and subscribing">
+        <div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Producer rows in every state, and subscribing in place</span></div>
+        <p class="dv-why"><a class="dv-oid" href="#1g">1g</a> is the Producers list with every kind of row. <b>Losing access is silent</b>: when an owner removes you from a private producer, or makes it private, the row simply disappears from the list (no notice, no empty slot) and your subscription is gone; if the owner adds you back, you subscribe again yourself. <a class="dv-oid" href="#1h">1h</a> to <a class="dv-oid" href="#1j">1j</a> are the bell: in flight, failed, and undone. Subscribing and unsubscribing are undone with a snackbar, never a dialog (they are idempotent and nothing is lost). <a class="dv-oid" href="#1n">1n</a> is the list at 360dp wide and 200 % text.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="1g" data-screen-label="1g Rows by state">
+            <div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>The row in each state</div>
+            <div class="ph">
+              <div class="sb"><span>01:32</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span></div>
+              <div class="body">
+                <sc-for list="{{ states }}" as="p" hint-placeholder-count="8">
+                  <div class="lt br"><span class="av"><span class="ms">{{ p.av }}</span></span><div class="tx"><div class="nm"><span class="t1">{{ p.name }}</span><span class="{{ p.own }}">{{ p.ownText }}</span></div><span class="t2 {{ p.subcls }}">{{ p.sub }}</span></div><span class="tbtn"><span class="bl {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></span></div>
+                </sc-for>
+              </div>
+              <div class="fab"><span class="ms">add</span>New producer</div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Rows, top to bottom. A: yours and public. B: yours, paused by you. C: yours, disabled by the host. D: someone's public producer you are subscribed to but have muted on this device (the bell stays on: you still get it in the inbox; the push is the device's choice). E: a private producer shared with you. F: someone else's producer that is disabled, shown only as “Disabled” because the app cannot tell the owner's pause from the host's (bell still on, a block avatar). G: not subscribed. Paused and disabled rows keep the bell so you can still unsubscribe.</p>
+          </div>
+
+          <div class="dv-opt" id="1h" data-screen-label="1h Bell in flight">
+            <div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a>Subscribing: in flight</div>
+            <div class="ph s">
+              <div class="sb"><span>01:33</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="body">
+                <sc-for list="{{ flight }}" as="p" hint-placeholder-count="4">
+                  <div class="lt br"><span class="av"><span class="ms">{{ p.av }}</span></span><div class="tx"><div class="nm"><span class="t1">{{ p.name }}</span><span class="{{ p.own }}">{{ p.ownText }}</span></div><span class="t2">{{ p.sub }}</span></div><span class="tbtn"><span class="bl {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></span></div>
+                </sc-for>
+              </div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Tapping the bell on price-watch fills its 40dp circle at once (secondary container) and puts a 24dp progress ring, 2.5dp stroke, in place of the bell; there is no dashed target border. That bell ignores taps until the call ends. The rest of the list stays live. When unsubscribing, the circle is the 1dp outline with the same ring. Under reduced motion the ring stays and does not turn. Screen-reader label: “Subscribing to price-watch” or “Unsubscribing from price-watch”.</p>
+          </div>
+
+          <div class="dv-opt" id="1i" data-screen-label="1i Bell failed">
+            <div class="dv-olabel"><a class="dv-oid" href="#1i">1i</a>Subscribing: it failed</div>
+            <div class="ph s">
+              <div class="sb"><span>01:33</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="body">
+                <sc-for list="{{ failed }}" as="p" hint-placeholder-count="4">
+                  <div class="lt br"><span class="av"><span class="ms">{{ p.av }}</span></span><div class="tx"><div class="nm"><span class="t1">{{ p.name }}</span><span class="{{ p.own }}">{{ p.ownText }}</span></div><span class="t2">{{ p.sub }}</span></div><span class="tbtn"><span class="bl {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></span></div>
+                </sc-for>
+              </div>
+              <div class="snack"><span>Couldn't subscribe to price-watch. Try again.</span><b>Retry</b></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The bell goes back to what it was and a snackbar says so, with Retry. Unsubscribing fails with “Couldn't unsubscribe from NAME. Try again.” Offline, the bells are not disabled up front; the same snackbar appears. When the producer is gone (404) the row leaves the list and the “not available” screen applies if it was open.</p>
+          </div>
+
+          <div class="dv-opt" id="1j" data-screen-label="1j Unsubscribed, undo">
+            <div class="dv-olabel"><a class="dv-oid" href="#1j">1j</a>Unsubscribed, with Undo</div>
+            <div class="ph s">
+              <div class="sb"><span>01:34</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="body">
+                <sc-for list="{{ undone }}" as="p" hint-placeholder-count="4">
+                  <div class="lt br"><span class="av"><span class="ms">{{ p.av }}</span></span><div class="tx"><div class="nm"><span class="t1">{{ p.name }}</span><span class="{{ p.own }}">{{ p.ownText }}</span></div><span class="t2">{{ p.sub }}</span></div><span class="tbtn"><span class="bl {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></span></div>
+                </sc-for>
+              </div>
+              <div class="snack"><span>Unsubscribed from ana-reports. Its events leave your inbox.</span><b>Undo</b></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">2</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The events are hidden, not deleted: subscribing again brings the stored ones back. The snackbar stays 6 seconds. Subscribing says “Subscribed to price-watch. Its older events are in your inbox too.” with the same Undo.</p>
+          </div>
+
+          <div class="dv-opt n360" id="1n" data-screen-label="1n At 360dp and 200 % text">
+            <div class="dv-olabel"><a class="dv-oid" href="#1n">1n</a>360dp wide, text at 200 %</div>
+            <div class="ph w360 x2">
+              <div class="sb"><span>01:32</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span></div>
+              <div class="body">
+                <sc-for list="{{ big }}" as="p" hint-placeholder-count="3">
+                  <div class="lt br"><span class="av"><span class="ms">{{ p.av }}</span></span><div class="tx"><div class="nm"><span class="t1">{{ p.name }}</span><span class="{{ p.own }}">{{ p.ownText }}</span></div><span class="t2">{{ p.sub }}</span></div><span class="tbtn"><span class="bl {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></span></div>
+                </sc-for>
+              </div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">360dp is the narrowest width. At 200 % the name ends with an ellipsis, the Yours tag, the bell and the bar's icons keep their size, and the summary wraps to two lines (then ends with an ellipsis). The bottom bar's labels never wrap: their text scale is capped at about 1.3x and the bar grows only by the extra line height. Rows grow in height and never clip. Landscape keeps this layout with content at most 600dp wide, centred.</p>
+          </div>
+
+        </div>
+        <p class="dv-next">Copy used: “Couldn't subscribe to NAME. Try again.” · “Couldn't unsubscribe from NAME. Try again.” · “Unsubscribed from NAME. Its events leave your inbox.” · “Subscribed to NAME. Its older events are in your inbox too.” · row labels “Paused by you”, “Disabled by the host”, “Disabled”, “Muted on this device”, “Private, shared with you”.</p>
+      </section>
+
+      <section class="dv-turn" id="t4" data-screen-label="Turn 4: the unread badge">
+        <div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">The Inbox tab's unread badge, from 1 to over 99</span></div>
+        <p class="dv-why">The badge counts every unread event of the producers you are subscribed to, whether or not a push was muted or paused on this device. Up to 99 it shows the number; above that it shows <b>99+</b> and stops growing, so it never leaves the tab. The screen-reader label gives the real count: “Inbox, 124 unread”. With nothing unread the badge is absent.</p>
+        <div class="dv-opts">
+          <div class="dv-opt" id="1k" data-screen-label="1k Badge sizes">
+            <div class="dv-olabel"><a class="dv-oid" href="#1k">1k</a>Badge sizes on the bar (Basic, then Admin with four tabs)</div>
+            <div class="navstrip"><div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div></div>
+            <div class="navstrip"><div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span><span class="nbadge">42</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div></div>
+            <div class="navstrip"><div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">99</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div></div>
+            <div class="navstrip"><div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">99+</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div></div></div>
+            <p class="dv-onote">The badge is a pill: 16dp high, 4dp side padding, anchored to the icon's top right, so “99+” stays inside the 64dp indicator.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t5" data-screen-label="Turn 5: a producer's events">
+        <div class="dv-thd"><a class="dv-tid" href="#t5">5</a><span class="dv-tname">“See its events”: the inbox for one producer</span></div>
+        <p class="dv-why">“See its events” (on a producer's screen) opens the inbox narrowed to that producer. It is the same list, with the producer as a chip you can remove and the producer's name as the title. Only producers you are subscribed to can be filtered; the inbox's producer filter lists those and no others.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="1l" data-screen-label="1l Producer's events">
+            <div class="dv-olabel"><a class="dv-oid" href="#1l">1l</a>Events of ci-pipeline</div>
+            <div class="ph s">
+              <div class="sb"><span>01:35</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar" style="padding-left:4px"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">ci-pipeline<small>Events from this producer</small></div><span class="ib"><span class="ms">filter_list</span></span><span class="ib"><span class="ms">done_all</span></span></div>
+              <div class="fchips"><span class="fc on x"><span class="ms ms18">check</span>ci-pipeline<span class="ms ms18">close</span></span></div>
+              <div class="body">
+                <sc-for list="{{ ciEvents }}" as="e" hint-placeholder-count="3">
+                  <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms {{ e.tone }}" style="margin-top:2px">{{ e.icon }}</span><div class="tx"><span class="{{ e.tcls }}">{{ e.title }}</span><div class="meta"><span class="m1">{{ e.meta }}</span><span>{{ e.time }}</span></div></div><span class="{{ e.dot }}" style="margin-top:7px"></span></div>
+                </sc-for>
+              </div>
+            </div>
+            <p class="dv-onote">Back returns to the producer's screen. Removing the chip (the x, a 48dp target) leaves this screen for the full inbox. The other filters (unread only, category, severity) still combine with it. Accessible names: arrow “Back”, filter icon “Filter events”, double check “Mark all as read”, chip x “Remove filter ci-pipeline”.</p>
+          </div>
+
+          <div class="dv-opt" id="1m" data-screen-label="1m Producer's events, none">
+            <div class="dv-olabel"><a class="dv-oid" href="#1m">1m</a>No events from it yet</div>
+            <div class="ph s">
+              <div class="sb"><span>01:35</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar" style="padding-left:4px"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">garage-door<small>Events from this producer</small></div><span class="ib"><span class="ms">filter_list</span></span><span class="ib"><span class="ms">done_all</span></span></div>
+              <div class="fchips"><span class="fc on x"><span class="ms ms18">check</span>garage-door<span class="ms ms18">close</span></span></div>
+              <div class="body">
+                <div class="empty"><span class="ms">inbox</span><span class="h">No events from garage-door yet</span><span class="p">When it sends one, it shows up here.</span><span class="tonal">Back to garage-door</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">With “unread only” on and nothing unread, the text becomes “Nothing unread from garage-door.” with a “Show all” button.</p>
+          </div>
+
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        renderVals() {
+          const ev = (icon, tone, title, meta, time, unread) => ({ icon, tone, title, meta, time, tcls: unread ? 't1b' : 't1', dot: unread ? 'dot' : 'nodot' });
+          const inbox = [
+            ev('pan_tool', 'c-error', 'Your action: approve the release', 'Action required · High · ci-pipeline', '01:19', true),
+            ev('info', 'c-primary', 'Nightly backup finished', 'Info · Normal · backup-jobs', '00:41', true),
+            ev('block', 'c-error', 'Disk almost full on nas-01', 'Blocked · Critical · homelab-monitor', '00:36', true),
+            ev('check_circle', 'c-var', 'Deploy to staging done', 'Completed · Low · ci-pipeline', '00:14', false),
+            ev('info', 'c-primary', 'Weekly report is ready', 'Info · Normal · ana-reports', 'Yesterday', false),
+            ev('check_circle', 'c-var', 'Photos synced', 'Completed · Low · backup-jobs', 'Yesterday', false)
+          ];
+          const ciEvents = [
+            ev('pan_tool', 'c-error', 'Your action: approve the release', 'Action required · High · ci-pipeline', '01:19', true),
+            ev('check_circle', 'c-var', 'Deploy to staging done', 'Completed · Low · ci-pipeline', '00:14', false),
+            ev('info', 'c-primary', 'Build 412 passed', 'Info · Normal · ci-pipeline', 'Yesterday', false)
+          ];
+          const mk = (name, sub, o) => Object.assign({ name, sub, av: 'sensors', bell: 'on', fill: 'fill', icon: 'notifications_active', own: '', ownText: '', subcls: '' }, o || {});
+          const yours = { own: 'own', ownText: 'Yours' };
+          const off = { bell: 'off', fill: '', icon: 'notifications' };
+          const all = [
+            mk('backup-jobs', 'Private · 1 key · last event 00:41', yours),
+            mk('ci-pipeline', 'Public · 2 keys · last event 01:19', yours),
+            mk('homelab-monitor', 'Private · 2 people · last event 00:36', yours),
+            mk('quarterly-finance-report-generator', 'Private · 1 key · no events yet', yours),
+            mk('ana-reports', 'Ana · Public'),
+            mk('family-calendar', 'Ana · Private, shared with you'),
+            mk('price-watch', 'João · Public', off),
+            mk('weather-alerts', 'João · Public', off)
+          ];
+          const states = [
+            mk('ci-pipeline', 'Public · 2 keys · last event 01:19', yours),
+            mk('garage-door', 'Paused by you · its keys do not work', Object.assign({ av: 'pause_circle' }, yours)),
+            mk('old-sensor', 'Disabled by the host · ask the host', Object.assign({ av: 'block', subcls: 'c-error' }, yours)),
+            mk('ana-reports', 'Ana · Public · Muted on this device'),
+            mk('family-calendar', 'Ana · Private, shared with you'),
+            mk('weather-alerts', 'João · Disabled', { av: 'block' }),
+            mk('price-watch', 'João · Public', off)
+          ];
+          const flight = [
+            mk('ci-pipeline', 'Public · 2 keys · last event 01:19', yours),
+            mk('ana-reports', 'Ana · Public'),
+            mk('price-watch', 'João · Public', { fill: 'spin', icon: 'progress_activity' }),
+            mk('weather-alerts', 'João · Public', off)
+          ];
+          const failed = [
+            mk('ci-pipeline', 'Public · 2 keys · last event 01:19', yours),
+            mk('ana-reports', 'Ana · Public'),
+            mk('price-watch', 'João · Public', off),
+            mk('weather-alerts', 'João · Public', off)
+          ];
+          const undone = [
+            mk('ci-pipeline', 'Public · 2 keys · last event 01:19', yours),
+            mk('ana-reports', 'Ana · Public', off),
+            mk('price-watch', 'João · Public', off),
+            mk('weather-alerts', 'João · Public', off)
+          ];
+          const big = [
+            mk('quarterly-finance-report-generator', 'Private · 1 key · no events yet', yours),
+            mk('ci-pipeline', 'Public · 2 keys · last event 01:19', yours),
+            mk('ana-reports', 'Ana · Public')
+          ];
+          return { inbox, all, states, flight, failed, undone, big, ciEvents };
+        }
+      }
+    </script>
+  </body>
+</html>

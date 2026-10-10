@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--tertiary-container:#5d3c55;--error:#ffb4ab;--on-error:#690005;--error-container:#93000a;--on-error-container:#ffdad6;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-lowest:#0d0e13;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f}
+          body{margin:0;background:#0b0c10;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          .dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(255,255,255,.08);background:#0b0c10}
+          .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+          .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#e4e1e9;color:#121318;border-radius:4px;text-decoration:none}
+          .dv-tname{font:600 14px/1.2 Roboto,sans-serif;color:#e4e1e9}
+          .dv-why{font:14px/20px Roboto,sans-serif;color:#c7c5d0;max-width:900px;margin:0 0 24px}
+          .dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+          .dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;width:412px}
+          .dv-opt.n360{width:360px}
+          .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#e4e1e9;border-radius:5px;text-decoration:none}
+          .dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 13px/1.3 Roboto,sans-serif;color:#e4e1e9}
+          .dv-onote{font:13px/19px Roboto,sans-serif;color:#9a98a3;margin:0;text-wrap:pretty}
+          .dv-opt:target .dv-oid{background:#bac3ff;color:#222c61}
+          .dv-next{margin:24px 0 0;font:13px/1.5 Roboto,sans-serif;color:#9a98a3}
+          .ph{width:412px;height:892px;background:var(--surface);border-radius:28px;border:1px solid #2c2d33;overflow:hidden;display:flex;flex-direction:column;position:relative}
+          .ph.sm{height:600px}.ph.w360{width:360px;height:900px}
+          .sb{height:28px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:13px}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .appbar{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 4px}
+          .appbar .t{font-size:22px;line-height:28px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .appbar .t.pl{padding-left:12px}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .body{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative}
+          .pad{padding:0 16px}
+          .lt{display:flex;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .lt.r4{padding-right:4px}
+          .lt.off{opacity:.62}
+          .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .t2n{font-size:14px;line-height:20px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .nm{display:flex;align-items:center;min-width:0}
+          .nm .t1{flex:0 1 auto;min-width:0}
+          .dtag{display:inline-flex;align-items:center;flex:none;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;white-space:nowrap}
+          .p{font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0;text-wrap:pretty}
+          .pb{font-size:16px;line-height:24px;color:var(--on-surface);margin:0;text-wrap:pretty}
+          .c-primary{color:var(--primary)}.c-var{color:var(--on-surface-variant)}.c-err{color:var(--error)}
+          .lab{font-size:14px;line-height:20px;font-weight:500;color:var(--primary);padding:16px 16px 4px}
+          .sec{display:flex;align-items:center;gap:8px;padding:16px 16px 0}
+          .sec .st{font-size:14px;line-height:20px;font-weight:500;color:var(--primary)}
+          .sec .sn{font-size:12px;line-height:16px;color:var(--on-surface-variant)}
+          .secd{font-size:13px;line-height:18px;color:var(--on-surface-variant);padding:2px 16px 4px;margin:0;text-wrap:pretty}
+          .tag{font-size:11px;line-height:16px;font-weight:500;padding:0 8px;border-radius:8px;background:var(--secondary-container);color:var(--on-secondary-container);flex:none;white-space:nowrap}
+          .tag.o{background:transparent;border:1px solid var(--outline);color:var(--on-surface-variant);padding:0 7px}
+          .seg{display:flex;border:1px solid var(--outline);border-radius:20px;overflow:hidden;height:40px;flex:none}
+          .seg>span{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;border-left:1px solid var(--outline);white-space:nowrap}
+          .seg>span:first-child{border-left:0}
+          .seg>.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .seg>.dis{color:rgba(228,225,233,.38)}
+          .tf{border:1px solid var(--outline);border-radius:4px;height:56px;display:flex;align-items:center;padding:0 16px;font-size:16px;position:relative;box-sizing:border-box;flex:none}
+          .tf.focus{border:2px solid var(--primary);padding:0 15px}
+          .tf.bad{border:2px solid var(--error);padding:0 15px}
+          .tf .fl{position:absolute;top:-9px;left:12px;padding:0 4px;background:var(--surface);font-size:12px;line-height:16px;color:var(--primary)}
+          .tf.bad .fl{color:var(--error)}
+          .dlg .tf .fl{background:var(--sc-high)}
+          .help{font-size:12px;line-height:16px;color:var(--on-surface-variant);padding:4px 16px 0;margin:0}
+          .help.bad{color:var(--error)}
+          .btn-f{height:40px;border-radius:20px;background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-f.dis{background:rgba(228,225,233,.12);color:rgba(228,225,233,.38)}
+          .btn-t{height:40px;border-radius:20px;background:var(--secondary-container);color:var(--on-secondary-container);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500}
+          .btn-o{height:40px;border-radius:20px;border:1px solid var(--outline);color:var(--primary);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-x{min-height:48px;border-radius:24px;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 12px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-x.err{color:var(--error)}
+          .btn-o .ms,.btn-t .ms,.btn-f .ms,.btn-x .ms{font-size:18px;width:18px;height:18px}
+          .fab{position:absolute;right:16px;bottom:96px;height:56px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;gap:12px;padding:0 20px 0 16px;font-size:14px;font-weight:500}
+          .av{width:40px;height:40px;border-radius:20px;background:var(--tertiary-container);color:#ffd8ee;display:flex;align-items:center;justify-content:center;flex:none;font-size:16px;font-weight:500}
+          .av.me{background:var(--primary-container);color:var(--on-primary-container)}
+          .av.sm{width:32px;height:32px;border-radius:16px;font-size:14px}
+          .nav{height:80px;flex:none;background:var(--sc);display:flex;padding:12px 8px 16px;box-sizing:border-box}
+          .nv{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant)}
+          .nv .pill{width:64px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .nv.on{color:var(--on-surface)}
+          .nv.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .nbadge{position:absolute;top:2px;left:36px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:var(--on-error);font-size:11px;line-height:16px;text-align:center;box-sizing:border-box}
+          .qr{width:200px;height:200px;border-radius:12px;background:repeating-linear-gradient(45deg,#e4e1e9 0 6px,#cfccd6 6px 12px);color:#121318;display:flex;align-items:center;justify-content:center;font:12px "Roboto Mono",monospace;margin:0 auto;flex:none}
+          .qr.gone{opacity:.28}
+          .link{font-family:"Roboto Mono",monospace;font-size:13px;background:var(--sc-high);border-radius:12px;padding:10px 14px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .stack{display:flex;flex-direction:column;gap:16px;padding:8px 16px 0}
+          .note{display:flex;gap:12px;align-items:flex-start;background:var(--sc);border-radius:12px;padding:12px 16px;font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:8px 16px}
+          .banner{display:flex;gap:12px;align-items:flex-start;background:var(--error-container);color:var(--on-error-container);border-radius:12px;padding:12px 16px;font-size:14px;line-height:20px}
+          .ok{display:flex;gap:12px;align-items:flex-start;background:var(--primary-container);color:var(--on-primary-container);border-radius:12px;padding:12px 16px;font-size:14px;line-height:20px}
+          .scrim{position:absolute;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:5}
+          .dlg{width:324px;background:var(--sc-high);border-radius:28px;padding:24px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px}
+          .dlg h3{margin:0;font-size:24px;line-height:32px;font-weight:400;color:var(--on-surface)}
+          .acts{display:flex;justify-content:flex-end;gap:8px}
+          .snack{position:absolute;left:8px;right:8px;bottom:96px;min-height:48px;border-radius:4px;background:#e4e1e9;color:#303036;display:flex;align-items:center;padding:6px 8px 6px 16px;gap:8px;font-size:14px;line-height:20px;box-sizing:border-box;z-index:4}
+          .snack.low{bottom:16px}
+          .snack .sa{color:#515b92;font-weight:500;min-height:48px;display:flex;align-items:center;padding:0 12px;flex:none}
+          .menu{position:absolute;right:12px;width:200px;background:var(--sc-high);border-radius:4px;padding:8px 0;z-index:4;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+          .menu>div{height:48px;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:16px}
+          .search{margin:4px 16px 8px;height:56px;border-radius:28px;background:var(--sc-high);display:flex;align-items:center;gap:16px;padding:0 16px;color:var(--on-surface);font-size:16px;flex:none}
+          .radio{width:20px;height:20px;border-radius:10px;border:2px solid var(--outline);box-sizing:border-box;flex:none}
+          .radio.on{border-color:var(--primary);background:radial-gradient(circle,var(--primary) 0 4px,transparent 5px)}
+          .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 40px 80px;text-align:center}
+          .empty>.ms{font-size:48px;width:48px;height:48px;color:var(--outline)}
+          .empty .h{font-size:22px;line-height:28px}
+          .cd{text-align:center;font-size:14px;line-height:20px;color:var(--on-surface)}
+          .refresh{align-self:center;width:40px;height:40px;border-radius:20px;background:var(--sc-highest);display:flex;align-items:center;justify-content:center;margin:8px 0 0;color:var(--primary)}
+          .x2 .appbar .t{font-size:44px;line-height:52px}
+          .x2 .appbar{height:72px}
+          .x2 .t1{font-size:32px;line-height:44px}
+          .x2 .t2n{font-size:28px;line-height:36px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+          .x2 .sec .st{font-size:28px;line-height:38px}
+          .x2 .secd{font-size:26px;line-height:34px}
+          .x2 .p{font-size:28px;line-height:38px}
+          .x2 .dlg{width:312px}
+          .x2 .dlg h3{font-size:40px;line-height:48px}
+          .x2 .btn-x{font-size:28px;min-height:64px}
+          .x2 .nav{height:84px}
+          .x2 .nv{font-size:15.6px;line-height:20px;white-space:nowrap}
+        </style>
+      </helmet>
+
+      <section class="dv-turn" id="t3" data-screen-label="Turn 3: people and devices">
+        <div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">People, inviting someone, and Devices by role</span></div>
+        <p class="dv-why">People is an admin's tab. An admin invites people, sets them to Basic or Mod, and manages any device that isn't an admin's. Making someone an admin stays on the admin page on the computer running SignalHub, so the app shows admins but can't change them. <a class="dv-oid" href="#3b">3b</a> lists people in sections by role, each explaining the role. The list comes from an admin-only call, <code>GET /api/v1/client/users</code>, which gives each person only a role, an active device count and whether they have paired a device yet. A person's producers come from a separate call on their page, <code>GET /api/v1/client/users/{id}/producers</code> (id, name, visibility, disabled). The API gives no joined date, so none is shown. Device rows show only what the server records: the name, when it was last active (or revoked, or that it was not used yet), and whether it is this device, an admin device or a browser.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="3b" data-screen-label="3b People by role">
+            <div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a>People tab: sections by role</div>
+            <div class="ph">
+              <div class="sb"><span>01:50</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t pl">People</div><span class="ib"><span class="ms">search</span></span></div>
+              <div class="body">
+                <div class="sec"><span class="st">Admins</span><span class="sn">2</span></div>
+                <p class="secd">Manage people and their devices, except other admins. Set on the admin page.</p>
+                <div class="lt"><span class="av me">R</span><div class="tx"><div class="nm"><span class="t1">Rodrigo</span><span class="dtag">You</span></div><span class="t2n">2 devices</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="lt"><span class="av">S</span><div class="tx"><span class="t1">Sofia</span><span class="t2n">1 device</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="sec"><span class="st">Mods</span><span class="sn">1</span></div>
+                <p class="secd">Manage their own devices, producers and subscriptions.</p>
+                <div class="lt"><span class="av">A</span><div class="tx"><span class="t1">Ana</span><span class="t2n">2 devices</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="sec"><span class="st">Basic</span><span class="sn">3</span></div>
+                <p class="secd">Create producers and subscribe. Their devices are read only.</p>
+                <div class="lt"><span class="av">J</span><div class="tx"><span class="t1">João</span><span class="t2n">1 device</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="lt"><span class="av">M</span><div class="tx"><span class="t1">Marta</span><span class="t2n">1 device</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="lt"><span class="av">R</span><div class="tx"><span class="t1">Rui</span><span class="t2n">Invited · not paired yet</span></div><span class="ms c-var">chevron_right</span></div>
+              </div>
+              <div class="fab"><span class="ms">person_add</span>Invite</div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv on"><span class="pill"><span class="ms fill">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The section labels explain each role in place; the web page uses the same words. Each row's second line is only the person's active device count (“N devices”), “Invited · not paired yet” when they have never paired a device, or “No devices” when they paired before and have none active now. There are no producer names in the list: the admin's list call gives only role, active device count and whether they have paired. A person's producers are on their own page (<a class="dv-oid" href="#3e">3e</a>). A second admin is listed like the first: read only. Your own row has a You tag and opens your own page (<a class="dv-oid" href="#3e2">3e2</a>). A role with nobody in it is left out, not shown empty. Every row opens <a class="dv-oid" href="#3e">3e</a>; Invite opens <a class="dv-oid" href="#3d0">3d0</a>; the search icon (accessible name “Search people”) is <a class="dv-oid" href="#3j">3j</a>.</p>
+          </div>
+
+          <div class="dv-opt n360" id="3b2" data-screen-label="3b2 People at 360dp, 200 % text">
+            <div class="dv-olabel"><a class="dv-oid" href="#3b2">3b2</a>360dp wide, text at 200 %</div>
+            <div class="ph w360 x2">
+              <div class="sb"><span>01:50</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t pl">People</div><span class="ib"><span class="ms">search</span></span></div>
+              <div class="body">
+                <div class="sec"><span class="st">Admins</span><span class="sn">2</span></div>
+                <div class="lt"><span class="av me">R</span><div class="tx"><div class="nm"><span class="t1">Rodrigo</span><span class="dtag">You</span></div><span class="t2n">2 devices</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="sec"><span class="st">Basic</span><span class="sn">3</span></div>
+                <div class="lt"><span class="av">M</span><div class="tx"><span class="t1">Maria de Fátima Albuquerque</span><span class="t2n">1 device</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="lt"><span class="av">R</span><div class="tx"><span class="t1">Rui</span><span class="t2n">Invited · not paired yet</span></div><span class="ms c-var">chevron_right</span></div>
+              </div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv on"><span class="pill"><span class="ms fill">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The role explanation lines are dropped from this frame to fit the page; they stay in the app and wrap. A long name ends with an ellipsis, the You tag, chevron and bar icons keep their size, and the second line wraps to two lines and then ends with an ellipsis. The bottom bar's labels never wrap: at large text sizes their text scale is capped at about 1.3x (here 12 sp becomes about 15.6 sp on one line), the icons and the 64 x 32 indicator keep their size, and the bar grows only by the extra line height.</p>
+          </div>
+
+          <div class="dv-opt" id="3d0" data-screen-label="3d0 Invite, the form">
+            <div class="dv-olabel"><a class="dv-oid" href="#3d0">3d0</a>Invite someone: the form</div>
+            <div class="ph sm">
+              <div class="sb"><span>01:51</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Invite someone</div></div>
+              <div class="stack">
+                <div class="tf focus"><span class="fl">Their name</span>Rui</div>
+                <div class="tf"><span class="fl" style="color:var(--on-surface-variant)">First device name (optional)</span>Rui - iPhone</div>
+                <div class="seg"><span class="on"><span class="ms ms18">check</span>Basic</span><span>Mod</span></div>
+                <p class="p">Basic: their own producers and subscriptions. Mod: also pairs and removes their own devices.</p>
+                <div style="display:flex;justify-content:flex-end"><span class="btn-f">Make invitation</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">Step one. The code exists only after Make invitation (<a class="dv-oid" href="#3d">3d</a>). The device name is optional and starts as “First device”; the person can rename it later.</p>
+          </div>
+
+          <div class="dv-opt" id="3d" data-screen-label="3d Invite">
+            <div class="dv-olabel"><a class="dv-oid" href="#3d">3d</a>Invite someone: the code</div>
+            <div class="ph">
+              <div class="sb"><span>01:51</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Invite someone</div></div>
+              <div class="stack">
+                <p class="pb">Invitation for <b>Rui</b> · Basic · first device “Rui - iPhone”</p>
+                <div class="qr">pairing QR code</div>
+                <p class="cd">Rui scans this in SignalHub on their phone. <b>9:41</b> left.</p>
+                <div class="link">signalhub://pair?server=https%3A%2F%2Fsignalhub.example&amp;code=shpc1_…</div>
+                <div style="display:flex;gap:8px;justify-content:center"><span class="btn-t"><span class="ms">content_copy</span>Copy link</span><span class="btn-o"><span class="ms">share</span>Share</span></div>
+                <div class="note" style="margin:0"><span class="ms">warning</span><span>Whoever uses this code joins as Rui. Share it only with Rui.</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">Step two: the name, role and device name above are read only. The same pairing code screen as Connect a device, for a new person. The link is the app's own form (shortened here); it is not tappable in many chat apps, so Share sends it as text and the app's Paste link takes it. States: <a class="dv-oid" href="#3d2">3d2</a> name taken, <a class="dv-oid" href="#3d3">3d3</a> joined, <a class="dv-oid" href="#3d4">3d4</a> ran out.</p>
+          </div>
+
+          <div class="dv-opt" id="3e" data-screen-label="3e A person">
+            <div class="dv-olabel"><a class="dv-oid" href="#3e">3e</a>A person, as an admin sees them</div>
+            <div class="ph">
+              <div class="sb"><span>01:52</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Ana</div></div>
+              <div class="lab">Role</div>
+              <div class="pad"><div class="seg"><span>Basic</span><span class="on"><span class="ms ms18">check</span>Mod</span><span class="dis">Admin</span></div></div>
+              <p class="p pad" style="padding-top:8px">Admin is set on the admin page, on the computer running SignalHub.</p>
+              <div class="lab">Devices</div>
+              <div class="lt r4"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">Ana - Pixel</span><span class="t2n">Last active today</span></div><span class="btn-x">Revoke</span></div>
+              <div class="lt r4"><span class="ms c-var">tablet</span><div class="tx"><span class="t1">Ana - Tablet</span><span class="t2n">Last active 3 days ago</span></div><span class="btn-x">Revoke</span></div>
+              <div class="pad" style="padding-top:4px"><span class="btn-o"><span class="ms">add</span>Pair a device for Ana</span></div>
+              <div class="lab">Producers</div>
+              <div class="lt"><span class="ms c-var">sensors</span><div class="tx"><span class="t1">ana-reports</span><span class="t2n">Public</span></div></div>
+              <div class="lt"><span class="ms c-var">sensors</span><div class="tx"><span class="t1">garage-door</span><span class="t2n">Private · Disabled</span></div></div>
+            </div>
+            <p class="dv-onote">Role, devices and producers. The producers come from a separate call, <code>GET /api/v1/client/users/{id}/producers</code>, made when this page opens: each gives its name, visibility (Public or Private) and whether it is disabled. An admin sees which producers exist, not their keys. Revoke asks first (<a class="dv-oid" href="#3h3">3h3</a>). Changing the role asks first (<a class="dv-oid" href="#3e3">3e3</a>). Removing a person entirely stays on the admin page. Accessible names: the disabled segment is “Admin, not available. Set on the admin page”; each button is “Revoke Ana - Pixel”.</p>
+            <p class="dv-onote">Needs a server change (queued with the design lock-in)</p>
+          </div>
+
+          <div class="dv-opt" id="3f" data-screen-label="3f Devices, mod">
+            <div class="dv-olabel"><a class="dv-oid" href="#3f">3f</a>Devices for a Mod: their own</div>
+            <div class="ph">
+              <div class="sb"><span>01:53</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+              <div class="lt"><span class="ms c-primary">add_circle</span><div class="tx"><span class="t1">Connect a device</span><span class="t2n">Pair a new device with a one-time code</span></div></div>
+              <div class="lab">Yours</div>
+              <div class="lt"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">Ana - Pixel</span><span class="t2n">This device</span></div></div>
+              <div class="lt r4"><span class="ms c-var">tablet</span><div class="tx"><span class="t1">Ana - Tablet</span><span class="t2n">Last active 3 days ago</span></div><span class="ib"><span class="ms">more_vert</span></span></div>
+              <div class="lt r4"><span class="ms c-var">language</span><div class="tx"><div class="nm"><span class="t1">Firefox on Linux</span><span class="dtag">Browser</span></div><span class="t2n">Last active today</span></div><span class="ib"><span class="ms">more_vert</span></span></div>
+            </div>
+            <p class="dv-onote">Today's Devices screen, limited to their own, browsers included. Rename and Revoke are in the row menu (accessible name “More actions for Ana - Tablet”). The app hides Revoke on the device you are using, though the server would allow it when another device is active. Revoking the last active device is refused (<a class="dv-oid" href="#3f2">3f2</a>). A browser's name comes from its user agent; R66 decides the details.</p>
+          </div>
+
+          <div class="dv-opt" id="3g" data-screen-label="3g Devices, basic">
+            <div class="dv-olabel"><a class="dv-oid" href="#3g">3g</a>Devices for a Basic user</div>
+            <div class="ph">
+              <div class="sb"><span>01:53</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+              <div class="lt"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">João - Galaxy</span><span class="t2n">This device</span></div></div>
+              <div class="lt r4"><span class="ms c-var">language</span><div class="tx"><div class="nm"><span class="t1">Firefox on Linux</span><span class="dtag">Browser</span></div><span class="t2n">Last active today</span></div><span class="btn-x">Sign out</span></div>
+              <div class="lt off"><span class="ms c-var">smartphone</span><div class="tx"><div class="nm"><span class="t1">João - Old phone</span><span class="dtag">Revoked</span></div><span class="t2n">Revoked 4 Oct</span></div></div>
+              <div class="note"><span class="ms">info</span><span>To add or remove a device, ask an admin of this server.</span></div>
+            </div>
+            <p class="dv-onote">No disabled buttons: one sentence says who can help. Phones are read only. A browser they signed in is theirs to sign out, so its row has a button (<a class="dv-oid" href="#3g2">3g2</a>); R66 decides the server rule behind it (today a Basic key is refused on every device change). A revoked device stays listed, greyed, with no actions. The row has no Rename. The Sign out button's accessible name is “Sign out Firefox on Linux”.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t3b" data-screen-label="Turn 3b: invite and person states">
+        <div class="dv-thd"><a class="dv-tid" href="#t3b">3b</a><span class="dv-tname">Invite states, a person's page, roles and removals</span></div>
+        <p class="dv-why">What can go wrong or change while an admin invites someone or edits a person, and how an admin sees another admin. Every sentence is the exact copy.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="3d2" data-screen-label="3d2 Invite name taken">
+            <div class="dv-olabel"><a class="dv-oid" href="#3d2">3d2</a>Invite: the name is taken</div>
+            <div class="ph sm">
+              <div class="sb"><span>01:51</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Invite someone</div></div>
+              <div class="stack">
+                <div><div class="tf bad"><span class="fl">Their name</span>Ana<span class="ms c-err" style="margin-left:auto">error</span></div><p class="help bad">Someone on this server already has that name. Use another.</p></div>
+                <div class="seg"><span class="on"><span class="ms ms18">check</span>Basic</span><span>Mod</span></div>
+                <div style="display:flex;justify-content:flex-end"><span class="btn-f dis">Make invitation</span></div>
+                <p class="p">An empty name shows "Enter their name." The button stays off until the name is valid.</p>
+              </div>
+            </div>
+            <p class="dv-onote">Names are unique across the server, whatever the capital letters (the host sees them too). The QR appears only after a valid name makes the invitation.</p>
+          </div>
+
+          <div class="dv-opt" id="3d3" data-screen-label="3d3 Invite used">
+            <div class="dv-olabel"><a class="dv-oid" href="#3d3">3d3</a>Invite: joined</div>
+            <div class="ph sm">
+              <div class="sb"><span>01:56</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Invite someone</div></div>
+              <div class="stack">
+                <div class="ok"><span class="ms">check_circle</span><span><b>Rui joined</b> on Rui - iPhone. The code can't be used again.</span></div>
+                <div class="qr gone">pairing QR code</div>
+                <div style="display:flex;justify-content:flex-end"><span class="btn-f">Done</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">The screen polls the pairing and swaps the countdown for this line. Rui moves from “Invited · not paired yet” to a role section with 1 device. The server also pushes “New device paired” to the admins' devices, this one included, naming the admin who created the code, so the push is no surprise.</p>
+          </div>
+
+          <div class="dv-opt" id="3d4" data-screen-label="3d4 Invite ran out">
+            <div class="dv-olabel"><a class="dv-oid" href="#3d4">3d4</a>Invite: the code ran out</div>
+            <div class="ph sm">
+              <div class="sb"><span>02:02</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Invite someone</div></div>
+              <div class="stack">
+                <div class="banner"><span class="ms">timer_off</span><span>This code ran out. Make a new one for Rui; the old one no longer works.</span></div>
+                <div class="qr gone">pairing QR code</div>
+                <div style="display:flex;justify-content:center"><span class="btn-f"><span class="ms">refresh</span>Make a new code</span></div>
+                <p class="p" style="text-align:center">Leaving now keeps Rui in the list as "Invited · not paired yet". Open Rui any time and choose "Pair a device for Rui".</p>
+              </div>
+            </div>
+            <p class="dv-onote">Codes last 10 minutes. The countdown is announced to screen readers at 1 minute and at the end only.</p>
+          </div>
+
+          <div class="dv-opt" id="3e2" data-screen-label="3e2 An admin">
+            <div class="dv-olabel"><a class="dv-oid" href="#3e2">3e2</a>Another admin, read only</div>
+            <div class="ph">
+              <div class="sb"><span>01:52</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Sofia</div></div>
+              <div class="lab">Role</div>
+              <div class="pad"><div class="seg"><span class="dis">Basic</span><span class="dis">Mod</span><span class="on"><span class="ms ms18">check</span>Admin</span></div></div>
+              <p class="p pad" style="padding-top:8px">Admins are managed on the admin page, on the computer running SignalHub.</p>
+              <div class="lab">Devices</div>
+              <div class="lt"><span class="ms c-var">smartphone</span><div class="tx"><div class="nm"><span class="t1">Sofia - Pixel</span><span class="dtag">Admin device</span></div><span class="t2n">Last active 4 Oct</span></div></div>
+              <div class="note"><span class="ms">info</span><span>An admin's devices can't be renamed or revoked from the app.</span></div>
+              <div class="lab">Producers</div>
+              <div class="lt"><span class="t2">Sofia has no producers.</span></div>
+            </div>
+            <p class="dv-onote">Nothing here is a control: no role change, no Revoke, no Pair. Your own page looks the same, with “Rodrigo” as the title and a You tag. If a request does reach the server, it answers 409 (“Client is an admin device” or “User is an admin”); the app does not show server titles, it maps them to “That's an admin device. Admin devices are managed on the admin page.” The Producers section is filled from the same per-person producers call as <a class="dv-oid" href="#3e">3e</a>; an empty answer reads “Sofia has no producers.”</p>
+          </div>
+
+          <div class="dv-opt" id="3e3" data-screen-label="3e3 Role dialog">
+            <div class="dv-olabel"><a class="dv-oid" href="#3e3">3e3</a>Changing a role asks first</div>
+            <div class="ph sm">
+              <div class="sb"><span>01:54</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Ana</div></div>
+              <div class="lab">Role</div>
+              <div class="pad"><div class="seg"><span class="on"><span class="ms ms18">check</span>Basic</span><span>Mod</span><span class="dis">Admin</span></div></div>
+              <div class="scrim"><div class="dlg"><h3>Make Ana a Basic user?</h3><p class="p">Ana will no longer be able to connect, rename or revoke devices. Their producers and subscriptions stay. It applies on their next action.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-x">Make Basic</span></div></div></div>
+            </div>
+            <p class="dv-onote">Going the other way: "Make Ana a Mod?" · "Ana will be able to connect, rename, revoke and delete their own devices." · Make Mod. The action is primary-coloured because a role can be changed back. A role change sends no push.</p>
+          </div>
+
+          <div class="dv-opt" id="3e4" data-screen-label="3e4 Role errors">
+            <div class="dv-olabel"><a class="dv-oid" href="#3e4">3e4</a>Role and device errors, as messages</div>
+            <div class="ph sm">
+              <div class="sb"><span>01:55</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Marta</div></div>
+              <div class="lab">Role</div>
+              <div class="pad"><div class="seg"><span class="on"><span class="ms ms18">check</span>Basic</span><span>Mod</span><span class="dis">Admin</span></div></div>
+              <div style="display:flex;flex-direction:column;gap:12px;padding:24px 8px">
+                <div class="snack" style="position:static"><span style="flex:1">Marta's access was removed, so their role can't change.</span></div>
+                <div class="snack" style="position:static"><span style="flex:1">Sofia is an admin. Admins are managed on the admin page.</span></div>
+                <div class="snack" style="position:static"><span style="flex:1">Couldn't change the role. Check your connection and try again.</span><span class="sa">Retry</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">The three snackbars, one per case (revoked user: the server's 409 “User is revoked”; admin target: 409 “User is an admin”; no connection). A person who is unknown (404) or revoked on opening is a screen, <a class="dv-oid" href="#3e5">3e5</a>.</p>
+          </div>
+
+          <div class="dv-opt" id="3e5" data-screen-label="3e5 Person removed">
+            <div class="dv-olabel"><a class="dv-oid" href="#3e5">3e5</a>This person was removed</div>
+            <div class="ph sm">
+              <div class="sb"><span>01:58</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Rui</div></div>
+              <div class="empty" style="padding-bottom:40px"><span class="ms">person_off</span><span class="h">This person was removed</span><p class="p">They no longer have access to this server, so there is nothing to change.</p><span class="btn-t" style="margin-top:8px">Back to People</span></div>
+            </div>
+            <p class="dv-onote">When the host removes someone while the list is open, the row disappears on the next refresh. A page opened on them shows this, whether the server answered 404 (unknown) or 409 (revoked).</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t3c" data-screen-label="Turn 3c: Devices by role, in depth">
+        <div class="dv-thd"><a class="dv-tid" href="#t3c">3c</a><span class="dv-tname">Devices for an admin and a Mod: rows, menus, dialogs</span></div>
+        <p class="dv-why">The Devices screen follows the role. An admin sees everyone's devices grouped by person, with revoked ones, and can rename, revoke and delete any device that isn't an admin's. A Mod has only their own. A browser is a device and is listed as one, with a globe icon and a Browser tag. Device rows show the name, a tag where one applies (<b>This device</b> in the summary, <b>Admin device</b>, <b>Browser</b>, <b>Revoked</b>) and when it was last active, when it was revoked, or that it is not used yet.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="3h" data-screen-label="3h Devices, admin">
+            <div class="dv-olabel"><a class="dv-oid" href="#3h">3h</a>Devices for an admin: grouped by person</div>
+            <div class="ph">
+              <div class="sb"><span>02:10</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+              <div class="body">
+                <div class="lt"><span class="ms c-primary">add_circle</span><div class="tx"><span class="t1">Connect a device</span><span class="t2n">For you or for someone else</span></div></div>
+                <div class="sec"><span class="st">Rodrigo</span><span class="tag">Admin</span></div>
+                <div class="lt"><span class="ms c-var">smartphone</span><div class="tx"><div class="nm"><span class="t1">Rodrigo - Pixel 9</span><span class="dtag">Admin device</span></div><span class="t2n">This device</span></div></div>
+                <div class="lt"><span class="ms c-var">tablet</span><div class="tx"><div class="nm"><span class="t1">Rodrigo - Tablet</span><span class="dtag">Admin device</span></div><span class="t2n">Last active today</span></div></div>
+                <div class="sec"><span class="st">Ana</span><span class="tag">Mod</span></div>
+                <div class="lt r4"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">Ana - Pixel</span><span class="t2n">Last active today</span></div><span class="ib"><span class="ms">more_vert</span></span></div>
+                <div class="lt r4"><span class="ms c-var">tablet</span><div class="tx"><span class="t1">Ana - Tablet</span><span class="t2n">Last active 3 days ago</span></div><span class="ib"><span class="ms">more_vert</span></span></div>
+                <div class="lt r4 off"><span class="ms c-var">smartphone</span><div class="tx"><div class="nm"><span class="t1">Ana - Old phone</span><span class="dtag">Revoked</span></div><span class="t2n">Revoked 4 Oct</span></div><span class="btn-x err">Delete</span></div>
+                <div class="sec"><span class="st">João</span><span class="tag">Basic</span></div>
+                <div class="lt r4"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">João - Galaxy</span><span class="t2n">Not used yet</span></div><span class="ib"><span class="ms">more_vert</span></span></div>
+                <div class="lt r4"><span class="ms c-var">language</span><div class="tx"><div class="nm"><span class="t1">Firefox on Linux</span><span class="dtag">Browser</span></div><span class="t2n">Last active today</span></div><span class="ib"><span class="ms">more_vert</span></span></div>
+                <div class="menu" style="top:244px"><div><span class="ms c-var">edit</span>Rename</div><div><span class="ms c-err">block</span><span class="c-err">Revoke</span></div></div>
+              </div>
+            </div>
+            <p class="dv-onote">Grouped by person with the role as a tag (words, not colour). Admin devices have no menu and carry the Admin device tag. The row you're using has no Revoke. A revoked device is greyed, shows when it was revoked, and offers only Delete (not Rename: a revoked device never changes). The open menu on Ana - Tablet is Rename and Revoke; each row's button is named “More actions for NAME”.</p>
+          </div>
+
+          <div class="dv-opt" id="3h2" data-screen-label="3h2 Rename">
+            <div class="dv-olabel"><a class="dv-oid" href="#3h2">3h2</a>Rename a device</div>
+            <div class="ph sm">
+              <div class="sb"><span>02:11</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+              <div class="lt"><span class="ms c-var">tablet</span><div class="tx"><span class="t1">Ana - Tablet</span><span class="t2n">Last active 3 days ago</span></div></div>
+              <div class="scrim"><div class="dlg"><h3>Rename device</h3><div class="tf focus"><span class="fl">Device name</span>Ana - Kitchen tablet</div><p class="p">1 to 100 characters. The device keeps working. Nobody is notified.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-x">Save</span></div></div></div>
+            </div>
+            <p class="dv-onote">An empty name shows "Enter a name." under the field and turns Save off. The server sends no push for a rename.</p>
+          </div>
+
+          <div class="dv-opt" id="3h3" data-screen-label="3h3 Revoke">
+            <div class="dv-olabel"><a class="dv-oid" href="#3h3">3h3</a>Revoke a device</div>
+            <div class="ph sm">
+              <div class="sb"><span>02:12</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+              <div class="lt"><span class="ms c-var">tablet</span><div class="tx"><span class="t1">Ana - Tablet</span><span class="t2n">Last active 3 days ago</span></div></div>
+              <div class="scrim"><div class="dlg"><h3>Revoke Ana - Tablet?</h3><p class="p">It stops getting events at once and can't be used again. To use it again, Ana has to connect it with a new code. Ana's other devices and the admins are told.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-x err">Revoke</span></div></div></div>
+            </div>
+            <p class="dv-onote">Not reversible. The device name is never cut in this dialog. A browser says "Sign out Firefox on Linux?" instead (<a class="dv-oid" href="#3g2">3g2</a>). The error-coloured text button is the destructive action.</p>
+          </div>
+
+          <div class="dv-opt" id="3h4" data-screen-label="3h4 Delete">
+            <div class="dv-olabel"><a class="dv-oid" href="#3h4">3h4</a>Delete a revoked device</div>
+            <div class="ph sm">
+              <div class="sb"><span>02:13</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+              <div class="lt off"><span class="ms c-var">smartphone</span><div class="tx"><div class="nm"><span class="t1">Ana - Old phone</span><span class="dtag">Revoked</span></div><span class="t2n">Revoked 4 Oct</span></div></div>
+              <div class="scrim"><div class="dlg"><h3>Delete Ana - Old phone?</h3><p class="p">It is removed from the list with its push history. Events stay. This can't be undone, and nobody is notified.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-x err">Delete</span></div></div></div>
+            </div>
+            <p class="dv-onote">Delete exists only for a revoked device, so there is nothing to lock anyone out of.</p>
+          </div>
+
+          <div class="dv-opt n360" id="3h5" data-screen-label="3h5 Long device name, 200 % text">
+            <div class="dv-olabel"><a class="dv-oid" href="#3h5">3h5</a>A long device name, 360dp, text at 200 %</div>
+            <div class="ph w360 x2">
+              <div class="sb"><span>02:12</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+              <div class="lt"><span class="ms c-var">tablet</span><div class="tx"><span class="t1">Ana - Kitchen tablet, upstairs</span><span class="t2n">Last active 4 Oct</span></div></div>
+              <div class="scrim"><div class="dlg"><h3>Revoke Ana - Kitchen tablet, upstairs?</h3><p class="p">It stops getting events at once and can't be used again. Ana's other devices and the admins are told.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-x err">Revoke</span></div></div></div>
+            </div>
+            <p class="dv-onote">In a dialog the name wraps and is never cut; buttons grow and their labels wrap; a dialog taller than the screen scrolls.</p>
+          </div>
+
+          <div class="dv-opt" id="3f2" data-screen-label="3f2 Last active device">
+            <div class="dv-olabel"><a class="dv-oid" href="#3f2">3f2</a>A Mod's last active device</div>
+            <div class="ph sm">
+              <div class="sb"><span>02:14</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+              <div class="lt"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">Ana - Pixel</span><span class="t2n">This device</span></div></div>
+              <div class="lt off"><span class="ms c-var">tablet</span><div class="tx"><div class="nm"><span class="t1">Ana - Tablet</span><span class="dtag">Revoked</span></div><span class="t2n">Revoked 4 Oct</span></div></div>
+              <div class="scrim"><div class="dlg"><h3>Can't revoke this device</h3><p class="p">It's your last active device. Revoking it would lock you out. Connect another device first.</p><div class="acts"><span class="btn-x">Not now</span><span class="btn-x">Connect a device</span></div></div></div>
+            </div>
+            <p class="dv-onote">The server refuses with 409 (“Cannot revoke the last active device of a user”) when a Mod is the caller; the app says so in words instead of a generic error. An admin may revoke a Mod's only device (the dialog already says the person must connect again).</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t3d" data-screen-label="Turn 3d: connect a device">
+        <div class="dv-thd"><a class="dv-tid" href="#t3d">3d</a><span class="dv-tname">Connect a device, per role</span></div>
+        <p class="dv-why">A Mod connects a device for themselves. An admin chooses the person first (themselves or anyone who isn't removed). A Basic user has no way in: the Devices screen tells them to ask an admin. The device that creates the code types the new device's name: the device that redeems it cannot name itself.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="3i0" data-screen-label="3i0 Connect, mod, name">
+            <div class="dv-olabel"><a class="dv-oid" href="#3i0">3i0</a>Connect a device: a Mod, step one</div>
+            <div class="ph sm">
+              <div class="sb"><span>02:19</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Connect a device</div></div>
+              <div class="stack">
+                <p class="pb">For Ana (you).</p>
+                <div class="tf focus"><span class="fl">Name of the new device</span>Ana - Phone 2</div>
+                <p class="p">1 to 100 characters. You can rename it later.</p>
+                <div style="display:flex;justify-content:flex-end"><span class="btn-f">Show code</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">The name is required (not blank). An empty name shows “Enter a name.” and turns Show code off.</p>
+          </div>
+
+          <div class="dv-opt" id="3i" data-screen-label="3i Connect, mod">
+            <div class="dv-olabel"><a class="dv-oid" href="#3i">3i</a>Connect a device: a Mod, the code</div>
+            <div class="ph">
+              <div class="sb"><span>02:20</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Connect a device</div></div>
+              <div class="stack">
+                <p class="pb">For Ana (you). New device: Ana - Phone 2. Scan this in SignalHub on the other device, or open the link there.</p>
+                <div class="qr">pairing QR code</div>
+                <p class="cd">Works once. <b>9:12</b> left.</p>
+                <div class="link">signalhub://pair?server=https%3A%2F%2Fsignalhub.example&amp;code=shpc1_…</div>
+                <div style="display:flex;gap:8px;justify-content:center"><span class="btn-t"><span class="ms">content_copy</span>Copy link</span><span class="btn-o"><span class="ms">share</span>Share</span></div>
+                <div class="note" style="margin:0"><span class="ms">warning</span><span>Whoever uses this code gets a device of yours. Share it only with yourself.</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">A Mod is the only person it can be for, so there is no chooser. The name was typed in step one (<a class="dv-oid" href="#3i0">3i0</a>) and can be renamed later. Your admins' devices, this one included, get the push “New device paired” naming who created the code, so it is no surprise.</p>
+          </div>
+
+          <div class="dv-opt" id="3i2" data-screen-label="3i2 Connect, admin chooses">
+            <div class="dv-olabel"><a class="dv-oid" href="#3i2">3i2</a>Connect a device: an admin chooses who</div>
+            <div class="ph">
+              <div class="sb"><span>02:21</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Connect a device</div></div>
+              <div class="lab">For</div>
+              <div class="lt"><span class="radio"></span><span class="av sm me">R</span><div class="tx"><div class="nm"><span class="t1">Rodrigo</span><span class="dtag">You</span></div></div><span class="tag">Admin</span></div>
+              <div class="lt"><span class="radio on"></span><span class="av sm">A</span><div class="tx"><span class="t1">Ana</span></div><span class="tag">Mod</span></div>
+              <div class="lt"><span class="radio"></span><span class="av sm">J</span><div class="tx"><span class="t1">João</span></div><span class="tag">Basic</span></div>
+              <div class="lt"><span class="radio"></span><span class="av sm">M</span><div class="tx"><span class="t1">Marta</span></div><span class="tag">Basic</span></div>
+              <div class="stack" style="padding-top:16px"><div class="tf"><span class="fl" style="color:var(--on-surface-variant)">Name of the new device</span>Ana - Phone 2</div></div>
+              <div style="flex:1"></div>
+              <div style="display:flex;justify-content:flex-end;padding:16px"><span class="btn-f">Show code for Ana</span></div>
+            </div>
+            <p class="dv-onote">Step one, only for admins. Removed people aren't listed. Another admin can be chosen: a device connected for an admin is an admin device. Step two is the same screen as <a class="dv-oid" href="#3i">3i</a>, titled “For Ana” (<a class="dv-oid" href="#3i5">3i5</a>).</p>
+          </div>
+
+          <div class="dv-opt" id="3i5" data-screen-label="3i5 Connect, for someone else">
+            <div class="dv-olabel"><a class="dv-oid" href="#3i5">3i5</a>Connect a device: the code for someone else</div>
+            <div class="ph sm">
+              <div class="sb"><span>02:22</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Connect a device</div></div>
+              <div class="stack">
+                <p class="pb">For Ana. New device: Ana - Phone 2. Scan this in SignalHub on the other device, or open the link there.</p>
+                <div class="qr" style="width:160px;height:160px">pairing QR code</div>
+                <p class="cd">Works once. <b>9:12</b> left.</p>
+                <div class="note" style="margin:0"><span class="ms">warning</span><span>Whoever uses this code gets a device of Ana's. Share it only with Ana.</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">The warning names the person the device is for; “Share it only with yourself.” is only for your own.</p>
+          </div>
+
+          <div class="dv-opt" id="3i3" data-screen-label="3i3 Connect, used">
+            <div class="dv-olabel"><a class="dv-oid" href="#3i3">3i3</a>Connect a device: used</div>
+            <div class="ph sm">
+              <div class="sb"><span>02:24</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Connect a device</div></div>
+              <div class="stack">
+                <div class="ok"><span class="ms">check_circle</span><span><b>Connected.</b> Ana - Phone 2 used this code. It can't be used again.</span></div>
+                <div class="qr gone">pairing QR code</div>
+                <div style="display:flex;justify-content:flex-end"><span class="btn-f">Done</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">Says which device used it, as the admin page does.</p>
+          </div>
+
+          <div class="dv-opt" id="3i4" data-screen-label="3i4 Connect, errors">
+            <div class="dv-olabel"><a class="dv-oid" href="#3i4">3i4</a>Connect a device: ran out, and refused</div>
+            <div class="ph sm">
+              <div class="sb"><span>02:30</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Connect a device</div></div>
+              <div class="stack">
+                <div class="banner"><span class="ms">timer_off</span><span>This code ran out. Make a new one.</span></div>
+                <div style="display:flex;justify-content:flex-start"><span class="btn-f"><span class="ms">refresh</span>Make a new code</span></div>
+                <div class="banner"><span class="ms">person_off</span><span>Marta's access was removed. Choose someone else.</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">The first line is the 10-minute end; the second is the answer when the chosen person was removed meanwhile. If the role changed under the person (a Mod turned Basic), the app says "Your role changed." (<a class="dv-oid" href="#3k">3k</a>).</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t3e" data-screen-label="Turn 3e: browsers, search, role changes">
+        <div class="dv-thd"><a class="dv-tid" href="#t3e">3e</a><span class="dv-tname">Signing in a browser, searching people, a role that changes</span></div>
+        <p class="dv-why">"Sign in a browser" is a Settings row for every role, Basic included, beside Devices. A Basic user can sign out or revoke their own browsers, but not phones (R66 decides the server rule). The scanner and its errors are on the web sign-in page.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="3p" data-screen-label="3p Settings row">
+            <div class="dv-olabel"><a class="dv-oid" href="#3p">3p</a>Settings: Sign in a browser (a Basic user)</div>
+            <div class="ph">
+              <div class="sb"><span>02:40</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t pl">Settings</div></div>
+              <div class="body">
+                <div class="lt"><span class="ms c-var">notifications</span><div class="tx"><span class="t1">Push filters</span><span class="t2n">On · Low and up · 1 muted</span></div><span class="ms c-var">expand_more</span></div>
+                <div class="lt"><span class="ms c-var">volume_up</span><div class="tx"><span class="t1">Alert</span><span class="t2n">Chime · volume 70% · vibration</span></div><span class="ms c-var">expand_more</span></div>
+                <div class="lt"><span class="ms c-var">devices</span><div class="tx"><span class="t1">Devices</span><span class="t2n">2 devices · 1 browser</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="lt"><span class="ms c-var">qr_code_scanner</span><div class="tx"><span class="t1">Sign in a browser</span><span class="t2n">Scan the code a web page shows</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="lt"><span class="ms c-var">info</span><div class="tx"><span class="t1">About this server</span><span class="t2n">signalhub.example · SignalHub 3.4.0 · commit a1b2c3d</span></div><span class="ms c-var">expand_more</span></div>
+                <div class="lt"><span class="ms c-var">phone_android</span><div class="tx"><span class="t1">This device</span><span class="t2n">João - Galaxy · Push notifications are on</span></div><span class="ms c-var">expand_more</span></div>
+              </div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">One Settings order for every role: Push filters, Alert, Devices, Sign in a browser, About this server, This device. The row sits beside Devices, not inside it, so it is reachable by every role (Devices is read only for a Basic user). It opens the scanner. About this server shows the server's address, its version and commit, and the app's own build (sample values). R66 decides the browser sign-in code format.</p>
+            <p class="dv-onote">Needs a server change (queued with the design lock-in)</p>
+          </div>
+
+          <div class="dv-opt" id="3g2" data-screen-label="3g2 Sign out own browser">
+            <div class="dv-olabel"><a class="dv-oid" href="#3g2">3g2</a>A Basic user signs out their browser</div>
+            <div class="ph sm">
+              <div class="sb"><span>02:41</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+              <div class="lt"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">João - Galaxy</span><span class="t2n">This device</span></div></div>
+              <div class="lt"><span class="ms c-var">language</span><div class="tx"><div class="nm"><span class="t1">Firefox on Linux</span><span class="dtag">Browser</span></div><span class="t2n">Last active today</span></div></div>
+              <div class="scrim"><div class="dlg"><h3>Sign out Firefox on Linux?</h3><p class="p">This browser stops being a device of yours. To sign in again, scan a new code from this app.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-x">Sign out</span></div></div></div>
+            </div>
+            <p class="dv-onote">The browser is revoked, so it is signed out at its next request. The phones in the list have no such button for a Basic user. Sign out is an ordinary action, so it is a primary-coloured text button (it can be undone by signing in again).</p>
+          </div>
+
+          <div class="dv-opt" id="3j" data-screen-label="3j People search">
+            <div class="dv-olabel"><a class="dv-oid" href="#3j">3j</a>People: search, and pull to refresh</div>
+            <div class="ph">
+              <div class="sb"><span>02:45</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">People</div></div>
+              <div class="search"><span class="ms">search</span>ma<span class="ms" style="margin-left:auto">close</span></div>
+              <div class="body">
+                <div class="sec"><span class="st">Basic</span><span class="sn">1 of 3</span></div>
+                <div class="lt"><span class="av">M</span><div class="tx"><span class="t1">Marta</span><span class="t2n">1 device</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="sec"><span class="st">Mods</span><span class="sn">0 of 1</span></div>
+                <p class="secd">No one matches.</p>
+                <div class="refresh"><span class="ms">refresh</span></div>
+              </div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv on"><span class="pill"><span class="ms fill">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Search matches names on the loaded list; the list carries no producer names, so a producer's name finds nobody. While searching, a role with no match says "No one matches."; with no search, an empty role is left out. Pull down to refresh (the circle); the list also refreshes when the app opens. No results at all: "No one matches "ma"." Accessible names: the field “Search people”, its x “Clear search”.</p>
+          </div>
+
+          <div class="dv-opt" id="3k" data-screen-label="3k Role changed">
+            <div class="dv-olabel"><a class="dv-oid" href="#3k">3k</a>Your role changed while the app was open</div>
+            <div class="ph">
+              <div class="sb"><span>02:50</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+              <div class="lt"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">Ana - Pixel</span><span class="t2n">This device</span></div></div>
+              <div class="lt"><span class="ms c-var">tablet</span><div class="tx"><span class="t1">Ana - Tablet</span><span class="t2n">Last active 3 days ago</span></div></div>
+              <div class="note"><span class="ms">info</span><span>To add or remove a device, ask an admin of this server.</span></div>
+              <div style="flex:1"></div>
+              <div class="snack low" style="bottom:96px"><span style="flex:1">Your role changed. You're now Basic.</span></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The app learns of a change when an action is refused or when it opens again, not by push. It rebuilds the screen for the new role (Connect and the row menus go; for a person who stops being an admin, the People tab goes) and says so once. Promoted: "Your role changed. You're now a Mod." The action they attempted is not retried.</p>
+          </div>
+
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        renderVals() {
+          return {};
+        }
+      }
+    </script>
+  </body>
+</html>

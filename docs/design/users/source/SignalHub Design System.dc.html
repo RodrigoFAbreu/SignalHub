@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="preconnect" href="vendor/" />
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary:#c3c5dd;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--tertiary:#e6bad7;--tertiary-container:#5d3c55;--error:#ffb4ab;--on-error:#690005;--error-container:#93000a;--on-error-container:#ffdad6;--inv-surface:#e4e1e9;--on-inv:#2f3036;--inv-primary:#515b92;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-lowest:#0d0e13;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f}
+          body{margin:0;background:var(--sc-lowest);color:var(--on-surface);font-family:Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;font-feature-settings:"liga";display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .doc{max-width:1180px;margin:0 auto;padding:48px 32px 96px;display:flex;flex-direction:column;gap:56px}
+          .h1{font-size:32px;line-height:40px;font-weight:400;margin:0}
+          .h2{font-size:22px;line-height:28px;font-weight:500;margin:0}
+          .lede{font-size:16px;line-height:24px;color:var(--on-surface-variant);max-width:70ch;margin:0;text-wrap:pretty}
+          .note{font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0;max-width:72ch;text-wrap:pretty}
+          .sec{display:flex;flex-direction:column;gap:20px}
+          .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
+          .sw{display:flex;flex-direction:column;border-radius:12px;overflow:hidden;border:1px solid var(--outline-variant)}
+          .sw-c{height:56px}
+          .sw-t{padding:8px 10px;font-size:12px;line-height:16px;background:var(--sc)}
+          .sw-t b{display:block;font-weight:500}
+          .mono{font-family:"Roboto Mono",ui-monospace,monospace;color:var(--on-surface-variant)}
+          .row2{display:grid;gap:24px;grid-template-columns:repeat(auto-fit,minmax(min(100%,412px),1fr))}
+          .row3{display:grid;gap:24px;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))}
+          .screen{width:100%;max-width:412px;background:var(--surface);border:1px solid var(--outline-variant);border-radius:20px;overflow:hidden;position:relative}
+          .wsc{width:100%;max-width:640px;background:var(--surface);border:1px solid var(--outline-variant);border-radius:12px;overflow:hidden;position:relative}
+          .cap{font-size:12px;line-height:16px;color:var(--outline);margin:8px 0 0}
+          .tok{font-family:"Roboto Mono",ui-monospace,monospace;font-size:11px;line-height:16px;color:var(--on-surface-variant);margin:4px 0 0}
+          .spec{display:flex;flex-direction:column;gap:6px}
+          .appbar{height:64px;display:flex;align-items:center;gap:4px;padding:0 4px 0 16px}
+          .appbar .t{font-size:22px;line-height:28px;flex:1;display:flex;align-items:center;gap:8px}
+          .badge{min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:var(--on-error);font-size:11px;line-height:16px;font-weight:500;text-align:center;box-sizing:border-box;white-space:nowrap}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .lt{display:flex;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .lt.r4{padding-right:4px}
+          .lt .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px}
+          .t1b{font-size:16px;line-height:24px;font-weight:500}
+          .t2{font-size:14px;line-height:20px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2w{font-size:12px;line-height:16px;color:var(--on-surface-variant);text-align:center}
+          .meta{display:flex;gap:12px;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .meta .m1{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .dot{width:10px;height:10px;border-radius:5px;background:var(--primary);flex:none}
+          .c-primary{color:var(--primary)}.c-error{color:var(--error)}.c-var{color:var(--on-surface-variant)}
+          .chip{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 16px 0 8px;border:1px solid var(--outline);border-radius:8px;font-size:14px;font-weight:500;box-sizing:border-box;white-space:nowrap;flex:none}
+          .chip .ms{font-size:18px;width:18px;height:18px}
+          .chip.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container)}
+          .chips{display:flex;gap:8px;flex-wrap:wrap}
+          .grp{display:flex;align-items:center;gap:16px;padding:16px 24px 16px 16px;border-top:1px solid var(--outline-variant)}
+          .lab{font-size:14px;line-height:20px;font-weight:500;color:var(--primary);padding:16px 16px 8px}
+          .seg{display:flex;margin:0 16px;border:1px solid var(--outline);border-radius:20px;overflow:hidden;height:40px}
+          .seg>span{flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;border-left:1px solid var(--outline)}
+          .seg>span:first-child{border-left:0}
+          .seg>.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .sw-t2{width:52px;height:32px;border-radius:16px;flex:none;position:relative;box-sizing:border-box}
+          .sw-on{background:var(--primary)}
+          .sw-on::after{content:"";position:absolute;right:4px;top:4px;width:24px;height:24px;border-radius:12px;background:var(--on-primary)}
+          .sw-off{background:var(--sc-highest);border:2px solid var(--outline)}
+          .sw-off::after{content:"";position:absolute;left:6px;top:6px;width:16px;height:16px;border-radius:8px;background:var(--outline)}
+          .radio{width:20px;height:20px;border-radius:10px;border:2px solid var(--on-surface-variant);box-sizing:border-box;flex:none;margin:2px}
+          .radio.on{border-color:var(--primary);background:radial-gradient(circle,var(--primary) 0 4.5px,transparent 5px)}
+          .btn-f{height:48px;border-radius:24px;background:var(--primary);color:var(--on-primary);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;margin:0 16px}
+          .btn-t{height:40px;border-radius:20px;background:var(--secondary-container);color:var(--on-secondary-container);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500}
+          .btn-o{height:40px;border-radius:20px;border:1px solid var(--outline);color:var(--primary);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-t .ms,.btn-o .ms{font-size:18px;width:18px;height:18px}
+          .btn-p{height:40px;border-radius:20px;background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-p .ms{font-size:18px;width:18px;height:18px}
+          .btn-p.dis{background:rgba(228,225,233,.12);color:rgba(228,225,233,.38)}
+          .btn-x{height:48px;min-width:48px;border-radius:24px;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;padding:0 12px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-x.dng{color:var(--error)}
+          .tf{margin:0 16px;padding:8px 0;border-bottom:1px solid var(--on-surface-variant);font-size:16px;line-height:24px;color:var(--on-surface-variant)}
+          .count{margin:4px 16px 0;text-align:right;font-size:12px;color:var(--on-surface-variant)}
+          .types{display:flex;flex-direction:column;border:1px solid var(--outline-variant);border-radius:16px;overflow:hidden}
+          .ty{display:grid;grid-template-columns:180px 1fr;gap:16px;align-items:baseline;padding:12px 20px;border-top:1px solid var(--outline-variant)}
+          .ty:first-child{border-top:0}
+          .rules{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}
+          .rule{background:var(--sc);border-radius:16px;padding:16px 20px;display:flex;flex-direction:column;gap:6px}
+          .rule h3{margin:0;font-size:16px;line-height:24px;font-weight:500}
+          .rule p{margin:0;font-size:14px;line-height:20px;color:var(--on-surface-variant);text-wrap:pretty}
+          .tbl{width:100%;border-collapse:collapse;font-size:14px;line-height:20px}
+          .tbl td,.tbl th{padding:10px 12px;border-top:1px solid var(--outline-variant);text-align:left;vertical-align:top}
+          .tbl th{font-weight:500;color:var(--on-surface-variant)}
+          .nav{height:80px;background:var(--sc);display:flex;padding:12px 8px 16px;box-sizing:border-box}
+          .nv{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant);white-space:nowrap}
+          .nv .pill{width:64px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .nv.on{color:var(--on-surface)}
+          .nv.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .nv .badge{position:absolute;top:2px;left:36px}
+          .railbox{display:flex;height:300px}
+          .rail{width:88px;flex:none;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0;background:var(--surface);border-right:1px solid var(--outline-variant)}
+          .rlogo{width:40px;height:40px;border-radius:12px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+          .ri{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:500;color:var(--on-surface-variant)}
+          .ri .pill{width:56px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .ri.on{color:var(--on-surface)}
+          .ri.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .ri .badge{position:absolute;top:2px;left:32px}
+          .acct{margin-top:auto;width:40px;height:40px;border-radius:20px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500}
+          .av{width:40px;height:40px;border-radius:20px;background:var(--sc-highest);color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;flex:none}
+          .tbtn{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box}
+          .tbtn.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .tbtn.off{border:1px solid var(--outline);color:var(--on-surface-variant)}
+          .tbtn.dis{opacity:.38}
+          .bt{width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex:none;outline:1px dashed var(--outline);outline-offset:-1px;border-radius:4px}
+          .bcells{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 4px;padding:16px 8px}
+          .bw{width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex:none}
+          .ring{width:24px;height:24px;border-radius:12px;border:2.5px solid transparent;box-sizing:border-box;flex:none}
+          .ring.sub{border-top-color:var(--on-secondary-container);border-right-color:var(--on-secondary-container)}
+          .ring.uns{border-top-color:var(--on-surface-variant);border-right-color:var(--on-surface-variant)}
+          .nt-ex{text-wrap:balance}
+          .tagrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 16px}
+          .tagrow .own{margin-left:0}
+          .tagrow .own.bw2{background:var(--sc-highest)}
+          .bcell{display:flex;flex-direction:column;align-items:center;gap:8px}
+          .own{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;vertical-align:middle}
+          .own.me{background:var(--primary-container);color:var(--on-primary-container)}
+          .search{margin:4px 16px 8px;height:56px;border-radius:28px;background:var(--sc-high);display:flex;align-items:center;gap:16px;padding:0 16px;color:var(--on-surface-variant);font-size:16px}
+          .fchips{display:flex;gap:8px;padding:0 16px 8px;overflow:hidden}
+          .sec2{display:flex;align-items:center;gap:8px;padding:16px 16px 0}
+          .sec2 .st{font-size:14px;line-height:20px;font-weight:500;color:var(--primary)}
+          .sec2 .sn{font-size:12px;line-height:16px;color:var(--on-surface-variant)}
+          .secd{font-size:13px;line-height:18px;color:var(--on-surface-variant);padding:2px 16px 4px;margin:0}
+          .roletag{height:24px;border-radius:12px;padding:0 10px;font-size:12px;line-height:24px;font-weight:500;box-sizing:border-box;display:inline-block}
+          .r-admin{background:var(--primary-container);color:var(--on-primary-container)}
+          .r-mod{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .r-basic{border:1px solid var(--outline);color:var(--on-surface-variant);line-height:22px}
+          .key{font-family:"Roboto Mono",ui-monospace,monospace;font-size:14px;line-height:22px;word-break:break-all;background:var(--sc-high);border-radius:12px;padding:12px 16px;margin:0 16px}
+          .key.sel{outline:2px solid var(--primary);outline-offset:-2px}
+          .key.sel b{font-weight:400;background:var(--primary-container);color:var(--on-primary-container)}
+          .warn{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:20px;background:var(--sc-low);border-radius:12px;padding:12px 16px;margin:0 16px}
+          .code{font-family:"Roboto Mono",ui-monospace,monospace;font-size:12px;line-height:18px;background:var(--sc-lowest);border-radius:12px;padding:12px 14px;color:var(--on-surface-variant);white-space:pre-wrap;word-break:break-all;margin:0 16px}
+          .empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:32px 40px;text-align:center}
+          .empty>.ms{font-size:48px;width:48px;height:48px;color:var(--outline)}
+          .qrcard{background:var(--sc-low);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:12px;max-width:340px}
+          .qr{width:140px;height:140px;border-radius:12px;background:repeating-linear-gradient(45deg,#e4e1e9 0 6px,#cfccd6 6px 12px);margin:0 auto}
+          .wait{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--on-surface-variant);justify-content:center}
+          .spin{width:18px;height:18px;border-radius:9px;border:2px solid var(--outline-variant);border-top-color:var(--primary);box-sizing:border-box;flex:none}
+          .spin-p{width:18px;height:18px;border-radius:9px;border:2px solid rgba(34,44,97,.3);border-top-color:var(--on-primary);box-sizing:border-box;flex:none}
+          .spin-t{width:18px;height:18px;border-radius:9px;border:2px solid rgba(224,225,249,.3);border-top-color:var(--on-secondary-container);box-sizing:border-box;flex:none}
+          .fab{height:56px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:inline-flex;align-items:center;gap:12px;padding:0 20px 0 16px;font-size:14px;font-weight:500}
+          .sn{margin:8px;min-height:48px;box-sizing:border-box;border-radius:4px;background:var(--inv-surface);color:var(--on-inv);display:flex;align-items:center;gap:8px;padding:6px 8px 6px 16px;font-size:14px;line-height:20px}
+          .sn>span{flex:1}
+          .sn>b{font-weight:500;color:var(--inv-primary);min-height:48px;min-width:48px;display:flex;align-items:center;justify-content:center;padding:0 8px;box-sizing:border-box}
+          .scrimbox{background:rgba(0,0,0,.62);padding:24px}
+          .dlgbox{background:var(--sc-high);border-radius:28px;padding:24px;box-sizing:border-box}
+          .dlgbox h4{margin:0 0 16px;font-size:24px;line-height:32px;font-weight:400}
+          .dlgbox p{margin:0;font-size:14px;line-height:20px;color:var(--on-surface-variant);text-wrap:pretty}
+          .dlgw p{font-size:16px;line-height:24px}
+          .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:24px;flex-wrap:wrap}
+          .tfo{margin:8px 16px 0;height:56px;border:2px solid var(--error);border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 15px;font-size:16px;position:relative;box-sizing:border-box}
+          .tfo.n{border:1px solid var(--outline);padding:0 15px 0 16px}
+          .tfo .fl{position:absolute;top:-9px;left:12px;padding:0 4px;background:var(--surface);font-size:12px;line-height:16px;color:var(--error)}
+          .tfo.n .fl{color:var(--on-surface-variant)}
+          .help{font-size:12px;line-height:16px;padding:4px 16px 0;margin:0 16px;color:var(--on-surface-variant)}
+          .help.err{color:var(--error)}
+          .bn{display:flex;gap:12px;align-items:center;border-radius:12px;padding:4px 4px 4px 16px;min-height:56px;margin:8px 16px;box-sizing:border-box;font-size:14px;line-height:20px}
+          .bn>.tx{flex:1;padding:8px 0}
+          .bn.err{background:var(--error-container);color:var(--on-error-container)}
+          .bn.err .btn-x{color:var(--on-error-container)}
+          .bn.neu{background:var(--sc-high);color:var(--on-surface)}
+          .wbn{display:flex;align-items:center;gap:12px;background:var(--sc-high);color:var(--on-surface);padding:4px 8px 4px 16px;min-height:56px;font-size:14px;line-height:20px;box-sizing:border-box}
+          .wbn>.tx{flex:1}
+          .wbn .btn-x{color:var(--primary)}
+          .sk{background:var(--sc-high);border-radius:6px}
+          .skc{width:40px;height:40px;border-radius:20px;background:var(--sc-high);flex:none}
+          .wn{margin:8px 16px;background:var(--primary-container);color:var(--on-primary-container);border-radius:16px;padding:16px 16px 8px;display:flex;flex-direction:column;gap:12px}
+          .wn h3{margin:0;font-size:16px;line-height:24px;font-weight:500}
+          .wn .fact{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:20px}
+          .wn .btn-x{color:var(--on-primary-container)}
+        </style>
+      </helmet>
+      <div class="doc">
+        <header class="sec" data-screen-label="Intro">
+          <p class="mono" style="margin:0;font-size:12px">SignalHub · design system · from app 2.26.6, with the users' patterns</p>
+          <h1 class="h1">SignalHub design system</h1>
+          <p class="lede">The look SignalHub already has, written down so new screens extend it instead of replacing it. Material 3, generated from Flutter's indigo seed, dark first (the app follows the phone's light or dark mode), Roboto, Material Symbols. Every value here is taken from the running app and its theme code, not invented. Each component below lists its accessible names, and a short Accessibility section covers text size, focus and motion. The patterns added for users (bottom navigation, the producer row, search and filter chips, role sections, the key shown once, the empty state, and the QR sign-in card) come next, then the feedback and state components the new screens share (snackbar, dialog, field error, banners, loading, the bell, tags, the key box, the badge, the “not available” screen, the What's new card) with the rule for undo or confirm. The app builds them in R65, the web page in R66, from this page alone.</p>
+        </header>
+
+        <section class="sec" data-screen-label="Rules">
+          <h2 class="h2">How new screens are decided</h2>
+          <div class="rules">
+            <div class="rule"><h3>1. Precedence</h3><p>The owner's words, then this design system, then Material 3 (app) or the Web Interface Guidelines (web page), then any design skill's defaults. No tool changes the palette, type or patterns on its own.</p></div>
+            <div class="rule"><h3>2. Extend, don't restyle</h3><p>A new screen reuses the components below. A new component is added here first, built from the same tokens.</p></div>
+            <div class="rule"><h3>3. Restraint</h3><p>Product screens are for operating, not persuading: at most one expressive element per screen, and only where this page allows it.</p></div>
+            <div class="rule"><h3>4. Touch and type</h3><p>Touch targets are 48 dp. Text uses the Material type scale below; no sizes picked per screen.</p></div>
+            <div class="rule"><h3>5. Summaries</h3><p>Folded groups and list rows sum up their values in one line joined with middle dots (Info · Normal · producer). It is SignalHub's own pattern and stays.</p></div>
+            <div class="rule"><h3>6. Generic by design</h3><p>Nothing looks different per producer: style depends only on an event's category and severity.</p></div>
+            <div class="rule"><h3>7. Words</h3><p>Plain sentences that say what happened and what to do, never blaming the person. The server's operator is “the host”: never name a person as the server's admin.</p></div>
+          </div>
+        </section>
+
+        <section class="sec" data-screen-label="Color">
+          <h2 class="h2">Color: dark scheme</h2>
+          <p class="note">Material 3 roles from <span class="mono">ColorScheme.fromSeed(Colors.indigo, dark)</span>. Use roles, never raw values, in screens.</p>
+          <div class="grid">
+            <div class="sw"><div class="sw-c" style="background:#bac3ff"></div><div class="sw-t"><b>primary</b><span class="mono">#bac3ff</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#222c61"></div><div class="sw-t"><b>onPrimary</b><span class="mono">#222c61</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#394379"></div><div class="sw-t"><b>primaryContainer</b><span class="mono">#394379</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#434659"></div><div class="sw-t"><b>secondaryContainer</b><span class="mono">#434659</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#e6bad7"></div><div class="sw-t"><b>tertiary</b><span class="mono">#e6bad7</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#ffb4ab"></div><div class="sw-t"><b>error</b><span class="mono">#ffb4ab</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#93000a"></div><div class="sw-t"><b>errorContainer</b><span class="mono">#93000a</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#ffdad6"></div><div class="sw-t"><b>onErrorContainer</b><span class="mono">#ffdad6</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#121318"></div><div class="sw-t"><b>surface</b><span class="mono">#121318</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#1f1f25"></div><div class="sw-t"><b>surfaceContainer</b><span class="mono">#1f1f25</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#29292f"></div><div class="sw-t"><b>surfaceContainerHigh</b><span class="mono">#29292f</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#e4e1e9"></div><div class="sw-t"><b>onSurface · inverseSurface</b><span class="mono">#e4e1e9</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#2f3036"></div><div class="sw-t"><b>onInverseSurface</b><span class="mono">#2f3036</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#515b92"></div><div class="sw-t"><b>inversePrimary</b><span class="mono">#515b92</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#c7c5d0"></div><div class="sw-t"><b>onSurfaceVariant</b><span class="mono">#c7c5d0</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#90909a"></div><div class="sw-t"><b>outline</b><span class="mono">#90909a</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#46464f"></div><div class="sw-t"><b>outlineVariant</b><span class="mono">#46464f</span></div></div>
+          </div>
+          <h2 class="h2" style="font-size:16px;line-height:24px">Light scheme (same roles)</h2>
+          <div class="grid">
+            <div class="sw"><div class="sw-c" style="background:#515b92"></div><div class="sw-t"><b>primary</b><span class="mono">#515b92</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#dee0ff"></div><div class="sw-t"><b>primaryContainer</b><span class="mono">#dee0ff</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#394379"></div><div class="sw-t"><b>onPrimaryContainer</b><span class="mono">#394379</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#e0e1f9"></div><div class="sw-t"><b>secondaryContainer</b><span class="mono">#e0e1f9</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#434659"></div><div class="sw-t"><b>onSecondaryContainer</b><span class="mono">#434659</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#ba1a1a"></div><div class="sw-t"><b>error</b><span class="mono">#ba1a1a</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#ffdad6"></div><div class="sw-t"><b>errorContainer</b><span class="mono">#ffdad6</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#93000a"></div><div class="sw-t"><b>onErrorContainer</b><span class="mono">#93000a</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#fbf8ff"></div><div class="sw-t"><b>surface</b><span class="mono">#fbf8ff</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#f5f2fa"></div><div class="sw-t"><b>surfaceContainerLow</b><span class="mono">#f5f2fa</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#efedf4"></div><div class="sw-t"><b>surfaceContainer</b><span class="mono">#efedf4</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#e9e7ef"></div><div class="sw-t"><b>surfaceContainerHigh</b><span class="mono">#e9e7ef</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#e4e1e9"></div><div class="sw-t"><b>surfaceContainerHighest</b><span class="mono">#e4e1e9</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#1b1b21"></div><div class="sw-t"><b>onSurface</b><span class="mono">#1b1b21</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#46464f"></div><div class="sw-t"><b>onSurfaceVariant</b><span class="mono">#46464f</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#303036"></div><div class="sw-t"><b>inverseSurface</b><span class="mono">#303036</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#f2eff7"></div><div class="sw-t"><b>onInverseSurface</b><span class="mono">#f2eff7</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#bac3ff"></div><div class="sw-t"><b>inversePrimary</b><span class="mono">#bac3ff</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#767680"></div><div class="sw-t"><b>outline</b><span class="mono">#767680</span></div></div>
+            <div class="sw"><div class="sw-c" style="background:#c7c5d0"></div><div class="sw-t"><b>outlineVariant</b><span class="mono">#c7c5d0</span></div></div>
+          </div>
+          <p class="note">Light onErrorContainer, inverseSurface, onInverseSurface and inversePrimary are the standard Material 3 values for the indigo seed, not read from the running app; check them against the app's theme when R65 builds.</p>
+          <table class="tbl">
+            <tr><th>Meaning</th><th>Role</th><th>Where</th></tr>
+            <tr><td>Critical and high severity</td><td class="c-error">error</td><td>event icon, severity chip icon</td></tr>
+            <tr><td>Normal severity</td><td class="c-primary">primary</td><td>event icon</td></tr>
+            <tr><td>Low severity</td><td class="c-var">onSurfaceVariant</td><td>event icon</td></tr>
+            <tr><td>Unread</td><td class="c-primary">primary dot, bold title</td><td>inbox row</td></tr>
+            <tr><td>Unread count</td><td class="c-error">error badge</td><td>Inbox tab</td></tr>
+            <tr><td>Section label</td><td class="c-primary">primary, titleSmall</td><td>settings groups, role sections</td></tr>
+            <tr><td>Field error, a destructive confirm button</td><td class="c-error">error</td><td>field border, label, help; the dialog's confirming action</td></tr>
+            <tr><td>Error banner</td><td>errorContainer / onErrorContainer</td><td>something stopped and the person can act</td></tr>
+            <tr><td>Offline, stale and notice banners, on the app and on the web page</td><td>surfaceContainerHigh / onSurface</td><td>neutral: not a fault of the person's</td></tr>
+            <tr><td>Snackbar</td><td>inverseSurface / onInverseSurface, action inversePrimary</td><td>a result or a failed change</td></tr>
+          </table>
+        </section>
+
+        <section class="sec" data-screen-label="Type">
+          <h2 class="h2">Type: Material 3 scale, Roboto</h2>
+          <div class="types">
+            <div class="ty"><span class="mono" style="font-size:12px">headlineSmall 24/32</span><span style="font-size:24px;line-height:32px">Your action: approve the release</span></div>
+            <div class="ty"><span class="mono" style="font-size:12px">titleLarge 22/28</span><span style="font-size:22px;line-height:28px">SignalHub · Settings · Devices</span></div>
+            <div class="ty"><span class="mono" style="font-size:12px">titleMedium 16/24 · 500</span><span style="font-size:16px;line-height:24px;font-weight:500">Unread event title</span></div>
+            <div class="ty"><span class="mono" style="font-size:12px">titleSmall 14/20 · 500</span><span style="font-size:14px;line-height:20px;font-weight:500" class="c-primary">Minimum severity</span></div>
+            <div class="ty"><span class="mono" style="font-size:12px">bodyLarge 16/24</span><span style="font-size:16px;line-height:24px">Push notifications are on</span></div>
+            <div class="ty"><span class="mono" style="font-size:12px">bodyMedium 14/20</span><span style="font-size:14px;line-height:20px" class="c-var">Info · Normal · backup-jobs</span></div>
+            <div class="ty"><span class="mono" style="font-size:12px">bodySmall 12/16</span><span style="font-size:12px;line-height:16px" class="c-var">0/100</span></div>
+            <div class="ty"><span class="mono" style="font-size:12px">labelLarge 14/20 · 500</span><span style="font-size:14px;line-height:20px;font-weight:500">Create pairing code</span></div>
+          </div>
+          <p class="note">Monospace only for opaque values the owner may copy (metadata, keys, IDs). Dates are local, to the minute: <span class="mono">2026-10-10 01:19</span>.</p>
+        </section>
+
+        <section class="sec" data-screen-label="Shape and space">
+          <h2 class="h2">Shape and space</h2>
+          <table class="tbl">
+            <tr><th>Token</th><th>Value</th><th>Used by</th></tr>
+            <tr><td>Spacing</td><td class="mono">4 · 8 · 12 · 16 · 24</td><td>16 is the screen edge; 24 the list item's trailing edge</td></tr>
+            <tr><td>Touch target</td><td class="mono">48 dp</td><td>icon buttons, rows, switches, the bell, a snackbar's action, a dialog's buttons</td></tr>
+            <tr><td>Full radius</td><td class="mono">height / 2</td><td>buttons, segmented buttons, switches</td></tr>
+            <tr><td>Small radius</td><td class="mono">8</td><td>chips</td></tr>
+            <tr><td>Dialog radius</td><td class="mono">28</td><td>confirmation dialogs; 12 for banners and key boxes, 16 for cards, 4 for a snackbar</td></tr>
+            <tr><td>Dividers</td><td class="mono">1 dp outlineVariant</td><td>between folding groups</td></tr>
+            <tr><td>Sizes</td><td class="mono">360 dp minimum · 412 dp drawn</td><td>360 dp is the narrowest phone to support: Producers and the key screen are checked at 360 dp and at 200% text. Landscape keeps the same layout, with content at most 600 dp wide and centered. Tablets are out of scope for R65 and use the same layout.</td></tr>
+            <tr><td>Bottom bar and system insets</td><td class="mono">80 dp + the system navigation inset</td><td>The bar's height is 80 dp plus the gesture-bar or navigation-bar inset; the floating button sits 16 dp above the bar; a list under a floating button has 88 dp of bottom padding so its last row scrolls clear of it.</td></tr>
+            <tr><td>Elevation</td><td class="mono">none; tonal surfaces (a floating button and a menu are the only lifted things)</td><td>no shadows on screens</td></tr>
+          </table>
+        </section>
+
+        <section class="sec" data-screen-label="Components">
+          <h2 class="h2">Components, as the app draws them (1 px = 1 dp)</h2>
+          <div class="row2">
+            <div class="spec">
+              <div class="screen">
+                <div class="appbar"><div class="t">SignalHub</div><span class="ib"><span class="ms">filter_list</span></span><span class="ib"><span class="ms">done_all</span></span></div>
+                <div class="lt"><span class="ms c-error">pan_tool</span><div class="tx"><span class="t1b">Your action: approve the release</span><div class="meta"><span class="m1">Action required · High · ci-pipeline</span><span>01:19</span></div></div><span class="dot"></span></div>
+                <div class="lt"><span class="ms c-primary">info</span><div class="tx"><span class="t1b">Nightly backup finished</span><div class="meta"><span class="m1">Info · Normal · backup-jobs</span><span>00:41</span></div></div><span class="dot"></span></div>
+                <div class="lt"><span class="ms c-var">check_circle</span><div class="tx"><span class="t1">Deploy to staging done</span><div class="meta"><span class="m1">Completed · Low · homelab-monitor</span><span>00:14</span></div></div><span style="width:10px"></span></div>
+              </div>
+              <p class="cap">App bar of the inbox: Filter and Mark all as read only. There is no gear: Settings is a tab of the bottom bar, and the unread count lives on the Inbox tab. Inbox rows: category icon colored by severity, bold title and dot while unread, one-line summary and time.</p>
+            </div>
+            <div class="spec">
+              <div class="screen" style="padding:16px 0 20px;display:flex;flex-direction:column;gap:16px">
+                <div style="padding:0 16px;font-size:24px;line-height:32px">Your action: approve the release</div>
+                <div class="chips" style="padding:0 16px"><span class="chip"><span class="ms">pan_tool</span>Action required</span><span class="chip"><span class="ms c-error">priority_high</span>High</span></div>
+                <div style="padding:0 16px" class="t1">The release is waiting at the approval gate.</div>
+                <div style="padding:0 16px"><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div>
+                <table class="tbl" style="margin:0 4px"><tr><th style="border:0">Producer</th><td style="border:0">ci-pipeline</td></tr><tr><th style="border:0">Received</th><td style="border:0">2026-10-10 01:19</td></tr></table>
+              </div>
+              <p class="cap">Event details: headlineSmall title, outlined chips for category and severity, tonal button for the link, label and value pairs.</p>
+            </div>
+            <div class="spec">
+              <div class="screen">
+                <div class="grp" style="border-top:0"><div class="tx" style="flex:1"><div class="t1">Push filters</div><div class="t2">Normal and up · Completed, Info muted · all producers</div></div><span class="ms c-primary">expand_less</span></div>
+                <div class="lab">Minimum severity</div>
+                <div class="seg"><span>Low</span><span class="on">Normal</span><span>High</span><span>Critical</span></div>
+                <div class="lab">Categories</div>
+                <div class="lt"><span class="ms">pan_tool</span><div class="tx"><span class="t1">Action required</span></div><span class="sw-t2 sw-on"></span></div>
+                <div class="lt"><span class="ms">info</span><div class="tx"><span class="t1">Info</span></div><span class="sw-t2 sw-off"></span></div>
+                <div class="grp"><div class="tx" style="flex:1"><div class="t1">Alert</div><div class="t2">Signal · 50 % · Medium · Short, short, long</div></div><span class="ms c-var">expand_more</span></div>
+                <div class="grp"><span class="ms c-var">devices</span><div class="tx" style="flex:1"><div class="t1">Devices</div><div class="t2">1 device · 1 admin</div></div><span class="ms c-var">chevron_right</span></div>
+              </div>
+              <p class="cap">Settings: folding groups that sum up their values, primary section labels, segmented button, switch rows, a row that opens a screen.</p>
+            </div>
+            <div class="spec">
+              <div class="screen" style="padding:8px 0 24px;display:flex;flex-direction:column;gap:4px">
+                <div class="lt"><span class="radio"></span><div class="tx"><span class="t1">Steady</span></div><span class="ms c-var">vibration</span></div>
+                <div class="lt"><span class="radio on"></span><div class="tx"><span class="t1">Rapid pulse</span></div><span class="ms c-var">vibration</span></div>
+                <div class="lt"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">Me - S24</span><span class="t2">This device · Admin device</span></div></div>
+                <div class="lt"><span class="ms c-var">logout</span><div class="tx"><span class="t1">Disconnect this device</span></div></div>
+                <div class="tf">Name of the new device</div>
+                <div class="count">0/100</div>
+                <div class="btn-f" style="margin-top:8px">Create pairing code</div>
+              </div>
+              <p class="cap">Radio rows with a preview action, device rows, a destructive row (plain, confirmed by a dialog), text field with counter, filled button for a screen's main action.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="sec" data-screen-label="Patterns for users">
+          <h2 class="h2">Patterns added for users</h2>
+          <p class="note">Decided in the users' designs (R64). Each is built from the tokens above; none adds a color or a type size.</p>
+          <div class="row2">
+            <div class="spec">
+              <div class="screen">
+                <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span><span class="badge">3</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+                <div class="nav" style="border-top:1px solid var(--outline-variant)"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="badge">3</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv on"><span class="pill"><span class="ms fill">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              </div>
+              <p class="cap">Bottom navigation: Inbox, Producers, Settings; an admin adds People. 80 dp, surfaceContainer, a secondaryContainer pill under the selected icon (filled glyph), the unread count as an error badge on Inbox. It shows on the four top-level screens only; pushed screens hide it. Settings is a tab, so the inbox has no gear icon. Its labels never wrap: at large text sizes their text scale is capped at about 1.3x and the icons keep their size.</p>
+            </div>
+            <div class="spec">
+              <div class="screen">
+                <div class="railbox">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri on"><span class="pill"><span class="ms fill">inbox</span><span class="badge">3</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><span class="acct">R</span></div>
+                  <div style="flex:1;padding:16px;font-size:13px;line-height:18px;color:var(--on-surface-variant)">List and detail<br />sit beside the rail.</div>
+                </div>
+              </div>
+              <p class="cap">Web navigation rail (a wide screen, from about 840 px): the same destinations and pill as the bottom bar, 88 px wide, logo at the top and the account button at the bottom, which opens a menu with Devices and Sign out. Below 840 px it becomes the bottom bar. People is for admins only.</p>
+            </div>
+            <div class="spec">
+              <div class="screen" style="padding:8px 0">
+                <div class="lt"><span class="av"><span class="ms">sensors</span></span><div class="tx"><span class="t1">ci-pipeline<span class="own">Yours</span></span><span class="t2">Public · 2 keys · last event 01:19</span></div><span class="tbtn on"><span class="ms fill">notifications_active</span></span></div>
+                <div class="lt"><span class="av"><span class="ms">sensors</span></span><div class="tx"><span class="t1">ana-reports</span><span class="t2">Ana · Public</span></div><span class="tbtn on"><span class="ms fill">notifications_active</span></span></div>
+                <div class="lt"><span class="av"><span class="ms">sensors</span></span><div class="tx"><span class="t1">weather-alerts</span><span class="t2">João · Public</span></div><span class="tbtn off"><span class="ms">notifications</span></span></div>
+              </div>
+              <p class="cap">Producer row: a neutral avatar (never per producer), the name, a middle-dot summary, and the bell. The states of the bell, the “Yours” tag and the row's other tags are specified under Feedback and state components, below.</p>
+            </div>
+            <div class="spec">
+              <div class="screen" style="padding-bottom:8px">
+                <div class="search"><span class="ms">search</span>Find a producer</div>
+                <div class="fchips"><span class="chip on" style="padding-left:8px"><span class="ms">check</span>All</span><span class="chip" style="padding-left:16px">Yours</span><span class="chip" style="padding-left:16px">Subscribed</span><span class="chip" style="padding-left:16px">Can subscribe</span></div>
+              </div>
+              <p class="cap">Search plus filter chips: a 56 dp search field (surfaceContainerHigh, full radius), then single-choice chips that scroll sideways (selected = secondaryContainer with a check). The chips are All, Yours, Subscribed and Can subscribe (never “Mine”); they never wrap, and a chip with nothing behind it says so in its own words. A chip's hit area is padded to 48 dp.</p>
+            </div>
+            <div class="spec">
+              <div class="screen" style="padding-bottom:8px">
+                <div class="sec2"><span class="st">Mods</span><span class="sn">1</span></div>
+                <p class="secd">Manage their own devices, producers and subscriptions.</p>
+                <div class="lt"><span class="av" style="background:var(--tertiary-container);color:#ffd8ee;font-weight:500">A</span><div class="tx"><span class="t1">Ana</span><span class="t2">2 devices</span></div><span class="ms c-var">chevron_right</span></div>
+              </div>
+              <p class="cap">Role sections: a primary label with a count, then one sentence saying what the role can do, then the rows. Section names are Admins, Mods and Basic, in that order; an empty section is hidden. Role tags are specified below.</p>
+            </div>
+            <div class="spec">
+              <div class="screen" style="padding:16px 0;display:flex;flex-direction:column;gap:12px">
+                <div class="key">shpk1_EXAMPLEKEY-not-a-real-key-0000</div>
+                <div style="display:flex;gap:8px;padding:0 16px"><span class="btn-t"><span class="ms">content_copy</span>Copy</span><span class="btn-o"><span class="ms">share</span>Share</span></div>
+                <div class="warn"><span class="ms c-var">visibility_off</span><span>Shown once. You won't see this key again.</span></div>
+                <div class="code">curl -X POST https://signalhub.example/api/v1/events \
+  -H "Authorization: Bearer shpk1_EXAMPLEKEY-not-a-real-key-0000" \
+  -H "Content-Type: application/json" \
+  -d '{"category":"INFO","severity":"NORMAL","title":"Hello"}'</div>
+                <div class="btn-f"><span class="ms" style="font-size:18px;width:18px;height:18px;margin-right:8px">content_copy</span>Copy and close</div>
+              </div>
+              <p class="cap">Key shown once: the key in monospace on surfaceContainerHigh, Copy and Share, one plain sentence in its own low container saying it will not be shown again, a send example with a sample host, and a full-width filled Copy and close. A full screen, not a dialog, with a 48 dp Close icon at the top left (named “Close”); the system Back and the predictive back gesture go through the same guard, which asks once when the key has not been copied. The send example is the same curl call on the app and the web page, with all the fields the server requires (category and severity) and the fake sample key. The key box and snippet are specified below.</p>
+            </div>
+            <div class="spec">
+              <div class="screen">
+                <div class="empty"><span class="ms">search_off</span><div class="t1" style="font-size:22px;line-height:28px">No producers match</div><div class="t2" style="white-space:normal">Nothing you can see is named “zebra”. Check the spelling, or clear the search.</div><span class="btn-t" style="margin-top:8px;padding-left:24px">Clear search</span></div>
+              </div>
+              <p class="cap">Empty state: a 48 dp outline-colored icon, a titleLarge sentence saying what is missing, one body sentence saying why or what to do, and at most one tonal button. Centered in the space left under the search and chips, which stay.</p>
+            </div>
+            <div class="spec">
+              <div class="qrcard">
+                <div class="t1" style="font-size:20px;line-height:26px">Sign in with your phone</div>
+                <div class="t2" style="white-space:normal">Open SignalHub on your phone, go to Settings › Sign in a browser, and scan this code.</div>
+                <div class="qr" aria-label="Sign-in QR code. To sign in without scanning, use a code instead."></div>
+                <div class="wait"><span class="spin"></span>Waiting for your phone · 2:41</div>
+                <div style="text-align:center"><span class="btn-x" style="text-decoration:underline">Use a code instead</span></div>
+              </div>
+              <p class="cap">QR sign-in card (web page): a centered surfaceContainerLow card, 24 dp radius, the steps in one sentence, the code on a light plate for scanning, and a waiting line with a countdown. At zero the code refreshes itself; on success the card shows a check and opens the inbox. The app confirms with “Sign in this browser?”. On a phone-width page the QR is replaced by a typed code and an Open the app button. In the light scheme the card gets a 1 px outlineVariant edge and the code is dark on a white plate. The QR code is named “Sign-in QR code. To sign in without scanning, use a code instead.”, and Use a code instead comes before it in the focus order. The countdown, the code's format and how often it refreshes are R66's to decide.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="sec" data-screen-label="Feedback and state components">
+          <h2 class="h2">Feedback and state components</h2>
+          <p class="note">What every new list, form and dialog uses to say that something happened, is happening or went wrong. Each specimen has its usage rule under it, then its tokens. Copy shown is the exact wording to build.</p>
+          <div class="row2">
+
+            <div class="spec" id="c-snackbar">
+              <div class="screen" style="padding:8px 0">
+                <div class="sn"><span>Your role changed. You're now Basic.</span></div>
+                <div class="sn"><span>Couldn't subscribe to ana-reports. Try again.</span><b>Retry</b></div>
+                <div class="sn"><span>Unsubscribed from ana-reports. Its events leave your inbox.</span><b>Undo</b></div>
+              </div>
+              <p class="cap"><b>Snackbar</b> (plain, with Retry, with Undo). One or two lines, at most one action, gone after 6 seconds. Plain says a result. Retry follows a change that failed and went back to what it was (“Couldn't subscribe to NAME. Try again.” or “Couldn't unsubscribe from NAME. Try again.”). Undo follows a change that can be reversed exactly. It floats 8 dp above the bottom bar; a failure the person must act on is a banner, not a snackbar.</p>
+              <p class="tok">inverseSurface · onInverseSurface 14/20 · action inversePrimary 500 · radius 4 · min height 48 · action target 48×48</p>
+            </div>
+
+            <div class="spec" id="c-dialog">
+              <div class="screen">
+                <div class="scrimbox">
+                  <div class="dlgbox">
+                    <h4>Revoke this key?</h4>
+                    <p>shpk1_EXAMPLE… stops working at once, and whatever sends with it is turned away. This can't be undone.</p>
+                    <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x dng">Revoke</span></div>
+                  </div>
+                  <div class="dlgbox" style="margin-top:16px">
+                    <h4>Disable homelab-monitor?</h4>
+                    <p>Its keys stop working. Its events stay. You can enable it again.</p>
+                    <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x">Disable</span></div>
+                  </div>
+                </div>
+              </div>
+              <p class="cap"><b>Confirmation dialog.</b> The title is a question that names the thing and is never truncated. The body is one or two sentences: who is affected, and whether it can be undone (“This can't be undone.”). Cancel is quiet and on the left; the action is a verb in words, in error color only when it can't be taken back. Never “OK” or “Yes”. Dims the screen; closes on Cancel or a tap outside, and never on the destructive action by accident.</p>
+              <p class="tok">surfaceContainerHigh · radius 28 · padding 24 · title headlineSmall 24/32 · body bodyMedium onSurfaceVariant · text buttons 48 high · scrim black at 62% in dark, 32% in light</p>
+            </div>
+
+            <div class="spec" id="c-field">
+              <div class="screen" style="padding:8px 0 16px">
+                <div class="tfo n"><span class="fl">Name</span><span>garage-door</span></div>
+                <p class="help">Letters, numbers and . _ : / - only, up to 100.</p>
+                <div class="tfo" style="margin-top:20px"><span class="fl">Name</span><span>ci-pipeline</span><span class="ms c-error">error</span></div>
+                <p class="help err">That name is taken. Names are shared by everyone on this server.</p>
+                <div style="padding:16px 16px 0;display:flex;justify-content:flex-end"><span class="btn-p dis" style="padding-left:24px">Create</span></div>
+              </div>
+              <p class="cap"><b>Field error.</b> Shown under the field while the person types, on Create and Rename alike. Says what is wrong and what to do, in a sentence; the 2 dp border, the label, the help line and a trailing error icon all turn to error color, so it is never color alone. The submit button stays off (12% / 38% onSurface) until the field is valid. The normal state keeps its help line.</p>
+              <p class="tok">border 2 dp error · label error · help bodySmall 12/16 error · trailing icon error 24 · disabled button onSurface 12% fill, 38% text</p>
+            </div>
+
+            <div class="spec" id="c-banners">
+              <div class="screen" style="padding:8px 0">
+                <div class="bn err"><span class="ms">block</span><span class="tx">Disabled by the host. Its keys don't work. Ask the host to enable it.</span></div>
+                <div class="bn err"><span class="ms">cloud_off</span><span class="tx">SignalHub had a problem. Try again in a moment.</span><span class="btn-x">Try again</span></div>
+                <div class="bn neu"><span class="ms c-var">cloud_off</span><span class="tx">You're offline. This is the list from 18:12. Changes are paused until you're back.</span></div>
+                <div class="bn neu"><span class="ms c-var">history</span><span class="tx">Couldn't refresh. This is the list from 18:12.</span><span class="btn-x">Try again</span></div>
+              </div>
+              <p class="cap"><b>Banners.</b> Error (errorContainer): something stopped and there is a next step; the first line is a state of a producer, the second a server fault. Offline (neutral): no connection; reading still works and anything that writes is greyed, the reason said once here, and the banner leaves by itself. Stale (neutral, with Try again): the connection is fine but the refresh failed, so the older list stays with its time (its wording is new in this page; the others come from the screens). A banner sits under the app bar and search, above the list, and is inline: it pushes the list down and never covers it.</p>
+              <p class="tok">error: errorContainer · onErrorContainer · neutral: surfaceContainerHigh · onSurface · radius 12 · min height 56 · icon 24 · action 48 high, text button</p>
+            </div>
+
+            <div class="spec" id="c-loading">
+              <div class="screen" style="padding:8px 0 16px">
+                <div class="lt r4"><span class="skc"></span><div class="tx" style="gap:8px"><span class="sk" style="height:16px;width:140px"></span><span class="sk" style="height:12px;width:200px"></span></div><span style="width:48px"></span></div>
+                <div class="lt r4"><span class="skc"></span><div class="tx" style="gap:8px"><span class="sk" style="height:16px;width:110px"></span><span class="sk" style="height:12px;width:170px"></span></div><span style="width:48px"></span></div>
+                <div class="lt r4"><span class="skc"></span><div class="tx" style="gap:8px"><span class="sk" style="height:16px;width:160px"></span><span class="sk" style="height:12px;width:190px"></span></div><span style="width:48px"></span></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;padding:16px 16px 0"><span class="btn-p"><span class="ms">add</span>New key</span><span class="btn-p" style="opacity:.7"><span class="spin-p"></span>New key</span><span class="btn-t"><span class="ms">check</span>Copied</span></div>
+              </div>
+              <p class="cap"><b>Loading.</b> A list that loads shows skeleton rows with the shape of the real row (avatar, two lines, trailing control), at least three, never a spinner for a whole list; nothing animates under “reduce motion”. A button that works keeps its width and label, shows a spinner in its icon slot and ignores taps; Copy turns to Copied for two seconds (on the key screen it stays). Screens that need a name in the title wait for it instead of showing a placeholder.</p>
+              <p class="tok">skeleton surfaceContainerHigh · radius 6, avatar 40 · button spinner 18 dp, onPrimary on filled / onSecondaryContainer on tonal, label unchanged · Copied: tonal, check icon</p>
+            </div>
+
+            <div class="spec" id="c-bell">
+              <div class="screen">
+                <div class="bcells">
+                  <div class="bcell"><span class="bt"><span class="tbtn on"><span class="ms fill">notifications_active</span></span></span><span class="t2w">Subscribed</span></div>
+                  <div class="bcell"><span class="bt"><span class="tbtn off"><span class="ms">notifications</span></span></span><span class="t2w">Not subscribed</span></div>
+                  <div class="bcell"><span class="bt"><span class="tbtn on dis"><span class="ms fill">notifications_active</span></span></span><span class="t2w">Offline</span></div>
+                  <div class="bcell"><span class="bw"><span class="tbtn on" aria-label="Subscribing to ana-reports"><span class="ring sub"></span></span></span><span class="t2w">In flight: subscribing</span></div>
+                  <div class="bcell"><span class="bw"><span class="tbtn off" aria-label="Unsubscribing from ci-pipeline"><span class="ring uns"></span></span></span><span class="t2w">In flight: unsubscribing</span></div>
+                  <div class="bcell"><span class="bt"><span class="tbtn off"><span class="ms">notifications</span></span></span><span class="t2w">Failed: back as it was</span></div>
+                </div>
+                <div class="sn"><span>Couldn't subscribe to ana-reports. Try again.</span><b>Retry</b></div>
+              </div>
+              <p class="cap"><b>Bell toggle.</b> One control per producer row for subscribing, in place. Tap swaps the bell for a progress ring and ignores taps until the call ends: a 24 dp circular progress indicator (stroke 2.5) inside the 40 dp circle, which is secondaryContainer while subscribing and a 1 dp outline while unsubscribing, with no dashed or other target border (the dashed boxes here mark the 48 dp target of the resting states only). On failure it goes back to what it was and a snackbar with Retry says so. Offline it is greyed with the reason said once in the banner. The bell stays on a paused or disabled producer so it can be unsubscribed. The visible circle is 40 dp inside a 48 × 48 dp target. Under reduced motion the in-flight ring stays and does not turn. Screen-reader labels: “Subscribed to ana-reports. Double tap to unsubscribe”, “Not subscribed to price-watch. Double tap to subscribe”, and in flight “Subscribing to ana-reports” or “Unsubscribing from ana-reports”.</p>
+              <p class="tok">on: secondaryContainer + onSecondaryContainer, filled glyph · off: 1 dp outline + onSurfaceVariant, outlined glyph · in flight: 24 dp ring, onSecondaryContainer (subscribing) or onSurfaceVariant (unsubscribing) · disabled: 38% · target 48×48</p>
+            </div>
+
+            <div class="spec" id="c-tags">
+              <div class="screen" style="padding:8px 0 16px">
+                <div class="lt" style="gap:12px"><span class="roletag r-admin">Admin</span><span class="roletag r-mod">Mod</span><span class="roletag r-basic">Basic</span></div>
+                <div class="lt"><span class="av" style="background:var(--primary-container);color:var(--on-primary-container);font-weight:500">R</span><div class="tx"><span class="t1">Rodrigo<span class="own me">You</span><span class="roletag r-admin" style="margin-left:8px">Admin</span></span><span class="t2">2 devices</span></div></div>
+                <div class="lt"><span class="av"><span class="ms">sensors</span></span><div class="tx"><span class="t1">ci-pipeline<span class="own">Yours</span></span><span class="t2">Public · 2 keys · last event 01:19</span></div></div>
+                <div class="tagrow"><span class="own me">Admin device</span><span class="own">Browser</span><span class="own me">This device</span><span class="own me">This browser</span><span class="own">Revoked</span></div>
+              </div>
+              <p class="cap"><b>Role tags and the “Yours” tag.</b> A role tag is a word (Admin, Mod, Basic), never an icon or a color alone, in a 24 dp pill that differs by form: filled primaryContainer (Admin), tonal secondaryContainer (Mod), outlined (Basic). A role is not a warning, so no tag is ever red. Role tags go beside a name where a list has no role section. “Yours” (on a producer you own, never “Mine”), “You” and the like are smaller label tags, 20 dp with a 6 dp corner: neutral surfaceContainerHighest for Yours, primaryContainer for You and This browser.</p>
+              <p class="cap"><b>Device tags.</b> The same label tags beside a device's name: “Admin device” (primaryContainer), “Browser” (neutral), “This device” and “This browser” (primaryContainer), “Revoked” (neutral, with the name set quiet). The app and the web page use these words and no others.</p>
+              <p class="tok">role tag: 24 high, radius 12, 12/16 500, padding 10 · label tag: 20 high, radius 6, 12/16 500, padding 8, margin-left 8</p>
+            </div>
+
+            <div class="spec" id="c-keybox">
+              <div class="screen" style="padding:16px 0;display:flex;flex-direction:column;gap:12px">
+                <div class="key">shpk1_EXAMPLEKEY-not-a-real-key-0000</div>
+                <div style="display:flex;gap:8px;padding:0 16px"><span class="btn-t"><span class="ms">check</span>Copied</span><span class="btn-o"><span class="ms">share</span>Share</span></div>
+                <div class="key sel"><b>shpk1_EXAMPLEKEY-not-a-real-key-0000</b></div>
+                <div class="code">curl -X POST https://signalhub.example/api/v1/events \
+  -H "Authorization: Bearer shpk1_EXAMPLEKEY-not-a-real-key-0000" \
+  -H "Content-Type: application/json" \
+  -d '{"category":"INFO","severity":"NORMAL","title":"Hello"}'</div>
+              </div>
+              <p class="cap"><b>Key box and code snippet.</b> The key is monospace and wraps at any character, so the whole key is always visible and none of it is truncated; a tap or long press selects all of it. Copy turns to Copied for two seconds, except on the key screen (the key shown once, on the app and the web page), where Copied stays for as long as the screen is open (Android 13 also shows its own confirmation). Second box: the selected state, used when the clipboard is refused, with a line saying how to copy by hand. The snippet is a smaller monospace block on the lowest container, a sample host only and the obviously fake sample key; it is not a place for a real key. The sample key is obviously fake on purpose.</p>
+              <p class="tok">key: surfaceContainerHigh · radius 12 · Roboto Mono 14/22 · selected: 2 dp primary edge, text on primaryContainer · snippet: surfaceContainerLowest · 12/18 onSurfaceVariant</p>
+            </div>
+
+            <div class="spec" id="c-badge">
+              <div class="screen">
+                <div class="nav">
+                  <div class="nv"><span class="pill"><span class="ms">inbox</span><span class="badge">1</span></span>1</div>
+                  <div class="nv"><span class="pill"><span class="ms">inbox</span><span class="badge">42</span></span>42</div>
+                  <div class="nv"><span class="pill"><span class="ms">inbox</span><span class="badge">99</span></span>99</div>
+                  <div class="nv"><span class="pill"><span class="ms">inbox</span><span class="badge">99+</span></span>124</div>
+                  <div class="nv"><span class="pill"><span class="ms">inbox</span></span>0</div>
+                </div>
+              </div>
+              <p class="cap"><b>Inbox badge.</b> The number of unread events of the producers you subscribe to, on the Inbox tab only. Up to 99 it shows the number; above that “99+” and it stops growing; at zero it is absent. The screen-reader label gives the real count (“Inbox, 124 unread”). The labels under the icons here are the counts being shown.</p>
+              <p class="tok">error · onError 11/16 500 · 16 high pill, radius 8, padding 0 4 · anchored to the icon's top right</p>
+            </div>
+
+            <div class="spec" id="c-browser">
+              <div class="screen" style="padding:8px 0">
+                <div class="lt r4"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">Ana - Pixel<span class="own me">This device</span><span class="own me">Admin device</span></span><span class="t2">Last active today</span></div></div>
+                <div class="lt r4"><span class="ms c-var">language</span><div class="tx"><span class="t1">Firefox on Linux<span class="own">Browser</span></span><span class="t2">Last active 3 days ago</span></div><span class="ib"><span class="ms">more_vert</span></span></div>
+                <div class="lt r4"><span class="ms c-var">language</span><div class="tx"><span class="t1 c-var">Safari on Mac<span class="own">Browser</span><span class="own">Revoked</span></span><span class="t2">Revoked 2026-09-30</span></div><span class="btn-x dng">Delete</span></div>
+              </div>
+              <p class="cap"><b>Browser device row.</b> A browser is a device in every rule, so it uses the device row, on the app and on the web page alike: the language (globe) icon, the name, a “Browser” label tag, and a summary without the word “Browser”. The one in use carries a “This browser” tag in primaryContainer and has no Revoke (Sign out is in Settings). A revoked browser stays listed, quiet, with a Revoked tag, until it is deleted. A device's summary says when it was last active (“Last active today”, “Last active 3 days ago”, “Last active 4 Oct”), “Not used yet” when it was never used after pairing, or when it was revoked (“Revoked 4 Oct”). Its name comes from the browser and system (“Firefox on Linux”) and can be renamed like a device.</p>
+              <p class="cap">Needs a server change (queued with the design lock-in)</p>
+              <p class="tok">device row · icon language 24 onSurfaceVariant · summary bodyMedium · row menu 48, named “More actions for NAME” · tags as label tags</p>
+            </div>
+
+            <div class="spec" id="c-gone">
+              <div class="screen">
+                <div class="appbar" style="padding-left:4px"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Producer</div></div>
+                <div class="empty" style="padding-bottom:48px"><span class="ms">sensors_off</span><div class="t1 nt-ex" style="font-size:22px;line-height:28px">This producer isn't available<br />any more</div><div class="t2" style="white-space:normal">It may have been made private. It's gone from your list too.</div><span class="btn-t" style="margin-top:8px;padding-left:24px">Back to Producers</span></div>
+              </div>
+              <p class="cap"><b>“Not available any more” screen.</b> Full screen, after a 404 on a producer or an event (a made-private producer, an unsubscribed event, an old push or link). The event version is drawn once, as 4o of the First run page: “This event isn't in your inbox any more”, one tonal button, Back to Inbox. The empty-state anatomy (a titleLarge 22/28 title over a 48 dp outline-colored icon, 8 dp apart), not an error, with a plain title that names no one, wrapped in balanced lines so “any more” never stands alone, a sentence on the likely reason and one tonal button that goes back to a list. Every empty state uses this title size. The row has already left the list; there is no notice of losing access.</p>
+              <p class="tok">empty state · icon 48 outline · title titleLarge · body bodyMedium onSurfaceVariant · tonal button 40 high</p>
+            </div>
+
+            <div class="spec" id="c-whatsnew">
+              <div class="screen" style="padding:8px 0 8px">
+                <div class="wn">
+                  <h3>What's new</h3>
+                  <div class="fact"><span class="ms">dock_to_bottom</span><span><b>A bottom bar.</b> Inbox, Producers and Settings are one tap away.</span></div>
+                  <div class="fact"><span class="ms">sensors</span><span><b>Producers.</b> Make your own, share them, and subscribe to others'.</span></div>
+                  <div class="fact"><span class="ms">group</span><span><b>People.</b> Invite people and manage their devices.</span></div>
+                  <div style="display:flex;justify-content:flex-end;gap:4px"><span class="btn-x">See Producers</span><span class="btn-x">Got it</span></div>
+                </div>
+              </div>
+              <p class="cap"><b>What's new card.</b> Shown once at the top of the inbox on a device that was already connected when the app updated; a newly connected device gets the welcome instead. A short list of what changed, each a bold lead and one sentence (the People line only for an admin), two text buttons: a primary action that opens the tab and dismisses, and Got it, which dismisses for good. It scrolls with the list and is the only card in the inbox.</p>
+              <p class="tok">primaryContainer · onPrimaryContainer · radius 16 · padding 16/16/8 · title titleMedium · facts bodyMedium · buttons 48 high text</p>
+            </div>
+
+          </div>
+        </section>
+
+        <section class="sec" data-screen-label="Accessibility">
+          <h2 class="h2">Accessibility, text size and motion</h2>
+          <p class="note">What R65 and R66 build so that every screen works with a screen reader, a large text size and the keyboard, and with reduced motion.</p>
+          <h3 class="h2" style="font-size:16px;line-height:24px">Accessible names for icon-only controls</h3>
+          <table class="tbl">
+            <tr><th>Control</th><th>Name a screen reader speaks</th></tr>
+            <tr><td>Back arrow</td><td>Back</td></tr>
+            <tr><td>Close (forms, the key screen, the scanner)</td><td>Close</td></tr>
+            <tr><td>Inbox filter (filter_list)</td><td>Filter events</td></tr>
+            <tr><td>Mark all as read (done_all)</td><td>Mark all as read</td></tr>
+            <tr><td>People search</td><td>Search people</td></tr>
+            <tr><td>Clear search (x in the field)</td><td>Clear search</td></tr>
+            <tr><td>Row menu (more_vert)</td><td>More actions for NAME</td></tr>
+            <tr><td>Rename pencil</td><td>Rename NAME</td></tr>
+            <tr><td>x on an allow-list chip</td><td>Remove NAME</td></tr>
+            <tr><td>x on a filter chip</td><td>Remove filter NAME</td></tr>
+            <tr><td>Revoke on a key row</td><td>Revoke key shpk1_EXAMPLE…</td></tr>
+            <tr><td>Bell toggle</td><td>Subscribed to NAME. Double tap to unsubscribe · Not subscribed to NAME. Double tap to subscribe · Subscribing to NAME · Unsubscribing from NAME</td></tr>
+            <tr><td>Segmented button and switch</td><td>The state is spoken: “Private, selected”, “Info, on”</td></tr>
+            <tr><td>The disabled Admin segment</td><td>Admin, not available. Set on the admin page</td></tr>
+            <tr><td>Inbox tab with a badge</td><td>Inbox, 3 unread</td></tr>
+            <tr><td>The camera region of the scanner</td><td>Camera, point at the invitation code</td></tr>
+            <tr><td>The sign-in QR code (web)</td><td>Sign-in QR code. To sign in without scanning, use a code instead.</td></tr>
+            <tr><td>The account button (web)</td><td>Account menu, Rodrigo</td></tr>
+          </table>
+          <h3 class="h2" style="font-size:16px;line-height:24px">Text size and long names</h3>
+          <div class="rules">
+            <div class="rule"><h3>Scale</h3><p>Type follows the system text size up to 200% (Flutter's text scaler), except the bottom bar's labels, which are capped at about 1.3x. Rows grow in height and never clip.</p></div>
+            <div class="rule"><h3>Names</h3><p>A one-line name ends in an ellipsis while its tag (Yours, Admin), the bell and the chevron keep their size. At 200% a row's summary wraps to two lines; the name still truncates at its end.</p></div>
+            <div class="rule"><h3>Bar, dialogs, buttons</h3><p>Bottom-bar labels never wrap: their text scale is capped at about 1.3x, and the icons and the pill keep their size, so the bar grows only by the extra line height. Dialogs and sheets scroll. Buttons grow and their labels wrap. Keys and addresses wrap at any character.</p></div>
+          </div>
+          <h3 class="h2" style="font-size:16px;line-height:24px">Focus order and visible focus (web page)</h3>
+          <div class="rules">
+            <div class="rule"><h3>Order</h3><p>Focus follows reading order: rail, header, then the content; on the sign-in page Use a code instead comes before the QR code. A dialog starts on Cancel and keeps focus inside until it closes; Escape closes it (and a menu) and returns focus to the control that opened it.</p></div>
+            <div class="rule"><h3>Ring</h3><p>A visible focus ring on every control: 2 px primary, 2 px offset, never removed. Rows, chips and buttons use it; the state layers below apply on top.</p></div>
+          </div>
+          <h3 class="h2" style="font-size:16px;line-height:24px">Motion and states</h3>
+          <table class="tbl">
+            <tr><th>What</th><th>Motion</th></tr>
+            <tr><td>Pressed, hover, focus</td><td>Material 3 state layers at 8%, 8% and 10%; a ripple on touch; no scale</td></tr>
+            <tr><td>Bell change</td><td>100 ms cross-fade between the bell and the progress ring</td></tr>
+            <tr><td>Snackbar</td><td>In over 200 ms (emphasized decelerate), out over 150 ms</td></tr>
+            <tr><td>Dialog</td><td>Fade and scale from 0.9 to 1 over 200 ms, out over 100 ms</td></tr>
+            <tr><td>Copy to Copied</td><td>120 ms cross-fade, the button's width held</td></tr>
+            <tr><td>Skeleton shimmer</td><td>1.2 s, linear</td></tr>
+            <tr><td>QR refresh</td><td>150 ms cross-fade</td></tr>
+            <tr><td>Tab switches and list filtering</td><td>No animation: they are used constantly</td></tr>
+            <tr><td>Reduced motion</td><td>No slide and no scale: opacity changes only (fade). The shimmer is static. The progress ring, the bell's in-flight ring included, stays and does not rotate: it is the only sign of work in progress.</td></tr>
+          </table>
+        </section>
+
+        <section class="sec" data-screen-label="Undo or confirm">
+          <h2 class="h2">Undo or confirm</h2>
+          <p class="note">If an action can be reversed exactly and only the person who did it is affected, do it at once and offer Undo in a snackbar. If it cannot be reversed, or someone else is affected, ask first in a confirmation dialog. If it is harmless and reversible by the same control, do nothing extra.</p>
+          <table class="tbl">
+            <tr><th>Action</th><th>Pattern</th><th>Why</th></tr>
+            <tr><td>Subscribe, unsubscribe</td><td>Snackbar with Undo</td><td>Idempotent; stored events are hidden, not deleted</td></tr>
+            <tr><td>Enable a producer</td><td>Nothing extra</td><td>Keys work again; nothing is lost</td></tr>
+            <tr><td>Disable a producer</td><td>Confirm</td><td>Its senders are turned away until it is enabled</td></tr>
+            <tr><td>Revoke a key</td><td>Confirm (error color)</td><td>For good; the key never works again</td></tr>
+            <tr><td>Remove someone from the list</td><td>Confirm (error color)</td><td>Ends their subscription; adding back does not restore it</td></tr>
+            <tr><td>Public to Private</td><td>Confirm</td><td>Ends the subscriptions of everyone but you and the people on the list</td></tr>
+            <tr><td>Revoke a device</td><td>Confirm (error color)</td><td>For good; a revoked device never works again</td></tr>
+            <tr><td>Sign out of a browser</td><td>Confirm (ordinary action)</td><td>The browser stops being a device; signing in again is possible from the phone (R66 decides the details)</td></tr>
+            <tr><td>A change that fails</td><td>Snackbar with Retry</td><td>Nothing changed, so there is nothing to undo</td></tr>
+          </table>
+        </section>
+
+        <section class="sec" data-screen-label="Web variants">
+          <h2 class="h2">The same components on the web page</h2>
+          <p class="note">The web page uses the same components with larger targets (all 48 px high) and these differences: a dialog is centered at 480 px, closes on Escape, and starts with focus on Cancel; a banner is a full-width bar under the page header; there is no snackbar with Undo (the page confirms instead, and shows a failed change inline).</p>
+          <div class="row3">
+            <div class="spec">
+              <div class="wsc">
+                <div class="scrimbox" style="padding:32px 24px">
+                  <div class="dlgbox dlgw" style="max-width:480px;margin:0 auto 16px">
+                    <h4>Sign out of this browser?</h4>
+                    <p>This browser stops being a device of yours. Your phone and your other devices are not affected.</p>
+                    <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x">Sign out</span></div>
+                  </div>
+                  <div class="dlgbox dlgw" style="max-width:480px;margin:0 auto">
+                    <h4>Revoke Chrome on Windows?</h4>
+                    <p>It is signed out at once and stops being a device of yours. You can sign it in again later from your phone.</p>
+                    <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x dng">Revoke</span></div>
+                  </div>
+                </div>
+              </div>
+              <p class="cap"><b>Web dialog.</b> Body at bodyLarge 16/24. Both actions are 48 px high text buttons, as in the app: an ordinary action (Sign out) in primary, a destructive one (Revoke) in error. Escape and Cancel close it. The key dialog is the exception: Escape and a tap on the scrim do nothing, so the key cannot be lost by accident, and the primary button reads “Copy and close” (or “I have saved the key” when the clipboard was refused).</p>
+              <p class="tok">surfaceContainerHigh · radius 28 · width 480 · padding 24 · buttons 48 high text · destructive: error text on surfaceContainerHigh</p>
+            </div>
+            <div class="spec">
+              <div class="wsc">
+                <div class="wbn"><span class="ms">lock_clock</span><span class="tx">Your sign-in ended.</span><span class="btn-x">Sign in again</span></div>
+                <div class="wbn" style="margin-top:1px"><span class="ms">cloud_off</span><span class="tx">You're offline. This is what was loaded at 18:12. Changes are paused until you're back.</span></div>
+                <div style="padding:20px 24px;display:flex;flex-direction:column;gap:12px"><div class="sk" style="height:14px;width:70%"></div><div class="sk" style="height:14px;width:50%"></div><div class="sk" style="height:14px;width:60%"></div></div>
+              </div>
+              <p class="cap"><b>Web banner.</b> A full-width bar in surfaceContainerHigh under the header, the same neutral banner as the app, 56 px high, one icon, one sentence, and at most one text button (48 px). The page below keeps its content. It is used for a sign-in that ended or a sign-out in another tab (with Sign in again) and for being offline (no button: the page retries and the banner goes away). Escape closes a menu or a dialog and returns focus to the control that opened it. Server faults on the web use the same error banner as the app, inline above the list.</p>
+              <p class="tok">surfaceContainerHigh · onSurface 14/20 · action primary · min height 56 · padding 4 8 4 16 · action 48 high</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="sec" data-screen-label="Contrast">
+          <h2 class="h2">Contrast, checked</h2>
+          <p class="note">WCAG ratios, computed from the hex values, for the pairs the new components use. Text needs 4.5:1; icons, borders and large text need 3:1. Every pair passes; none needed a fix. A skeleton row is a placeholder, not content, and is exempt, as is a disabled control.</p>
+          <table class="tbl">
+            <tr><th>Pair</th><th>Dark</th><th>Light</th></tr>
+            <tr><td>Error text and field border on surface</td><td class="mono">10.9 · #ffb4ab on #121318</td><td class="mono">6.1 · #ba1a1a on #fbf8ff</td></tr>
+            <tr><td>Error text on the dialog (surfaceContainerHigh)</td><td class="mono">8.5 · #ffb4ab on #29292f</td><td class="mono">5.3 · #ba1a1a on #e9e7ef</td></tr>
+            <tr><td>Error banner: onErrorContainer on errorContainer</td><td class="mono">7.2 · #ffdad6 on #93000a</td><td class="mono">7.2 · #93000a on #ffdad6</td></tr>
+            <tr><td>Neutral banner text · icon (on surfaceContainerHigh)</td><td class="mono">11.2 · 8.5</td><td class="mono">14.0 · 7.6</td></tr>
+            <tr><td>Snackbar text · action</td><td class="mono">10.2 · 5.0 (#515b92 on #e4e1e9)</td><td class="mono">11.5 · 7.7 (#bac3ff on #303036)</td></tr>
+            <tr><td>Error badge: onError on error</td><td class="mono">7.7 · #690005 on #ffb4ab</td><td class="mono">6.5 · #ffffff on #ba1a1a</td></tr>
+            <tr><td>Role tags: Admin · Mod · Basic text</td><td class="mono">7.2 · 7.2 · 10.9</td><td class="mono">7.2 · 7.2 · 8.9</td></tr>
+            <tr><td>Basic tag outline, bell outline, empty-state icon (need 3)</td><td class="mono">5.9 · #90909a on #121318</td><td class="mono">4.3 · #767680 on #fbf8ff</td></tr>
+            <tr><td>Label tag (Yours): onSurfaceVariant on surfaceContainerHighest</td><td class="mono">7.3</td><td class="mono">7.2</td></tr>
+            <tr><td>Primary text on surface · on the dialog</td><td class="mono">10.9 · 8.5</td><td class="mono">6.1 · 5.3</td></tr>
+            <tr><td>What's new text</td><td class="mono">7.2 · 7.2</td><td class="mono">7.2 · 7.2</td></tr>
+          </table>
+        </section>
+
+        <section class="sec" data-screen-label="Patterns">
+          <h2 class="h2">Patterns to keep</h2>
+          <table class="tbl">
+            <tr><th>Pattern</th><th>Rule</th></tr>
+            <tr><td>Navigation</td><td>A bottom navigation bar with three destinations (Inbox, Producers, Settings), four for an admin (People added), the unread count as a badge on Inbox. Settings is a tab: the inbox app bar has no gear. Screens pushed from a tab hide the bar and show a back arrow. On the web page the bar is a navigation rail beside a wide screen.</td></tr>
+            <tr><td>Folding groups</td><td>A group folds with a one-line summary of its values and stays open or folded as the owner left it.</td></tr>
+            <tr><td>Destructive actions</td><td>A plain row or text button, confirmed in a dialog naming what goes (see Confirmation dialog and Undo or confirm); the dialog's confirming button is in error color when it can't be taken back. The confirming button is always a text button in error color, on the app and on the web page; never a red filled button.</td></tr>
+            <tr><td>Wording</td><td>Plain sentences, sentence case, no jargon: “Connect a device”, “Push notifications are on”. Producers you own are “Yours”. The person running the server is “the host”. Settings reads “Settings › Sign in a browser”, never “Settings › Devices › Sign in a browser”. A sample build reads “SignalHub 3.4.0 · commit a1b2c3d”. About this server shows it as “Server: SignalHub 3.4.0 · commit a1b2c3d” next to the app's own “This app: …” line (on the web, “This page: …”). Needs a server change (queued with the design lock-in).</td></tr>
+            <tr><td>Secrets</td><td>Shown once, in monospace, with a copy action and a sentence saying it will not be shown again; a key's screen offers Copy and close; Copied stays on it while it is open.</td></tr>
+            <tr><td>Status</td><td>Said in words next to the control (“Push notifications are on”), not only by color.</td></tr>
+            <tr><td>Roles</td><td>A role is said by a section and its one-sentence explanation, or by a tag whose form differs; the app shows what a role can do and hides what it cannot, or says who can help (“Ask an admin of this server.”).</td></tr>
+            <tr><td>Errors</td><td>A field error under the field; a failed change a snackbar with Retry; a list that failed a banner or an empty state with Try again; a missing thing the full-screen “not available” state. Each says what happened and what to do.</td></tr>
+          </table>
+        </section>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

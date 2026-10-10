@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--error:#ffb4ab;--on-error:#690005;--error-container:#93000a;--on-error-container:#ffdad6;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f}
+          body{margin:0;background:#0b0c10;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          .dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(255,255,255,.08);background:#0b0c10}
+          .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+          .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#e4e1e9;color:#121318;border-radius:4px;text-decoration:none}
+          .dv-tname{font:600 14px/1.2 Roboto,sans-serif;color:#e4e1e9}
+          .dv-why{font:14px/20px Roboto,sans-serif;color:#c7c5d0;max-width:900px;margin:0 0 24px}
+          .dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+          .dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;width:412px}
+          .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#e4e1e9;border-radius:5px;text-decoration:none}
+          .dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 13px/1.3 Roboto,sans-serif;color:#e4e1e9}
+          .dv-onote{font:13px/19px Roboto,sans-serif;color:#9a98a3;margin:0;text-wrap:pretty}
+          .dv-opt:target .dv-oid{background:#bac3ff;color:#222c61}
+          .dv-next{margin:24px 0 0;font:13px/1.5 Roboto,sans-serif;color:#9a98a3}
+          .ph{width:412px;height:892px;background:var(--surface);border-radius:28px;border:1px solid #2c2d33;overflow:hidden;display:flex;flex-direction:column;position:relative}
+          .ph.sm{height:600px}
+          .sb{height:28px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:13px}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .appbar{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 4px 0 16px}
+          .appbar.bk{padding-left:4px}
+          .appbar .t{font-size:22px;line-height:28px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .p{font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0;text-wrap:pretty}
+          .pb{font-size:16px;line-height:24px;color:var(--on-surface);margin:0;text-wrap:pretty}
+          .h{font-size:24px;line-height:32px;margin:0;font-weight:400}
+          .c-primary{color:var(--primary)}.c-var{color:var(--on-surface-variant)}
+          .btn-f{height:40px;border-radius:20px;background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-t{height:40px;border-radius:20px;background:var(--secondary-container);color:var(--on-secondary-container);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500}
+          .btn-x{min-height:48px;border-radius:24px;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 12px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-o .ms,.btn-t .ms,.btn-f .ms,.btn-x .ms{font-size:18px;width:18px;height:18px}
+          .spin{width:18px;height:18px;border-radius:9px;border:2px solid rgba(34,44,97,.3);border-top-color:var(--on-primary);box-sizing:border-box;flex:none}
+          .ring{width:24px;height:24px;border-radius:12px;border:2.5px solid transparent;border-top-color:var(--on-secondary-container);border-right-color:var(--on-secondary-container);box-sizing:border-box;flex:none}
+          .ring.out{border-top-color:var(--on-surface-variant);border-right-color:var(--on-surface-variant)}
+          @media (prefers-reduced-motion:no-preference){.ring{animation:rot 1s linear infinite}@keyframes rot{to{transform:rotate(360deg)}}}
+          .bell.fl>span{background:var(--secondary-container);border-color:var(--secondary-container)}
+          .spin.lt{border-color:rgba(186,195,255,.3);border-top-color:var(--primary)}
+          .stack{display:flex;flex-direction:column;gap:16px;padding:24px 24px 0}
+          .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 40px 80px;text-align:center}
+          .empty>.ms{font-size:48px;width:48px;height:48px;color:var(--outline)}
+          .empty .pb{font-size:22px;line-height:28px}
+          .nav{height:80px;flex:none;background:var(--sc);display:flex;padding:12px 8px 16px;box-sizing:border-box}
+          .nv{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant)}
+          .nv .pill{width:64px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center}
+          .nv.on{color:var(--on-surface)}
+          .nv.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .scan{height:220px;border-radius:16px;background:repeating-linear-gradient(45deg,#1f1f25 0 8px,#29292f 8px 16px);display:flex;align-items:center;justify-content:center;font:12px "Roboto Mono",monospace;color:var(--on-surface-variant)}
+          .scan.off{height:120px;opacity:.5}
+          .facts{display:flex;flex-direction:column;gap:12px;background:var(--sc);border-radius:16px;padding:16px}
+          .fact{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:20px}
+          .banner{display:flex;gap:12px;align-items:flex-start;background:var(--error-container);color:var(--on-error-container);border-radius:12px;padding:12px 16px;font-size:14px;line-height:20px}
+          .banner.neutral{background:var(--sc-high);color:var(--on-surface)}
+          .fab{position:absolute;right:16px;bottom:96px;height:56px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;gap:12px;padding:0 20px 0 16px;font-size:14px;font-weight:500}
+          .search{margin:4px 16px 8px;height:56px;border-radius:28px;background:var(--sc-high);display:flex;align-items:center;gap:16px;padding:0 16px;color:var(--on-surface-variant);font-size:16px;flex:none}
+          .fchips{display:flex;gap:8px;padding:0 16px 8px;flex:none;overflow:hidden}
+          .fc{height:32px;border-radius:8px;border:1px solid var(--outline);display:flex;align-items:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500;color:var(--on-surface-variant);box-sizing:border-box;white-space:nowrap;flex:none}
+          .fc.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container);padding-left:8px}
+          .tf{border:1px solid var(--outline);border-radius:4px;height:56px;display:flex;align-items:center;padding:0 16px;font-size:16px;position:relative;box-sizing:border-box;flex:none}
+          .tf.bad{border:2px solid var(--error);padding:0 15px}
+          .tf .fl{position:absolute;top:-9px;left:12px;padding:0 4px;background:var(--surface);font-size:12px;line-height:16px;color:var(--on-surface-variant)}
+          .tf.bad .fl{color:var(--error)}
+          .help{font-size:12px;line-height:16px;color:var(--on-surface-variant);padding:4px 16px 0;margin:0}
+          .help.bad{color:var(--error)}
+          .lt{display:flex;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .lt.r4{padding-right:4px}
+          .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2n{font-size:14px;line-height:20px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .pr{display:flex;align-items:center;gap:16px;padding:8px 4px 8px 16px;min-height:72px;box-sizing:border-box}
+          .pr .pa{width:40px;height:40px;border-radius:20px;background:var(--sc-highest);display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);flex:none}
+          .bell{width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex:none}
+          .bell>span{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;border:1px solid var(--outline);color:var(--on-surface-variant);box-sizing:border-box}
+          .bell.on>span{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container)}
+          .bell.dis{opacity:.38}
+          .yt{font-size:11px;line-height:16px;font-weight:500;padding:0 8px;border-radius:8px;background:var(--secondary-container);color:var(--on-secondary-container);margin-left:8px;flex:none}
+          .sk{background:var(--sc-high);border-radius:6px}
+          .ev{display:flex;gap:16px;align-items:flex-start;padding:12px 16px;min-height:72px;box-sizing:border-box}
+          .ev .dot{width:8px;height:8px;border-radius:4px;background:var(--primary);margin-top:8px;flex:none}
+          .ev .et{font-size:16px;line-height:24px}
+          .card{margin:8px 16px;background:var(--primary-container);color:var(--on-primary-container);border-radius:16px;padding:16px 16px 8px;display:flex;flex-direction:column;gap:12px}
+          .card .fact{color:var(--on-primary-container)}
+          .card h3{margin:0;font-size:16px;line-height:24px;font-weight:500}
+          .scrim{position:absolute;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:5}
+          .snack{position:absolute;left:8px;right:8px;bottom:96px;min-height:48px;border-radius:4px;background:#e4e1e9;color:#303036;display:flex;align-items:center;padding:6px 8px 6px 16px;gap:8px;font-size:14px;line-height:20px;box-sizing:border-box;z-index:4}
+          .snack .sa{color:#515b92;font-weight:500;min-height:48px;display:flex;align-items:center;padding:0 12px;flex:none}
+          .shade{flex:1;background:linear-gradient(#1c2033,#121318 70%);display:flex;flex-direction:column;gap:8px;padding:16px 12px}
+          .nt{background:var(--sc-high);border-radius:20px;padding:12px 16px;display:flex;flex-direction:column;gap:4px}
+          .nt .nh{display:flex;align-items:center;gap:8px;font-size:12px;line-height:16px;color:var(--on-surface-variant)}
+          .nt .ni{width:20px;height:20px;border-radius:10px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center}
+          .nt .ni .ms{font-size:14px;width:14px;height:14px}
+          .nt .ntt{font-size:14px;line-height:20px;font-weight:500}
+          .nt .ntb{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+        </style>
+      </helmet>
+
+      <section class="dv-turn" id="t4" data-screen-label="Turn 4: first run and empty states">
+        <div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">A friend's first run, and the empty and error states</span></div>
+        <p class="dv-why">Someone you invite starts with nothing: no events, no producers, no idea what SignalHub is. These screens take them from the invitation to their first subscription, and say plainly what went wrong when a code expires or a device is removed. Setup, welcome and the expired-code screens come before the app is connected, so they have no bottom bar; every main screen after that shows it. The empty Producers tab is built on the search-and-chips layout: <a class="dv-oid" href="#4d">4d</a> no producers at all, <a class="dv-oid" href="#4g">4g</a> nothing under Yours, <a class="dv-oid" href="#4h">4h</a> nothing under Can subscribe. The server's operator is called "the host" everywhere; no screen names a person as the server's admin.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="4a" data-screen-label="4a Setup">
+            <div class="dv-olabel"><a class="dv-oid" href="#4a">4a</a>Setup: scan the invitation</div>
+            <div class="ph">
+              <div class="sb"><span>18:02</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="stack">
+                <h1 class="h">Connect to SignalHub</h1>
+                <p class="pb">Scan the code someone shared with you, or paste its link.</p>
+                <div class="scan" aria-label="Camera, point at the invitation code">camera preview</div>
+                <div style="display:flex;gap:8px"><span class="btn-t"><span class="ms">content_paste</span>Paste link</span></div>
+                <p class="p">A code works once and for a few minutes. If it has run out, ask for a new one.</p>
+                <p class="p"><span style="text-decoration:underline">With a client key</span> instead</p>
+              </div>
+            </div>
+            <p class="dv-onote">Today's setup screen, worded for someone who was invited rather than the server's host. Setting up by hand with a client key stays below, folded (<a class="dv-oid" href="#4a6">4a6</a>). The camera region is labelled "Camera, point at the invitation code"; Paste link is the keyboard and TalkBack path. The pasted link has the form <code>signalhub://pair?server=https%3A%2F%2Fsignalhub.example&amp;code=shpc1_…</code> (shortened with an ellipsis wherever it is shown). What can go wrong is in <a class="dv-oid" href="#4a2">4a2 to 4a4 and 4a6</a>.</p>
+          </div>
+
+          <div class="dv-opt" id="4b" data-screen-label="4b Welcome">
+            <div class="dv-olabel"><a class="dv-oid" href="#4b">4b</a>Welcome, once</div>
+            <div class="ph">
+              <div class="sb"><span>18:03</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="stack">
+                <h1 class="h">Welcome, Rui</h1>
+                <p class="pb">You're connected to signalhub.example as Rui - iPhone.</p>
+                <div class="facts">
+                  <div class="fact"><span class="ms c-primary">sensors</span><span><b>Producers</b> send events: a script, a CI pipeline, a home server. Subscribe to the ones you want.</span></div>
+                  <div class="fact"><span class="ms c-primary">inbox</span><span><b>Your inbox</b> holds their events; your phone is notified as your filters allow.</span></div>
+                  <div class="fact"><span class="ms c-primary">add_circle</span><span><b>Your own producers</b>: make one and send yourself events.</span></div>
+                </div>
+                <p class="p">The host runs this server and can see every event on it.</p>
+              </div>
+              <div style="flex:1"></div>
+              <div style="display:flex;justify-content:flex-end;gap:8px;padding:16px"><span class="btn-x">Later</span><span class="btn-f">Find producers</span></div>
+            </div>
+            <p class="dv-onote">Shown once after pairing, before the bar appears, for a Basic user. The last line is the one sentence decided for the host (it is also in Settings, <a class="dv-oid" href="#4b5">4b5</a>); it never names a person. The server's address is the one the code carried. Find producers opens the Producers tab; Later opens the inbox. Mod and admin: <a class="dv-oid" href="#4b2">4b2</a>.</p>
+          </div>
+
+          <div class="dv-opt" id="4c" data-screen-label="4c Empty inbox">
+            <div class="dv-olabel"><a class="dv-oid" href="#4c">4c</a>Empty inbox, nothing subscribed</div>
+            <div class="ph">
+              <div class="sb"><span>18:04</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">SignalHub</div><span class="ib"><span class="ms">filter_list</span></span></div>
+              <div class="empty"><span class="ms">inbox</span><div class="pb">No events yet</div><p class="p">Events show up here once you subscribe to a producer.</p><span class="btn-t" style="margin-top:8px"><span class="ms">sensors</span>Find producers</span></div>
+              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The empty state points to the one thing that fills it. With subscriptions but no events yet, it says "Nothing new from your producers" instead. No unread badge on the tab while there is nothing unread.</p>
+          </div>
+
+          <div class="dv-opt" id="4d" data-screen-label="4d Empty producers">
+            <div class="dv-olabel"><a class="dv-oid" href="#4d">4d</a>Producers: none at all yet</div>
+            <div class="ph">
+              <div class="sb"><span>18:04</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span></div>
+              <div class="empty"><span class="ms">sensors</span><div class="pb">No producers yet</div><p class="p">Nobody has shared a producer with you, and there is no public one on this server. Make your own to send yourself events.</p><span class="btn-t" style="margin-top:8px"><span class="ms">add</span>New producer</span></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Built on the Producers tab. The search and chips stay so the screen doesn't change shape when producers arrive. The corner button is hidden while the empty state offers the same button, so there is one New producer on the screen; it comes back with the first producer.</p>
+          </div>
+
+          <div class="dv-opt" id="4g" data-screen-label="4g Empty Yours">
+            <div class="dv-olabel"><a class="dv-oid" href="#4g">4g</a>Producers: nothing under Yours</div>
+            <div class="ph">
+              <div class="sb"><span>18:06</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="fchips"><span class="fc">All</span><span class="fc on"><span class="ms ms18">check</span>Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span></div>
+              <div class="empty"><span class="ms">filter_list_off</span><div class="pb">You don't have a producer yet</div><p class="p">A producer sends events to you and, if you let them, to others. Each one has its own key.</p><span class="btn-t" style="margin-top:8px"><span class="ms">add</span>New producer</span></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The chip is called Yours, and so is the tag on a row. The empty state offers the one action that fills it, so the corner button is hidden here too. Subscribed with nothing says "You aren't subscribed to any producer" and offers Show all.</p>
+          </div>
+
+          <div class="dv-opt" id="4h" data-screen-label="4h Empty Can subscribe">
+            <div class="dv-olabel"><a class="dv-oid" href="#4h">4h</a>Producers: nothing under Can subscribe</div>
+            <div class="ph">
+              <div class="sb"><span>18:07</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="fchips"><span class="fc">All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc on"><span class="ms ms18">check</span>Can subscribe</span></div>
+              <div class="empty"><span class="ms">task_alt</span><div class="pb">Nothing else to subscribe to</div><p class="p">You get events from every producer you can see. New public producers and ones shared with you will appear here.</p><span class="btn-t" style="margin-top:8px">Show all</span></div>
+              <div class="fab"><span class="ms">add</span>New producer</div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Not an error, so a quiet check icon and a way back to the full list. This empty state has only Show all, so the corner button stays; the list keeps 88 dp of bottom padding so the last row scrolls clear of it. A search with no results is the Producers page's own state.</p>
+          </div>
+
+          <div class="dv-opt" id="4e" data-screen-label="4e Code expired">
+            <div class="dv-olabel"><a class="dv-oid" href="#4e">4e</a>A code that doesn't work</div>
+            <div class="ph">
+              <div class="sb"><span>18:15</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="stack">
+                <h1 class="h">Connect to SignalHub</h1>
+                <div class="banner"><span class="ms">timer_off</span><span>This pairing code has expired or was already used. Ask for a new one.</span></div>
+                <div class="scan" aria-label="Camera, point at the invitation code">camera preview</div>
+                <div style="display:flex;gap:8px"><span class="btn-t"><span class="ms">content_paste</span>Paste link</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">One sentence on what to do; the scanner stays ready for the new code. The server answers every failed code the same way (401: expired, used, unknown, or the person or the device that made it was removed), so the app cannot say which, and this one line covers all of them. Only the side that made the code can tell it ran out (its countdown).</p>
+          </div>
+
+          <div class="dv-opt" id="4f" data-screen-label="4f Device removed">
+            <div class="dv-olabel"><a class="dv-oid" href="#4f">4f</a>This device is no longer connected</div>
+            <div class="ph">
+              <div class="sb"><span>20:30</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="stack">
+                <h1 class="h">Connect to SignalHub</h1>
+                <div class="banner neutral"><span class="ms c-var">link_off</span><span>This device is no longer connected to SignalHub. To use it again, ask for a new code, or ask the host.</span></div>
+                <div class="scan" aria-label="Camera, point at the invitation code">camera preview</div>
+                <div style="display:flex;gap:8px"><span class="btn-t"><span class="ms">content_paste</span>Paste link</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">When any request is refused with 401, the app clears its saved connection, returns to setup without a flash of the old content, and says this, neutrally: not an error, nothing the person did wrong. A revoked device and a removed person are the same 401 for the server, so one screen covers both.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t4b" data-screen-label="Turn 4b: setup errors">
+        <div class="dv-thd"><a class="dv-tid" href="#t4b">4b</a><span class="dv-tname">Setup, when it doesn't work</span></div>
+        <p class="dv-why">Every failure of the setup screen says what happened and the next thing to do, in one sentence, and leaves the scanner or the field usable. No setup screen shows the bottom bar.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="4a2" data-screen-label="4a2 Camera denied">
+            <div class="dv-olabel"><a class="dv-oid" href="#4a2">4a2</a>Camera not allowed</div>
+            <div class="ph sm">
+              <div class="sb"><span>18:02</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="stack">
+                <h1 class="h">Connect to SignalHub</h1>
+                <div class="banner neutral"><span class="ms c-var">no_photography</span><span>SignalHub can't use the camera, so it can't scan. Paste the link instead, or allow the camera in your phone's settings.</span></div>
+                <div class="scan off">camera off</div>
+                <div style="display:flex;gap:8px"><span class="btn-f"><span class="ms">content_paste</span>Paste link</span><span class="btn-x">Open settings</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">Pasting becomes the main action. Not an error colour: it is a choice they made.</p>
+          </div>
+
+          <div class="dv-opt" id="4a3" data-screen-label="4a3 Not a SignalHub code">
+            <div class="dv-olabel"><a class="dv-oid" href="#4a3">4a3</a>A code that isn't an invitation</div>
+            <div class="ph sm">
+              <div class="sb"><span>18:02</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="stack">
+                <h1 class="h">Connect to SignalHub</h1>
+                <div class="banner"><span class="ms">qr_code_2</span><span>That isn't a SignalHub invitation. Scan the code the person who invited you shared.</span></div>
+                <div class="scan" aria-label="Camera, point at the invitation code">camera preview</div>
+                <div style="display:flex;gap:8px"><span class="btn-t"><span class="ms">content_paste</span>Paste link</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">Any other QR code, a pasted link that isn't a pairing link, and a web sign-in code ("That's a sign-in code for a web page. Use Settings › Sign in a browser.") each get a line like this. The scanner keeps running.</p>
+          </div>
+
+          <div class="dv-opt" id="4a4" data-screen-label="4a4 Server unreachable">
+            <div class="dv-olabel"><a class="dv-oid" href="#4a4">4a4</a>Can't reach the server</div>
+            <div class="ph sm">
+              <div class="sb"><span>18:03</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="stack">
+                <h1 class="h">Connect to SignalHub</h1>
+                <div class="banner"><span class="ms">cloud_off</span><span>Can't reach signalhub.example. Check your connection and that the address is right, then try again.</span></div>
+                <div style="display:flex;gap:8px"><span class="btn-f"><span class="ms">refresh</span>Try again</span><span class="btn-x">Scan another</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">The code is not used up by a network failure, so Try again reuses it. It names the address the code carried so a wrong host is easy to spot.</p>
+          </div>
+
+          <div class="dv-opt" id="4a6" data-screen-label="4a6 Client key">
+            <div class="dv-olabel"><a class="dv-oid" href="#4a6">4a6</a>With a client key, and a wrong key</div>
+            <div class="ph sm">
+              <div class="sb"><span>18:05</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="stack">
+                <h1 class="h">With a client key</h1>
+                <div class="tf"><span class="fl">Server address</span>https://signalhub.example</div>
+                <div><div class="tf bad"><span class="fl">Client key</span>••••••••••••</div><p class="help bad">That key isn't valid, or its device was disconnected.</p></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end"><span class="btn-x">Back to scanning</span><span class="btn-f">Connect</span></div>
+              </div>
+            </div>
+            <p class="dv-onote">The fold of 4a, opened. An address that can't be reached gets the sentence of <a class="dv-oid" href="#4a4">4a4</a> under the address field instead.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t4c" data-screen-label="Turn 4c: welcomes, what's new, about">
+        <div class="dv-thd"><a class="dv-tid" href="#t4c">4c</a><span class="dv-tname">Welcome by role, What's new, and About this server</span></div>
+        <p class="dv-why">A Mod or admin's first run mentions what their role adds. A device that was already set up before the upgrade gets no welcome but a one-time What's new card on its inbox. Settings says, in a row of its own, who can see what.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="4b2" data-screen-label="4b2 Welcome admin">
+            <div class="dv-olabel"><a class="dv-oid" href="#4b2">4b2</a>Welcome, an admin's device</div>
+            <div class="ph">
+              <div class="sb"><span>18:03</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="stack">
+                <h1 class="h">Welcome, Sofia</h1>
+                <p class="pb">You're connected to signalhub.example as Sofia - Pixel, an admin device.</p>
+                <div class="facts">
+                  <div class="fact"><span class="ms c-primary">group</span><span><b>People</b>: invite people, set them to Basic or Mod, and manage their devices.</span></div>
+                  <div class="fact"><span class="ms c-primary">devices</span><span><b>Devices</b> in Settings connects your other phones.</span></div>
+                  <div class="fact"><span class="ms c-primary">language</span><span><b>Sign in a browser</b> puts SignalHub on a computer.</span></div>
+                  <div class="fact"><span class="ms c-primary">sensors</span><span><b>Producers</b> send events. Subscribe to the ones you want, or make your own.</span></div>
+                </div>
+                <p class="p">The host runs this server and can see every event on it.</p>
+              </div>
+              <div style="flex:1"></div>
+              <div style="display:flex;justify-content:flex-end;gap:8px;padding:16px"><span class="btn-x">Later</span><span class="btn-f">Find producers</span></div>
+            </div>
+            <p class="dv-onote">Same screen, role-aware facts. A Mod's says "Devices in Settings connects your other phones." and "Sign in a browser puts SignalHub on a computer." and omits People. Neither mentions asking someone for devices.</p>
+          </div>
+
+          <div class="dv-opt" id="4b3" data-screen-label="4b3 What's new">
+            <div class="dv-olabel"><a class="dv-oid" href="#4b3">4b3</a>What's new, once, after the upgrade</div>
+            <div class="ph">
+              <div class="sb"><span>09:12</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Inbox</div><span class="ib"><span class="ms">filter_list</span></span></div>
+              <div class="card">
+                <h3>What's new</h3>
+                <div class="fact"><span class="ms">dock_to_bottom</span><span><b>A bottom bar.</b> Inbox, Producers and Settings are one tap away.</span></div>
+                <div class="fact"><span class="ms">sensors</span><span><b>Producers.</b> Make your own, share them, and subscribe to others'.</span></div>
+                <div class="fact"><span class="ms">group</span><span><b>People.</b> Invite people and manage their devices.</span></div>
+                <div style="display:flex;justify-content:flex-end;gap:4px"><span class="btn-x" style="color:var(--on-primary-container)">See Producers</span><span class="btn-x" style="color:var(--on-primary-container)">Got it</span></div>
+              </div>
+              <div class="ev"><span class="dot"></span><div class="tx"><span class="et" style="font-weight:500">Backup finished</span><span class="t2n">Info · Normal · homelab-monitor</span></div></div>
+              <div class="ev"><span class="dot" style="background:transparent"></span><div class="tx"><span class="et">Disk at 80%</span><span class="t2n">Action required · High · homelab-monitor</span></div></div>
+              <div style="flex:1"></div>
+              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Shown once, at the top of the inbox, on a device already connected when the app updates; a newly connected device gets the welcome instead. The People line shows for an admin only. Got it dismisses for good; See Producers opens the tab and dismisses. After the upgrade every existing device is an admin device and its user is the owner of the existing producers, already subscribed to them, so the People line shows for them and nothing else changes.</p>
+          </div>
+
+          <div class="dv-opt" id="4b4" data-screen-label="4b4 Settings">
+            <div class="dv-olabel"><a class="dv-oid" href="#4b4">4b4</a>Settings: the About this server row</div>
+            <div class="ph">
+              <div class="sb"><span>18:20</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Settings</div></div>
+              <div class="lt"><span class="ms c-var">notifications</span><div class="tx"><span class="t1">Push filters</span><span class="t2n">On · Low and up</span></div><span class="ms c-var">expand_more</span></div>
+              <div class="lt"><span class="ms c-var">volume_up</span><div class="tx"><span class="t1">Alert</span><span class="t2n">Chime · volume 70%</span></div><span class="ms c-var">expand_more</span></div>
+              <div class="lt"><span class="ms c-var">devices</span><div class="tx"><span class="t1">Devices</span><span class="t2n">1 device</span></div><span class="ms c-var">chevron_right</span></div>
+              <div class="lt"><span class="ms c-var">qr_code_scanner</span><div class="tx"><span class="t1">Sign in a browser</span><span class="t2n">Scan the code a web page shows</span></div><span class="ms c-var">chevron_right</span></div>
+              <div class="lt"><span class="ms c-primary">dns</span><div class="tx"><span class="t1">About this server</span><span class="t2n">signalhub.example · who can see what</span></div><span class="ms c-var">chevron_right</span></div>
+              <div class="lt"><span class="ms c-var">phone_android</span><div class="tx"><span class="t1">This device</span><span class="t2n">Rui - iPhone · Push notifications are on</span></div><span class="ms c-var">expand_more</span></div>
+              <div style="flex:1"></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The canonical Settings order for every role: Push filters, Alert, Devices, Sign in a browser, About this server, This device (an admin's Devices summary is "4 devices · 1 browser"). About this server opens <a class="dv-oid" href="#4b5">4b5</a>.</p>
+          </div>
+
+          <div class="dv-opt" id="4b5" data-screen-label="4b5 About this server">
+            <div class="dv-olabel"><a class="dv-oid" href="#4b5">4b5</a>About this server</div>
+            <div class="ph">
+              <div class="sb"><span>18:21</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar bk"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">About this server</div></div>
+              <div class="lt"><span class="ms c-var">dns</span><div class="tx"><span class="t2n">Address</span><span class="t1">https://signalhub.example</span></div></div>
+              <div class="lt"><span class="ms c-var">badge</span><div class="tx"><span class="t2n">You are</span><span class="t1">Rui · Basic</span></div></div>
+              <div class="lt"><span class="ms c-var">info</span><div class="tx"><span class="t2n">This app</span><span class="t1">SignalHub 3.4.0 · commit a1b2c3d</span></div></div>
+              <div class="lt"><span class="ms c-var">info</span><div class="tx"><span class="t2n">Server</span><span class="t1">SignalHub 3.4.0 · commit a1b2c3d</span></div></div>
+              <div class="facts" style="margin:16px"><div class="fact"><span class="ms c-primary">visibility</span><span>The host runs this server and can see every event on it.</span></div></div>
+            </div>
+            <p class="dv-onote">The same sentence as the welcome, the same words for every role. It doesn't say who the host is. The page shows the server's address, the server's own version and commit, and the app's own build (the sample builds are in the same format as everywhere). Other people on the server see only the events of the producers they subscribed to. Needs a server change (queued with the design lock-in)</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t4d" data-screen-label="Turn 4d: errors, offline, loading">
+        <div class="dv-thd"><a class="dv-tid" href="#t4d">4d</a><span class="dv-tname">Errors, offline, loading, a role that can't, access removed</span></div>
+        <p class="dv-why">Four patterns used by every list and button in the new screens: a list that failed to load, a change that failed, a skeleton while loading, and a refusal for your role. Each says what happened and what to do, and never blames the person.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="4i" data-screen-label="4i List load error">
+            <div class="dv-olabel"><a class="dv-oid" href="#4i">4i</a>A list that didn't load</div>
+            <div class="ph">
+              <div class="sb"><span>18:30</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="empty"><span class="ms">cloud_off</span><div class="pb">Couldn't load producers</div><p class="p">Check your connection and try again.</p><span class="btn-t" style="margin-top:8px"><span class="ms">refresh</span>Try again</span></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The same state, with its own noun, for Producers, People, Devices and a producer's keys. When a list was loaded before, it stays and a banner says so instead (<a class="dv-oid" href="#4j">4j</a>). A server error says "SignalHub had a problem. Try again in a moment." Empty and error states use the empty-state title (22/28) over an outline icon.</p>
+          </div>
+
+          <div class="dv-opt" id="4j" data-screen-label="4j Offline">
+            <div class="dv-olabel"><a class="dv-oid" href="#4j">4j</a>Offline, showing an older list</div>
+            <div class="ph">
+              <div class="sb"><span>18:31</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="banner neutral" style="margin:0 16px 8px"><span class="ms c-var">cloud_off</span><span>You're offline. This is the list from 18:12. Changes are paused until you're back.</span></div>
+              <div class="pr"><span class="pa"><span class="ms">sensors</span></span><div class="tx"><span class="t1">ana-reports</span><span class="t2n">Ana · Public</span></div><span class="bell dis"><span><span class="ms">notifications</span></span></span></div>
+              <div class="pr"><span class="pa"><span class="ms">sensors</span></span><div class="tx"><span class="t1" style="display:flex;align-items:center">homelab-monitor<span class="yt">Yours</span></span><span class="t2n">Public · 2 keys · last event 18:09</span></div><span class="bell on dis"><span><span class="ms fill">notifications_active</span></span></span></div>
+              <div class="pr"><span class="pa"><span class="ms">sensors</span></span><div class="tx"><span class="t1">ci-pipeline</span><span class="t2n">João · Private, shared with you</span></div><span class="bell on dis"><span><span class="ms fill">notifications_active</span></span></span></div>
+              <div style="flex:1"></div>
+              <div class="fab" style="opacity:.38"><span class="ms">add</span>New producer</div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Reading still works. Anything that writes (bells, New producer, keys, role changes) is greyed, with the reason said once at the top. It clears itself when the connection returns and the list refreshes.</p>
+          </div>
+
+          <div class="dv-opt" id="4j2" data-screen-label="4j2 Write failed">
+            <div class="dv-olabel"><a class="dv-oid" href="#4j2">4j2</a>A change in flight, and one that failed</div>
+            <div class="ph">
+              <div class="sb"><span>18:33</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="pr"><span class="pa"><span class="ms">sensors</span></span><div class="tx"><span class="t1">ana-reports</span><span class="t2n">Ana · Public</span></div><span class="bell fl" aria-label="Subscribing to ana-reports"><span><span class="ring"></span></span></span></div>
+              <div class="pr"><span class="pa"><span class="ms">sensors</span></span><div class="tx"><span class="t1">ci-pipeline</span><span class="t2n">João · Private, shared with you</span></div><span class="bell on"><span><span class="ms fill">notifications_active</span></span></span></div>
+              <div style="flex:1"></div>
+              <div class="snack"><span style="flex:1">Couldn't unsubscribe from ci-pipeline. Try again.</span><span class="sa">Retry</span></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">While a change is in flight the bell's 40 dp circle holds a 24 dp progress ring (stroke 2.5; filled secondaryContainer while subscribing, a 1 dp outline while unsubscribing) with no other target border, ignores taps, and is named "Subscribing to ana-reports" or "Unsubscribing from ana-reports". If a change fails the bell goes back to what it was and a snackbar says what didn't happen, with Retry: "Couldn't subscribe to NAME. Try again." or "Couldn't unsubscribe from NAME. Try again." (drawn: the second, for ci-pipeline). A successful unsubscribe, which can be undone, says "Unsubscribed from NAME. Its events leave your inbox." with Undo. Under reduced motion the ring stays and does not turn.</p>
+          </div>
+
+          <div class="dv-opt" id="4l" data-screen-label="4l Loading">
+            <div class="dv-olabel"><a class="dv-oid" href="#4l">4l</a>Loading a list, and a button working</div>
+            <div class="ph">
+              <div class="sb"><span>18:34</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="pr"><span class="pa"></span><div class="tx" style="gap:8px"><span class="sk" style="height:16px;width:140px"></span><span class="sk" style="height:12px;width:200px"></span></div><span class="bell"></span></div>
+              <div class="pr"><span class="pa"></span><div class="tx" style="gap:8px"><span class="sk" style="height:16px;width:110px"></span><span class="sk" style="height:12px;width:170px"></span></div><span class="bell"></span></div>
+              <div class="pr"><span class="pa"></span><div class="tx" style="gap:8px"><span class="sk" style="height:16px;width:160px"></span><span class="sk" style="height:12px;width:190px"></span></div><span class="bell"></span></div>
+              <div class="pr"><span class="pa"></span><div class="tx" style="gap:8px"><span class="sk" style="height:16px;width:100px"></span><span class="sk" style="height:12px;width:150px"></span></div><span class="bell"></span></div>
+              <div style="flex:1"></div>
+              <div style="padding:16px;display:flex;flex-direction:column;gap:12px"><div class="p">Buttons while working, same width, same label:</div><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="btn-f">Create</span><span class="btn-f" style="opacity:.7"><span class="spin"></span>Create</span><span class="btn-t"><span class="ms">check</span>Copied</span></div></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Skeleton rows the shape of real rows (no spinner for a whole list) for Producers, People, Devices and details. A button doing work keeps its width and label, shows a spinner, and ignores taps. Copy turns to Copied for two seconds, except on the key screen, where Copied stays while the screen is open.</p>
+          </div>
+
+          <div class="dv-opt" id="4m" data-screen-label="4m Not allowed">
+            <div class="dv-olabel"><a class="dv-oid" href="#4m">4m</a>A screen your role doesn't have</div>
+            <div class="ph">
+              <div class="sb"><span>18:36</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar bk"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">People</div></div>
+              <div class="empty"><span class="ms">lock</span><div class="pb">You can't open this</div><p class="p">People is for admins of this server. If you need it, ask an admin.</p><span class="btn-t" style="margin-top:8px">Back to Inbox</span></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Reached by a stale link or a role that dropped while the screen was open. The bar already shows the new role's tabs.</p>
+          </div>
+
+          <div class="dv-opt" id="4m2" data-screen-label="4m2 Refused action">
+            <div class="dv-olabel"><a class="dv-oid" href="#4m2">4m2</a>An action your role doesn't allow</div>
+            <div class="ph">
+              <div class="sb"><span>18:37</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar bk"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+              <div class="lt"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">Ana - Pixel</span><span class="t2n">This device</span></div></div>
+              <div class="lt"><span class="ms c-var">tablet</span><div class="tx"><span class="t1">Ana - Tablet</span><span class="t2n">Last active 3 days ago</span></div></div>
+              <div style="flex:1"></div>
+              <div class="snack"><span style="flex:1">Your role doesn't allow this. It may have changed.</span></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">A Mod revokes while the host has just made them Basic. The app then reads the role again and rebuilds the screen; the "Your role changed" message of the Devices designs follows. The device's last-active text (Last active today, 3 days ago, or a date; Not used yet for a device never used after pairing) replaces the added date. Needs a server change (queued with the design lock-in)</p>
+          </div>
+
+          <div class="dv-opt" id="4o" data-screen-label="4o Event gone">
+            <div class="dv-olabel"><a class="dv-oid" href="#4o">4o</a>An event that isn't in your inbox any more</div>
+            <div class="ph">
+              <div class="sb"><span>18:40</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar bk"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="empty"><span class="ms">event_busy</span><div class="pb">This event isn't in your inbox any more</div><p class="p">You may have unsubscribed from its producer, or it was deleted. If you subscribe again, its older events come back.</p><span class="btn-t" style="margin-top:8px">Back to Inbox</span></div>
+              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">What a tapped push, an old link or a refresh shows when the event can no longer be read. Not an error colour, one button. It removes the event from the inbox list if it was there.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t4e" data-screen-label="Turn 4e: notifications">
+        <div class="dv-thd"><a class="dv-tid" href="#t4e">4e</a><span class="dv-tname">Notifications</span></div>
+        <p class="dv-why">What the notification shade shows. An event push is the event's title and message, as today. Device notices are not events: they have no inbox row and tapping one opens the Devices screen. There is no welcome push; the welcome is on the screen only.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="4n" data-screen-label="4n Notifications">
+            <div class="dv-olabel"><a class="dv-oid" href="#4n">4n</a>The shade: an event, and four notices</div>
+            <div class="ph">
+              <div class="sb"><span>18:45</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="shade">
+                <div class="nt"><div class="nh"><span class="ni"><span class="ms">notifications</span></span>SignalHub · Events · now</div><div class="ntt">Deploy failed on main</div><div class="ntb">Build 412 failed at the test stage. 3 tests failed.</div></div>
+                <div class="nt"><div class="nh"><span class="ni"><span class="ms">notifications</span></span>SignalHub · Events · 2 min</div><div class="ntt">New device paired</div><div class="ntb">"Rui - iPhone" can now read your SignalHub events. If you did not pair it, revoke it.</div></div>
+                <div class="nt"><div class="nh"><span class="ni"><span class="ms">notifications</span></span>SignalHub · Events · 9 min</div><div class="ntt">New admin device paired</div><div class="ntb">"Sofia - Pixel" is an admin device and can now read your SignalHub events. If you did not pair it, revoke it.</div></div>
+                <div class="nt"><div class="nh"><span class="ni"><span class="ms">notifications</span></span>SignalHub · Events · 1 h</div><div class="ntt">Device revoked</div><div class="ntb">"Ana - Pixel" revoked "Old tablet". If this was not you, revoke "Ana - Pixel" on the admin page.</div></div>
+                <div class="nt"><div class="nh"><span class="ni"><span class="ms">notifications</span></span>SignalHub · Events · 2 h</div><div class="ntt">New device paired</div><div class="ntb">"Pixel 8" can now read your SignalHub events. "Anna's phone" created its pairing code. If this was not you, revoke both on the admin page.</div></div>
+              </div>
+            </div>
+            <p class="dv-onote">Exact texts from the server. Events and notices share the one Android channel, Events. An event's push opens that event; a notice opens the Devices screen, since it is about a device and has no event. The last notice is the variant for a device paired with a code another device created. Admins also get the notices of other people's pairings; a Basic user gets only their own. The "admin page" in the last lines is the host's page on the host's computer, and a Basic user sees these words too.</p>
+          </div>
+
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

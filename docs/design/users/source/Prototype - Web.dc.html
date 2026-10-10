@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono-400-500.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--tertiary-container:#5d3c55;--error:#ffb4ab;--on-error:#690005;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-lowest:#0d0e13;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f}
+          body{margin:0;background:#0b0c10;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          /* prototype chrome */
+          .pt{max-width:1360px;margin:0 auto;padding:32px 24px 56px}
+          .pt h1.pth{font:500 22px/28px Roboto,sans-serif;margin:0 0 6px;color:#e4e1e9}
+          .pt h2{font:500 16px/24px Roboto,sans-serif;margin:0 0 4px;color:#e4e1e9}
+          .pt .lead{font:14px/20px Roboto,sans-serif;color:#c7c5d0;max-width:760px;margin:0 0 20px}
+          .blk{padding:28px 0 8px;border-top:1px solid rgba(255,255,255,.08)}
+          .picker{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+          .pk{min-height:48px;padding:0 16px;border-radius:24px;border:1px solid var(--outline);background:transparent;color:var(--on-surface-variant);font:500 14px Roboto,sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-sizing:border-box}
+          .pk:hover{background:rgba(255,255,255,.06)}
+          .pk.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container)}
+          .pk:disabled{opacity:.38;cursor:default}
+          .pk .ms{font-size:18px;width:18px;height:18px}
+          .pk:focus-visible,[data-n]:focus-visible{outline:2px solid #fff;outline-offset:3px}
+          .ctl{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 20px}
+          .stage{display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start}
+          .strip{flex:1;min-width:280px;font:14px/20px Roboto,sans-serif;color:#c7c5d0}
+          .strip.side{max-width:420px}
+          .strip .sh{font:600 11px ui-monospace,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase;color:#9a98a3;margin:0 0 10px}
+          .strip ol{list-style:none;margin:0 0 18px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:2px 16px}
+          .strip.side ol{display:flex;flex-direction:column}
+          .strip li{display:flex;gap:12px;align-items:center;min-height:36px;padding:0 12px;border-radius:10px;color:#9a98a3}
+          .strip li b{font:600 11px ui-monospace,Menlo,monospace;width:22px;height:22px;border-radius:11px;border:1px solid #46464f;display:flex;align-items:center;justify-content:center;flex:none}
+          .strip li.done{color:#c7c5d0}
+          .strip li.done b{background:#434659;border-color:#434659;color:#e0e1f9}
+          .strip li.cur{background:#1f1f25;color:#e4e1e9;font-weight:500}
+          .strip li.cur b{background:#bac3ff;border-color:#bac3ff;color:#222c61}
+          .strip .cap{background:#1b1b21;border-radius:12px;padding:12px 16px;color:#e4e1e9;margin:0;max-width:560px}
+          .strip .cap span{display:block;font:600 11px ui-monospace,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase;color:#bac3ff;margin-bottom:4px}
+          .hot{outline:2px dashed var(--primary);outline-offset:3px;animation:ptp 1.8s ease-in-out infinite}
+          .nohot .hot{outline:none;animation:none}
+          @keyframes ptp{50%{outline-color:rgba(186,195,255,.25)}}
+          @media (prefers-reduced-motion:reduce){.hot{animation:none}}
+          [data-n]{cursor:pointer}
+          .fitw{width:100%;overflow:hidden}
+          /* the browser and phone frames, as designed */
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .br{width:1280px;height:840px;background:var(--surface);border-radius:12px;border:1px solid #2c2d33;overflow:hidden;position:relative;flex:none;box-sizing:border-box}
+          .ph{width:390px;height:844px;background:var(--surface);border-radius:28px;border:1px solid #2c2d33;overflow:hidden;position:relative;flex:none;box-sizing:border-box}
+          .scr{position:absolute;left:0;right:0;top:0;bottom:0;display:none;flex-direction:column}
+          .chrome{height:40px;flex:none;background:#1b1c21;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid #2c2d33}
+          .dots{display:flex;gap:6px}.dots span{width:10px;height:10px;border-radius:5px;background:#3a3b42}
+          .url{flex:1;height:26px;border-radius:13px;background:#0f1014;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;color:#9a98a3;min-width:0;white-space:nowrap;overflow:hidden}
+          .url .ms{font-size:14px;width:14px;height:14px}
+          .phchrome{height:52px;flex:none;background:#1b1c21;display:flex;align-items:center;padding:16px 14px 8px;box-sizing:border-box}
+          .phchrome .url{height:30px;border-radius:15px}
+          .app{flex:1;display:flex;min-height:0;position:relative}
+          .rail{width:88px;flex:none;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0;background:var(--surface)}
+          .rlogo{width:40px;height:40px;border-radius:12px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+          .ri{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:500;color:var(--on-surface-variant);min-height:52px;min-width:56px}
+          .ri .pill{width:56px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .ri.on{color:var(--on-surface)}
+          .ri.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .acct{margin-top:auto;width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center}
+          .nbadge{position:absolute;top:2px;left:32px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:var(--on-error);font-size:11px;line-height:16px;text-align:center;box-sizing:border-box}
+          .listp{width:420px;flex:none;display:flex;flex-direction:column;background:var(--sc-low);border-radius:16px 0 0 0;margin-top:8px;position:relative;overflow:hidden}
+          .detp{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--sc-low);margin:8px 8px 0 1px;border-radius:0 16px 0 0;padding:28px 40px;gap:16px;overflow:hidden;position:relative}
+          .detp.solo{margin-left:0;border-radius:16px 16px 0 0}
+          .detp.prod{gap:8px;padding:16px 40px}
+          .detp>.t2n,.pform>.t2n{flex:none}
+          .phead{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px 0 20px}
+          .phead .t{font-size:22px;line-height:28px;flex:1}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .lt{display:flex;flex:none;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .lt.sel{background:var(--secondary-container);border-radius:16px;margin:0 8px;padding-left:8px;padding-right:16px}
+          .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t1b{font-size:16px;line-height:24px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2n{font-size:14px;line-height:20px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .meta{display:flex;gap:12px;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .meta .m1{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .dot{width:10px;height:10px;border-radius:5px;background:var(--primary);flex:none}
+          .nodot{width:10px;flex:none}
+          .c-primary{color:var(--primary)}.c-error{color:var(--error)}.c-var{color:var(--on-surface-variant)}
+          .lab{flex:none;font-size:14px;line-height:20px;font-weight:500;color:var(--primary);padding:16px 16px 4px}
+          .h{font-size:28px;line-height:36px;margin:0;font-weight:400;max-width:62ch}
+          .h2{font-size:24px;line-height:32px;margin:0;font-weight:400}
+          .chips{display:flex;gap:8px;flex-wrap:wrap;flex:none}
+          .chip{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 16px 0 8px;border:1px solid var(--outline);border-radius:8px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .chip .ms{font-size:18px;width:18px;height:18px}
+          .body{font-size:16px;line-height:24px;max-width:66ch;margin:0;text-wrap:pretty}
+          .kv{display:grid;grid-template-columns:120px 1fr;gap:8px 16px;font-size:14px;line-height:20px;max-width:640px}
+          .kv b{font-weight:500;color:var(--on-surface-variant)}
+          .p{font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0;text-wrap:pretty}
+          .btn-t{height:48px;border-radius:24px;background:var(--secondary-container);color:var(--on-secondary-container);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-f{height:48px;border-radius:24px;background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-o{height:48px;border-radius:24px;border:1px solid var(--outline);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-x{height:48px;border-radius:24px;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500;flex:none}
+          .btn-x.er{color:var(--error)}
+          .t2w{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .sw{width:52px;height:32px;border-radius:16px;background:var(--primary);position:relative;flex:none}
+          .sw::after{content:"";position:absolute;right:4px;top:4px;width:24px;height:24px;border-radius:12px;background:var(--on-primary)}
+          .link{color:var(--primary);font-size:14px;font-weight:500;text-align:center;text-decoration:underline;min-height:48px;display:flex;align-items:center;justify-content:center;position:relative}
+          .btn-f .ms,.btn-t .ms,.btn-o .ms,.btn-x .ms{font-size:18px;width:18px;height:18px}
+          .full{display:flex;width:100%}
+          .row{display:flex;gap:8px;align-items:center;flex:none}
+          .av{width:40px;height:40px;border-radius:20px;background:var(--sc-highest);color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;flex:none}
+          .avp{background:var(--primary-container);color:var(--on-primary-container);font-size:16px;font-weight:500}
+          .tbtn{width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;flex:none}
+          .tbtn.on{color:var(--on-secondary-container)}
+          .tbtn.off{color:var(--on-surface-variant)}
+          .own{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;vertical-align:middle}
+          .lt.sel .own{background:var(--sc-high)}
+          .search{margin:0 16px 8px;height:48px;border-radius:24px;background:var(--sc-high);display:flex;align-items:center;gap:12px;padding:0 16px;color:var(--on-surface-variant);font-size:16px;flex:none}
+          .fchips{display:flex;gap:8px;padding:0 16px 8px;flex:none;overflow:hidden}
+          .fc{height:44px;border-radius:8px;border:1px solid var(--outline);display:flex;align-items:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500;color:var(--on-surface-variant);box-sizing:border-box;white-space:nowrap;flex:none}
+          .fc.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container);padding-left:8px}
+          .fab{position:absolute;right:16px;bottom:16px;height:56px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;gap:12px;padding:0 20px 0 16px;font-size:14px;font-weight:500}
+          .seg{display:flex;border:1px solid var(--outline);border-radius:24px;overflow:hidden;height:48px;width:320px;box-sizing:border-box;flex:none}
+          .seg>span{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;border-left:1px solid var(--outline)}
+          .seg>span:first-child{border-left:0}
+          .seg>.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .pchip{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 12px 0 8px;border:1px solid var(--outline);border-radius:22px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .avs{width:24px;height:24px;border-radius:12px;background:var(--tertiary-container);color:#ffd8ee;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+          .keyrow{flex:none;display:flex;align-items:center;gap:16px;max-width:640px;padding:4px 0;border-top:1px solid var(--outline-variant)}
+          .mono{font-family:"Roboto Mono",monospace}
+          .pbody{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative}
+          .pform{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:10px;padding:8px 16px}
+          .nav{height:80px;flex:none;background:var(--sc);display:flex;padding:12px 8px 16px;box-sizing:border-box}
+          .nv{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant)}
+          .nv .pill{width:64px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .nv.on{color:var(--on-surface)}
+          .nv.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .nv .nbadge{left:36px}
+          .mini{width:32px;height:32px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500}
+          .menu{position:absolute;background:var(--sc-high);border-radius:12px;padding:8px 0;width:260px;box-shadow:0 4px 16px rgba(0,0,0,.5);z-index:3}
+          .grp{border-radius:16px;background:var(--sc);overflow:hidden;max-width:640px}
+          .gh{display:flex;align-items:center;gap:16px;padding:12px 16px;min-height:64px;box-sizing:border-box}
+          .gb{padding:0 0 8px;border-top:1px solid var(--outline-variant)}
+          .kvr{display:flex;align-items:center;gap:16px;padding:8px 16px;min-height:56px;box-sizing:border-box}
+          .scrim{position:absolute;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.6);z-index:5}
+          .dlgw{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;z-index:6;padding:16px}
+          .dlg{width:480px;max-width:100%;background:var(--sc-high);border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box}
+          .dlg .acts,.acts{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+          .skel{height:14px;border-radius:7px;background:var(--sc-highest)}
+          .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px 32px;text-align:center}
+          .empty>.ms{font-size:48px;width:48px;height:48px;color:var(--on-surface-variant)}
+          .empty .h3{font-size:22px;line-height:28px;margin:0;font-weight:400}
+          .banner{display:flex;gap:12px;align-items:center;background:var(--sc-high);color:var(--on-surface);padding:4px 8px 4px 16px;font-size:14px;line-height:20px;min-height:56px;box-sizing:border-box;flex:none}
+          .banner .tx{flex:1}
+          /* sign-in pages */
+          .page{flex:1;display:flex;align-items:center;justify-content:center;padding:32px;position:relative;flex-direction:column}
+          .card{width:420px;background:var(--sc-low);border-radius:24px;padding:32px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box}
+          .ch{font-size:24px;line-height:32px;margin:0;font-weight:400}
+          .brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:500;color:var(--on-surface)}
+          .logo{width:28px;height:28px;border-radius:8px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center}
+          .logo .ms{font-size:18px;width:18px;height:18px}
+          .qr{width:168px;height:168px;border-radius:12px;background:repeating-linear-gradient(45deg,#e4e1e9 0 6px,#cfccd6 6px 12px);color:#121318;display:flex;align-items:center;justify-content:center;font:12px "Roboto Mono",monospace;margin:0 auto;position:relative;flex:none}
+          .qrwrap{position:relative;display:flex;justify-content:center}
+          .code{font:500 32px/40px "Roboto Mono",monospace;letter-spacing:6px;text-align:center;background:var(--sc-high);border-radius:12px;padding:12px}
+          .tf{border:1px solid var(--outline);border-radius:4px;height:56px;display:flex;align-items:center;padding:0 16px;font-size:16px;position:relative;box-sizing:border-box}
+          .tf.focus{border:2px solid var(--primary);padding:0 15px}
+          .tf .fl{position:absolute;top:-9px;left:12px;padding:0 4px;background:var(--surface);font-size:12px;line-height:16px;color:var(--primary)}
+          .wait{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--on-surface-variant);justify-content:center}
+          .spin{width:18px;height:18px;border-radius:9px;border:2px solid var(--outline-variant);border-top-color:var(--primary);box-sizing:border-box;flex:none}
+          .okmark{width:56px;height:56px;border-radius:28px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;align-self:center}
+          .okmark .ms{font-size:32px;width:32px;height:32px}
+          .steps{margin:0;padding-left:20px;font-size:14px;line-height:22px;color:var(--on-surface-variant)}
+          .mpage{flex:1;padding:20px 16px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+          .mpage .code{font-size:26px;line-height:32px;letter-spacing:4px}
+          .errtxt{font-size:12px;line-height:16px;color:var(--error);padding:0 16px}
+          .behind{align-self:stretch;flex:1;padding:20px 24px;display:flex;flex-direction:column;gap:14px}
+          /* the app's screens shown on a phone beside or inside the browser */
+          .aph{background:var(--surface);display:flex;flex-direction:column;position:relative;overflow:hidden}
+          .aph.mini{position:absolute;right:56px;top:50%;margin-top:-310px;width:300px;height:620px;border-radius:24px;border:1px solid #2c2d33;box-sizing:border-box}
+          .aph.full{position:absolute;left:0;right:0;top:0;bottom:0}
+          .aph .sb{height:24px;flex:none;display:flex;align-items:center;padding:0 16px;font-size:12px}
+          .aph .appbar{height:56px;flex:none;display:flex;align-items:center;gap:4px;padding:0 4px}
+          .aph .appbar .t{font-size:20px;line-height:26px;flex:1}
+          .scan{flex:1;margin:12px;border-radius:16px;background:repeating-linear-gradient(45deg,#1f1f25 0 8px,#29292f 8px 16px);display:flex;align-items:center;justify-content:center;font:11px "Roboto Mono",monospace;color:var(--on-surface-variant);position:relative}
+          .frame{position:absolute;left:60px;right:60px;top:60px;bottom:60px;border:2px solid var(--primary);border-radius:16px}
+          .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--sc-low);border-radius:28px 28px 0 0;padding:8px 24px 24px;display:flex;flex-direction:column;gap:14px;z-index:6}
+          .sheet .h2s{font-size:20px;line-height:26px;margin:0;font-weight:400}
+          .handle{width:32px;height:4px;border-radius:2px;background:var(--outline);margin:6px auto 4px}
+          .fact{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:18px;color:var(--on-surface-variant)}
+          .fact .ms{font-size:18px;width:18px;height:18px}
+          .fact b{color:var(--on-surface);font-weight:500}
+          .aph .scrim{z-index:5}
+          .btn-f[data-n],.btn-t[data-n],.btn-o[data-n],.btn-x[data-n]{position:relative}
+        </style>
+      </helmet>
+
+      <div class="pt" id="pt" data-screen-label="Prototype: Web">
+        <h1 class="pth">Prototype - Web</h1>
+        <p class="lead">Two frames, each with its own flows. Pick a flow, then click the outlined element to move on. Back steps back, Restart starts the flow again. The screens are the designed ones, with sample data only.</p>
+
+        <section class="blk" id="dblk" data-screen-label="Desktop frame">
+          <h2>Desktop</h2>
+          <div class="picker" id="dpicker" role="tablist" aria-label="Desktop flow"></div>
+          <div class="ctl">
+            <button class="pk" id="dback" type="button"><span class="ms">arrow_back</span>Back</button>
+            <button class="pk" id="drestart" type="button"><span class="ms">restart_alt</span>Restart</button>
+            <button class="pk on" id="dhot" type="button" aria-pressed="true"><span class="ms">touch_app</span>Show click targets</button>
+          </div>
+          <div class="fitw" id="dfit"><div class="br" id="dh"></div></div>
+          <div class="strip" style="margin-top:20px">
+            <p class="sh" id="dfname">Flow</p>
+            <ol id="dsteps"></ol>
+            <p class="cap" id="dcap" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section class="blk" id="pblk" data-screen-label="Phone-width frame">
+          <h2>Phone width</h2>
+          <div class="picker" id="ppicker" role="tablist" aria-label="Phone-width flow"></div>
+          <div class="ctl">
+            <button class="pk" id="pback" type="button"><span class="ms">arrow_back</span>Back</button>
+            <button class="pk" id="prestart" type="button"><span class="ms">restart_alt</span>Restart</button>
+            <button class="pk on" id="phot" type="button" aria-pressed="true"><span class="ms">touch_app</span>Show tap targets</button>
+          </div>
+          <div class="stage">
+            <div class="ph" id="ph" data-screen-label="Phone-width browser"></div>
+            <div class="strip side">
+              <p class="sh" id="pfname">Flow</p>
+              <ol id="psteps"></ol>
+              <p class="cap" id="pcap" aria-live="polite"></p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        componentDidMount() {
+          const dh = document.getElementById('dh');
+          if (!dh) { setTimeout(() => this.componentDidMount(), 50); return; }
+          const I = (n, c, s) => `<span class="ms${c ? ' ' + c : ''}"${s ? ` style="${s}"` : ''}>${n}</span>`;
+          const N = (f, by) => ` data-n="${f}"${by ? ` data-by="${by}"` : ''}`;
+          const V = (v) => ` data-vs="${v}"`;
+          const chrome = (u) => `<div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url">${I('lock')}${u}</div></div>`;
+          const phchrome = (u) => `<div class="phchrome"><div class="url">${I('lock')}${u}</div></div>`;
+          const rail = (on, adm, badge, hot) => { hot = hot || {}; const t = [['inbox', 'Inbox'], ['sensors', 'Producers']]; if (adm) t.push(['group', 'People']); t.push(['settings', 'Settings']); return `<div class="rail"><span class="rlogo">${I('sensors')}</span>${t.map((x) => `<div class="ri${x[1] === on ? ' on' : ''}"${hot[x[1]] ? N(hot[x[1]]) : ''}><span class="pill">${I(x[0], x[1] === on ? 'fill' : '')}${x[1] === 'Inbox' && badge ? `<span class="nbadge">${badge}</span>` : ''}</span>${x[1]}</div>`).join('')}<span class="acct"><span class="av avp">R</span></span></div>`; };
+          const nav = (on, badge, hot) => { hot = hot || {}; const t = [['inbox', 'Inbox'], ['sensors', 'Producers'], ['group', 'People'], ['settings', 'Settings']]; return `<div class="nav">${t.map((x) => `<div class="nv${x[1] === on ? ' on' : ''}"${hot[x[1]] ? N(hot[x[1]]) : ''}><span class="pill">${I(x[0], x[1] === on ? 'fill' : '')}${x[1] === 'Inbox' && badge ? `<span class="nbadge">${badge}</span>` : ''}</span>${x[1]}</div>`).join('')}</div>`; };
+          const EVS = [
+            ['pan_tool', 'c-error', 'Your action: approve the release', 'Action required · High · ci-pipeline', '01:19', true],
+            ['info', 'c-primary', 'Nightly backup finished', 'Info · Normal · backup-jobs', '00:41', true],
+            ['block', 'c-error', 'Disk almost full on nas-01', 'Blocked · Critical · homelab-monitor', '00:36', true],
+            ['check_circle', 'c-var', 'Deploy to staging done', 'Completed · Low · ci-pipeline', '00:14', false],
+            ['info', 'c-primary', 'Weekly report is ready', 'Info · Normal · ana-reports', 'Yesterday', true],
+            ['check_circle', 'c-var', 'Photos synced', 'Completed · Low · backup-jobs', 'Yesterday', false],
+            ['info', 'c-primary', 'Certificate renewed', 'Info · Normal · homelab-monitor', 'Mon', false]
+          ];
+          const evRow = (e, sel, un, hot) => `<div class="lt${sel ? ' sel' : ''}" style="align-items:flex-start"${hot ? N(hot) : ''}><span class="ms ${e[1]}" style="margin-top:2px">${e[0]}</span><div class="tx"><span class="${un ? 't1b' : 't1'}">${e[2]}</span><div class="meta"><span class="m1">${e[3]}</span><span>${e[4]}</span></div></div><span class="${un ? 'dot' : 'nodot'}" style="margin-top:7px"></span></div>`;
+          const evList = (sel, hotIdx, hotTok) => EVS.map((e, i) => evRow(e, i === sel, e[5] && i !== sel, i === hotIdx ? hotTok : '')).join('');
+          const detail = (i) => i === 0
+            ? `<div class="row" style="justify-content:flex-end"><span class="btn-x">${I('mark_email_unread')}Mark as unread</span></div><h1 class="h">Your action: approve the release</h1><div class="chips"><span class="chip">${I('pan_tool')}Action required</span><span class="chip">${I('priority_high', 'c-error')}High</span></div><p class="body">The release of 3.0.0 is waiting at the approval gate. Check the changelog and the upgrade notes, then approve it in the pipeline.</p><div><span class="btn-t">${I('open_in_new')}Open link</span></div><div class="kv"><b>Producer</b><span>ci-pipeline</span><b>Context</b><span>release-3.0.0</span><b>Received</b><span>2026-10-10 01:19</span></div>`
+            : `<div class="row" style="justify-content:flex-end"><span class="btn-x">${I('mark_email_unread')}Mark as unread</span></div><h1 class="h">Disk almost full on nas-01</h1><div class="chips"><span class="chip">${I('block')}Blocked</span><span class="chip">${I('priority_high', 'c-error')}Critical</span></div><div class="kv"><b>Producer</b><span>homelab-monitor</span><b>Received</b><span>2026-10-10 00:36</span></div>`;
+          const emptyDet = `<div class="empty">${I('inbox')}<h2 class="h3">Select an event</h2><p class="p">Pick one from the list to read it here.</p></div>`;
+          const inboxScr = (o) => chrome(o.url) + (o.banner || '') + `<div class="app">` + rail('Inbox', true, o.badge, o.rail) + `<div class="listp"><div class="phead"><div class="t">Inbox</div><span class="ib">${I('filter_list')}</span><span class="ib">${I('done_all')}</span></div>${evList(o.sel, o.hotIdx, o.hotTok)}</div><div class="detp">${o.sel >= 0 ? detail(o.sel) : emptyDet}</div></div>`;
+          const brand = `<div class="brand"><span class="logo">${I('sensors')}</span>SignalHub</div>`;
+          const waitRow = (t) => `<div class="wait"><span class="spin"></span>${t}</div>`;
+          const mini = (inner) => `<div class="aph mini">${inner}</div>`;
+          const asb = (t) => `<div class="sb">${t}</div>`;
+          const aab = (t) => `<div class="appbar"><span class="ib">${I('close')}</span><div class="t">${t}</div></div>`;
+          const sheet = (hot) => `<div class="scrim"></div><div class="sheet"><div class="handle"></div><h2 class="h2s">Sign in this browser?</h2><div class="fact">${I('language')}<span><b>Firefox on Linux</b></span></div><div class="fact">${I('schedule')}<span>Asked just now</span></div><p class="p" style="font-size:13px;line-height:18px">Only sign in a browser you are looking at right now. It can read and send what you can for 30 days, or until you sign it out.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-f"${hot ? N(hot) : ''}>Sign in</span></div></div>`;
+          const phoneOk = `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 28px 60px;text-align:center"><span class="okmark">${I('check')}</span><div style="font-size:20px;line-height:26px">Browser signed in</div><p class="p">Firefox on Linux can now use your SignalHub for 30 days. You can sign it out any time in Devices.</p><span class="btn-f" style="margin-top:8px">Done</span></div>`;
+          const producers = [['ci-pipeline', 'Public · 2 keys · last event 01:19', 1, 1], ['homelab-monitor', 'Private · 2 people · last event 00:36', 1, 1], ['ana-reports', 'Ana · Public', 0, 1], ['family-calendar', 'Ana · Private, shared with you', 0, 1], ['price-watch', 'João · Public', 0, 0], ['weather-alerts', 'João · Public', 0, 0]];
+          const pRow = (p, sel, hot, vs, w) => `<div class="lt${sel ? ' sel' : ''}"${vs ? V(vs) : ''}${hot ? N(hot) : ''}><span class="av">${I('sensors')}</span><div class="tx"><span class="t1">${p[0]}${p[2] ? '<span class="own">Yours</span>' : ''}</span><span class="t2n">${p[1]}</span></div><span class="tbtn ${p[3] ? 'on' : 'off'}">${I(p[3] ? 'notifications_active' : 'notifications', p[3] ? 'fill' : '')}</span></div>`;
+          const chips = (on, hot, yours) => ['All', 'Yours', 'Subscribed', 'Can subscribe'].map((c) => `<span class="fc${c === on ? ' on' : ''}"${hot && hot[c] ? N(hot[c]) : ''}>${c === on ? I('check', 'ms18') : ''}${c}</span>`).join('');
+          const prodBody = `<div class="row"><h1 class="h">homelab-monitor</h1><span class="ib" role="button" aria-label="Rename homelab-monitor">${I('edit')}</span></div><span class="t2n">Last event 00:36</span><div class="lt" style="padding:0;max-width:640px">${I('notifications_active', 'c-primary fill')}<div class="tx"><span class="t1">Subscribed</span><span class="t2w">Its events are in your inbox</span></div><span class="sw" role="switch" aria-checked="true"></span></div><div class="lab" style="padding:8px 0 0">Who can see it</div><div class="seg"><span class="on">${I('lock', 'ms18')}Private</span><span>${I('public', 'ms18')}Public</span></div><span class="t2n">Shared with 2 people</span><div class="chips"><span class="pchip"><span class="avs">A</span>Ana${I('close', 'ms18 c-var')}</span><span class="pchip"><span class="avs">M</span>Marta${I('close', 'ms18 c-var')}</span><span class="pchip" style="color:var(--primary)">${I('person_add', 'ms18')}Add people</span></div><div class="lab" style="padding:8px 0 0">Keys</div><div class="keyrow">${I('key', 'c-var')}<div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 27 Sep · last used 00:36</span></div><span class="btn-x">Revoke</span></div><div class="keyrow">${I('key', 'c-var')}<div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 2 Oct · not used yet</span></div><span class="btn-x">Revoke</span></div><div class="row"><span class="t2n">Needs a server change (queued with the design lock-in)</span></div><div class="row"><span class="btn-o">${I('add')}New key</span></div><div class="keyrow">${I('filter_list', 'c-var')}<div class="tx"><span class="t1">See its events</span></div>${I('chevron_right', 'c-var')}</div><div class="keyrow">${I('pause_circle', 'c-var')}<div class="tx"><span class="t1">Disable</span><span class="t2w">Its keys stop working. Its events stay.</span></div></div>`;
+          const prodDet = prodBody;
+          const prodsScr = (state) => chrome(state === 'detail' ? 'signalhub.example/app/#producers/01997d60-2f4b-7c3a…' : 'signalhub.example/app/#producers') + `<div class="app">` + rail('Producers', true, 3, state === 'detail' ? { Settings: 'd1' } : {}) +
+            `<div class="listp"><div class="phead"><div class="t">Producers</div></div><div class="search">${I('search')}Find a producer</div>` +
+            (state === 'detail' ? `<div class="fchips">${chips('Yours')}</div>` : `<div class="fchips"${V('base')}>${chips('All', { Yours: 'd1@base' })}</div><div class="fchips"${V('yours')}>${chips('Yours')}</div>`) +
+            producers.map((p, i) => (state === 'detail' ? (p[2] ? pRow(p, i === 1) : '') : pRow(p, false, i === 1 ? 'd1@yours' : '', p[2] ? '' : 'base'))).join('') +
+            `<div class="fab">${I('add')}New producer</div></div><div class="detp${state === 'detail' ? ' prod' : ''}">${state === 'detail' ? prodDet : ''}</div></div>`;
+
+          /* ---- desktop screens ---- */
+          const D = {};
+          const signCard = (h, p, qrHot, size, lab, wait, linkHot) => `<div class="card">${brand}<h1 class="ch">${h}</h1><p class="p">${p}</p><div class="qrwrap"><div class="qr"${size ? ` style="width:${size}px;height:${size}px"` : ''}${qrHot ? N(qrHot) : ''} role="img" aria-label="Sign-in QR code. To sign in without scanning, use a code instead.">${lab || ''}</div></div>${waitRow(wait)}${linkHot !== undefined ? `<div class="link"${linkHot ? N(linkHot) : ''}>Use a code instead</div>` : ''}</div>`;
+          const codeCard = (hot) => `<div class="card">${brand}<h1 class="ch">Sign in with a code</h1><p class="p">Open SignalHub on your phone, go to Settings › Sign in a browser, choose Type a code and enter this code.</p><div class="code"${hot ? N(hot) : ''}>K7Q-4MX</div>${waitRow('Waiting for your phone · 2:41')}<div class="link">Back to the QR code</div></div>`;
+          const signIn = (url, inner) => chrome(url) + `<div class="page">${inner}</div>`;
+          D.qr = signIn('signalhub.example/app/', signCard('Sign in with your phone', 'Open SignalHub on your phone, go to Settings › Sign in a browser, and scan this code.', 'd1', 0, 'sign-in QR code', 'Waiting for your phone · 2:41', 'd2'));
+          D.approve = signIn('signalhub.example/app/', signCard('Sign in with your phone', 'Open SignalHub on your phone, go to Settings › Sign in a browser, and scan this code.', '', 0, 'sign-in QR code', 'Waiting for your phone · 2:41', '') + mini(asb('20:05') + aab('Sign in a browser') + `<div class="scan"><div class="frame"></div>camera preview</div>` + sheet('d1')));
+          D.code = signIn('signalhub.example/app/', codeCard('d2'));
+          D.approve2 = signIn('signalhub.example/app/', codeCard('') + mini(asb('20:06') + aab('Sign in a browser') + `<div class="scan"><div class="frame"></div>camera preview</div>` + sheet('d2')));
+          D.signed = signIn('signalhub.example/app/', `<div class="card">${brand}<span class="okmark">${I('check')}</span><h1 class="ch" style="text-align:center">Signed in as Rodrigo</h1><p class="p" style="text-align:center">Approved from Rodrigo - Pixel 9. Opening your inbox…</p><div class="wait"><span class="spin"></span></div></div>` + mini(asb('20:05') + aab('Sign in a browser') + phoneOk));
+          D.inbox = inboxScr({ url: 'signalhub.example/app/#inbox', sel: -1, badge: 4, hotIdx: 0, hotTok: 'd1' });
+          D.event = inboxScr({ url: 'signalhub.example/app/#inbox/01997d5e-8a3c-7b1e…', sel: 0, badge: 3, rail: { Producers: 'd1' } });
+          D.prods = prodsScr('list');
+          D.prod = prodsScr('detail');
+          D.settings = chrome('signalhub.example/app/#settings') + `<div class="app">${rail('Settings', true, 3)}<div class="detp solo"><h1 class="h">Settings</h1><div class="grp"><div class="gh" style="min-height:72px">${I('devices', 'c-var')}<div class="tx"><span class="t1">Devices</span><span class="t2n">4 devices · 2 browsers</span></div>${I('chevron_right', 'c-var')}</div></div><div class="grp"><div class="gh">${I('dns', 'c-var')}<div class="tx"><span class="t1">About this server</span><span class="t2n">signalhub.example</span></div>${I('expand_less', 'c-var')}</div><div class="gb"><div class="kvr"><div class="tx"><span class="t2n">Server</span><span class="t1">https://signalhub.example</span></div></div><div class="kvr"><div class="tx"><span class="t1">Server: SignalHub 3.4.0 · commit a1b2c3d</span><span class="t2n">Needs a server change (queued with the design lock-in)</span></div></div><div class="kvr">${I('info', 'c-var')}<span class="p">The host runs this server and can see every event on it.</span></div></div></div><div class="grp"><div class="gh">${I('language', 'c-var')}<div class="tx"><span class="t1">This browser</span><span class="t2n">Firefox on Linux · signed in until 2026-11-09</span></div>${I('expand_less', 'c-var')}</div><div class="gb"><div class="kvr"><div class="tx"><span class="t2n">Name</span><span class="t1">Firefox on Linux</span></div><span class="btn-x">${I('edit')}Rename</span></div><div class="kvr"><div class="tx"><span class="t2n">Signed in</span><span class="t1">2026-10-10 · lasts 30 days, until 2026-11-09</span></div></div><div class="kvr"><div class="tx"><span class="t2n">This page</span><span class="t1">SignalHub 3.4.0 · commit a1b2c3d (sample)</span></div></div><div class="kvr"><span class="btn-o"${N('d1')}>${I('logout')}Sign out</span><span class="p">Signing out here leaves your phone's app untouched.</span></div></div></div></div></div>`;
+          D.signoutdlg = chrome('signalhub.example/app/#settings') + `<div class="app">${rail('Settings', true, 0)}<div class="detp solo"><h1 class="h">Settings</h1><div class="skel" style="width:60%"></div><div class="skel" style="width:40%"></div></div><div class="scrim"></div><div class="dlgw"><div class="dlg" role="dialog"><h2 class="h2">Sign out of this browser?</h2><p class="p" style="font-size:16px;line-height:24px">This browser stops being a device of yours. Your phone and your other devices are not affected.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-x"${N('d1')}>Sign out</span></div></div></div></div>`;
+          D.signedout = signIn('signalhub.example/app/#settings', signCard("You're signed out", "This browser isn't signed in. Sign in with your phone to use SignalHub here.", '', 128, '', 'Waiting for your phone · 2:41'));
+          /* session ended */
+          D.ended = inboxScr({ url: 'signalhub.example/app/#inbox/01997d5e-8a3c-7b1e…', sel: 2, badge: 3, banner: `<div class="banner">${I('lock_clock')}<span class="tx">Your sign-in ended.</span><span class="btn-x"${N('d3')}>Sign in again</span></div>` });
+          D.again = signIn('signalhub.example/app/#inbox/01997d5e-8a3c-7b1e…', signCard('Sign in again', "Your sign-in on this browser ended. Sign in with your phone and you'll come back to the page you were on.", 'd3', 128, '', 'Waiting for your phone · 2:41'));
+          D.back = inboxScr({ url: 'signalhub.example/app/#inbox/01997d5e-8a3c-7b1e…', sel: 2, badge: 3 });
+          const DF = {
+            d1: { name: '1 · Desktop sign-in, then around the page', steps: [
+              ['qr', 'The page shows a QR code', 'Click the code, as if the phone scanned it.'],
+              ['approve', 'The app asks: Sign in this browser?', 'Click Sign in on the phone.'],
+              ['signed', 'Signed in as Rodrigo', 'The page opens the inbox by itself.', 1500],
+              ['inbox', 'The inbox', 'Click an event to open it.'],
+              ['event', 'The open event', 'Click Producers in the rail.'],
+              ['prods', 'Producers: search and chips', 'Click the Yours chip.'],
+              ['prods:yours', 'Yours', 'Click homelab-monitor.'],
+              ['prod', 'A producer', 'Click Settings in the rail.'],
+              ['settings', 'Settings', 'Click Sign out.'],
+              ['signoutdlg', 'Sign out of this browser?', 'Click Sign out.'],
+              ['signedout', "You're signed out", 'End of the flow.'] ] },
+            d2: { name: '2 · Desktop sign-in with a code', steps: [
+              ['qr', 'The page shows a QR code', 'Click Use a code instead.'],
+              ['code', 'Sign in with a code', 'Click the code, as if it was typed in the app.'],
+              ['approve2', 'The app asks: Sign in this browser?', 'Click Sign in on the phone.'],
+              ['signed', 'Signed in as Rodrigo', 'The page opens the inbox by itself.', 1500],
+              ['inbox', 'The inbox', 'End of the flow.'] ] },
+            d3: { name: '3 · Session ended, and back to the same address', steps: [
+              ['ended', 'The banner: Your sign-in ended.', 'Click Sign in again.'],
+              ['again', 'Sign in again, at the same address', 'Click the code, as if the phone scanned it.'],
+              ['back', 'Back at the same address', 'End of the flow.'] ] }
+          };
+
+          /* ---- phone-width screens ---- */
+          const P = {};
+          P.code = phchrome('signalhub.example/app/') + `<div class="mpage">${brand}<h1 class="ch">Sign in with the app</h1><p class="p">A phone can't scan its own screen, so type this code in the SignalHub app.</p><div class="code">K7Q-4MX</div>${waitRow('Waiting for the app · 2:41')}<span class="btn-f full"${N('p2')}>${I('open_in_new')}Open the app</span><ol class="steps"><li>Open the app.</li><li>Go to Settings › Sign in a browser.</li><li>Choose "Type a code" and enter the code above.</li></ol><p class="p" style="font-size:13px">No app on this phone? Ask an admin of this server.</p></div>`;
+          P.app = `<div class="aph full">${asb('20:06')}${aab('Sign in a browser')}<div style="display:flex;flex-direction:column;gap:14px;padding:12px 16px"><p class="p">Enter the code the page shows.</p><div class="tf focus"><span class="fl">Code</span><span style="font-family:'Roboto Mono',monospace;letter-spacing:3px">K7Q-4MX</span></div><div class="acts"><span class="btn-f"${V('base')}${N('p2@base')}>Continue</span></div></div><div${V('sheet')}>${sheet('p2@sheet')}</div></div>`;
+          const phHead = (t, right) => `<div class="phead" style="padding-left:16px"><div class="t">${t}</div>${right || ''}</div>`;
+          const lt2 = (e) => `<div class="lt" style="align-items:flex-start"><span class="ms ${e[1]}" style="margin-top:2px">${e[0]}</span><div class="tx"><span class="${e[5] ? 't1b' : 't1'}">${e[2]}</span><div class="meta"><span class="m1">${e[3]}</span><span>${e[4]}</span></div></div><span class="${e[5] ? 'dot' : 'nodot'}" style="margin-top:7px"></span></div>`;
+          P.inbox = phchrome('signalhub.example/app/#inbox') + phHead('SignalHub', `<span class="ib">${I('filter_list')}</span><span class="ib">${I('done_all')}</span><span class="ib"><span class="mini">R</span></span>`) + `<div class="pbody">${EVS.slice(1, 7).map(lt2).join('')}</div>` + nav('Inbox', 3, { Producers: 'p2b' });
+          const pRowP = (p, hot) => `<div class="lt"${hot ? N(hot) : ''}><span class="av">${I('sensors')}</span><div class="tx"><span class="t1">${p[0]}${p[2] ? '<span class="own">Yours</span>' : ''}</span><span class="t2n">${p[1]}</span></div><span class="tbtn ${p[3] ? 'on' : 'off'}">${I(p[3] ? 'notifications_active' : 'notifications', p[3] ? 'fill' : '')}</span></div>`;
+          P.prods = phchrome('signalhub.example/app/#producers') + phHead('Producers', `<span class="ib"><span class="mini">R</span></span>`) + `<div class="search">${I('search')}Find a producer</div><div class="fchips">${chips('All')}</div><div class="pbody">${producers.map((p, i) => pRowP(p, i === 1 ? 'p2b' : '')).join('')}</div><div class="fab" style="bottom:96px">${I('add')}New producer</div>` + nav('Producers', 3);
+          P.detail = phchrome('signalhub.example/app/#producers/01997d60-2f4b-7c3a…') + `<div class="phead" style="padding-left:4px"><span class="ib" role="button" aria-label="Back">${I('arrow_back')}</span><div class="t">homelab-monitor</div><span class="ib" role="button" aria-label="Rename homelab-monitor">${I('edit')}</span></div><div class="pform" style="gap:8px"><span class="t2n">Last event 00:36</span><div class="lt" style="padding:0">${I('notifications_active', 'c-primary fill')}<div class="tx"><span class="t1">Subscribed</span><span class="t2w">Its events are in your inbox</span></div><span class="sw" role="switch" aria-checked="true"></span></div><div class="lab" style="padding:8px 0 0">Who can see it</div><div class="seg" style="width:100%"><span class="on">${I('lock', 'ms18')}Private</span><span>${I('public', 'ms18')}Public</span></div><span class="t2n">Shared with 2 people</span><div class="chips"><span class="pchip"><span class="avs">A</span>Ana${I('close', 'ms18 c-var')}</span><span class="pchip"><span class="avs">M</span>Marta${I('close', 'ms18 c-var')}</span><span class="pchip" style="color:var(--primary)">${I('person_add', 'ms18')}Add people</span></div><div class="lab" style="padding:8px 0 0">Keys</div><div class="keyrow">${I('key', 'c-var')}<div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 27 Sep · last used 00:36</span></div><span class="btn-x">Revoke</span></div><div class="keyrow">${I('key', 'c-var')}<div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 2 Oct · not used yet</span></div><span class="btn-x">Revoke</span></div><div class="row"><span class="btn-o">${I('add')}New key</span></div><div class="keyrow">${I('filter_list', 'c-var')}<div class="tx"><span class="t1">See its events</span></div>${I('chevron_right', 'c-var')}</div><div class="keyrow">${I('pause_circle', 'c-var')}<div class="tx"><span class="t1">Disable</span><span class="t2w">Its keys stop working. Its events stay.</span></div></div></div>` + nav('Producers', 0);
+          const PF = {
+            p2: { name: '2 · Phone-width sign-in', steps: [
+              ['code', 'The page shows a code', 'Tap Open the app.'],
+              ['app', 'The app: type the code', 'Tap Continue.'],
+              ['app:sheet', 'Sign in this browser?', 'Tap Sign in.'],
+              ['inbox', 'The inbox', 'End of the flow.'] ] },
+            p2b: { name: 'Producers at phone width', steps: [
+              ['inbox', 'The inbox', 'Tap Producers.'],
+              ['prods', 'Producers', 'Tap homelab-monitor.'],
+              ['detail', 'A producer', 'End of the flow.'] ] }
+          };
+
+          /* ---- a small stepper used by both frames ---- */
+          const stage = (p, host, S, F, first) => {
+            host.innerHTML = Object.keys(S).map((id) => `<div class="scr" data-s="${id}" data-screen-label="${id}">${S[id]}</div>`).join('');
+            host.querySelectorAll('[data-n]').forEach((e) => { e.setAttribute('role', 'button'); e.setAttribute('tabindex', '0'); });
+            let flow = first, idx = 0, timer = null;
+            const $ = (s) => document.getElementById(p + s);
+            const blk = document.getElementById(p === 'd' ? 'dblk' : 'pblk');
+            const shown = (e) => e.getClientRects().length > 0;
+            const render = () => {
+              const steps = F[flow].steps;
+              const parts = steps[idx][0].split(':');
+              const id = parts[0], v = parts[1] || 'base';
+              host.querySelectorAll('.scr').forEach((s) => { s.style.display = s.dataset.s === id ? 'flex' : 'none'; });
+              const scr = host.querySelector('.scr[data-s="' + id + '"]');
+              host.querySelectorAll('.hot').forEach((e) => { e.classList.remove('hot'); e._hot = false; });
+              scr.querySelectorAll('[data-vs]').forEach((e) => { e.style.display = e.dataset.vs.split(' ').indexOf(v) >= 0 ? '' : 'none'; });
+              scr.querySelectorAll('[data-n]').forEach((e) => {
+                const hot = e.dataset.n.split(' ').some((t) => { const q = t.split('@'); return q[0] === flow && (!q[1] || q[1] === v); }) && shown(e);
+                e._hot = hot; e.classList.toggle('hot', hot);
+              });
+              $('fname').textContent = F[flow].name;
+              $('steps').innerHTML = steps.map((s, i) => `<li class="${i < idx ? 'done' : i === idx ? 'cur' : ''}"${i === idx ? ' aria-current="step"' : ''}><b>${i < idx ? '✓' : i + 1}</b>${s[1]}</li>`).join('');
+              $('cap').innerHTML = `<span>Step ${idx + 1} of ${steps.length}</span>${steps[idx][2]}`;
+              $('back').disabled = idx === 0;
+              $('picker').querySelectorAll('.pk').forEach((b) => { const on = b.dataset.f === flow; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+              if (steps[idx][3]) timer = setTimeout(() => go(idx + 1), steps[idx][3]);
+            };
+            const go = (i) => { clearTimeout(timer); idx = Math.max(0, Math.min(F[flow].steps.length - 1, i)); render(); };
+            $('picker').innerHTML = Object.keys(F).map((k) => `<button class="pk" type="button" role="tab" data-f="${k}">${F[k].name}</button>`).join('');
+            $('picker').addEventListener('click', (e) => { const b = e.target.closest('.pk'); if (b) { flow = b.dataset.f; go(0); } });
+            $('back').addEventListener('click', () => go(idx - 1));
+            $('restart').addEventListener('click', () => go(0));
+            $('hot').addEventListener('click', () => { const on = !blk.classList.contains('nohot'); blk.classList.toggle('nohot', on); $('hot').classList.toggle('on', !on); $('hot').setAttribute('aria-pressed', on ? 'false' : 'true'); });
+            const tap = (t) => { let e = t.closest('[data-n]'); while (e && !e._hot) e = e.parentElement && e.parentElement.closest('[data-n]'); if (e && e._hot) go(idx + (+e.dataset.by || 1)); };
+            host.addEventListener('click', (ev) => tap(ev.target));
+            host.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); tap(ev.target); } });
+            go(0);
+          };
+          stage('d', dh, D, DF, 'd1');
+          stage('p', document.getElementById('ph'), P, PF, 'p2');
+
+          const fit = () => { const w = document.getElementById('dfit').clientWidth; const z = Math.min(1, w / 1280); dh.style.zoom = z; document.getElementById('dfit').style.height = Math.round(840 * z) + 'px'; };
+          fit(); window.addEventListener('resize', fit);
+        }
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>
