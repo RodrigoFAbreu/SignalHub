@@ -118,6 +118,8 @@ class OpenApiTest {
                 "read",
                 "createdFrom",
                 "createdBefore",
+                "userId",
+                "relation",
                 "cursor",
                 "limit"))
         .body(
@@ -127,7 +129,7 @@ class OpenApiTest {
         .body(EVENTS + ".get.responses", hasKey("200"))
         .body(EVENTS + ".get.responses", hasKey("400"))
         .body(EVENTS + ".get.responses", hasKey("401"))
-        .body(EVENTS + ".get.responses", not(hasKey("404")))
+        .body(EVENTS + ".get.responses", hasKey("404"))
         .body(
             EVENTS + ".get.responses.'200'.content.'application/json'.schema.$ref",
             equalTo("#/components/schemas/EventPage"))
@@ -493,16 +495,25 @@ class OpenApiTest {
         .body(
             deliveries + ".get.responses.'200'.content.'application/json'.schema.$ref",
             equalTo("#/components/schemas/EventDeliveryList"))
-        .body(SCHEMAS + ".EventDeliveryList.required", containsInAnyOrder("items"))
+        .body(SCHEMAS + ".EventDeliveryList.required", containsInAnyOrder("items", "users"))
         .body(
             SCHEMAS + ".EventDeliveryList.properties.items.items.$ref",
             equalTo("#/components/schemas/EventDelivery"))
         .body(
             SCHEMAS + ".EventDelivery.required",
-            containsInAnyOrder("clientId", "clientName", "attempt", "outcome", "at"))
+            containsInAnyOrder(
+                "clientId", "clientName", "userId", "userName", "attempt", "outcome", "at"))
         .body(
             SCHEMAS + ".EventDelivery.properties.keySet()",
-            containsInAnyOrder("clientId", "clientName", "attempt", "outcome", "detail", "at"))
+            containsInAnyOrder(
+                "clientId",
+                "clientName",
+                "userId",
+                "userName",
+                "attempt",
+                "outcome",
+                "detail",
+                "at"))
         .body(
             SCHEMAS + ".DeliveryOutcome.enum",
             contains(
@@ -513,6 +524,29 @@ class OpenApiTest {
                 "INVALID_TARGET",
                 "TRANSIENT_FAILURE",
                 "PERMANENT_FAILURE"));
+  }
+
+  @Test
+  void describesAUsersTraffic() {
+    var traffic = "paths.'/api/v1/admin/users/{id}/traffic'";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(traffic + ".get.security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(traffic + ".get.tags", equalTo(List.of("User traffic")))
+        .body(traffic + ".get.responses.keySet()", containsInAnyOrder("200", "401", "404"))
+        .body(
+            traffic + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/UserTraffic"))
+        .body(SCHEMAS + ".UserTraffic.required", containsInAnyOrder("events", "deliveries"))
+        .body(
+            SCHEMAS + ".UserDelivery.required",
+            containsInAnyOrder(
+                "eventId", "eventTitle", "clientId", "clientName", "attempt", "outcome", "at"))
+        .body(SCHEMAS + ".EventRecipient.required", containsInAnyOrder("id", "name", "owner"));
   }
 
   @Test

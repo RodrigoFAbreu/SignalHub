@@ -289,11 +289,16 @@ class AdminPageTest {
           "producerId: \"filter-producer\"",
           "category: \"filter-category\"",
           "severity: \"filter-severity\"",
+          "userId: \"filter-user\"",
+          "relation: \"filter-relation\"",
           "read: \"filter-read\""
         }) {
       assertTrue(script.contains(filter), filter);
     }
-    assertTrue(script.contains("if ($(id).value) query.set(name, $(id).value);"));
+    // The user's producers are asked for only with a user: the server refuses one without.
+    assertTrue(
+        script.contains("if ($(id).value && !$(id).disabled) query.set(name, $(id).value);"));
+    assertTrue(script.contains("$(\"filter-relation\").disabled = !$(\"filter-user\").value;"));
     assertTrue(script.contains("if (cursor) query.set(\"cursor\", cursor);"));
     assertTrue(script.contains("const page = await call(\"GET\", `${EVENTS}?${query}`);"));
     // Older follows the listing's cursor; Newer goes back to the page before; a filter starts over.
@@ -375,13 +380,47 @@ class AdminPageTest {
   }
 
   @Test
+  void anEventGroupsItsDeliveriesByTheUsersItReachedAndTheEventsFilterByUser() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    // A user per entry, named as text, with a badge for the owner; a device-less user says so.
+    assertTrue(script.contains("const title = element(\"strong\", null, user.name);"));
+    assertTrue(
+        script.contains(
+            "if (user.owner) item.append(\" \", element(\"span\", \"badge muted\", \"Owner\"));"));
+    assertTrue(script.contains("const byUser = new Map(reached.map("));
+    var page = given().get("/admin/").then().extract().asString();
+    for (var control :
+        new String[] {
+          "<select id=\"filter-user\">",
+          "<select id=\"filter-relation\" disabled>",
+          "<option value=\"OWNED\">Owned</option>",
+          "<option value=\"SUBSCRIBED\">Subscribed to</option>"
+        }) {
+      assertTrue(page.contains(control), control);
+    }
+  }
+
+  @Test
+  void aUserShowsItsTrafficWhenAskedForAsTextWithLinksToItsEvents() {
+    var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
+    // Read only when opened, with the admin token like every other request.
+    assertTrue(script.contains("await call(\"GET\", `${USERS}/${user.id}/traffic`)"));
+    assertTrue(script.contains("item.append(trafficOf(user));"));
+    // An event is linked by its ID in the page's own address, a title and a name set as text.
+    assertTrue(script.contains("link.href = `#events/${e.id}`;"));
+    assertTrue(script.contains("link.href = `#events/${d.eventId}`;"));
+    assertTrue(script.contains("const link = element(\"a\", null, e.title);"));
+    assertTrue(script.contains("element(\"strong\", null, d.clientName)"));
+    assertFalse(script.contains("innerHTML"));
+  }
+
+  @Test
   void anEventShowsItsDeliveriesOneLinePerDeviceAsText() {
     var script = given().get("/admin/admin.js").then().statusCode(200).extract().asString();
     // Read with the admin token once the event is shown, and again on Refresh.
     assertTrue(
         script.contains(
-            "renderDeliveries((await call(\"GET\","
-                + " `${ADMIN_EVENTS}/${eventId}/deliveries`)).items);"));
+            "renderDeliveries(await call(\"GET\", `${ADMIN_EVENTS}/${eventId}/deliveries`));"));
     assertTrue(
         Pattern.compile(
                 "renderEvent\\(await call\\(\"GET\", `\\$\\{EVENTS\\}/\\$\\{eventId\\}`\\)\\);"
@@ -392,7 +431,7 @@ class AdminPageTest {
     // One line per device, grouped by its ID, named by the device's name set as text; the rest of
     // the line, the outcome and the provider's reason, is appended as text too.
     assertTrue(
-        script.contains("if (!byDevice.has(record.clientId)) byDevice.set(record.clientId, []);"));
+        script.contains("if (!devices.has(record.clientId)) devices.set(record.clientId, []);"));
     assertTrue(script.contains("element(\"strong\", null, last.clientName),"));
     assertTrue(script.contains("`: ${outcome(last)}, ${time(last.at)} (${ago(last.at)})`,"));
     assertTrue(script.contains("return record.detail ? `${text} (${record.detail})` : text;"));

@@ -392,6 +392,31 @@ textarea {
   color: var(--danger);
 }
 
+.recipient {
+  padding: 6px 0;
+}
+
+.recipient + .recipient {
+  border-top: 1px solid var(--border);
+}
+
+.recipient .deliveries {
+  margin-left: 16px;
+}
+
+.traffic {
+  margin-top: 8px;
+}
+
+.traffic h4 {
+  margin: 12px 0 4px;
+  font-size: 0.95rem;
+}
+
+.traffic a {
+  color: var(--accent);
+}
+
 .empty {
   color: var(--muted);
 }

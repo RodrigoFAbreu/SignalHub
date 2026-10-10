@@ -209,6 +209,20 @@
                 </select>
               </div>
               <div>
+                <label for="filter-user">User</label>
+                <select id="filter-user">
+                  <option value="">All users</option>
+                </select>
+              </div>
+              <div>
+                <label for="filter-relation">Their producers</label>
+                <select id="filter-relation" disabled>
+                  <option value="">Owned or subscribed to</option>
+                  <option value="OWNED">Owned</option>
+                  <option value="SUBSCRIBED">Subscribed to</option>
+                </select>
+              </div>
+              <div>
                 <label for="filter-read">Read state</label>
                 <select id="filter-read">
                   <option value="">Read and unread</option>
@@ -315,7 +329,8 @@
                 <button type="button" id="refresh-deliveries" class="secondary">Refresh</button>
               </div>
               <p class="lead">
-                How its push went to each device. The push service's answer is the last thing
+                The users it reached (those subscribed to its producer) and how its push went to
+                each of their devices. The push service's answer is the last thing
                 SignalHub sees: whether the phone showed it is not known.
               </p>
               <p id="deliveries-error" class="error" role="alert" hidden></p>

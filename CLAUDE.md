@@ -38,8 +38,10 @@ admin token), a paginated event listing
 (`GET /api/v1/events`, with a client key or the admin token, filterable by
 read state among others, and browsed in the *Events* section of the
 admin page, a page at a time with the inbox's filters, opening an event
-to read it, open its link in a new tab, see how its push went to each
-device and mark it read or unread), deleting
+to read it, open its link in a new tab, see which users it reached and
+how its push went to each of their devices, and mark it read or unread, and
+filtered by user; the *Users* section shows each user's recent events and
+deliveries, all for the operator only), deleting
 events by the operator (one, a selection, a producer's or those older than a
 date, each bulk delete with a dry-run count, through `/api/v1/admin/events`
 with the admin token or on the admin page after a confirmation), sending a

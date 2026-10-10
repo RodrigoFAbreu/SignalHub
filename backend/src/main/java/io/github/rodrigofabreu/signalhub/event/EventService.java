@@ -11,11 +11,13 @@ import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.jboss.logging.Logger;
@@ -165,7 +167,7 @@ class EventService {
   @Transactional
   EventPage list(EventQuery query, Optional<UUID> user) {
     var viewer = user.map(u -> new EventRepository.Viewer(u, access.subscribedProducerIds(u)));
-    var rows = repository.find(query, query.limit() + 1, viewer);
+    var rows = repository.find(query, query.limit() + 1, viewer, userProducers(query));
     var page = rows.subList(0, Math.min(rows.size(), query.limit()));
     var producersById = producers.find(page.stream().map(EventEntity::producerId).collect(toSet()));
     var readAt =
@@ -186,6 +188,26 @@ class EventService {
       nextCursor = new EventCursor(last.createdAt(), last.id()).encode();
     }
     return new EventPage(items, nextCursor);
+  }
+
+  /**
+   * The producers the query's user owns and/or is subscribed to, as its relation says; empty (no
+   * restriction) if the query names no user.
+   */
+  Optional<Set<UUID>> userProducers(EventQuery query) {
+    return query
+        .userId()
+        .map(
+            id -> {
+              var producerIds = new HashSet<UUID>();
+              if (query.relation().isEmpty() || query.relation().get() == UserRelation.OWNED) {
+                producerIds.addAll(access.ownedProducerIds(id));
+              }
+              if (query.relation().isEmpty() || query.relation().get() == UserRelation.SUBSCRIBED) {
+                producerIds.addAll(access.subscribedProducerIds(id));
+              }
+              return producerIds;
+            });
   }
 
   /** Marks the event read; the event, or empty if it does not exist or the user lacks it. */
