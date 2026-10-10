@@ -92,6 +92,10 @@ test("filters: unread only, a category and a severity, shown as chips that can b
 test("filtering by a producer from its page: See its events", async ({ context, page }) => {
   const { producer } = await inbox(context, page);
   await page.getByRole("link", { name: "Producers" }).click();
+  // The inbox rows stay on screen until the Producers page replaces them; a row of this
+  // producer would match the link below too.
+  await expect(page).toHaveURL(/#producers$/);
+  await expect(page.locator("a.event-row")).toHaveCount(0);
   await page.getByRole("link", { name: new RegExp(producer.name) }).click();
   await page.getByRole("button", { name: "See its events" }).click();
   await expect(page).toHaveURL(new RegExp(`#inbox\\?producer=${producer.id}`));
