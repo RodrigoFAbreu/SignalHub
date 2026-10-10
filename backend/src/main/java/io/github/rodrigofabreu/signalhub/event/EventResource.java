@@ -8,6 +8,7 @@ import io.github.rodrigofabreu.signalhub.client.OwnerAuthenticated;
 import io.github.rodrigofabreu.signalhub.producer.AuthenticatedProducer;
 import io.github.rodrigofabreu.signalhub.producer.ProducerAdminResource;
 import io.github.rodrigofabreu.signalhub.producer.ProducerAuthenticated;
+import io.github.rodrigofabreu.signalhub.user.UserDirectory;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.quarkus.runtime.Startup;
@@ -70,14 +71,17 @@ public class EventResource {
   private final EventService events;
   private final AuthenticatedProducer producer;
   private final AuthenticatedClient client;
+  private final UserDirectory userDirectory;
   private final Counter published;
 
   EventResource(
       EventService events,
       AuthenticatedProducer producer,
       AuthenticatedClient client,
+      UserDirectory userDirectory,
       MeterRegistry registry) {
     this.events = events;
+    this.userDirectory = userDirectory;
     this.producer = producer;
     this.client = client;
     // Untagged: producer names are the owner's data, and categories or severities are in the
@@ -202,7 +206,9 @@ public class EventResource {
               + " filters and cursor set to the previous page's nextCursor. Events published"
               + " after the first page never shift or repeat entries on later pages; they appear"
               + " when the listing is started again. Requires a client key, which lists its user's"
-              + " events, or the admin token, which lists every event.")
+              + " events, or the admin token, which lists every event and may also filter by"
+              + " user (userId, relation): the events of the producers that user owns or is"
+              + " subscribed to.")
   @APIResponse(
       responseCode = "200",
       description = "A page of events.",
@@ -214,6 +220,10 @@ public class EventResource {
   @APIResponse(
       responseCode = "401",
       description = "Missing or invalid client key or admin token.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No user has the userId given.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public EventPage list(
       @Parameter(
@@ -254,6 +264,21 @@ public class EventResource {
           @QueryParam("createdBefore")
           String createdBefore,
       @Parameter(
+              description =
+                  "Only events of the producers this user owns or is subscribed to (canonical"
+                      + " user ID), revoked users included. Admin token only: a client key is"
+                      + " refused with 400.",
+              schema = @Schema(type = SchemaType.STRING, format = "uuid"))
+          @QueryParam("userId")
+          String userId,
+      @Parameter(
+              description =
+                  "With userId: only the producers the user owns (OWNED) or is subscribed to"
+                      + " (SUBSCRIBED). Omit for either.",
+              schema = @Schema(implementation = UserRelation.class))
+          @QueryParam("relation")
+          String relation,
+      @Parameter(
               description = "The nextCursor of the previous page. Omit for the first page.",
               schema = @Schema(type = SchemaType.STRING))
           @QueryParam("cursor")
@@ -273,10 +298,47 @@ public class EventResource {
                       defaultValue = "50"))
           @QueryParam("limit")
           String limit) {
-    return events.list(
+    var query =
         EventQuery.parse(
-            producerIds, categories, severities, read, createdFrom, createdBefore, cursor, limit),
-        user());
+            producerIds,
+            categories,
+            severities,
+            read,
+            createdFrom,
+            createdBefore,
+            userId,
+            relation,
+            cursor,
+            limit);
+    checkUserFilter(query);
+    return events.list(query, user());
+  }
+
+  /**
+   * The per-user view is the operator's: a client key may not ask for another user's events, and
+   * the user must exist.
+   */
+  private void checkUserFilter(EventQuery query) {
+    if (query.userId().isEmpty() && query.relation().isEmpty()) {
+      return;
+    }
+    if (user().isPresent() || query.userId().isEmpty()) {
+      var field = query.userId().isEmpty() ? "relation" : "userId";
+      var message =
+          user().isPresent() ? "is available with the admin token only" : "needs a userId";
+      throw new BadRequestException(
+          Response.status(Response.Status.BAD_REQUEST)
+              .entity(
+                  new ApiError(
+                      "Invalid request", 400, List.of(new ApiError.Violation(field, message))))
+              .build());
+    }
+    if (userDirectory.find(query.userId().get()).isEmpty()) {
+      throw new NotFoundException(
+          Response.status(Response.Status.NOT_FOUND)
+              .entity(new ApiError("User not found", 404, List.of()))
+              .build());
+    }
   }
 
   @GET

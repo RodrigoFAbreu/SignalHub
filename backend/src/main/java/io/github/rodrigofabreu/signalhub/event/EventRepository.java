@@ -24,8 +24,12 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
    * the query's cursor. Served by the {@code (created_at, id)} indexes of V3, and unread events by
    * the partial index of V6, so a page costs the same however deep it is.
    */
-  List<EventEntity> find(EventQuery query, int count, Optional<Viewer> viewer) {
+  List<EventEntity> find(
+      EventQuery query, int count, Optional<Viewer> viewer, Optional<Set<UUID>> userProducerIds) {
     if (viewer.isPresent() && viewer.get().producerIds().isEmpty()) {
+      return List.of();
+    }
+    if (userProducerIds.isPresent() && userProducerIds.get().isEmpty()) {
       return List.of();
     }
     var conditions = new ArrayList<String>();
@@ -35,6 +39,12 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
           // Only events of the producers the viewer's user is subscribed to.
           conditions.add("producerId in :viewerProducers");
           parameters.put("viewerProducers", v.producerIds());
+        });
+    userProducerIds.ifPresent(
+        ids -> {
+          // The operator's per-user view: the producers a user owns or is subscribed to.
+          conditions.add("producerId in :userProducers");
+          parameters.put("userProducers", ids);
         });
     if (!query.producerIds().isEmpty()) {
       conditions.add("producerId in :producerIds");

@@ -341,6 +341,8 @@ matches any of its values (OR), e.g. `severity=HIGH&severity=CRITICAL`.
 | `read` | `false`: only unread events (`readAt` is `null`); `true`: only read events. Anything else is `400`. See [Read state](#read-state). |
 | `createdFrom` | Events with `createdAt` at or after this time (inclusive). |
 | `createdBefore` | Events with `createdAt` before this time (exclusive). |
+| `userId` | **Admin token only** (a client key gets `400`): events of the producers this user owns or is subscribed to, as the operator's view of that user's traffic; revoked users included, `404` for an unknown one. See [Traffic by user](#traffic-by-user). |
+| `relation` | With `userId` (else `400`): `OWNED`, only the producers the user owns, or `SUBSCRIBED`, only those they are subscribed to (an owner is subscribed to their own producer from its creation, so these include theirs). Absent: either. |
 
 Timestamps follow the same rules as in request bodies: ISO-8601 with an
 explicit offset. In a URL, write a `+` offset as `%2B`, or use `Z`. Filters
@@ -941,6 +943,7 @@ devices, pairing codes or producers.
 | `GET /api/v1/admin/users`, `GET /api/v1/admin/users/{id}` | The users, oldest first (`{"items": [...]}`), each with its `devices`, `producers` (with visibility) and `subscriptions`; never a key or a push token. |
 | `PATCH /api/v1/admin/users/{id}` | Renames the user or sets their role, admin included (`{"name", "role"}`, each optional, at least one). `409` if the user is revoked or the name is taken. |
 | `POST /api/v1/admin/users/{id}/revoke` | Revokes the user as above. Idempotent. |
+| `GET /api/v1/admin/users/{id}/traffic` | The user's newest 20 events (of the producers they own or are subscribed to) and newest 20 delivery records of their devices. See [Traffic by user](#traffic-by-user). |
 | `PUT`, `DELETE /api/v1/admin/users/{id}/subscriptions/{producerId}` | Subscribes the user to a producer they can see (`409` if they cannot), or unsubscribes them. Idempotent. |
 | `POST /api/v1/admin/producers` | Registers a producer for `ownerId` (the oldest admin who is not revoked when omitted: the owner of the instance) with a `visibility`. |
 | `PATCH /api/v1/admin/producers/{id}` | Sets `visibility`, replaces the allow-list (`allowedUserIds`, existing users who are not revoked), or both. |
@@ -1398,6 +1401,37 @@ so a user can add a device from the app, away from the host:
   the address it reaches the server at, which is where the new device should
   go too.
 
+### Traffic by user
+
+The operator, and no one else, can follow each user's traffic, for testing
+and debugging: what a user's producers published, what the user receives,
+and how the pushes to their devices went. Nothing here is shown to a user
+or a producer, and there is no aggregation or analytics: only the same
+events and [delivery records](#delivery-records), looked up by user.
+
+- **Events of a user.** `GET /api/v1/events?userId=...` with the admin
+  token (see [Listing events](#listing-events)), optionally with `relation`
+  `OWNED` or `SUBSCRIBED`, plus every other filter and the cursor.
+  **decided: a filter of the existing listing, not a new endpoint**, so the
+  admin page's Events section and its pagination stay as they are. The user's
+  producers are resolved when each page is read, from the producers table
+  (`owner_id`) and `subscriptions`; no migration was needed.
+- **Who an event reached.** The event's delivery records name their user and
+  the response lists the users subscribed to the producer
+  ([Delivery records](#delivery-records)).
+- **A user's recent traffic.** `GET /api/v1/admin/users/{id}/traffic`
+  (admin token; `404` for an unknown user; a revoked user can be looked up)
+  answers `{"events": [...], "deliveries": [...]}`: the 20 newest events of
+  the user's producers and subscriptions, as `Event`s with the operator's
+  read state, and the 20 newest delivery records of the user's devices
+  across events (`eventId`, `eventTitle`, `clientId`, `clientName`,
+  `attempt`, `outcome`, `detail`, `at`), newest first. **decided: a fixed
+  recent window of 20 each, with no paging**: the Events section's filter
+  is the way to see more.
+- **Nothing producer-specific.** Everything goes by ownership,
+  subscription and the generic delivery outcomes. Logs hold IDs only (no
+  new line logs event content); no push token is ever returned.
+
 ### The admin page
 
 `/admin/` is the operator's page for users, their devices, producers and
@@ -1456,6 +1490,11 @@ devices are revoked and their producers disabled, at once and for good), and
 a user** takes a name and a role. This is the only place a user is made an
 admin or no longer one.
 
+Each user also has **Show traffic** (revoked ones too), which reads their
+[traffic](#traffic-by-user) when opened and again with **Refresh traffic**:
+their newest events, each linking to the event, and the pushes to their
+devices (device, how it went, the event it was for), newest first.
+
 **Producers.** Every producer, by name, with its owner and who sees it
 (every user, or its owner and the users allowed on it), whether it is
 enabled, when it was created (and disabled), its ID, its keys (ID, created, revoked;
@@ -1482,9 +1521,12 @@ backend at `INFO` with IDs only, as through the management API (see
 **Newer** to move between pages, through the
 [listing](#listing-events) with the admin token (its cursor, so events
 that arrive meanwhile never shift a page). It has the app inbox's
-filters: producer (every producer, by name), category, severity and read
+filters: producer (every producer, by name), category, severity, user
+(every user, by name, revoked ones marked), which of the user's producers
+(owned or subscribed to, both by default; offered only with a user) and read
 state (read and unread, unread only, read only); changing one goes back
-to the newest page. Each event shows its title, severity, category,
+to the newest page. With a user it lists the events of the producers that
+user owns or is subscribed to (see [Traffic by user](#traffic-by-user)). Each event shows its title, severity, category,
 whether it is unread, its producer and context, and when it was received.
 Its title opens it at `#events/<id>` (only a canonical ID in the address
 is ever requested), with its title, message, producer, category,
@@ -1494,17 +1536,19 @@ and ID, and **Mark as read** or **Mark as unread**
 ([Read state](#read-state)), shared with every client as always.
 **Back to events** returns to the same page and filters, read again.
 
-- **Deliveries.** An open event shows how its push went to each device,
-  from its [delivery records](#delivery-records), read with the admin
-  token when the event opens and again with **Refresh**: one line per
+- **Deliveries.** An open event shows the users it reached and how its
+  push went to each of their devices, from its [delivery
+  records](#delivery-records), read with the admin token when the event
+  opens and again with **Refresh**: one entry per user, by name (marked
+  _Owner_ for its producer's owner), and under it one line per
   device, by the device's name, in the order the devices were first
   tried, saying how the latest attempt went (_Delivered_, _Filtered out by
   its push preferences_, _Not sent: no push target_, _Temporary failure_,
   _Failed_, and so on), with its reason when there is one (the preference
   that filtered it out, or the provider's, such as `HTTP 503
   UNAVAILABLE`) and when; a device tried more than once lists its earlier
-  attempts under it. An event whose push is not dispatched yet, or that had no
-  device to go to, says _None_. **decided: one line per device, grouped by the page** from the
+  attempts under it. A user whose event is not dispatched yet, or who had no
+  device to go to, says _None_; an event nobody is subscribed to says so. **decided: one line per device, grouped by the page** from the
   records, which stay one per attempt in the API, so the answer to "why
   did my phone not ping?" is the device's own line, and retries stay
   visible under it. Names and reasons are set as text, like everything
@@ -2051,21 +2095,35 @@ management API:
 
 | Method and path | Result |
 |---|---|
-| `GET /api/v1/admin/events/{id}/deliveries` | The event's records, oldest first: `200` with `{"items": [...]}` (`EventDeliveryList`), empty while its push is not dispatched; `404 Event not found` for an unknown or deleted event. |
+| `GET /api/v1/admin/events/{id}/deliveries` | The event's records, oldest first, and the users it reached: `200` with `{"items": [...], "users": [...]}` (`EventDeliveryList`), `items` empty while its push is not dispatched; `404 Event not found` for an unknown or deleted event. |
 
 ```json
 {"items": [
-  {"clientId": "01997d4a-...", "clientName": "Pixel 9", "attempt": 1,
+  {"clientId": "01997d4a-...", "clientName": "Pixel 9",
+   "userId": "01997d40-...", "userName": "Anna", "attempt": 1,
    "outcome": "TRANSIENT_FAILURE", "detail": "HTTP 503 UNAVAILABLE",
    "at": "2026-09-30T09:12:40.654321Z"},
-  {"clientId": "01997d4a-...", "clientName": "Pixel 9", "attempt": 2,
+  {"clientId": "01997d4a-...", "clientName": "Pixel 9",
+   "userId": "01997d40-...", "userName": "Anna", "attempt": 2,
    "outcome": "DELIVERED", "detail": null, "at": "2026-09-30T09:13:10.123456Z"},
-  {"clientId": "01997d4b-...", "clientName": "Tablet", "attempt": 1,
+  {"clientId": "01997d4b-...", "clientName": "Tablet",
+   "userId": "01997d41-...", "userName": "Ben", "attempt": 1,
    "outcome": "FILTERED", "detail": "below the minimum severity",
    "at": "2026-09-30T09:12:40.654400Z"}
+],
+ "users": [
+  {"id": "01997d40-...", "name": "Anna", "owner": true},
+  {"id": "01997d41-...", "name": "Ben", "owner": false}
 ]}
 ```
 
+- **Whose.** Each record names its client's user (`userId`, `userName`,
+  as they are now), and `users` lists the users the event reached: those
+  subscribed to its producer now, by name, with whether each owns it. A
+  user without a device is listed with no records. **decided: "reached"
+  means "subscribed"**, which is what decides who gets an event; a user
+  who unsubscribed since still has their records, shown by the page as no
+  longer subscribed.
 - **One record per attempt.** The first dispatch is attempt 1 and each
   [retry](#push-dispatch) one more, so a push that failed temporarily and
   then arrived has two records. An event dispatched again after the

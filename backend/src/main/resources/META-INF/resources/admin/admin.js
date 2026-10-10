@@ -33,6 +33,8 @@
     producerId: "filter-producer",
     category: "filter-category",
     severity: "filter-severity",
+    userId: "filter-user",
+    relation: "filter-relation",
     read: "filter-read",
   };
   // Canonical IDs only, so nothing typed into the address becomes another request path.
@@ -446,6 +448,7 @@
     if (user.revokedAt) fact("Revoked", time(user.revokedAt));
     fact("ID", user.id);
     item.append(facts);
+    item.append(trafficOf(user));
 
     if (user.revokedAt) return item;
 
@@ -490,6 +493,60 @@
     }
     item.append(subscriptions);
     return item;
+  }
+
+  // A user's recent events and deliveries, read when asked for (and again by the Refresh next to
+  // them), so the list of users stays cheap.
+  function trafficOf(user) {
+    const panel = element("div", "traffic");
+    const heading = element("div", "actions");
+    const body = element("div");
+    body.hidden = true;
+    const toggle = button("Show traffic", async () => {
+      body.hidden = !body.hidden;
+      toggle.textContent = body.hidden ? "Show traffic" : "Hide traffic";
+      if (!body.hidden) await loadTraffic(user, body);
+    });
+    heading.append(toggle);
+    panel.append(heading, body);
+    return panel;
+  }
+
+  async function loadTraffic(user, body) {
+    body.replaceChildren(element("p", "meta", "Loading…"));
+    try {
+      renderTraffic(user, body, await call("GET", `${USERS}/${user.id}/traffic`));
+    } catch (e) {
+      body.replaceChildren(element("p", "error", e.message));
+    }
+  }
+
+  function renderTraffic(user, body, traffic) {
+    const events = element("ul", "keys");
+    for (const e of traffic.events) {
+      const line = element("li");
+      const link = element("a", null, e.title);
+      link.href = `#events/${e.id}`;
+      line.append(link, ` · ${e.producer.name} · ${time(e.createdAt)} (${ago(e.createdAt)})`);
+      events.append(line);
+    }
+    if (traffic.events.length === 0) events.append(element("li", "empty", "No events."));
+    const deliveries = element("ul", "deliveries");
+    for (const d of traffic.deliveries) {
+      const line = element("li", `delivery outcome-${d.outcome.toLowerCase()}`);
+      const link = element("a", null, d.eventTitle);
+      link.href = `#events/${d.eventId}`;
+      line.append(element("strong", null, d.clientName), `: ${outcome(d)}, `, link, `, ${time(d.at)} (${ago(d.at)})`);
+      deliveries.append(line);
+    }
+    if (traffic.deliveries.length === 0) deliveries.append(element("li", "empty", "No deliveries."));
+    body.replaceChildren(
+      element("h4", null, `Events of ${user.name}'s producers and subscriptions, newest first`),
+      events,
+      element("h4", null, "Pushes to their devices, newest first"),
+      deliveries,
+      button("Refresh traffic", () => loadTraffic(user, body)),
+    );
   }
 
   function renameUser(user) {
@@ -718,8 +775,10 @@
     selected = new Set();
     showSelection();
     const query = new URLSearchParams({ limit: String(EVENT_PAGE) });
+    // Which of a user's producers means nothing without the user.
+    $("filter-relation").disabled = !$("filter-user").value;
     for (const [name, id] of Object.entries(EVENT_FILTERS)) {
-      if ($(id).value) query.set(name, $(id).value);
+      if ($(id).value && !$(id).disabled) query.set(name, $(id).value);
     }
     const cursor = eventPages[eventPages.length - 1];
     if (cursor) query.set("cursor", cursor);
@@ -742,6 +801,7 @@
     let producers;
     try {
       producers = (await call("GET", PRODUCERS)).items;
+      await loadUsers();
     } catch {
       return; // The filter keeps what it had; the list says what went wrong, if anything did.
     }
@@ -750,10 +810,12 @@
       ["delete-producer", "Any producer", producers],
       // A disabled producer could not publish the event itself, so the server refuses it.
       ["send-producer", "Choose a producer", producers.filter((p) => !p.disabledAt)],
+      // Revoked users keep their events, so the operator can still look at them.
+      ["filter-user", "All users", users],
     ]) {
       const select = $(id);
       const chosen = select.value;
-      const options = offered.map((p) => new Option(p.name, p.id));
+      const options = offered.map((p) => new Option(p.revokedAt ? `${p.name} (revoked)` : p.name, p.id));
       select.replaceChildren(new Option(none, ""), ...options);
       select.value = offered.some((p) => p.id === chosen) ? chosen : "";
     }
@@ -817,26 +879,47 @@
   async function refreshDeliveries(eventId) {
     showError("deliveries-error", null);
     try {
-      renderDeliveries((await call("GET", `${ADMIN_EVENTS}/${eventId}/deliveries`)).items);
+      renderDeliveries(await call("GET", `${ADMIN_EVENTS}/${eventId}/deliveries`));
     } catch (e) {
       $("event-deliveries").replaceChildren();
       showError("deliveries-error", e.message);
     }
   }
 
-  // One line per device, by its name, in the order the devices were first tried: how the latest
-  // attempt went and when, then the earlier attempts, if any. The records are oldest first.
-  function renderDeliveries(records) {
-    const byDevice = new Map();
-    for (const record of records) {
-      if (!byDevice.has(record.clientId)) byDevice.set(record.clientId, []);
-      byDevice.get(record.clientId).push(record);
+  // One entry per user the event reached, by name (a user with records who has since unsubscribed
+  // follows them), each with one line per device in the order the devices were first tried: how
+  // the latest attempt went and when, then the earlier attempts, if any. The records are oldest
+  // first.
+  function renderDeliveries({ items, users: reached }) {
+    const byUser = new Map(reached.map((u) => [u.id, { name: u.name, owner: u.owner, devices: new Map() }]));
+    for (const record of items) {
+      if (!byUser.has(record.userId)) {
+        byUser.set(record.userId, { name: record.userName, owner: false, devices: new Map(), left: true });
+      }
+      const devices = byUser.get(record.userId).devices;
+      if (!devices.has(record.clientId)) devices.set(record.clientId, []);
+      devices.get(record.clientId).push(record);
     }
     const list = $("event-deliveries");
-    list.replaceChildren(...[...byDevice.values()].map(deliveryLine));
-    if (byDevice.size === 0) {
-      list.append(element("li", "empty", "None: its push is not dispatched yet, or there was no device."));
+    list.replaceChildren(...[...byUser.values()].map(recipient));
+    if (byUser.size === 0) {
+      list.append(element("li", "empty", "No user receives it: nobody is subscribed to its producer."));
     }
+  }
+
+  function recipient(user) {
+    const item = element("li", "recipient");
+    const title = element("strong", null, user.name);
+    item.append(title);
+    if (user.owner) item.append(" ", element("span", "badge muted", "Owner"));
+    if (user.left) item.append(" ", element("span", "badge muted", "No longer subscribed"));
+    const devices = element("ul", "deliveries");
+    devices.append(...[...user.devices.values()].map(deliveryLine));
+    if (user.devices.size === 0) {
+      devices.append(element("li", "empty", "None: its push is not dispatched yet, or the user has no device."));
+    }
+    item.append(devices);
+    return item;
   }
 
   function deliveryLine(attempts) {

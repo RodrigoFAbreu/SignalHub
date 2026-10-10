@@ -118,6 +118,17 @@ public class ProducerAccess {
     return new HashSet<>(ids.stream().map(UUID.class::cast).toList());
   }
 
+  /** The producers the user owns. */
+  @Transactional
+  public Set<UUID> ownedProducerIds(UUID userId) {
+    List<?> ids =
+        entityManager
+            .createNativeQuery("SELECT id FROM producers WHERE owner_id = :user")
+            .setParameter("user", userId)
+            .getResultList();
+    return new HashSet<>(ids.stream().map(UUID.class::cast).toList());
+  }
+
   /** The users who receive this producer's events. */
   @Transactional
   public Set<UUID> subscribers(UUID producerId) {

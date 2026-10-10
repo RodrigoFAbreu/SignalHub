@@ -23,6 +23,9 @@ import java.util.UUID;
  * @param read only read events if true, only unread events if false
  * @param createdFrom inclusive lower bound on {@code createdAt}
  * @param createdBefore exclusive upper bound on {@code createdAt}
+ * @param userId only events of the producers this user stands in {@code relation} to (the
+ *     operator's listing only)
+ * @param relation which producers of {@code userId}: owned, subscribed to, or either when empty
  * @param after position to continue after, from a previous page's cursor
  */
 record EventQuery(
@@ -32,6 +35,8 @@ record EventQuery(
     Optional<Boolean> read,
     Optional<Instant> createdFrom,
     Optional<Instant> createdBefore,
+    Optional<UUID> userId,
+    Optional<UserRelation> relation,
     Optional<EventCursor> after,
     int limit) {
 
@@ -56,6 +61,8 @@ record EventQuery(
       String read,
       String createdFrom,
       String createdBefore,
+      String userId,
+      String relation,
       String cursor,
       String limit) {
     var problems = new ArrayList<ApiError.Violation>();
@@ -67,6 +74,20 @@ record EventQuery(
             parseRead(read, problems),
             parseTimestamp("createdFrom", createdFrom, problems),
             parseTimestamp("createdBefore", createdBefore, problems),
+            parseAll(
+                    "userId",
+                    userId == null ? null : List.of(userId),
+                    EventQuery::parseUuid,
+                    problems)
+                .stream()
+                .findFirst(),
+            parseEnums(
+                    "relation",
+                    relation == null ? null : List.of(relation),
+                    UserRelation.class,
+                    problems)
+                .stream()
+                .findFirst(),
             parseCursor(cursor, problems),
             parseLimit(limit, problems));
     if (!problems.isEmpty()) {

@@ -2255,6 +2255,31 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   producers from a device, Subscriptions from a device). The Python SDK and
   command are unchanged. Compatible (`feat`)
 
+### R63 - The admin page: traffic by user
+
+- **events by user**: `GET /api/v1/events` takes `userId` (admin token
+  only; a client key gets `400`, an unknown user `404`) and `relation`
+  (`OWNED` or `SUBSCRIBED`, with `userId`): the events of the producers the
+  user owns or is subscribed to, with every other filter and the cursor.
+  The Events section has *User* and *Their producers* filters
+- **who an event reached**: `GET /api/v1/admin/events/{id}/deliveries`
+  names each record's user (`userId`, `userName`) and lists the `users` the
+  event reached (those subscribed to its producer, with whether each owns
+  it); an open event on the page groups the deliveries by user, then device
+- **a user's traffic**: `GET /api/v1/admin/users/{id}/traffic` answers the
+  newest 20 events and the newest 20 delivery records of the user's devices;
+  the Users section shows them under **Show traffic**, linking each event
+- decisions the entry left open: "reached" means "subscribed" (what decides
+  who gets an event); an owner is subscribed to their own producer, so
+  `SUBSCRIBED` includes theirs; a fixed window of 20, with the Events filter
+  for more; revoked users can be looked up; no migration; the operator only,
+  no aggregation (non-goals)
+- tests: `UserTrafficApiTest` against PostgreSQL (two users, a private and a
+  public producer, the filter and its errors, recipients, the traffic and its
+  limit, the admin token), `OpenApiTest`, `AdminPageTest`.
+  `docs/architecture.md` (Traffic by user, Delivery records, the admin page).
+  Compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2835,8 +2860,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 49    | R60 - Pushes reach a sleeping phone at once                                                      | Increment (`fix`)                      | Done (see section 3)                                                             |
 | 50    | R61 - Users, roles and subscriptions                                                             | Increment (`feat!`)                    | Done (see section 3)                                                             |
 | 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Next                                                                             |
-| 53    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Blocked until R63 is merged                                                      |
+| 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 53    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next                                                                             |
 | 54    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
 | 55    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
 | 56    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
@@ -5100,7 +5125,7 @@ and receives its events; a mod pairs a second device of their own.
 
 ### R63 - The admin page: traffic by user
 
-Status: next. Added by the maintainer (2026-10-10).
+Status: done (see section 3). Added by the maintainer (2026-10-10).
 
 Goal: the operator (an admin) watches all traffic per user, for testing
 and debugging.
@@ -5121,7 +5146,7 @@ each user's events and deliveries on the admin page.
 
 ### R64 - Designs for users in the app and on a web page
 
-Status: blocked until R63 is merged. Added by the maintainer
+Status: next. Added by the maintainer
 (2026-10-10).
 
 Goal: before the app and a web page get the users' features, their
@@ -5343,9 +5368,10 @@ admin page: a status panel), R56 (an event's delivery), R57 (the
 alert also plays while the app is open), R58 (the second batch of
 Dependabot updates), R59 (a read event leaves the unread-only inbox),
 R60 (pushes reach a sleeping phone at once), R61 (users, roles and
-subscriptions) and R62 (self-service for users: the API) are done. **R63
-(the admin page: traffic by user) is next**, followed by R64, the human
-gate G4 (the maintainer approves the user designs), R65 and R66. A new
+subscriptions), R62 (self-service for users: the API) and R63 (the admin
+page: traffic by user) are done. **R64 (designs for users in the app and
+on a web page) is next**, followed by the human gate G4 (the maintainer
+approves the user designs), R65 and R66. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
 
