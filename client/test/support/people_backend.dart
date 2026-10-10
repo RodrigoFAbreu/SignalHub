@@ -64,10 +64,6 @@ class PeopleBackend {
   /// Which requests were made, as `METHOD /path`.
   final requests = <String>[];
 
-  /// The devices that are browsers, which a basic user may revoke when their
-  /// own (R66 decides the server's rule; today every change is refused).
-  final browsers = <String>{};
-
   /// Whether the server refuses to revoke a mod's device as their last active
   /// one, whatever others they have.
   bool refuseLastActive = false;
@@ -104,6 +100,7 @@ class PeopleBackend {
     String userId, {
     DateTime? lastActive,
     DateTime? revoked,
+    bool browser = false,
   }) {
     final role = userId == callerId
         ? callerRole
@@ -112,9 +109,12 @@ class PeopleBackend {
       'id': id,
       'name': name,
       'admin': role == 'ADMIN',
+      'kind': browser ? 'BROWSER' : 'DEVICE',
       'user': {'id': userId, 'name': _nameOf(userId), 'role': role},
       'createdAt': '2026-09-26T08:00:00Z',
       'lastActiveAt': lastActive?.toUtc().toIso8601String(),
+      // A browser's sign-in lasts a fixed 30 days.
+      'expiresAt': browser ? '2026-11-09T12:00:00Z' : null,
       'revokedAt': revoked?.toUtc().toIso8601String(),
       'pushTarget': null,
       'pushPreferences': FakeBackend.defaultPushPreferences,
@@ -376,18 +376,23 @@ class PeopleBackend {
       return _json(200, {'items': _visibleDevices()});
     }
     // Every change: the role is checked first, before the device is looked up.
+    // Every role changes its own browsers; a basic user nothing else.
     final match = RegExp(r'^/api/v1/client/devices/([^/]+?)(/revoke)?$')
         .firstMatch(route.split(' ').last);
-    if (callerRole == 'BASIC' &&
-        !(match?.group(2) != null && browsers.contains(match!.group(1)))) {
-      return _forbidden();
-    }
+    final target = _allDevices()
+        .where((d) => d['id'] == match?.group(1))
+        .firstOrNull;
+    final ownBrowser =
+        target != null &&
+        target['kind'] == 'BROWSER' &&
+        (target['user']! as Map)['id'] == callerId;
+    if (callerRole == 'BASIC' && !ownBrowser) return _forbidden();
     if (match == null) return _notFound();
     final device = _visibleDevices()
         .where((d) => d['id'] == match.group(1))
         .firstOrNull;
     if (device == null) return _notFound();
-    final isAdminDevice = device['admin'] == true;
+    final isAdminDevice = device['admin'] == true && !ownBrowser;
     final revoked = device['revokedAt'] != null;
     if (request.method == 'DELETE') {
       if (isAdminDevice) return _adminDevice();
@@ -399,15 +404,21 @@ class PeopleBackend {
     }
     if (isAdminDevice) return _adminDevice();
     if (match.group(2) != null && request.method == 'POST') {
-      if (!revoked && callerRole == 'MOD' && refuseLastActive) {
+      // The last active device of a mod stays; a browser is never one, and
+      // does not count as another device.
+      final isDevice = device['kind'] != 'BROWSER';
+      if (!revoked && callerRole == 'MOD' && isDevice && refuseLastActive) {
         return _json(409, {
           'title': 'Cannot revoke the last active device of a user',
           'status': 409,
         });
       }
-      if (!revoked && callerRole == 'MOD') {
+      if (!revoked && callerRole == 'MOD' && isDevice) {
         final others = _visibleDevices().where(
-          (d) => d['id'] != device['id'] && d['revokedAt'] == null,
+          (d) =>
+              d['id'] != device['id'] &&
+              d['revokedAt'] == null &&
+              d['kind'] != 'BROWSER',
         );
         if (others.isEmpty) {
           return _json(409, {

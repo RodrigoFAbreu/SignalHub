@@ -21,8 +21,8 @@ and [Settings](#settings): whether and which
 events are pushed to this device, how pushes sound and vibrate on Android,
 with SignalHub's own sounds, which pushes sound on silent and during Do
 Not Disturb, and a separate alert for critical events (see
-[Alert](#alert)), the devices the role may see, and this device, from which
-it is disconnected.
+[Alert](#alert)), the devices the role may see, [signing a browser in](#sign-in-a-browser), and
+this device, from which it is disconnected.
 See
 [docs/architecture.md](../docs/architecture.md#client-application) for its
 design and [docs/development.md](../docs/development.md#client) for the
@@ -35,7 +35,7 @@ commands that CI runs.
 | `lib/main.dart` | Wiring: starts push with built-in options, or hands the controller the start from served ones; creates the controller, runs the app. |
 | `lib/src/api/` | `SignalHubApi`, the client side of the backend's HTTP API. |
 | `lib/src/models/` | Events, the inbox filter, the client registration, the devices an admin device lists and the served push options, read from API JSON. |
-| `lib/src/connection/` | Server address and client key, kept in secure storage; the pairing URI. |
+| `lib/src/connection/` | Server address and client key, kept in secure storage; the pairing URI; the sign-in link and typed code of a web page (`web_sign_in_link.dart`); the links the phone opens the app with (`incoming_links.dart`). |
 | `lib/src/push/push_service.dart` | `PushService`, the provider-neutral push port, and `PushNotice`. |
 | `lib/src/push/push_registration.dart` | Keeps the server's push target in step with the provider's token. |
 | `lib/src/push/firebase_push_service.dart` | The Firebase Cloud Messaging adapter: the only Dart code that knows Firebase. |
@@ -43,9 +43,10 @@ commands that CI runs.
 | `lib/src/alert/` | The alert settings (sound, volume, vibration with its pattern and length, which pushes sound on silent and during Do Not Disturb, and critical events' own), what the platform is given for them, their controller, and `AlertPlatform`, the port to the Android code that stores and plays them. |
 | `lib/src/settings/` | The groups of the Settings screen, and which of them are open, kept in secure storage. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
-| `lib/src/ui/` | The setup, pairing scanner, inbox (with its filter sheet), event, Settings (with its push filters and alert sections), devices (for an admin device) and *Connect a device* (a pairing code as a QR code, drawn with the pure-Dart `qr` package) screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
-| `android/`, `ios/` | Platform projects: identifiers, permissions, push capability, the browsers an event's link may open in (Android `<queries>`). |
-| `android/app/src/main/kotlin/` | `SignalHubApplication` (the *Events* channel), `PushAlertReceiver` and `AlertPlayer` (the alert), `MainActivity` (the alert settings' method channel, and Do Not Disturb access). |
+| `lib/src/features/web_sign_in_controller.dart` | Signing a browser in: reading the code, the question, approving or cancelling. |
+| `lib/src/ui/` | The setup, pairing scanner, *Sign in a browser* (`sign_in_browser_screen.dart`), inbox (with its filter sheet), event, Settings (with its push filters and alert sections), devices (for an admin device) and *Connect a device* (a pairing code as a QR code, drawn with the pure-Dart `qr` package) screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
+| `android/`, `ios/` | Platform projects: identifiers, permissions, push capability, the browsers an event's link may open in (Android `<queries>`), and the `signalhub://signin` link the app opens from (Android intent filter). |
+| `android/app/src/main/kotlin/` | `SignalHubApplication` (the *Events* channel), `PushAlertReceiver` and `AlertPlayer` (the alert), `MainActivity` (the alert settings' method channel, Do Not Disturb access, and the sign-in links). |
 | `sounds/` | The alert sounds' generator, `generate.py`, and their source and licence; the sounds are in `android/app/src/main/res/raw/`. |
 | `icon/` | The app icon (`icon.svg`) and `render.sh`, which renders its PNGs for both platforms. |
 | `test/` | Unit and widget tests against a fake backend and a fake push service. |
@@ -188,15 +189,24 @@ at the top of the inbox, once.
 - **Devices** (Settings, every role) lists the devices your role may see: your
   own for a basic user (read only) and a mod (who connects, renames and
   revokes them), everyone's, grouped by person, for an admin (who also
-  deletes revoked ones and connects a device for anyone).
+  deletes revoked ones and connects a device for anyone). A browser signed in
+  to a web page is listed like a device, with the globe icon and a `Browser`
+  tag (`This device` marks the one in use, `Admin device` and `Revoked` the
+  others). Every role signs out its own browsers: a mod
+  and an admin from the row menu (*Rename*, *Sign out*) and a basic user with
+  a *Sign out* button, which asks first and says the browser stops being a
+  device of theirs; a signed out browser of their own can then be deleted,
+  by every role. An admin's browser is not an admin device: its user changes
+  it, no other admin does. A mod's last active *device* cannot be revoked;
+  browsers do not count for that. A basic user's phones stay read only.
 
 ## Settings
 
 The **Settings** tab holds every setting of the app. At the top, always
 shown, the **Push notifications** switch pauses or resumes pushes to this
 device (events are kept in the inbox either way). Below it, in one order for
-every role: **Push filters**, **Alert**, **Devices**, **About this server**
-and **This device**. The groups that fold show, folded, a one-line summary
+every role: **Push filters**, **Alert**, **Devices**, **Sign in a browser**,
+**About this server** and **This device**. The groups that fold show, folded, a one-line summary
 of their values, such as *Normal and up · Info, Completed muted · all
 producers* or *Signal · 80 % · Medium · Short, short, long · Short*. Tap a
 header to unfold or fold it:
@@ -236,8 +246,8 @@ says the server does not support them. Where the app plays no alert of its
 own (iOS), there are no alert groups.
 Pull down to read the registration, the push status and the devices again.
 
-A **Sign in a browser** row, to sign a web page in by scanning its code, is
-drawn in the designs and comes with the web page.
+- **Sign in a browser** opens the scanner of [signing a browser in](#sign-in-a-browser).
+  It sits beside *Devices*, not inside it, so every role reaches it.
 
 Updating from a release with the *Notifications* and *This device* screens
 keeps every setting: the push preferences stay on the server and the alert
@@ -245,6 +255,45 @@ settings on the device, as before. Updating from a release with a
 top-level *Critical alert* group keeps its settings, now inside *Alert*;
 if it was left open, the sub-group opens with *Alert* once critical events
 have their own alert.
+
+## Sign in a browser
+
+The web page has no password: a browser becomes one of your devices by being
+approved from a device you already have, and every role may do it. The page
+shows a QR code (and, under it, a short code such as `K7Q-4MX`). In the app,
+**Settings › Sign in a browser** opens the camera (asked for the first time
+it is needed); point it at the code. **Type a code** takes the short code
+instead: in any case, with or without the dash or spaces, and its **Continue**
+stays off until it has six characters. A code that is wrong or has run out
+says *That code isn't right or has run out. Check the page and try again.*
+under the field and keeps it; after too many wrong codes (the server allows
+five from a device in ten minutes) it says *Too many tries. Wait a few
+minutes, then try again.* A code that cannot be one (it has an `I`, `L`, `O`,
+`0` or `1`, which codes never have) is said the same way without asking, so
+it uses up no try. A server that cannot be reached is a banner, *Can't reach
+SignalHub. Check your connection and try again.*, with **Try again**.
+
+Reading a code never signs anything in. A sheet asks **Sign in this browser?**
+and names the browser and system the page's browser reports (for example
+*Firefox on Linux*; the server does no place lookup). **Sign in** approves
+it, and the screen says *Browser signed in* with **Done**; the browser is
+then listed in *Devices*, and its sign-in lasts a fixed 30 days or until it
+is signed out. **Cancel**, or dismissing the sheet, tells the page, which
+says the sign-in was cancelled; the camera keeps ignoring that code while it
+sees it. If the page gave up meanwhile, the app says *That sign-in has ended.
+Show a new code on the page and scan it.*
+
+The QR code and the page's **Open the app** button are the same link,
+`signalhub://signin?server=<server address>&code=shsc1_...`. On Android the
+app registers it (an intent filter for `signalhub://signin` on its main
+activity), so opening it goes straight to the question, without the camera.
+The link must name the server this app is connected to: another server's code
+says *That code is for another server. This app is connected to HOST.* and
+nothing is asked of either server. A link opened on an app that is not set up
+yet is ignored, and a newer link replaces the screen of an older one. The
+app does not register pairing links, which are scanned or pasted; iOS has
+no release and registers no link scheme, so *Open the app* does nothing
+there, and its scanner and typed code still work.
 
 ## Push notifications
 

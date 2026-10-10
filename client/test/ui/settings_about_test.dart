@@ -54,6 +54,7 @@ void main() {
           find.text('Push filters'),
           find.text('Alert'),
           find.text('Devices'),
+          find.text('Sign in a browser'),
           find.text('About this server'),
           find.text('This device'),
         ];
@@ -68,8 +69,13 @@ void main() {
           find.descendant(of: byKey('devices'), matching: find.text(devices)),
           findsOneWidget,
         );
-        // Signing in a browser is a later change's row.
-        expect(find.text('Sign in a browser'), findsNothing);
+        expect(
+          find.descendant(
+            of: byKey('signInBrowser'),
+            matching: find.text('Scan the code a web page shows'),
+          ),
+          findsOneWidget,
+        );
         await shot(tester, '4b4-$role');
       });
     }
@@ -304,6 +310,13 @@ void main() {
       await app.start(tester);
       await tester.tap(byKey('tab-settings'));
       await app.settle(tester);
+      // At this size and text size the rows above it fill the screen.
+      await tester.scrollUntilVisible(
+        byKey('aboutServer'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(byKey('aboutServer'));
       await app.settle(tester);
 

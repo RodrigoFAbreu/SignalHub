@@ -52,6 +52,9 @@ class FakeBackend {
   /// The name of this client's user.
   String userName = 'Rodrigo';
 
+  /// What this client is: `DEVICE` (an app installation), or `BROWSER`.
+  String kind = 'DEVICE';
+
   /// When the client's user, as a user's registration says, was last active.
   String? lastActiveAt;
 
@@ -82,6 +85,8 @@ class FakeBackend {
     'id': id,
     'name': name,
     'admin': admin,
+    'kind': 'DEVICE',
+    'expiresAt': null,
     'createdAt': '2026-09-26T08:00:00Z',
     'revokedAt': revoked ? '2026-09-26T09:00:00Z' : null,
     'pushTarget': null,
@@ -473,6 +478,7 @@ class FakeBackend {
     'id': '01a0da2c-1f3e-7a51-8d0c-6b1f2e3d4c5b',
     'name': 'Pixel 8',
     'admin': ?admin,
+    'kind': kind,
     if (admin != null)
       'user': {
         'id': 'user-0',
@@ -480,6 +486,7 @@ class FakeBackend {
         'role': admin == true ? 'ADMIN' : userRole,
       },
     'lastActiveAt': lastActiveAt,
+    'expiresAt': null,
     'createdAt': '2026-09-25T18:02:11.108811Z',
     'revokedAt': null,
     'pushTarget': pushTarget,

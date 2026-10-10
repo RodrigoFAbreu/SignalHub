@@ -38,9 +38,23 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- The app reads the links it is opened with itself
+                 (MainActivity), so Flutter does not turn them into routes. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- The page's Open the app button, which signs a browser in
+                 (signalhub://signin?server=...&code=...). The app handles
+                 the link itself (MainActivity), not Flutter's routes. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="signalhub" android:host="signin"/>
             </intent-filter>
         </activity>
         <!-- Plays SignalHub's own alert for every push, the app open or not;

@@ -33,10 +33,30 @@ const scannerOffHeight = 120.0;
 Widget scanPairingCode(BuildContext context, PairingScanHandlers handlers) =>
     PairingScannerView(handlers: handlers);
 
+/// The camera of _Sign in a browser_: the same reader, filling the space it
+/// is given, for the code a web page shows.
+Widget scanWebSignInCode(BuildContext context, PairingScanHandlers handlers) =>
+    PairingScannerView(
+      handlers: handlers,
+      height: null,
+      label: 'Camera, point at the code on the page',
+    );
+
 class PairingScannerView extends StatefulWidget {
-  const PairingScannerView({super.key, required this.handlers});
+  const PairingScannerView({
+    super.key,
+    required this.handlers,
+    this.height = scannerHeight,
+    this.label = 'Camera, point at the invitation code',
+  });
 
   final PairingScanHandlers handlers;
+
+  /// The region's height; `null` fills the space it is given.
+  final double? height;
+
+  /// What a screen reader says the region is.
+  final String label;
 
   @override
   State<PairingScannerView> createState() => _PairingScannerViewState();
@@ -71,11 +91,11 @@ class _PairingScannerViewState extends State<PairingScannerView> {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'Camera, point at the invitation code',
+    label: widget.label,
     child: ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
-        height: scannerHeight,
+        height: widget.height,
         child: MobileScanner(
           controller: _scanner,
           onDetect: _onDetect,
