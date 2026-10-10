@@ -3044,6 +3044,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 57    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Passed (2026-10-10, approved without changes)                                    |
 | 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 60    | R70 - CI in reusable workflows, container checks as tests, and faster                            | Increment (`ci`)                       | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3517,6 +3518,17 @@ G1 → G2 → R19 v1.0.0
   messages for a used or expired code and a browser's approximate place
   were left out. It runs before R64 is merged, as a server item that does
   not need the designs.
+- **R70 was added by the maintainer on 2026-10-10**, after R66: the
+  maintainer asked to split the single CI workflow into reusable
+  workflows that a main workflow calls and that can each be run alone, to
+  clean up the container checks' long runs of `curl`, and to make CI
+  genuinely more efficient, not only more parallel. Asked to choose, the
+  maintainer chose to keep running every part on every pull request
+  (rather than skipping parts by changed paths) and to turn the `curl`
+  steps into Python tests (rather than shell helpers or a new HTTP
+  testing tool), and asked that CI be made genuinely faster, not only
+  split further; a new testing tool is allowed only for a significant
+  improvement with a very good reason.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3573,6 +3585,7 @@ advance; they follow from the queue.
 | R67           | patch (`build`)                                                                                                                                       | build, CI, image and app library versions; no API or behaviour change                                      |
 | R68           | minor (`feat`)                                                                                                                                        | admin-only fields and endpoints in the client API; nothing changes for other roles                         |
 | R69           | minor (`feat`)                                                                                                                                        | last-used times and the server version in the client API; one additive migration                           |
+| R70           | patch (`ci`)                                                                                                                                          | CI only; nothing a user, producer or operator sees                                                         |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -5658,6 +5671,68 @@ change to producers or to what a role may see otherwise.
 Non-goals: the app's or the web page's screens (R65, R66); a history of
 activity; anything per event.
 
+### R70 - CI in reusable workflows, container checks as tests, and faster
+
+Status: next. Added by the maintainer (2026-10-10).
+
+Goal: CI is organised in parts that can each be run alone, its container
+checks read as named tests instead of long runs of `curl`, and it does
+less repeated work so it finishes sooner, keeping every check it has.
+
+Scope:
+
+- **reusable workflows**: `ci.yml` becomes a short main workflow that
+  calls one reusable workflow (`workflow_call`) per part: Python, the
+  backend, the app (Android and iOS), the web page, and the containers
+  (Compose smoke tests, upgrades, the fresh install, end-to-end). Each part
+  can also be started alone from the Actions tab (`workflow_dispatch`).
+  The release workflow keeps re-validating the exact commit through the
+  main workflow. Every CI check is required on `main` (the maintainer's
+  decision of 2026-10-10, after a pull request merged with a failing check
+  that was not required and its release failed); every check stays
+  required, and if a check's name changes, the PR says exactly which
+  setting of the repository's ruleset changes with it
+- **every part on every pull request**: no part is skipped by changed
+  paths, since every merge to `main` is a release
+- **container checks as tests**: the `curl` steps (about a hundred today,
+  most in the Compose smoke test) become Python tests in one folder, with
+  the standard library and `unittest` and linted with `ruff`, one named
+  test per check and a small shared helper for requests, credentials and
+  expected statuses. The workflows start the stack and run the tests; the
+  same tests run by hand against a local `docker compose up`. Every check
+  of today is kept: the PR maps each old step to its test. A dedicated
+  testing tool may replace plain Python only for a significant
+  improvement and a very good reason, both shown in the PR (for example a
+  measured gain in clarity or speed that the standard library cannot
+  give); it is then pinned like every other tool
+- **efficiency, measured**: record each job's duration and a pull
+  request run's wall time and total runner minutes before and after, and
+  remove repeated work rather than only splitting jobs further: for
+  example build each backend image once per architecture and share it
+  with the jobs that start a stack, cache what each toolchain downloads
+  (Maven, Gradle, Flutter and pub, pip), let checks that can share one
+  stack share it, replace fixed waits with readiness checks, and drop
+  steps that only repeat what another job proves. The baseline, measured
+  on PR #146: about 8.5 minutes of wall time, set by the app's Android job
+  (8.4 minutes), and about 39 runner minutes in total, the backend image
+  being built separately in about eight jobs
+- `docs/development.md` (running each part alone, the container tests
+  locally), the CI wording in the docs, and the useful commands in
+  `CLAUDE.md`
+
+Compatible (`ci`, patch): nothing a user, producer or operator sees.
+
+Non-goals: dropping or weakening a check, a required check or the
+release's re-validation; skipping parts by changed paths; a new testing
+tool without a significant, shown improvement; changing what a release
+publishes.
+
+Exit criteria: a pull request runs every part green with every check of
+before (the mapping in the PR); each part runs alone from the Actions
+tab; the container tests run against a local `docker compose up`; and
+the PR reports the durations and runner minutes before and after, both
+lower, or why one could not be lowered.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -5794,8 +5869,9 @@ updates), R68 (people's details for admins in the client API) and R69
 (designs for users in the app and on a web page) are done, the
 maintainer approved the designs at G4, and R65 (users in the app) is
 done, and so is R66 (users' web page) with the app's *Sign in a browser*.
-**Nothing is queued: the queue is complete.** A new
-item is added only by the maintainer, in a reviewed pull request; the
-deferred candidates of section 5 are not started without that.
+**R70 (CI in reusable workflows, container checks as tests, and
+faster) is next.** A new item is added only by the maintainer, in a
+reviewed pull request; the deferred candidates of section 5 are not
+started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
