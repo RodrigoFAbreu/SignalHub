@@ -694,12 +694,13 @@ jobs:
             --data '{"name": "ci-restored"}' \
             http://localhost:8080/api/v1/admin/clients | jq --raw-output .clientKey)
           echo "::add-mask::$restored_key"
-          curl --fail --silent --show-error --get \
+          restored=$(curl --fail --silent --show-error --get \
             --header "Authorization: Bearer $restored_key" \
             --data-urlencode "producerId=$PRODUCER_ID" \
-            http://localhost:8080/api/v1/events \
-            | jq --exit-status '[.items[].title] == ["From the command", "Smoke test"]
-                and .items[1].readAt != null'
+            http://localhost:8080/api/v1/events)
+          jq '[.items[] | {title, readAt}]' <<<"$restored"
+          jq --exit-status '[.items[].title] == ["From the command", "Smoke test"]
+              and .items[1].readAt != null' <<<"$restored"
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Authorization: Bearer $ADMIN_TOKEN" "http://localhost:8080/api/v1/events/$later")
           test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
