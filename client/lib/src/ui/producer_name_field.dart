@@ -112,7 +112,7 @@ class _ProducerNameFieldState extends State<ProducerNameField> {
             errorMaxLines: 4,
             suffixIcon: error == null
                 ? null
-                : Icon(Icons.error, color: colors.error),
+                : Icon(Icons.error_outline, color: colors.error),
             enabledBorder: border(colors.outline, 1),
             focusedBorder: border(colors.primary, 2),
             errorBorder: border(colors.error, 2),

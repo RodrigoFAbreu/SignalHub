@@ -110,11 +110,15 @@ abstract final class ProducerDialogs {
       await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
+          insetPadding: dialogInsets,
           title: const Text('Did you copy the key?'),
           content: SingleChildScrollView(
             child: Text(
               "It's shown once. If you leave now, you'll need to make a new "
               'key for $producerName.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           actions: [
@@ -242,6 +246,7 @@ class _RenameDialogState extends State<_RenameDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
+      insetPadding: dialogInsets,
       title: const Text('Rename producer'),
       content: SingleChildScrollView(
         child: Column(
@@ -260,7 +265,9 @@ class _RenameDialogState extends State<_RenameDialog> {
             Text(
               'Events keep the producer. They show the new name, and so does '
               'everyone it is shared with.',
-              style: theme.textTheme.bodyMedium,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             if (_message case final message?) ...[
               const SizedBox(height: 12),

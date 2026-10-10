@@ -53,13 +53,18 @@ class NoticeBox extends StatelessWidget {
 /// What a full screen's content is at most as wide as, centred: landscape
 /// keeps the portrait layout.
 class ContentWidth extends StatelessWidget {
-  const ContentWidth({super.key, required this.child});
+  const ContentWidth({super.key, required this.child, this.bar = false});
 
   final Widget child;
+
+  /// A bar at the bottom of a screen: as high as its content, not the
+  /// screen.
+  final bool bar;
 
   @override
   Widget build(BuildContext context) => Align(
     alignment: Alignment.topCenter,
+    heightFactor: bar ? 1 : null,
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 600),
       child: child,

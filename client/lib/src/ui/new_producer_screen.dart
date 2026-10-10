@@ -153,96 +153,98 @@ class _NewProducerScreenState extends State<NewProducerScreen> {
       ),
       body: SafeArea(
         top: false,
+        bottom: false,
         child: ContentWidth(
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'A producer is anything that sends you events: a '
-                        'script, a CI pipeline, a home server. It gets its own '
-                        'key.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ProducerNameField(
-                        controller: _name,
-                        serverError: _serverError,
-                        help: NameMessages.help,
-                        autofocus: true,
-                        enabled: !_busy,
-                        onSubmitted: _create,
-                      ),
-                      if (mine != null) ...[
-                        const SizedBox(height: 16),
-                        const NoticeBox(
-                          icon: Icons.key_off,
-                          message:
-                              'Your first try probably worked, but its key '
-                              'never reached this phone. Keys are shown once, '
-                              'so make a new key for it.',
-                        ),
-                        const SizedBox(height: 16),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: FilledButton.tonal(
-                            key: const Key('openMine'),
-                            onPressed: () => _openMine(mine),
-                            child: Text('Open ${mine.name}'),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      Text(
-                        'Who can see it',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      VisibilityControl(
-                        value: _visibility,
-                        onChanged: _busy
-                            ? null
-                            : (v) => setState(() => _visibility = v),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Only you, and people you add later. Anyone on this '
-                        'server can find and subscribe to a public producer.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'A producer is anything that sends you events: a script, a '
+                  'CI pipeline, a home server. It gets its own key.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
-                    key: const Key('create'),
-                    onPressed: _canCreate ? _create : null,
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : null,
-                    label: const Text('Create'),
+                const SizedBox(height: 16),
+                ProducerNameField(
+                  controller: _name,
+                  serverError: _serverError,
+                  help: NameMessages.help,
+                  autofocus: true,
+                  enabled: !_busy,
+                  onSubmitted: _create,
+                ),
+                if (mine != null) ...[
+                  const SizedBox(height: 16),
+                  const NoticeBox(
+                    icon: Icons.key_off_outlined,
+                    message:
+                        'Your first try probably worked, but its key never '
+                        'reached this phone. Keys are shown once, so make a '
+                        'new key for it.',
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton.tonal(
+                      key: const Key('openMine'),
+                      onPressed: () => _openMine(mine),
+                      child: Text('Open ${mine.name}'),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                Text(
+                  'Who can see it',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: theme.colorScheme.primary,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                VisibilityControl(
+                  value: _visibility,
+                  onChanged: _busy
+                      ? null
+                      : (v) => setState(() => _visibility = v),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Only you, and people you add later. Anyone on this server '
+                  'can find and subscribe to a public producer.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      // In the bottom bar, so a snackbar rests above Create and never over it.
+      bottomNavigationBar: SafeArea(
+        child: ContentWidth(
+          bar: true,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FilledButton.icon(
+                  key: const Key('create'),
+                  onPressed: _canCreate ? _create : null,
+                  icon: _busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                  label: const Text('Create'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

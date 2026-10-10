@@ -100,9 +100,9 @@ class OwnProducerView extends StatelessWidget {
                 'events stay.',
           ),
         if (noKeyBanner != null)
-          _TopNotice(icon: Icons.key_off, message: noKeyBanner),
+          _TopNotice(icon: Icons.key_off_outlined, message: noKeyBanner),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
           child: Text(
             producer.lastEventAt == null
                 ? 'No events yet'
@@ -148,7 +148,7 @@ class OwnProducerView extends StatelessWidget {
         ],
         const SectionLabel('Keys'),
         if (producer.keys.isEmpty)
-          const DetailRow(icon: Icons.key_off, title: 'No keys'),
+          const DetailRow(icon: Icons.key_off_outlined, title: 'No keys'),
         for (final key in producer.keys)
           _KeyRow(
             keyInfo: key,
@@ -244,7 +244,7 @@ class _TopNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
     child: NoticeBox(icon: icon, message: message, error: error),
   );
 }
@@ -268,30 +268,137 @@ class _AllowedChips extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Wrap(
-        spacing: 8,
         children: [
           for (final person in people)
-            InputChip(
+            _PersonChip(
               key: Key('allowed-${person.id}'),
-              avatar: PersonAvatar(person.name, size: 24),
-              label: Text(person.name),
-              deleteIcon: const Icon(Icons.close, size: 18),
-              deleteButtonTooltipMessage: 'Remove ${person.name}',
-              onDeleted: canWrite ? () => onRemove(person) : null,
-              shape: const StadiumBorder(),
-              side: BorderSide(color: colors.outline),
-              backgroundColor: Colors.transparent,
+              name: person.name,
+              onRemove: canWrite ? () => onRemove(person) : null,
             ),
-          ActionChip(
+          _ChipFrame(
             key: const Key('addPeople'),
-            avatar: Icon(Icons.person_add, size: 18, color: colors.primary),
-            label: Text('Add people', style: TextStyle(color: colors.primary)),
-            onPressed: canWrite ? onAdd : null,
-            shape: const StadiumBorder(),
-            side: BorderSide(color: colors.outline),
-            backgroundColor: Colors.transparent,
+            onTap: canWrite ? onAdd : null,
+            padding: const EdgeInsets.fromLTRB(8, 0, 12, 0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.person_add_alt_outlined,
+                  size: 18,
+                  color: colors.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Add people',
+                  style: Theme.of(context).textTheme.labelLarge
+                      ?.copyWith(color: colors.primary),
+                ),
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The outline of a chip of the allow-list: 32 dp high, fully rounded, in a
+/// 48 dp high target with 8 dp to its right, so chips sit 8 dp apart.
+class _ChipFrame extends StatelessWidget {
+  const _ChipFrame({
+    super.key,
+    required this.child,
+    required this.padding,
+    this.onTap,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkResponse(
+        onTap: onTap,
+        highlightShape: BoxShape.rectangle,
+        borderRadius: BorderRadius.circular(16),
+        containedInkWell: true,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Center(
+            widthFactor: 1,
+            child: Container(
+              height: 32,
+              padding: padding,
+              decoration: ShapeDecoration(
+                shape: StadiumBorder(side: BorderSide(color: colors.outline)),
+              ),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A person on the list: their initial, their name and an x that takes them
+/// off, named _Remove NAME_. The x is a 48 dp target.
+class _PersonChip extends StatelessWidget {
+  const _PersonChip({super.key, required this.name, required this.onRemove});
+
+  final String name;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: SizedBox(
+        height: 48,
+        child: Stack(
+          alignment: Alignment.centerLeft,
+          children: [
+            Center(
+              widthFactor: 1,
+              child: Container(
+                height: 32,
+                // The x, 32 dp of it inside the outline, lies over this.
+                padding: const EdgeInsets.only(left: 4, right: 32),
+                decoration: ShapeDecoration(
+                  shape: StadiumBorder(side: BorderSide(color: colors.outline)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PersonAvatar(name, size: 24),
+                    const SizedBox(width: 8),
+                    Text(name, style: Theme.of(context).textTheme.labelLarge),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: 48,
+              child: IconButton(
+                tooltip: 'Remove $name',
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 7),
+                iconSize: 18,
+                color: colors.onSurfaceVariant,
+                icon: const Icon(Icons.close),
+                onPressed: onRemove,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -317,7 +424,6 @@ class _KeyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final label = ProducerDialogs.keyLabel(keyInfo);
     final lines = [
       if (keyInfo.isRevoked)
@@ -329,7 +435,7 @@ class _KeyRow extends StatelessWidget {
     ];
     return DetailRow(
       key: Key('key-${keyInfo.id}'),
-      icon: keyInfo.isRevoked ? Icons.key_off : Icons.key,
+      icon: keyInfo.isRevoked ? Icons.key_off_outlined : Icons.key_outlined,
       title: label,
       monoTitle: true,
       lines: lines,
@@ -345,7 +451,6 @@ class _KeyRow extends StatelessWidget {
               excludeSemantics: true,
               child: TextButton(
                 style: TextButton.styleFrom(
-                  foregroundColor: colors.error,
                   minimumSize: const Size(48, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                 ),

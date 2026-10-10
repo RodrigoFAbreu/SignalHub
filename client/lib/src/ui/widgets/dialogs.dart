@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+/// How far a dialog stays from the screen's edges: 24 dp, as drawn.
+const dialogInsets = EdgeInsets.symmetric(horizontal: 24, vertical: 24);
+
 /// A confirmation dialog: a question that names the thing and is never
 /// truncated, one or two sentences on who is affected and whether it can be
 /// undone, a quiet Cancel on the left and the action in words on the right.
@@ -20,8 +23,16 @@ Future<bool> showConfirmDialog(
       builder: (context) {
         final colors = Theme.of(context).colorScheme;
         return AlertDialog(
+          // The designs leave 24 dp beside a dialog, not Material's 40.
+          insetPadding: dialogInsets,
           title: Text(title),
-          content: SingleChildScrollView(child: Text(message)),
+          content: SingleChildScrollView(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: colors.onSurfaceVariant),
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),

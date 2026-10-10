@@ -40,7 +40,7 @@ class OtherProducerView extends StatelessWidget {
         ?stale,
         if (producer.disabled)
           const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: NoticeBox(
               icon: Icons.pause_circle_outline,
               message: "Disabled. It isn't sending events.",

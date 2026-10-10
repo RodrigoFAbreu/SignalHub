@@ -89,11 +89,12 @@ class _AllowListScreenState extends State<AllowListScreen> {
   bool get _changed =>
       _selected.length != _saved.length || !_selected.containsAll(_saved);
 
-  Future<void> _save() async {
+  Future<void> _save({bool confirmed = false}) async {
     if (!_changed || _saving) return;
     final added = _selected.difference(_saved).toList();
     final removed = _saved.difference(_selected).toList();
     if (removed.isNotEmpty &&
+        !confirmed &&
         !await ProducerDialogs.saveAllowList(
           context,
           producer: widget.producer,
@@ -135,7 +136,7 @@ class _AllowListScreenState extends State<AllowListScreen> {
       actionLabel: outcome.failure == ProducerFailure.forbidden
           ? null
           : 'Retry',
-      onAction: _save,
+      onAction: () => _save(confirmed: true),
     );
   }
 
@@ -154,26 +155,30 @@ class _AllowListScreenState extends State<AllowListScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: ContentWidth(
-          child: Column(
-            children: [
-              Expanded(child: _body(everyone, loading)),
-              if (_people != null)
-                Padding(
+        bottom: false,
+        child: ContentWidth(child: _body(everyone, loading)),
+      ),
+      // In the bottom bar, so a snackbar rests above Save and never over it.
+      bottomNavigationBar: _people == null
+          ? null
+          : SafeArea(
+              child: ContentWidth(
+                bar: true,
+                child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton(
-                      key: const Key('saveAllowList'),
-                      onPressed: _changed && !_saving ? _save : null,
-                      child: const Text('Save'),
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      FilledButton(
+                        key: const Key('saveAllowList'),
+                        onPressed: _changed && !_saving ? _save : null,
+                        child: const Text('Save'),
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
-        ),
-      ),
+              ),
+            ),
     );
   }
 

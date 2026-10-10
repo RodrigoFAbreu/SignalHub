@@ -510,7 +510,7 @@ class _ProducerScreenState extends State<ProducerScreen> {
       actions: [
         IconButton(
           tooltip: 'Rename ${producer.name}',
-          icon: const Icon(Icons.edit),
+          icon: const Icon(Icons.edit_outlined),
           onPressed: _paused || _busy ? null : () => _rename(producer),
         ),
       ],
