@@ -1557,6 +1557,17 @@ admin page uses) are bundled with their licences.
   `X-SignalHub-CSRF` on every state-changing request, and keeps the poll
   secret in memory. The cookie is `Secure`, so over plain HTTP it works only on
   `localhost`: through the proxy, with TLS, it works everywhere.
+- **A key is shown once, and a refused copy never traps the person.** A new
+  key appears in a dialog that Escape and a click outside do not close, so it
+  cannot be lost by accident. If the browser refuses the clipboard (no
+  permission, an insecure origin), the key box shows the selected state and a
+  line says how to copy by hand (Ctrl+C, Cmd+C on a Mac), as
+  `docs/design/users/DESIGN.md` says. **decided:** the design is silent on how
+  to leave then, so the dialog stays open, because the person may not have the
+  key yet, and its button changes from *Copy and close* to *I have saved the
+  key*, which closes it; *Copy* becomes *Try copy again*. A refusal never
+  closes the dialog by itself, and that button is always a way out. Tests grant a context the
+  clipboard where they mean a working one, and one makes the clipboard refuse.
 - **Tests.** `web-tests/` drives the page in headless Chromium (Playwright,
   test tooling only) against a running backend: signing in, the session's
   cookie and CSRF rules, a cross-origin page, revocation, the inbox, markup in

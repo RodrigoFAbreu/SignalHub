@@ -30,13 +30,16 @@ test("creating a producer shows its key once, in a dialog, and the producer open
   await expect(dialog.locator(".snip")).toContainText(`${BASE}/api/v1/events`);
   await dialog.getByRole("button", { name: "Copy", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "Copied" })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(key);
   await expect(dialog.getByRole("button", { name: "Done" })).toBeVisible();
   await dialog.getByRole("button", { name: "Done" }).click();
 
   await expect(page).toHaveURL(/#producers\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { name, level: 2, exact: true })).toBeVisible();
   await expect(page.getByText("Only you")).toBeVisible();
-  // The key is never shown again: only its prefix is.
+  // The key is never shown again: only its prefix is. (The dialog is gone first: it is still
+  // in the page while it closes.)
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator(".keyrow .mono")).toContainText("shpk1_");
   expect(await page.content()).not.toContain(key);
   // And the key works.
@@ -101,6 +104,52 @@ test("a failed subscribe says so, with Retry", async ({ context, page }) => {
   await page.unroute("**/subscription");
   await page.getByRole("button", { name: "Retry" }).click();
   await expect(row.getByRole("button", { name: /^Subscribed to/ })).toBeVisible();
+});
+
+test("a refused copy selects the key, says how to copy by hand, and still lets the person leave", async ({ context, page }) => {
+  await signedIn(context, page, "BASIC", "#producers/new");
+  // What a browser that does not allow copying does, whatever the runner's own permissions.
+  await context.clearPermissions();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: () => Promise.reject(new DOMException("denied", "NotAllowedError")) } });
+  });
+  await page.reload();
+  const name = unique("refused");
+  await page.getByLabel("Name").fill(name);
+  await page.getByRole("button", { name: "Create" }).click();
+  const dialog = page.getByRole("dialog", { name: `${name} is ready` });
+  await expect(dialog).toBeVisible();
+  const key = (await dialog.locator(".keybox").innerText()).trim();
+
+  await dialog.getByRole("button", { name: "Copy", exact: true }).click();
+  await expect(dialog.getByText("This browser did not allow copying.")).toBeVisible();
+  await expect(dialog.getByText("press Ctrl+C (Cmd+C on a Mac) to copy it")).toBeVisible();
+  await expect(dialog.locator(".keybox.sel")).toBeVisible();
+  expect(await page.evaluate(() => String(window.getSelection()).trim())).toBe(key);
+  await expect(dialog.getByRole("button", { name: "Copied" })).toHaveCount(0);
+  // The dialog is still open, and now offers the way out.
+  await expect(dialog.getByRole("button", { name: "Try copy again" })).toBeVisible();
+  await dialog.getByRole("button", { name: "I have saved the key" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("heading", { name, level: 2, exact: true })).toBeVisible();
+});
+
+test("Copy and close, refused, keeps the dialog open once and then closes on I have saved the key", async ({ context, page }) => {
+  await signedIn(context, page, "BASIC", "#producers/new");
+  await context.clearPermissions();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: () => Promise.reject(new DOMException("denied", "NotAllowedError")) } });
+  });
+  await page.reload();
+  const name = unique("refused-close");
+  await page.getByLabel("Name").fill(name);
+  await page.getByRole("button", { name: "Create" }).click();
+  const dialog = page.getByRole("dialog", { name: `${name} is ready` });
+  await dialog.getByRole("button", { name: "Copy and close" }).click();
+  await expect(dialog.getByText("This browser did not allow copying.")).toBeVisible();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "I have saved the key" }).click();
+  await expect(dialog).toHaveCount(0);
 });
 
 test("someone else's producer has the subscribed switch and nothing of the owner's controls", async ({ context, page }) => {

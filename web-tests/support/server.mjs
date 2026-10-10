@@ -101,7 +101,12 @@ export async function browserSession(person, userAgent = FIREFOX_ON_LINUX) {
   return { value, id: session.client.id, csrf: session.csrfToken };
 }
 
-/** Puts a browser session in a Playwright context, as the browser holds it after signing in. */
+/**
+ * Puts a browser session in a Playwright context, as the browser holds it after signing in. The
+ * context also has the clipboard a person's browser has: a headless Chromium refuses a copy
+ * unless it is granted, and the test of a refused copy takes it away on purpose.
+ */
 export async function useSession(context, session) {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(BASE).origin });
   await context.addCookies([{ name: "__Host-signalhub_session", value: session.value, domain: new URL(BASE).hostname, path: "/", httpOnly: true, secure: true, sameSite: "Strict" }]);
 }
