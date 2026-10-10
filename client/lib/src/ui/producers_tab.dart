@@ -59,7 +59,10 @@ class _ProducersTabState extends State<ProducersTab> {
   void initState() {
     super.initState();
     _app.addListener(_reloadWhenShown);
-    _producers.load();
+    // Not while building: reading notifies the controller's listeners.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _producers.load();
+    });
   }
 
   @override
