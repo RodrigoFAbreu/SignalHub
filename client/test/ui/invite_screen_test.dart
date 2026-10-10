@@ -114,6 +114,7 @@ void main() {
       // No code exists before the invitation is made.
       expect(find.byType(PairingQr), findsNothing);
       expect(people.pairingsMade, isEmpty);
+      await tester.pump(const Duration(seconds: 1));
       await saveScreenshot(tester, find.byKey(screenshotKey), '3d0');
     });
 
@@ -146,6 +147,7 @@ void main() {
       );
       expect(makeButton(tester).onPressed, isNull);
       expect(find.byType(PairingQr), findsNothing);
+      await tester.pump(const Duration(seconds: 1));
       await saveScreenshot(tester, find.byKey(screenshotKey), '3d2');
 
       // Another name works again; so does the same one in other capitals
@@ -275,6 +277,7 @@ void main() {
       expect(find.bySemanticsLabel('Pairing QR code'), findsOneWidget);
       // The invitation exists and Rui is listed, not yet paired.
       expect(people.userById('user-5')?.name, 'Rui');
+      await tester.pump(const Duration(seconds: 1));
       await saveScreenshot(tester, find.byKey(screenshotKey), '3d');
     });
 
@@ -448,6 +451,7 @@ void main() {
       );
       expect(find.textContaining('left.', findRichText: true), findsNothing);
       expect(find.text('Done'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
       await saveScreenshot(tester, find.byKey(screenshotKey), '3d3');
       // Nothing more is asked once it is known.
       final before = asked();
@@ -554,6 +558,7 @@ void main() {
         ),
         findsOneWidget,
       );
+      await tester.pump(const Duration(seconds: 1));
       await saveScreenshot(tester, find.byKey(screenshotKey), '3d4');
 
       people.pairingExpiresAt = now.add(const Duration(minutes: 10));

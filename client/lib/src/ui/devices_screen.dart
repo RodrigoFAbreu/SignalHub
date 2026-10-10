@@ -12,6 +12,7 @@ import 'widgets/app_row.dart';
 import 'widgets/callout.dart';
 import 'widgets/empty_state.dart';
 import 'widgets/resource_status.dart';
+import 'widgets/role_gate.dart';
 import 'widgets/skeleton.dart';
 import 'widgets/tags.dart';
 
@@ -27,25 +28,54 @@ import 'widgets/tags.dart';
 ///
 /// A role that changes while the screen is open rebuilds it; the shell says
 /// so once.
-class DevicesScreen extends StatefulWidget {
+class DevicesScreen extends StatelessWidget {
   const DevicesScreen({super.key, required this.controller});
 
   final AppController controller;
 
   @override
-  State<DevicesScreen> createState() => _DevicesScreenState();
+  Widget build(BuildContext context) => RoleGate(
+    controller: controller,
+    allows: (_) => true,
+    child: _Devices(controller: controller),
+  );
 }
 
-class _DevicesScreenState extends State<DevicesScreen> {
+class _Devices extends StatefulWidget {
+  const _Devices({required this.controller});
+
+  final AppController controller;
+
+  @override
+  State<_Devices> createState() => _DevicesState();
+}
+
+class _DevicesState extends State<_Devices> {
   AppController get _app => widget.controller;
   DevicesController get _devices => _app.deviceList;
   late final DeviceActions _actions = DeviceActions(context, _app);
 
+  late UserRole _role = _app.role;
+
   @override
   void initState() {
     super.initState();
+    _app.addListener(_followRole);
     // Not while building: reading notifies the controller's listeners.
     WidgetsBinding.instance.addPostFrameCallback((_) => _devices.load());
+  }
+
+  @override
+  void dispose() {
+    _app.removeListener(_followRole);
+    super.dispose();
+  }
+
+  /// A role that changed lists other devices: read them again.
+  void _followRole() {
+    if (_app.role == _role) return;
+    _role = _app.role;
+    unawaited(_devices.load());
   }
 
   Future<void> _refresh() async {

@@ -49,6 +49,10 @@ class PeopleBackend {
   /// `409`.
   int removedPairingStatus = 409;
 
+  /// Fails only the per-person producers call with this status; the
+  /// connection fails when it is `0`.
+  int? producersFailWith;
+
   /// Whether the server has the user endpoints; one released before them
   /// answers `404`.
   bool userEndpoints = true;
@@ -59,6 +63,14 @@ class PeopleBackend {
 
   /// Which requests were made, as `METHOD /path`.
   final requests = <String>[];
+
+  /// The devices that are browsers, which a basic user may revoke when their
+  /// own (R66 decides the server's rule; today every change is refused).
+  final browsers = <String>{};
+
+  /// Whether the server refuses to revoke a mod's device as their last active
+  /// one, whatever others they have.
+  bool refuseLastActive = false;
 
   /// Whether pairings carry the server's `uri`; one with no public address
   /// configured leaves it out, and the app builds the link itself.
@@ -144,6 +156,28 @@ class PeopleBackend {
     // Rui has no device and has never paired one.
   }
 
+  /// The devices of a mod or a basic user as the design draws them (3f, 3g):
+  /// the caller's own, which are all they see, and other people's, which they
+  /// never do.
+  void seedOwnDevices(DateTime now) {
+    addUser('user-1', 'Rodrigo', 'ADMIN');
+    addUser('user-2', 'João', 'BASIC');
+    addDevice('d-rodrigo', 'Rodrigo - Tablet', 'user-1', lastActive: now);
+    addDevice('d-joao', 'João - Galaxy', 'user-2', lastActive: now);
+    addDevice(
+      'd-tablet',
+      '${backend.userName} - Tablet',
+      callerId,
+      lastActive: now.subtract(const Duration(days: 3)),
+    );
+    addDevice(
+      'd-old',
+      '${backend.userName} - Old phone',
+      callerId,
+      revoked: now.subtract(const Duration(days: 6)),
+    );
+  }
+
   /// A device named [name] uses the code made [index]th from a device (the
   /// last by default): it is registered for the person it was made for.
   void usePairing(String name, {int? index}) {
@@ -212,8 +246,13 @@ class PeopleBackend {
     if (!admin) return _forbidden();
     final user = userById(match.group(1)!);
     if (match.group(2) != null && request.method == 'GET') {
-      if (user == null || user.removed) return _notFound();
-      return _json(200, {'items': producers[user.id] ?? const []});
+      if (producersFailWith case final status?) {
+        if (status == 0) throw http.ClientException('offline', request.url);
+        return _json(status, {'title': 'Failed', 'status': status});
+      }
+      final id = match.group(1)!;
+      if (id != callerId && (user == null || user.removed)) return _notFound();
+      return _json(200, {'items': producers[id] ?? const []});
     }
     if (request.method == 'PATCH') {
       if (user == null) return _notFound();
@@ -337,9 +376,12 @@ class PeopleBackend {
       return _json(200, {'items': _visibleDevices()});
     }
     // Every change: the role is checked first, before the device is looked up.
-    if (callerRole == 'BASIC') return _forbidden();
     final match = RegExp(r'^/api/v1/client/devices/([^/]+?)(/revoke)?$')
         .firstMatch(route.split(' ').last);
+    if (callerRole == 'BASIC' &&
+        !(match?.group(2) != null && browsers.contains(match!.group(1)))) {
+      return _forbidden();
+    }
     if (match == null) return _notFound();
     final device = _visibleDevices()
         .where((d) => d['id'] == match.group(1))
@@ -357,6 +399,12 @@ class PeopleBackend {
     }
     if (isAdminDevice) return _adminDevice();
     if (match.group(2) != null && request.method == 'POST') {
+      if (!revoked && callerRole == 'MOD' && refuseLastActive) {
+        return _json(409, {
+          'title': 'Cannot revoke the last active device of a user',
+          'status': 409,
+        });
+      }
       if (!revoked && callerRole == 'MOD') {
         final others = _visibleDevices().where(
           (d) => d['id'] != device['id'] && d['revokedAt'] == null,

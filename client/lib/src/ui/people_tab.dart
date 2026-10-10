@@ -141,6 +141,8 @@ class _PeopleTabState extends State<PeopleTab> with WidgetsBindingObserver {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        // Another tab has a floating button too; the tabs share a navigator.
+        heroTag: 'people-invite',
         onPressed: _invite,
         icon: const Icon(Icons.person_add_outlined),
         label: const Text('Invite'),

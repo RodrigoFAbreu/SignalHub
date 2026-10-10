@@ -261,7 +261,12 @@ class _ConnectState extends State<_Connect> {
               leading: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Radio<String>(value: p.id),
+                  Radio<String>(
+                    value: p.id,
+                    // The row is the target; the radio keeps its 20 dp.
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
                   PersonAvatar(p.name, you: p.id == me, size: 32),
                 ],
               ),

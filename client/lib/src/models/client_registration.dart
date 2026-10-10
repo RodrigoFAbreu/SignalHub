@@ -175,6 +175,19 @@ class ManagedDevice {
 
   bool get isRevoked => revokedAt != null;
 
+  /// The same device with what a change the server answered with: the server
+  /// cannot say whether it is a browser, so that is kept from before.
+  ManagedDevice after(ManagedDevice changed) => ManagedDevice(
+    id: changed.id,
+    name: changed.name,
+    admin: changed.admin,
+    createdAt: changed.createdAt,
+    user: changed.user,
+    lastActiveAt: changed.lastActiveAt,
+    revokedAt: changed.revokedAt,
+    isBrowser: isBrowser || changed.isBrowser,
+  );
+
   ManagedDevice withName(String name) => ManagedDevice(
     id: id,
     name: name,

@@ -99,6 +99,7 @@ class PeopleController extends ChangeNotifier {
     required UserRole role,
     String? deviceName,
   }) async {
+    final before = gateway.role;
     try {
       final made = await gateway.call(
         (api) => api.inviteUser(name, role: role, deviceName: deviceName),
@@ -107,21 +108,16 @@ class PeopleController extends ChangeNotifier {
     } on SignedOutException {
       return const InviteResult.failed(ActionFailure.quiet());
     } on ApiException catch (e) {
-      return InviteResult.failed(_inviteFailure(e));
+      return InviteResult.failed(_inviteFailure(e, before));
     }
   }
 
-  ActionFailure _inviteFailure(ApiException e) => switch (e.statusCode) {
-    409 => const ActionFailure(FailureKind.nameTaken, nameTakenMessage),
-    403 =>
-      gateway.role.isAdmin
-          ? const ActionFailure(
-              FailureKind.notAllowed,
-              ActionFailure.notAllowedMessage,
-            )
-          : const ActionFailure.quiet(),
-    _ => ActionFailure.generic(e, 'make the invitation'),
-  };
+  ActionFailure _inviteFailure(ApiException e, UserRole before) =>
+      switch (e.statusCode) {
+        409 => const ActionFailure(FailureKind.nameTaken, nameTakenMessage),
+        403 => ActionFailure.refused(before, gateway.role),
+        _ => ActionFailure.generic(e, 'make the invitation'),
+      };
 
   static const nameTakenMessage =
       'Someone on this server already has that name. Use another.';
@@ -131,6 +127,7 @@ class PeopleController extends ChangeNotifier {
   Future<ActionFailure?> setRole(Person person, UserRole role) async {
     changingId = person.id;
     notifyListeners();
+    final before = gateway.role;
     try {
       final changed = await gateway.call(
         (api) => api.setUserRole(person.id, role),
@@ -143,23 +140,20 @@ class PeopleController extends ChangeNotifier {
     } on SignedOutException {
       return const ActionFailure.quiet();
     } on ApiException catch (e) {
-      return await _roleFailure(person, e);
+      return await _roleFailure(person, e, before);
     } finally {
       changingId = null;
       notifyListeners();
     }
   }
 
-  Future<ActionFailure?> _roleFailure(Person person, ApiException e) async {
+  Future<ActionFailure?> _roleFailure(
+    Person person,
+    ApiException e,
+    UserRole before,
+  ) async {
     final status = e.statusCode;
-    if (status == 403) {
-      return gateway.role.isAdmin
-          ? const ActionFailure(
-              FailureKind.notAllowed,
-              ActionFailure.notAllowedMessage,
-            )
-          : const ActionFailure.quiet();
-    }
+    if (status == 403) return ActionFailure.refused(before, gateway.role);
     if (status != 404 && status != 409) {
       return ActionFailure.generic(e, 'change the role');
     }

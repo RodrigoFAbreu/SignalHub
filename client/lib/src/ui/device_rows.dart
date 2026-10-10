@@ -196,19 +196,20 @@ class DeviceMenu extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return PopupMenuButton<DeviceAction>(
       tooltip: 'More actions for ${device.name}',
+      constraints: const BoxConstraints(minWidth: 200),
       enabled: !busy,
       onSelected: (action) => switch (action) {
         DeviceAction.rename => actions.rename(device),
         DeviceAction.revoke => actions.revoke(device),
       },
       itemBuilder: (context) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: DeviceAction.rename,
           child: Row(
             children: [
-              Icon(Icons.edit_outlined),
-              SizedBox(width: 12),
-              Text('Rename'),
+              Icon(Icons.edit_outlined, color: colors.onSurfaceVariant),
+              const SizedBox(width: 12),
+              const Text('Rename'),
             ],
           ),
         ),
@@ -219,7 +220,9 @@ class DeviceMenu extends StatelessWidget {
               children: [
                 Icon(
                   device.isBrowser ? Icons.logout : Icons.block,
-                  color: device.isBrowser ? null : colors.error,
+                  color: device.isBrowser
+                      ? colors.onSurfaceVariant
+                      : colors.error,
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -257,6 +260,7 @@ class DeviceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
+    container: true,
     label: '$label ${device.name}',
     button: true,
     excludeSemantics: true,

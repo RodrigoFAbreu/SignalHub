@@ -221,6 +221,7 @@ class _PersonState extends State<_Person> {
           label: role == UserRole.admin
               ? const Text('Admin')
               : Semantics(
+                  container: true,
                   label: 'Admin, not available. Set on the admin page',
                   excludeSemantics: true,
                   child: const Text('Admin'),

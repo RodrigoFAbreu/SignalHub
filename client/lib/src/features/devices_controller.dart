@@ -83,8 +83,12 @@ class DevicesController extends ChangeNotifier {
   bool isThisDevice(ManagedDevice device) => device.id == thisDeviceId();
 
   /// A mod's or a basic user's devices, which are all the server lists, in
-  /// the order a screen shows them.
-  List<ManagedDevice> get ownDevices => _ordered(devices);
+  /// the order a screen shows them. Only this user's, so what an admin read
+  /// before the role changed is not shown to a user who is no longer one.
+  List<ManagedDevice> get ownDevices => _ordered([
+    for (final d in devices)
+      if (d.user == null || d.user!.id == gateway.userId) d,
+  ]);
 
   /// The devices of one person in the order a screen shows them: this device
   /// first, then the active ones as the server lists them (oldest first),
@@ -174,8 +178,17 @@ class DevicesController extends ChangeNotifier {
   void _replace(ManagedDevice changed) {
     list.value = [
       for (final d in devices)
-        if (d.id == changed.id) changed else d,
+        if (d.id == changed.id) d.after(changed) else d,
     ];
+  }
+
+  /// Shows [shown] as the devices read, for tests of what the server cannot
+  /// say yet, such as a device that is a browser.
+  @visibleForTesting
+  void show(List<ManagedDevice> shown) {
+    list.value = shown;
+    list.error = null;
+    notifyListeners();
   }
 
   Future<ActionFailure?> _change(
@@ -186,13 +199,14 @@ class DevicesController extends ChangeNotifier {
   ) async {
     busyId = device.id;
     notifyListeners();
+    final role = gateway.role;
     try {
       await gateway.call(apply);
       return null;
     } on SignedOutException {
       return const ActionFailure.quiet();
     } on ApiException catch (e) {
-      return await _failure(device, change, what, e);
+      return await _failure(device, change, what, e, role);
     } finally {
       busyId = null;
       notifyListeners();
@@ -204,18 +218,12 @@ class DevicesController extends ChangeNotifier {
     _Change change,
     String what,
     ApiException e,
+    UserRole before,
   ) async {
     final status = e.statusCode;
-    // The role was read again; if it no longer manages devices, the screen
-    // already follows it.
-    if (status == 403) {
-      return gateway.role.managesDevices
-          ? const ActionFailure(
-              FailureKind.notAllowed,
-              ActionFailure.notAllowedMessage,
-            )
-          : const ActionFailure.quiet();
-    }
+    // The role was read again: if it changed, the screen already follows it
+    // and the shell says so; otherwise this role may not.
+    if (status == 403) return ActionFailure.refused(before, gateway.role);
     if (status == 405 && change == _Change.delete) return _cannotDelete();
     if (status != 404 && status != 409) return ActionFailure.generic(e, what);
     // Changed meanwhile, by the host or another admin's device: show it as

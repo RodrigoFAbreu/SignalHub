@@ -1,4 +1,5 @@
 import '../api/signalhub_api.dart';
+import '../models/users.dart';
 
 /// Why a change a person asked for did not happen, as the screens say it. The
 /// controllers map the server's answers to these, so a screen never shows a
@@ -64,6 +65,12 @@ class ActionFailure {
           "Couldn't $what. Check your connection and try again.",
         )
       : ActionFailure(FailureKind.other, "Couldn't $what. Try again.");
+
+  /// What a `403` means: the role changed under the person ([before] and
+  /// [now] differ), which is said once elsewhere, or it simply may not.
+  factory ActionFailure.refused(UserRole before, UserRole now) => before == now
+      ? const ActionFailure(FailureKind.notAllowed, notAllowedMessage)
+      : const ActionFailure.quiet();
 
   /// For a `403` whose role did not change: the role simply may not.
   static const notAllowedMessage =

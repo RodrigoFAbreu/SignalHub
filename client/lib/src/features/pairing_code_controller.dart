@@ -4,6 +4,7 @@ import '../api/signalhub_api.dart';
 import '../api_gateway.dart';
 import '../connection/pairing_uri.dart';
 import '../models/client_registration.dart';
+import '../models/users.dart';
 import 'action_failure.dart';
 
 /// One pairing code on its way to a new device: made for an invitation or by
@@ -99,6 +100,7 @@ class PairingCodeController extends ChangeNotifier {
     creating = true;
     failure = null;
     notifyListeners();
+    final role = gateway.role;
     try {
       show(
         await gateway.call(
@@ -108,24 +110,22 @@ class PairingCodeController extends ChangeNotifier {
     } on SignedOutException {
       failure = const ActionFailure.quiet();
     } on ApiException catch (e) {
-      failure = _failure(e, userId: userId, personName: personName);
+      failure = _failure(e, role, userId: userId, personName: personName);
     } finally {
       creating = false;
       notifyListeners();
     }
   }
 
-  ActionFailure _failure(ApiException e, {String? userId, String? personName}) {
+  ActionFailure _failure(
+    ApiException e,
+    UserRole before, {
+    String? userId,
+    String? personName,
+  }) {
     final status = e.statusCode;
-    if (status == 403) {
-      // The role was read again: if it no longer pairs, the screen follows.
-      return gateway.role.managesDevices
-          ? const ActionFailure(
-              FailureKind.notAllowed,
-              ActionFailure.notAllowedMessage,
-            )
-          : const ActionFailure.quiet();
-    }
+    // The role was read again: if it changed, the screen follows it.
+    if (status == 403) return ActionFailure.refused(before, gateway.role);
     // Naming a user is only for an admin: a server that knows users answers
     // `404` (unknown) or `409` (removed) for who is gone.
     if (userId != null && (status == 404 || status == 409)) {
