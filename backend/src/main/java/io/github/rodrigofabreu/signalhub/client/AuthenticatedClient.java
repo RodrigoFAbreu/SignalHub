@@ -11,9 +11,21 @@ import java.util.Optional;
 public class AuthenticatedClient {
 
   private ClientIdentity identity;
+  private String sessionKey;
 
   void set(ClientIdentity identity) {
     this.identity = identity;
+  }
+
+  /** The client of a signed-in browser, authenticated by its session cookie holding this key. */
+  void setFromCookie(ClientIdentity identity, String sessionKey) {
+    this.identity = identity;
+    this.sessionKey = sessionKey;
+  }
+
+  /** The session key, if the request was authenticated by a browser's session cookie. */
+  Optional<String> sessionKey() {
+    return Optional.ofNullable(sessionKey);
   }
 
   /**

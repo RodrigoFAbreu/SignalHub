@@ -30,3 +30,4 @@ creates or alters tables.
 | `V15__add_pairing_redemption.sql` | `pairings.redeemed_at` and `pairings.redeemed_by`: when a pairing was redeemed, and as which client |
 | `V16__create_event_deliveries.sql` | `event_deliveries` table: how each push of an event to each device went, for the operator; deleted with the event or the device |
 | `V17__create_users_roles_subscriptions.sql` | `users` table with roles; every client, pairing and producer belongs to a user (`clients.admin` and `pairings.admin` replaced by the user's role); producer visibility and allow-list; `subscriptions`; per-user read state in `event_reads`. The existing data becomes the first user's |
+| `V20__add_browser_sign_in.sql` | `clients.kind` (`DEVICE` or `BROWSER`) and `clients.expires_at`: a signed-in browser is a client with a fixed-length session; `web_sign_ins` table: hashes of the secrets of a sign-in a web page has started and a device may approve |

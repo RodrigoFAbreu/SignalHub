@@ -12,12 +12,21 @@
 	# or "internal" for one from Caddy's own CA.
 	tls {$SIGNALHUB_TLS}
 
-	# Only the product API leaves the host. The management API, health,
-	# metrics and OpenAPI (/q/) stay on the backend's localhost port.
+	# Only the product API and the users' web page leave the host. The page's
+	# folder, /app/, is the only static path forwarded: it holds the files a
+	# signed-in browser runs, and talks to the API at /api/ like any client.
+	# The management API, the operator's admin page (/admin/), health, metrics
+	# and OpenAPI (/q/) stay on the backend's localhost port.
 	handle /api/v1/admin* {
 		respond 404
 	}
 	handle /api/* {
+		reverse_proxy backend:8080
+	}
+	handle /app {
+		redir * /app/ permanent
+	}
+	handle /app/* {
 		reverse_proxy backend:8080
 	}
 	handle {

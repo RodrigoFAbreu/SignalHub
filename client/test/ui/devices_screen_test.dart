@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:signalhub_client/src/app_controller.dart';
-import 'package:signalhub_client/src/models/client_registration.dart';
 import 'package:signalhub_client/src/ui/devices_screen.dart';
 import 'package:signalhub_client/src/ui/widgets/pairing_qr.dart';
 
@@ -43,28 +42,6 @@ void main() {
     await tester.tap(find.byKey(const Key('confirm')));
     await tester.runAsync(pumpEventQueue);
     await tester.pumpAndSettle();
-  }
-
-  /// A device that is a browser: the server cannot say so yet, so the list
-  /// it read is shown again with one of its devices as a browser.
-  void makeBrowser(PeopleFixture f, String id) {
-    final devices = f.controller.deviceList.devices;
-    f.controller.deviceList.show([
-      for (final d in devices)
-        if (d.id == id)
-          ManagedDevice(
-            id: d.id,
-            name: d.name,
-            admin: d.admin,
-            createdAt: d.createdAt,
-            user: d.user,
-            lastActiveAt: d.lastActiveAt,
-            revokedAt: d.revokedAt,
-            isBrowser: true,
-          )
-        else
-          d,
-    ]);
   }
 
   group('a Basic user', () {
@@ -125,20 +102,16 @@ void main() {
       tester,
     ) async {
       f = PeopleFixture('BASIC');
-      f.people
-        ..addDevice(
-          'd-browser',
-          'Firefox on Linux',
-          PeopleBackend.callerId,
-          lastActive: f.now,
-        )
-        // Not today's server, which refuses a basic user every change.
-        ..browsers.add('d-browser');
+      f.people.addDevice(
+        'd-browser',
+        'Firefox on Linux',
+        PeopleBackend.callerId,
+        lastActive: f.now,
+        browser: true,
+      );
       final semantics = tester.ensureSemantics();
       await f.start(tester);
       await f.openDevices(tester);
-      makeBrowser(f, 'd-browser');
-      await tester.pumpAndSettle();
 
       expect(words('d-browser'), [
         'Firefox on Linux',
@@ -187,41 +160,84 @@ void main() {
       expect(inRow('d-browser', find.text('Sign out')), findsNothing);
     });
 
-    testWidgets('a server that refuses a basic user the sign-out says so', (
+    testWidgets('has a control on their own browser and on no phone', (
       tester,
     ) async {
-      // Today's server refuses every device change from a basic user.
       f = PeopleFixture('BASIC');
       f.people.addDevice(
         'd-browser',
         'Firefox on Linux',
         PeopleBackend.callerId,
+        browser: true,
       );
       await f.start(tester);
       await f.openDevices(tester);
-      makeBrowser(f, 'd-browser');
-      await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Sign out'));
+      // Only the browser they signed in has a control; the phones, this one
+      // included, have none, and no browser has Rename for a basic user.
+      expect(inRow('d-browser', find.text('Sign out')), findsOneWidget);
+      expect(inRow(thisDevice, find.byType(TextButton)), findsNothing);
+      expect(inRow('d-tablet', find.byType(TextButton)), findsNothing);
+      expect(find.text('Rename'), findsNothing);
+    });
+
+    testWidgets('deletes their own signed out browser after asking', (
+      tester,
+    ) async {
+      f = PeopleFixture('BASIC');
+      f.people.addDevice(
+        'd-browser',
+        'Firefox on Linux',
+        PeopleBackend.callerId,
+        browser: true,
+        revoked: f.now.subtract(const Duration(days: 1)),
+      );
+      await f.start(tester);
+      await f.openDevices(tester);
+
+      expect(words('d-browser'), [
+        'Firefox on Linux',
+        'Browser',
+        'Revoked',
+        'Revoked 9 Oct',
+        'Delete',
+      ]);
+      // A phone they once had, revoked, has no Delete: that is not theirs to
+      // remove.
+      expect(inRow('d-old', find.text('Delete')), findsNothing);
+
+      await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
+      expect(find.text('Delete Firefox on Linux?'), findsOneWidget);
       await confirm(tester);
 
-      expect(
-        find.text("Your role doesn't allow that. Ask an admin of this server."),
-        findsOneWidget,
+      expect(find.text('Firefox on Linux'), findsNothing);
+      expect(f.people.devices.any((d) => d['id'] == 'd-browser'), isFalse);
+    });
+
+    testWidgets('another person\'s browser is never listed', (tester) async {
+      f = PeopleFixture('BASIC');
+      f.people.addDevice(
+        'd-rodrigo-browser',
+        'Safari on macOS',
+        'user-1',
+        browser: true,
       );
-      expect(inRow('d-browser', find.text('Revoked')), findsNothing);
+      await f.start(tester);
+      await f.openDevices(tester);
+
+      expect(find.text('Safari on macOS'), findsNothing);
     });
 
     testWidgets('a browser in use is This browser and has no Sign out', (
       tester,
     ) async {
       f = PeopleFixture('BASIC');
-      f.app.backend.lastActiveAt = f.now.toIso8601String();
+      f.app.backend
+        ..kind = 'BROWSER'
+        ..lastActiveAt = f.now.toIso8601String();
       await f.start(tester);
       await f.openDevices(tester);
-      makeBrowser(f, thisDevice);
-      await tester.pumpAndSettle();
 
       expect(words(thisDevice), [
         'Pixel 8',
@@ -517,6 +533,30 @@ void main() {
       expect(f.people.devices.any((d) => d['id'] == 'd-old'), isFalse);
     });
 
+    testWidgets('a browser can be signed out while a device is the last one', (
+      tester,
+    ) async {
+      f = PeopleFixture('MOD');
+      // The only other active device is a browser: the phone is the last
+      // active device, and the browser does not count as another.
+      f.people.addDevice(
+        'd-browser',
+        'Firefox on Linux',
+        PeopleBackend.callerId,
+        lastActive: f.now,
+        browser: true,
+      );
+      f.people.devices.removeWhere((d) => d['id'] == 'd-tablet');
+      await f.start(tester);
+      await f.openDevices(tester);
+
+      await openMenu(tester, 'Firefox on Linux');
+      await tester.tap(find.text('Sign out'));
+      await tester.pumpAndSettle();
+      await confirm(tester);
+      expect(inRow('d-browser', find.text('Revoked')), findsOneWidget);
+    });
+
     testWidgets('a browser is named Sign out in its menu and its question', (
       tester,
     ) async {
@@ -526,11 +566,10 @@ void main() {
         'Firefox on Linux',
         PeopleBackend.callerId,
         lastActive: f.now,
+        browser: true,
       );
       await f.start(tester);
       await f.openDevices(tester);
-      makeBrowser(f, 'd-browser');
-      await tester.pumpAndSettle();
 
       expect(words('d-browser'), [
         'Firefox on Linux',
@@ -631,6 +670,90 @@ void main() {
       );
       await f.openDevices(tester);
     }
+
+    testWidgets('signs out their own browser, which is an admin\'s device only '
+        'by its user, and renames and deletes it', (tester) async {
+      f = PeopleFixture('ADMIN');
+      f.people.addDevice(
+        'd-own-browser',
+        'Firefox on Linux',
+        PeopleBackend.callerId,
+        lastActive: f.now,
+        browser: true,
+      );
+      f.people.addDevice(
+        'd-sofia-browser',
+        'Safari on macOS',
+        'user-1',
+        lastActive: f.now,
+        browser: true,
+      );
+      await f.start(tester);
+      await f.openDevices(tester);
+
+      // A browser is a Browser, never an Admin device, and its owner's own
+      // can be changed, though no admin's device can.
+      expect(words('d-own-browser'), [
+        'Firefox on Linux',
+        'Browser',
+        'Last active today',
+      ]);
+      expect(
+        inRow('d-own-browser', find.byType(PopupMenuButton<Object?>)),
+        findsNothing,
+      );
+      await openMenu(tester, 'Firefox on Linux');
+      expect(find.text('Rename'), findsOneWidget);
+      expect(find.text('Sign out'), findsOneWidget);
+      await tester.tap(find.text('Sign out'));
+      await tester.pumpAndSettle();
+      await confirm(tester);
+
+      expect(inRow('d-own-browser', find.text('Revoked')), findsOneWidget);
+      expect(inRow('d-own-browser', find.text('Delete')), findsOneWidget);
+      // Another admin's browser is theirs: no control, as for their phone.
+      expect(words('d-sofia-browser'), [
+        'Safari on macOS',
+        'Browser',
+        'Last active today',
+      ]);
+      expect(inRow('d-sofia-browser', find.byType(TextButton)), findsNothing);
+
+      await tester.tap(inRow('d-own-browser', find.text('Delete')));
+      await tester.pumpAndSettle();
+      await confirm(tester);
+
+      expect(find.text('Firefox on Linux'), findsNothing);
+    });
+
+    testWidgets('signs out a browser of someone who is not an admin', (
+      tester,
+    ) async {
+      f = PeopleFixture('ADMIN');
+      f.people.addDevice(
+        'd-ana-browser',
+        'Chrome on Windows',
+        'user-2',
+        lastActive: f.now,
+        browser: true,
+      );
+      await f.start(tester);
+      await f.openDevices(tester);
+
+      await openMenu(tester, 'Chrome on Windows');
+      await tester.tap(find.text('Sign out'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'This browser stops being a device of Ana\'s. Ana can sign in '
+          'again from their phone.',
+        ),
+        findsOneWidget,
+      );
+      await confirm(tester);
+
+      expect(inRow('d-ana-browser', find.text('Revoked')), findsOneWidget);
+    });
 
     testWidgets('sees everyone\'s devices, grouped by person with the role', (
       tester,

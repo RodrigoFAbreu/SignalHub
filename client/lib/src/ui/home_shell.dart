@@ -4,6 +4,7 @@ import '../app_controller.dart';
 import '../models/users.dart';
 import 'inbox_screen.dart';
 import 'link_opener.dart';
+import 'pairing_scanner_screen.dart';
 import 'people_tab.dart';
 import 'producers_tab.dart';
 import 'role_lacks_screen.dart';
@@ -19,10 +20,14 @@ class HomeShell extends StatefulWidget {
     super.key,
     required this.controller,
     required this.openLink,
+    this.signInScanner = scanWebSignInCode,
   });
 
   final AppController controller;
   final LinkOpener openLink;
+
+  /// The camera of _Sign in a browser_; tests replace the camera.
+  final PairingScannerBuilder signInScanner;
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -109,7 +114,10 @@ class _HomeShellState extends State<HomeShell> {
     ),
     HomeTab.producers => ProducersTab(controller: _controller),
     HomeTab.people => PeopleTab(controller: _controller),
-    HomeTab.settings => SettingsScreen(controller: _controller),
+    HomeTab.settings => SettingsScreen(
+      controller: _controller,
+      signInScanner: widget.signInScanner,
+    ),
   };
 }
 

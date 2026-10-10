@@ -46,3 +46,10 @@ updates:
       interval: weekly
     commit-message:
       prefix: ci
+  # The users' web page's browser tests (Playwright); test tooling, never shipped.
+  - package-ecosystem: npm
+    directory: /web-tests
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

@@ -40,6 +40,21 @@ class PairingUris {
   }
 
   /**
+   * The link a web page shows as a QR code, and its Open the app button follows, to sign a browser
+   * in: {@code signalhub://signin?server=<public URL>&code=<scan code>}; empty if no public URL is
+   * configured, and the page then builds it from its own address.
+   */
+  Optional<String> signIn(String scanCode) {
+    return publicUrl.map(
+        server ->
+            SCHEME
+                + "://signin?server="
+                + URLEncoder.encode(server, StandardCharsets.UTF_8)
+                + "&code="
+                + scanCode);
+  }
+
+  /**
    * The public URL as devices use it, without a trailing slash. Throws unless it is an absolute
    * {@code http} or {@code https} URL with a host and without credentials, query or fragment.
    */

@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'app_controller.dart';
+import 'connection/incoming_links.dart';
+import 'connection/pairing_uri.dart';
 import 'onboarding/onboarding_store.dart';
 import 'ui/app_settings.dart';
 import 'ui/home_shell.dart';
 import 'ui/link_opener.dart';
 import 'ui/pairing_scanner_screen.dart';
 import 'ui/setup_screen.dart';
+import 'ui/sign_in_browser_screen.dart';
 import 'ui/welcome_screen.dart';
 
 class SignalHubApp extends StatefulWidget {
@@ -14,6 +19,8 @@ class SignalHubApp extends StatefulWidget {
     super.key,
     required this.controller,
     this.scanner = scanPairingCode,
+    this.signInScanner = scanWebSignInCode,
+    this.incomingLinks,
     this.linkOpener = openLink,
     this.settingsOpener = openAppSettings,
   });
@@ -22,6 +29,13 @@ class SignalHubApp extends StatefulWidget {
 
   /// The camera region of the setup screen; tests replace the camera.
   final PairingScannerBuilder scanner;
+
+  /// The camera of _Sign in a browser_; tests replace the camera.
+  final PairingScannerBuilder signInScanner;
+
+  /// The links the phone opens the app with; none where the platform has no
+  /// such links (the app then has only the scanner and the typed code).
+  final IncomingLinks? incomingLinks;
 
   /// Opens an event's link; tests replace the platform.
   final LinkOpener linkOpener;
@@ -37,6 +51,11 @@ class _SignalHubAppState extends State<SignalHubApp> {
   late final AppLifecycleListener _lifecycle;
   final _navigatorKey = GlobalKey<NavigatorState>();
   final _routes = _RouteTracker();
+  StreamSubscription<String>? _linkSubscription;
+
+  /// A sign-in link waiting for the app to be connected and drawn.
+  String? _pendingLink;
+  Route<void>? _signInRoute;
 
   AppController get controller => widget.controller;
 
@@ -45,11 +64,60 @@ class _SignalHubAppState extends State<SignalHubApp> {
     super.initState();
     _lifecycle = AppLifecycleListener(onResume: () => controller.resumed());
     controller.addListener(_leaveScreensWhenDisconnected);
+    controller.addListener(_openPendingLink);
+    _listenForLinks();
+  }
+
+  Future<void> _listenForLinks() async {
+    final source = widget.incomingLinks;
+    if (source == null) return;
+    _linkSubscription = source.links.listen(_onLink);
+    final initial = await source.initialLink();
+    if (initial != null) _onLink(initial);
+  }
+
+  /// A sign-in link of a page: it goes to the confirmation as soon as the
+  /// app is connected. Any other link, and a link while the app is not set
+  /// up, are ignored: there is nothing to sign a browser in to.
+  void _onLink(String link) {
+    if (!PairingUri.isWebSignIn(link)) return;
+    _pendingLink = link;
+    _openPendingLink();
+  }
+
+  void _openPendingLink() {
+    final link = _pendingLink;
+    if (link == null || controller.phase == ConnectionPhase.starting) return;
+    if (controller.phase == ConnectionPhase.disconnected) {
+      _pendingLink = null;
+      return;
+    }
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) {
+      // The first frame is not drawn yet.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openPendingLink());
+      return;
+    }
+    _pendingLink = null;
+    // A sign-in already open gives way to the newer page's code.
+    final open = _signInRoute;
+    if (open != null && open.isActive) navigator.removeRoute(open);
+    final route = MaterialPageRoute<void>(
+      builder: (_) => SignInBrowserScreen(
+        controller: controller,
+        scanner: widget.signInScanner,
+        link: link,
+      ),
+    );
+    _signInRoute = route;
+    unawaited(navigator.push(route));
   }
 
   @override
   void dispose() {
     controller.removeListener(_leaveScreensWhenDisconnected);
+    controller.removeListener(_openPendingLink);
+    unawaited(_linkSubscription?.cancel());
     _lifecycle.dispose();
     super.dispose();
   }
@@ -88,7 +156,11 @@ class _SignalHubAppState extends State<SignalHubApp> {
         ConnectionPhase.connected =>
           controller.onboarding == OnboardingStep.welcome
               ? WelcomeScreen(controller: controller)
-              : HomeShell(controller: controller, openLink: widget.linkOpener),
+              : HomeShell(
+                  controller: controller,
+                  openLink: widget.linkOpener,
+                  signInScanner: widget.signInScanner,
+                ),
       },
     ),
   );

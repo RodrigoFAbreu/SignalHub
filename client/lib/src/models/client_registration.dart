@@ -141,6 +141,7 @@ class ManagedDevice {
     this.lastActiveAt,
     this.revokedAt,
     this.isBrowser = false,
+    this.expiresAt,
   });
 
   factory ManagedDevice.fromJson(Map<String, Object?> json) => ManagedDevice(
@@ -151,6 +152,10 @@ class ManagedDevice {
     user: json.optionalObjectAs('user', UserRef.fromJson),
     lastActiveAt: json.optionalTimestamp('lastActiveAt'),
     revokedAt: json.optionalTimestamp('revokedAt'),
+    // `kind` is `DEVICE` or `BROWSER`; absent from a server released before
+    // browsers could sign in, whose clients are all devices.
+    isBrowser: json.optionalString('kind') == 'BROWSER',
+    expiresAt: json.optionalTimestamp('expiresAt'),
   );
 
   final String id;
@@ -168,15 +173,18 @@ class ManagedDevice {
   final DateTime? lastActiveAt;
   final DateTime? revokedAt;
 
-  /// Whether it is a browser signed in to a web page. The server does not say
-  /// so yet (R66 gives it a way to), so no device read from it is one; the
-  /// row is drawn for when it does.
+  /// Whether it is a browser signed in to a web page (`kind` is `BROWSER`),
+  /// not a device the app runs on.
   final bool isBrowser;
+
+  /// When a browser's sign-in ends (a fixed 30 days after it was approved);
+  /// `null` for a device, which does not expire.
+  final DateTime? expiresAt;
 
   bool get isRevoked => revokedAt != null;
 
-  /// The same device with what a change the server answered with: the server
-  /// cannot say whether it is a browser, so that is kept from before.
+  /// The same device with what a change the server answered with; that it is
+  /// a browser is kept from before, for a server that does not say.
   ManagedDevice after(ManagedDevice changed) => ManagedDevice(
     id: changed.id,
     name: changed.name,
@@ -186,6 +194,7 @@ class ManagedDevice {
     lastActiveAt: changed.lastActiveAt,
     revokedAt: changed.revokedAt,
     isBrowser: isBrowser || changed.isBrowser,
+    expiresAt: changed.expiresAt ?? expiresAt,
   );
 
   ManagedDevice withName(String name) => ManagedDevice(
@@ -197,6 +206,7 @@ class ManagedDevice {
     lastActiveAt: lastActiveAt,
     revokedAt: revokedAt,
     isBrowser: isBrowser,
+    expiresAt: expiresAt,
   );
 }
 
@@ -271,4 +281,28 @@ class PairingStatus {
   final String? clientName;
 
   bool get isRedeemed => state == 'REDEEMED' && clientName != null;
+}
+
+/// A browser that asked to be signed in (`POST
+/// /api/v1/client/web-sign-ins/lookup`): which one it is, for the person to
+/// decide, and when its code stops working. It holds no credential.
+class WebSignIn {
+  const WebSignIn({
+    required this.id,
+    required this.browserName,
+    required this.expiresAt,
+  });
+
+  factory WebSignIn.fromJson(Map<String, Object?> json) => WebSignIn(
+    id: json.string('id'),
+    browserName: json.string('browserName'),
+    expiresAt: json.timestamp('expiresAt'),
+  );
+
+  final String id;
+
+  /// The browser and system as the server read them from its user agent, such
+  /// as `Firefox on Linux`.
+  final String browserName;
+  final DateTime expiresAt;
 }

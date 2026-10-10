@@ -204,6 +204,33 @@ class SignalHubApi {
         DevicePairing.fromJson,
       );
 
+  /// `POST /api/v1/client/web-sign-ins/lookup`: which browser a sign-in
+  /// [code] (the one a page shows to type, or its QR code's) belongs to. `404`
+  /// when no live sign-in has the code (wrong, run out or used), `429` after
+  /// too many wrong codes from this device.
+  Future<WebSignIn> lookupWebSignIn(String code) async => _read(
+    await _send(
+      'POST',
+      'api/v1/client/web-sign-ins/lookup',
+      body: {'code': code},
+    ),
+    WebSignIn.fromJson,
+  );
+
+  /// `POST /api/v1/client/web-sign-ins/{id}/approve`: signs the browser in as
+  /// this device's user, `204`. `404` once it is no longer live.
+  Future<void> approveWebSignIn(String id) => _webSignIn(id, 'approve');
+
+  /// `POST /api/v1/client/web-sign-ins/{id}/cancel`: the page is told, `204`.
+  Future<void> cancelWebSignIn(String id) => _webSignIn(id, 'cancel');
+
+  Future<void> _webSignIn(String id, String action) async {
+    await _send(
+      'POST',
+      'api/v1/client/web-sign-ins/${Uri.encodeComponent(id)}/$action',
+    );
+  }
+
   /// `GET /api/v1/client/pairings/{id}`: whether a pairing code this device
   /// created was used, and by which device. `404` for any other pairing, and
   /// `403` for a device that is not an admin; a server released before this

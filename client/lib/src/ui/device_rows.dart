@@ -40,7 +40,7 @@ class DeviceRow extends StatelessWidget {
     ),
     title: device.name,
     tags: [
-      if (device.admin && !device.isRevoked)
+      if (device.admin && !device.isBrowser && !device.isRevoked)
         const LabelTag('Admin device', style: LabelTagStyle.primary),
       if (device.isBrowser && inUse && !device.isRevoked)
         const LabelTag('This browser', style: LabelTagStyle.primary)

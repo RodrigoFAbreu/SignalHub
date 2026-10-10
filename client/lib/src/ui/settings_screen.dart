@@ -7,7 +7,9 @@ import '../settings/settings_groups.dart';
 import 'about_server_screen.dart';
 import 'alert_section.dart';
 import 'devices_screen.dart';
+import 'pairing_scanner_screen.dart';
 import 'push_filters.dart';
+import 'sign_in_browser_screen.dart';
 import 'widgets/snack.dart';
 
 /// Every setting of the app, a tab of the bottom bar: the _Push
@@ -17,9 +19,16 @@ import 'widgets/snack.dart';
 /// _This device_. Push preferences are saved on the server, the alert and the
 /// open groups on the device; each change is saved at once.
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.controller});
+  const SettingsScreen({
+    super.key,
+    required this.controller,
+    this.signInScanner = scanWebSignInCode,
+  });
 
   final AppController controller;
+
+  /// The camera of _Sign in a browser_; tests replace the camera.
+  final PairingScannerBuilder signInScanner;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -167,6 +176,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => DevicesScreen(controller: _controller),
+                  ),
+                ),
+              ),
+              // The row sits beside Devices, not inside it, so every role
+              // reaches it; the Devices screen is read only for a Basic user.
+              ListTile(
+                key: const Key('signInBrowser'),
+                leading: const Icon(Icons.qr_code_scanner),
+                title: const Text('Sign in a browser'),
+                subtitle: const Text('Scan the code a web page shows'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => SignInBrowserScreen(
+                      controller: _controller,
+                      scanner: widget.signInScanner,
+                    ),
                   ),
                 ),
               ),

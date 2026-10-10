@@ -37,9 +37,12 @@ class ClientRepository implements PanacheRepositoryBase<ClientEntity, UUID> {
         keptBy);
   }
 
-  /** How many of the user's clients are not revoked. */
-  long countActive(UUID userId) {
-    return count("userId = ?1 and revokedAt is null", userId);
+  /**
+   * How many of the user's devices are not revoked. Browsers are not counted: a user left with only
+   * a browser, which cannot approve another sign-in, would be locked out of their account.
+   */
+  long countActiveDevices(UUID userId) {
+    return count("userId = ?1 and kind = ?2 and revokedAt is null", userId, ClientKind.DEVICE);
   }
 
   /** Revokes every client of the user, dropping their push targets. */

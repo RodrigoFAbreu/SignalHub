@@ -234,4 +234,73 @@ void main() {
       expect('$pairing', isNot(contains('secret')));
     });
   });
+
+  group('ManagedDevice and browsers', () {
+    Map<String, Object?> json({Object? kind = 'DEVICE', String? expiresAt}) => {
+      'id': 'd-1',
+      'name': 'Firefox on Linux',
+      'admin': false,
+      'kind': ?kind,
+      'createdAt': '2026-10-10T08:00:00Z',
+      'expiresAt': expiresAt,
+    };
+
+    test('a browser says so by its kind, and when its sign-in ends', () {
+      final browser = ManagedDevice.fromJson(
+        json(kind: 'BROWSER', expiresAt: '2026-11-09T08:00:00Z'),
+      );
+
+      expect(browser.isBrowser, isTrue);
+      expect(browser.expiresAt, DateTime.utc(2026, 11, 9, 8));
+    });
+
+    test('a device is not a browser and does not expire', () {
+      final device = ManagedDevice.fromJson(json());
+
+      expect(device.isBrowser, isFalse);
+      expect(device.expiresAt, isNull);
+    });
+
+    test('a server that has no kind lists devices only', () {
+      expect(ManagedDevice.fromJson(json(kind: null)).isBrowser, isFalse);
+    });
+
+    test('a browser stays one, with its expiry, through a change', () {
+      final browser = ManagedDevice.fromJson(
+        json(kind: 'BROWSER', expiresAt: '2026-11-09T08:00:00Z'),
+      );
+      final changed = browser.after(
+        ManagedDevice.fromJson(json(kind: 'BROWSER', expiresAt: null)),
+      );
+
+      expect(changed.isBrowser, isTrue);
+      expect(changed.expiresAt, DateTime.utc(2026, 11, 9, 8));
+      expect(browser.withName('Safari on macOS').isBrowser, isTrue);
+      expect(browser.withName('Safari on macOS').expiresAt, browser.expiresAt);
+    });
+  });
+
+  group('WebSignIn', () {
+    test('reads the lookup\'s answer', () {
+      final found = WebSignIn.fromJson({
+        'id': 'signin-1',
+        'browserName': 'Firefox on Linux',
+        'expiresAt': '2026-10-10T12:03:00Z',
+      });
+
+      expect(found.id, 'signin-1');
+      expect(found.browserName, 'Firefox on Linux');
+      expect(found.expiresAt, DateTime.utc(2026, 10, 10, 12, 3));
+    });
+
+    test('an answer without its browser is a format error', () {
+      expect(
+        () => WebSignIn.fromJson({
+          'id': 'signin-1',
+          'expiresAt': '2026-10-10T12:03:00Z',
+        }),
+        throwsFormatException,
+      );
+    });
+  });
 }

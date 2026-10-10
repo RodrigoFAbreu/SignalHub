@@ -92,8 +92,15 @@ delivery meters, optional JSON logs and a startup configuration summary,
 the running release and commit at `/q/info`, a backend image published to
 GHCR for x86-64 and ARM64 by every release (`scripts/release/`) with the
 deployment files that run it (installs and upgrades build nothing),
-an optional event retention period, an optional Caddy TLS reverse proxy in
-Compose that exposes only the product API, and the upgrade procedure
+an optional event retention period, signing a browser in from a device
+(no passwords: the page's QR or typed code is approved in the app by any role;
+the browser is a client of the user under an `HttpOnly`, `Secure`,
+`SameSite=Strict` cookie for a fixed 30 days, with CSRF protection, listed and
+revoked like a device, and any role signs out its own browsers) with the users'
+web page at `/app/` (separate from the admin page, under a strict content
+security policy with its own fonts and icons, and tested in a headless browser
+from `web-tests/`), an optional Caddy TLS reverse proxy in
+Compose that exposes only the product API and that page, and the upgrade procedure
 (tested from the latest release and from v0.13.0) and health monitoring (`docs/deployment.md`),
 and the Flutter client app
 in `client/` (setup by scanning or pasting a pairing code, or with a client
@@ -118,8 +125,9 @@ the user sees to subscribe to and their own with the key shown once, people
 (invited and given roles by an admin, who sets basic or mod) and devices by
 role (a mod's own, an admin's everyone's, connected with a pairing code shown
 as a QR code with its countdown and a link to copy, saying which device used
-it), as drawn in `docs/design/users/`; every release attaches it as an
-Android APK signed with SignalHub's release key), and the
+it), and signing a browser in (the *Sign in a browser* row of Settings: scan or
+type the page's code and approve), as drawn in `docs/design/users/`; every
+release attaches it as an Android APK signed with SignalHub's release key), and the
 Python producer package and `signalhub` command in `sdk/python/` (its wheel
 attached to every release, reporting that release), and
 integration examples for unrelated producers in `examples/`, which use only

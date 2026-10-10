@@ -192,6 +192,10 @@ class _DevicesState extends State<_Devices> {
     );
   }
 
+  /// Whether the device is this user's own.
+  bool _isOwn(ManagedDevice device) =>
+      device.user == null || device.user!.id == _app.userId;
+
   /// The one control a row offers this role, if any. Nothing is a disabled
   /// button: what a role cannot do is not drawn.
   Widget? _trailing(
@@ -200,9 +204,12 @@ class _DevicesState extends State<_Devices> {
     required bool inUse,
   }) {
     final busy = _devices.busyId == device.id;
+    // Every role signs out, renames and deletes its own browsers, an admin
+    // included; the server refuses nothing else to a basic user.
+    final ownBrowser = device.isBrowser && _isOwn(device);
     if (device.isRevoked) {
       // A revoked device never changes again; only deleting it is left.
-      return role.managesDevices
+      return role.managesDevices || ownBrowser
           ? DeviceButton(
               label: 'Delete',
               device: device,
@@ -211,8 +218,9 @@ class _DevicesState extends State<_Devices> {
             )
           : null;
     }
-    // No device changes an admin's device, its own included.
-    if (device.admin) return null;
+    // No device changes an admin's device, its own included, but for the
+    // browsers its user signed in.
+    if (device.admin && !ownBrowser) return null;
     if (role.managesDevices) {
       return DeviceMenu(
         key: Key('menu-${device.id}'),
@@ -223,7 +231,7 @@ class _DevicesState extends State<_Devices> {
       );
     }
     // A basic user signs out their own browsers, and nothing else.
-    if (device.isBrowser && !inUse) {
+    if (ownBrowser && !inUse) {
       return DeviceButton(
         label: 'Sign out',
         device: device,

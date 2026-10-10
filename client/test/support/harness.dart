@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:signalhub_client/src/app.dart';
 import 'package:signalhub_client/src/app_controller.dart';
+import 'package:signalhub_client/src/connection/incoming_links.dart';
 import 'package:signalhub_client/src/connection/server_credentials.dart';
+import 'package:signalhub_client/src/ui/pairing_scanner_screen.dart';
 
 import 'fakes.dart';
 import 'screenshot.dart';
@@ -38,6 +40,11 @@ class AppHarness {
   final store = InMemoryCredentialsStore();
   late final AppController controller;
 
+  /// The camera of _Sign in a browser_ and the links the phone opens the app
+  /// with, when a test needs them. Set before [start].
+  PairingScannerBuilder signInScanner = scanWebSignInCode;
+  IncomingLinks? incomingLinks;
+
   /// The links the app handed to the platform.
   final openedLinks = <Uri>[];
 
@@ -52,6 +59,8 @@ class AppHarness {
         key: screenshotKey,
         child: SignalHubApp(
           controller: controller,
+          signInScanner: signInScanner,
+          incomingLinks: incomingLinks,
           linkOpener: (link) async {
             openedLinks.add(link);
             return true;

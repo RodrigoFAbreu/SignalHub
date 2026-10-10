@@ -8,6 +8,7 @@ import 'src/alert/alert_platform.dart';
 import 'src/api/signalhub_api.dart';
 import 'src/app.dart';
 import 'src/app_controller.dart';
+import 'src/connection/incoming_links.dart';
 import 'src/connection/server_credentials.dart';
 import 'src/onboarding/onboarding_store.dart';
 import 'src/push/firebase_push_service.dart';
@@ -31,6 +32,14 @@ Future<void> main() async {
     openGroups: SecureOpenGroupsStore(),
     onboarding: SecureOnboardingStore(),
   );
-  runApp(SignalHubApp(controller: controller));
+  runApp(
+    SignalHubApp(
+      controller: controller,
+      // Only the Android app is opened with sign-in links.
+      incomingLinks: defaultTargetPlatform == TargetPlatform.android
+          ? MethodChannelIncomingLinks()
+          : null,
+    ),
+  );
   unawaited(controller.start());
 }

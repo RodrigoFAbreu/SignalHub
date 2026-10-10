@@ -5,6 +5,8 @@ import io.github.rodrigofabreu.signalhub.event.Severity;
 import io.github.rodrigofabreu.signalhub.push.DeliveryResult;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -29,6 +31,14 @@ class ClientEntity {
   // The user the device belongs to. Fixed for the device's life.
   @Column(name = "user_id", nullable = false, updatable = false)
   private UUID userId;
+
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, updatable = false)
+  private ClientKind kind = ClientKind.DEVICE;
+
+  // When a signed-in browser's session ends; null for a device, which never expires.
+  @Column(name = "expires_at", updatable = false)
+  private Instant expiresAt;
 
   @Column(name = "key_hash", nullable = false, updatable = false)
   private byte[] keyHash;
@@ -84,8 +94,17 @@ class ClientEntity {
 
   protected ClientEntity() {}
 
-  ClientEntity(UUID id, String name, UUID userId, byte[] keyHash, Instant createdAt) {
+  ClientEntity(
+      UUID id,
+      String name,
+      ClientKind kind,
+      UUID userId,
+      byte[] keyHash,
+      Instant createdAt,
+      Instant expiresAt) {
     this.id = id;
+    this.kind = kind;
+    this.expiresAt = expiresAt;
     this.name = name;
     this.userId = userId;
     this.keyHash = keyHash.clone();
@@ -106,6 +125,19 @@ class ClientEntity {
 
   UUID userId() {
     return userId;
+  }
+
+  ClientKind kind() {
+    return kind;
+  }
+
+  /** When a browser's sign-in ends; null for a device. */
+  Instant expiresAt() {
+    return expiresAt;
+  }
+
+  boolean expired(Instant now) {
+    return expiresAt != null && !expiresAt.isAfter(now);
   }
 
   byte[] keyHash() {
