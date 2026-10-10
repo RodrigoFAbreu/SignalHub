@@ -5687,8 +5687,11 @@ Scope:
   (Compose smoke tests, upgrades, the fresh install, end-to-end). Each part
   can also be started alone from the Actions tab (`workflow_dispatch`).
   The release workflow keeps re-validating the exact commit through the
-  main workflow. Required check names stay as they are, or the PR says
-  exactly which branch protection setting changes with them
+  main workflow. Every CI check is required on `main` (the maintainer's
+  decision of 2026-10-10, after a pull request merged with a failing check
+  that was not required and its release failed); every check stays
+  required, and if a check's name changes, the PR says exactly which
+  setting of the repository's ruleset changes with it
 - **every part on every pull request**: no part is skipped by changed
   paths, since every merge to `main` is a release
 - **container checks as tests**: the `curl` steps (about a hundred today,
