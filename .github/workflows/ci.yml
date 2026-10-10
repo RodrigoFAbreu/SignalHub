@@ -479,8 +479,13 @@ jobs:
             curl --silent --cacert "$RUNNER_TEMP/proxy-ca.crt" "$@"
           }
           # Device management is refused to a basic user's key, through the proxy too.
-          status=$(devices --output /dev/null --write-out '%{http_code}' \
-            --header "Authorization: Bearer $client_key" https://localhost/api/v1/client/devices)
+          # A basic user's key lists only its own user's devices, and changes none.
+          devices --fail --show-error --header "Authorization: Bearer $client_key" \
+            https://localhost/api/v1/client/devices \
+            | jq --exit-status --arg id "$paired_id" '[.items[].id] == [$id]'
+          status=$(devices --output /dev/null --write-out '%{http_code}' --request POST \
+            --header "Authorization: Bearer $client_key" \
+            "https://localhost/api/v1/client/devices/$paired_id/revoke")
           test "$status" = 403 || { echo "expected 403, got $status"; exit 1; }
           admin_key=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $ADMIN_TOKEN" --header 'Content-Type: application/json' \
