@@ -5,13 +5,21 @@ import 'package:flutter/foundation.dart';
 import 'alert/alert_controller.dart';
 import 'alert/alert_platform.dart';
 import 'api/signalhub_api.dart';
+import 'api_gateway.dart';
 import 'build_identity.dart';
 import 'connection/pairing_uri.dart';
 import 'connection/server_credentials.dart';
+import 'connection/setup_failure.dart';
+import 'features/devices_controller.dart';
+import 'features/own_producers_controller.dart';
+import 'features/people_controller.dart';
+import 'features/producers_controller.dart';
 import 'models/client_registration.dart';
 import 'models/event.dart';
 import 'models/inbox_filter.dart';
 import 'models/push_config.dart';
+import 'models/users.dart';
+import 'onboarding/onboarding_store.dart';
 import 'push/push_registration.dart';
 import 'push/push_service.dart';
 import 'settings/settings_groups.dart';
@@ -27,6 +35,10 @@ enum ConnectionPhase {
   connected,
 }
 
+/// The top-level screens the bottom bar switches between. People is an
+/// admin's tab.
+enum HomeTab { inbox, producers, people, settings }
+
 typedef ApiFactory = SignalHubApi Function(ServerCredentials credentials);
 
 /// Redeems a pairing code at a server ([SignalHubApi.redeemPairing]).
@@ -41,13 +53,15 @@ typedef ServedPushStarter = Future<PushService?> Function(PushConfig served);
 
 /// The app's state: the server connection, this installation's registration
 /// and push status, and the inbox. The UI only renders it.
-class AppController extends ChangeNotifier {
+class AppController extends ChangeNotifier implements ApiGateway {
   /// [push] is the push service the build set up with its own options.
   /// Without one, [startServedPush] sets push up with the options the server
   /// serves; the build's own options take precedence. [alertPlatform] plays
   /// SignalHub's own alert; without one (iOS, tests) there are no alert
   /// settings. [openGroups] keeps which groups of the Settings screen are
-  /// open; without one, they are kept only while the app runs.
+  /// open; without one, they are kept only while the app runs. [onboarding]
+  /// keeps whether the welcome and the _What's new_ card were said; without
+  /// one the app says neither.
   AppController({
     required this._store,
     required this._apiFactory,
@@ -57,8 +71,10 @@ class AppController extends ChangeNotifier {
     this.build = BuildIdentity.compiled,
     AlertPlatform? alertPlatform,
     OpenGroupsStore? openGroups,
+    OnboardingStore? onboarding,
   }) : _push = push,
        _openGroupsStore = openGroups,
+       _onboardingStore = onboarding,
        alert = alertPlatform == null ? null : AlertController(alertPlatform),
        _startServedPush = push == null ? startServedPush : null {
     _notices = push?.notices.listen(_onNotice);
@@ -73,6 +89,7 @@ class AppController extends ChangeNotifier {
   PushService? _push;
   final ServedPushStarter? _startServedPush;
   final OpenGroupsStore? _openGroupsStore;
+  final OnboardingStore? _onboardingStore;
   StreamSubscription<PushNotice>? _notices;
 
   /// The served options push was set up with; `null` until then.
@@ -107,6 +124,16 @@ class AppController extends ChangeNotifier {
   /// worked.
   String? error;
 
+  /// Whether the app is at setup because the server stopped accepting this
+  /// device (any `401`): setup says so in one neutral sentence. A new
+  /// connection, or disconnecting on purpose, clears it.
+  bool signedOut = false;
+
+  /// What this device still has to say to its owner, once: the welcome after
+  /// connecting, or _What's new_ on a device that was connected before the
+  /// app updated.
+  OnboardingStep onboarding = OnboardingStep.done;
+
   /// Whether the last refresh got no answer from the server at all. Nothing
   /// else can reach it then either, so push registration is not tried and
   /// [error] is the one thing to tell the owner.
@@ -126,6 +153,9 @@ class AppController extends ChangeNotifier {
 
   /// Whether the first page of the inbox has been read since connecting.
   bool inboxLoaded = false;
+
+  /// When the first page of the inbox was last read; `null` until it was.
+  DateTime? inboxLoadedAt;
 
   /// Whether an older page is being read.
   bool loadingMore = false;
@@ -147,96 +177,122 @@ class AppController extends ChangeNotifier {
   /// The event of a notification the owner tapped, until the inbox opens it.
   String? _eventToOpen;
 
+  /// Whether the owner tapped a notice about a device, until the inbox opens
+  /// the devices.
+  bool _deviceNoticeToOpen = false;
+
   /// Whether a change to the push preferences is being saved.
   bool savingPushPreferences = false;
 
-  /// Every client of the owner, active ones first, as this admin device last
-  /// read them; `null` until read, or when it cannot manage devices.
-  List<ManagedDevice>? devices;
+  @override
+  UserRole get role => registration?.role ?? UserRole.basic;
 
-  /// Why reading [devices] failed; `null` if it worked.
-  String? devicesError;
+  @override
+  String? get userId => registration?.user?.id;
 
-  /// Whether this installation turned out not to be an admin device any
-  /// more while managing devices: the server refused it (`403`), or its
-  /// registration, read again, says so. Said once, in place of [devices].
-  bool lostAdminRights = false;
+  @override
+  String? get userName => registration?.user?.name;
 
-  /// Whether the server has no device endpoints (released before them), so
-  /// the app offers no device management at all.
-  bool _devicesUnsupported = false;
+  /// The tab of the bottom bar that is showing. Kept here so a screen can send
+  /// the person to another tab (the welcome's _Find producers_).
+  HomeTab tab = HomeTab.inbox;
 
-  /// The device a change is being made to; `null` when none is.
-  String? changingDeviceId;
+  /// The tabs the bottom bar offers this role, in order.
+  List<HomeTab> get tabs => [
+    HomeTab.inbox,
+    HomeTab.producers,
+    if (role.isAdmin) HomeTab.people,
+    HomeTab.settings,
+  ];
 
-  /// Whether this installation may manage the owner's devices, as its
-  /// registration says and the server supports.
-  bool get canManageDevices =>
-      (registration?.admin ?? false) && !_devicesUnsupported;
+  void selectTab(HomeTab next) {
+    if (tab == next) return;
+    tab = next;
+    notifyListeners();
+  }
 
-  /// For the owner, when the server refuses device management.
-  static const notAdminMessage = 'This device is no longer an admin device';
+  /// The producers this user sees, and subscribing to them.
+  late ProducersController producers = ProducersController(this);
 
-  /// Whether the server cannot delete devices (released before that), so the
-  /// app stops offering it.
-  bool _deletingUnsupported = false;
+  /// The producers this user owns, their keys and who may see them.
+  late OwnProducersController ownProducers = OwnProducersController(this);
 
-  /// Whether this installation may delete revoked devices.
-  bool get canDeleteDevices => canManageDevices && !_deletingUnsupported;
+  /// The people on the server; for an admin, their roles and devices.
+  late PeopleController people = PeopleController(this);
 
-  /// For the owner, when the server cannot delete devices.
-  static const deletingUnsupportedMessage =
-      'This server cannot delete devices. Update SignalHub, or delete it on '
-      'the admin page.';
+  /// The devices this role may list and manage, and connecting new ones.
+  late DevicesController deviceList = _newDeviceList();
 
-  /// The pairing code this admin device created last, while _Connect a
-  /// device_ shows it; `null` otherwise.
-  DevicePairing? pairing;
+  /// How this user's role changed under them since the app last said so; `null`
+  /// when nothing is to be said. The app learns of a change when a request is
+  /// refused or when it reads the registration again, never by push.
+  ({UserRole from, UserRole to})? _roleChange;
 
-  /// Whether a pairing code is being created.
-  bool creatingPairing = false;
+  /// The role change to tell the person about, once.
+  ({UserRole from, UserRole to})? takeRoleChange() {
+    final change = _roleChange;
+    _roleChange = null;
+    return change;
+  }
 
-  /// Whether the server cannot create pairing codes for a device (released
-  /// before them), so the app stops offering it.
-  bool _pairingUnsupported = false;
+  /// Whether a role change is waiting to be said.
+  bool get hasRoleChange => _roleChange != null;
 
-  /// Whether this installation may create pairing codes for new devices.
-  bool get canCreatePairings => canManageDevices && !_pairingUnsupported;
+  /// Keeps [next] as this installation's registration, and notes a change of
+  /// the user's role since the one kept before.
+  void _setRegistration(ClientRegistration next) {
+    final before = registration?.role;
+    registration = next;
+    if (before != null && before != next.role) {
+      _roleChange = (from: before, to: next.role);
+    }
+  }
 
-  /// Whether the server cannot say whether the code shown was used (released
-  /// before that), so the app stops asking about it.
-  bool _pairingStatusUnknown = false;
+  /// Reads the registration again, so a role the host or an admin changed is
+  /// noticed; a failure leaves what is known.
+  Future<void> rereadRegistration() async {
+    final api = _api;
+    if (api == null) return;
+    try {
+      _setRegistration(await api.getClient());
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return;
+    } on ApiException catch (e) {
+      debugPrint('Registration not re-read: ${e.message}');
+    }
+    notifyListeners();
+  }
 
-  /// Whether the server is being asked about the code shown.
-  bool _checkingPairing = false;
-
-  /// For the owner, when the server has no pairing codes for devices.
-  static const pairingUnsupportedMessage =
-      'This server cannot create pairing codes from a device. Update '
-      'SignalHub, or create the code on the admin page.';
-
-  /// The link a new device opens or scans to pair: the server's own pairing
-  /// URI, or, when it has no public address configured, one for the address
-  /// this device reaches it at.
-  String? get pairingLink {
-    final pairing = this.pairing;
-    final credentials = this.credentials;
-    if (pairing == null || credentials == null) return null;
-    return pairing.uri ?? PairingUri.format(credentials.baseUrl, pairing.code);
+  @override
+  Future<T> call<T>(Future<T> Function(SignalHubApi api) call) async {
+    final api = _api;
+    if (api == null) throw const SignedOutException();
+    try {
+      return await call(api);
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      throw const SignedOutException();
+    } on ApiException catch (e) {
+      // A role that no longer allows it: read it again, so the screens
+      // follow the new role.
+      if (e.statusCode == 403) await rereadRegistration();
+      rethrow;
+    }
   }
 
   /// Whether the server has events older than [events].
   bool get hasMore => _nextCursor != null;
 
   /// The producers of the events the inbox has read since connecting, by id:
-  /// kept when a filter hides their events, so they can still be chosen.
+  /// names for a producer the user no longer sees, such as one a filter or a
+  /// muted list still names.
   final _producers = <String, EventProducer>{};
 
-  /// The producers of the events the inbox has read since connecting, by
-  /// name. Client keys cannot list producers, so these are the ones the owner
-  /// can filter by or mute by name.
-  List<EventProducer> get inboxProducers =>
-      _producers.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+  /// The name of the producer with [id], from the producers this user sees or
+  /// else from an event the inbox has read; `null` if neither knows it.
+  String? producerName(String id) =>
+      producers.byId(id)?.name ?? _producers[id]?.name;
 
   /// Whether _Mark all as read_ can be offered: it marks every unread event
   /// up to the newest one shown, so not while the filter hides some of them.
@@ -249,12 +305,52 @@ class AppController extends ChangeNotifier {
     final saved = await _store.load();
     if (saved == null) {
       _eventToOpen = null;
+      _deviceNoticeToOpen = false;
       _setPhase(ConnectionPhase.disconnected);
       return;
     }
     _open(saved);
+    await _loadOnboarding();
     _setPhase(ConnectionPhase.connected);
     await refresh();
+  }
+
+  /// A device that starts with saved credentials and no record was connected
+  /// before the app kept one: it gets _What's new_ once.
+  Future<void> _loadOnboarding() async {
+    final store = _onboardingStore;
+    if (store == null) return;
+    try {
+      onboarding = await store.load() ?? OnboardingStep.whatsNew;
+    } on Exception catch (e) {
+      debugPrint('Onboarding step not read: ${e.runtimeType}');
+    }
+  }
+
+  /// Ends the welcome: [findProducers] opens the Producers tab, otherwise the
+  /// inbox shows.
+  Future<void> finishWelcome({bool findProducers = false}) async {
+    if (onboarding != OnboardingStep.welcome) return;
+    if (findProducers) tab = HomeTab.producers;
+    await _finishOnboarding();
+  }
+
+  /// Dismisses _What's new_ for good; [seeProducers] first opens the
+  /// Producers tab.
+  Future<void> dismissWhatsNew({bool seeProducers = false}) async {
+    if (onboarding != OnboardingStep.whatsNew) return;
+    if (seeProducers) tab = HomeTab.producers;
+    await _finishOnboarding();
+  }
+
+  Future<void> _finishOnboarding() async {
+    onboarding = OnboardingStep.done;
+    notifyListeners();
+    try {
+      await _onboardingStore?.save(OnboardingStep.done);
+    } on Exception catch (e) {
+      debugPrint('Onboarding step not saved: ${e.runtimeType}');
+    }
   }
 
   Future<void> _loadOpenSettingsGroups() async {
@@ -284,21 +380,27 @@ class AppController extends ChangeNotifier {
   }
 
   /// Connects to a server with a client key typed by the owner. Saves them
-  /// only once the server accepts the key. Returns an error message, or
-  /// `null` on success.
-  Future<String?> connect(String serverUrl, String clientKey) async {
+  /// only once the server accepts the key. Returns why it failed, or `null`
+  /// on success.
+  Future<SetupFailure?> connect(String serverUrl, String clientKey) async {
     final ServerCredentials parsed;
     try {
       parsed = ServerCredentials.parse(serverUrl, clientKey);
     } on FormatException catch (e) {
-      return e.message;
+      final badAddress = ServerCredentials.parseServerUrl(serverUrl) == null;
+      return SetupFailure(
+        badAddress ? SetupFailureKind.badAddress : SetupFailureKind.badKey,
+        e.message,
+      );
     }
     final api = _apiFactory(parsed);
     final ClientRegistration accepted;
     try {
       accepted = await api.getClient();
+    } on UnauthorizedException {
+      return SetupFailure.keyRejected;
     } on ApiException catch (e) {
-      return e.message;
+      return _failure(e, parsed.baseUrl);
     }
     await _connected(parsed, accepted);
     return null;
@@ -306,43 +408,70 @@ class AppController extends ChangeNotifier {
 
   /// Registers this installation with a pairing code the owner scanned or
   /// pasted ([PairingUri]), and connects with the client key it returns.
-  /// Returns an error message, or `null` on success.
-  Future<String?> pair(String pairingUri) async {
+  /// Returns why it failed, or `null` on success.
+  Future<SetupFailure?> pair(String pairingUri) async {
     final PairingUri parsed;
     try {
       parsed = PairingUri.parse(pairingUri);
-    } on FormatException catch (e) {
-      return e.message;
+    } on FormatException {
+      return PairingUri.isWebSignIn(pairingUri)
+          ? SetupFailure.webSignIn
+          : SetupFailure.notInvitation;
     }
     final PairedClient paired;
     final ServerCredentials credentials;
     try {
       paired = await _redeemPairing(parsed.serverUrl, parsed.code);
       credentials = ServerCredentials.parse(parsed.serverUrl, paired.clientKey);
+    } on PairingRejectedException {
+      return const SetupFailure(
+        SetupFailureKind.codeRejected,
+        'This pairing code has expired or was already used. '
+        'Ask for a new one.',
+      );
     } on ApiException catch (e) {
-      // Name the server the code points to: it may not be reachable from
-      // this device.
-      return e.statusCode == null
-          ? '${e.message} (${parsed.serverUrl})'
-          : e.message;
+      return _failure(e, parsed.serverUrl);
     } on FormatException {
-      return 'The server sent an unexpected answer';
+      return SetupFailure.unexpectedAnswer;
     }
     await _connected(credentials, paired.registration);
     return null;
   }
 
-  /// Saves credentials the server has accepted and shows the inbox.
+  /// A failed request of setup. An unreachable server is named by its
+  /// address, as the code or the owner gave it.
+  static SetupFailure _failure(ApiException e, String serverUrl) =>
+      e.statusCode == null
+      ? SetupFailure.unreachable(Uri.tryParse(serverUrl)?.authority ?? '')
+      : SetupFailure.serverProblem;
+
+  /// Saves credentials the server has accepted and shows the inbox. A
+  /// connection made in this version of the app gets the welcome, and so no
+  /// _What's new_ later.
   Future<void> _connected(
     ServerCredentials accepted,
     ClientRegistration client,
   ) async {
     registration = client;
+    _roleChange = null;
     await _store.save(accepted);
     _open(accepted);
     error = null;
+    signedOut = false;
+    await _startOnboarding();
     _setPhase(ConnectionPhase.connected);
     await refresh(includeClient: false);
+  }
+
+  Future<void> _startOnboarding() async {
+    final store = _onboardingStore;
+    if (store == null) return;
+    onboarding = OnboardingStep.welcome;
+    try {
+      await store.save(OnboardingStep.welcome);
+    } on Exception catch (e) {
+      debugPrint('Onboarding step not saved: ${e.runtimeType}');
+    }
   }
 
   /// Re-reads the registration and the newest page of the inbox, and
@@ -358,7 +487,7 @@ class AppController extends ChangeNotifier {
     final api = _api;
     if (api == null) return false;
     try {
-      if (includeClient) registration = await api.getClient();
+      if (includeClient) _setRegistration(await api.getClient());
       final generation = ++_inboxGeneration;
       final filter = this.filter;
       final page = await api.listEvents(limit: pageSize, filter: filter);
@@ -385,6 +514,7 @@ class AppController extends ChangeNotifier {
     _nextCursor = page.nextCursor;
     _lastRead = page.items.lastOrNull;
     inboxLoaded = true;
+    inboxLoadedAt = DateTime.now();
     loadMoreError = null;
   }
 
@@ -439,6 +569,7 @@ class AppController extends ChangeNotifier {
     _nextCursor = null;
     _lastRead = null;
     inboxLoaded = false;
+    inboxLoadedAt = null;
     loadMoreError = null;
     notifyListeners();
     await _reload(includeClient: false);
@@ -448,12 +579,36 @@ class AppController extends ChangeNotifier {
   Future<void> clearFilter() => setFilter(InboxFilter.none);
 
   /// The event with [id]: from the inbox if it is there, otherwise from the
-  /// server. Throws an [ApiException] if it cannot be read.
+  /// server. Throws an [ApiException] if it cannot be read: an
+  /// [EventNotFoundException] when it is not in this user's inbox any more
+  /// (deleted, or its producer unsubscribed), which also takes it out of the
+  /// inbox list.
   Future<Event> event(String id) async {
     if (_eventWithId(id) case final event?) return event;
-    final api = _api;
-    if (api == null) throw const ApiException('Not connected to a server');
-    return api.getEvent(id);
+    try {
+      return await call((api) => api.getEvent(id));
+    } on EventNotFoundException {
+      await _removeEvent(id);
+      rethrow;
+    }
+  }
+
+  /// Takes the event with [id] out of the inbox, which the server can no
+  /// longer read it from.
+  Future<void> _removeEvent(String id) async {
+    if (_eventWithId(id) == null) return;
+    events = [
+      for (final e in events)
+        if (e.id != id) e,
+    ];
+    notifyListeners();
+    try {
+      await _readUnreadCount();
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return;
+    }
+    notifyListeners();
   }
 
   /// Marks the event with [id] read, for every client of the owner, when the
@@ -477,9 +632,14 @@ class AppController extends ChangeNotifier {
     Event? changed;
     final error = await _changeReadState(() async {
       final api = _api!;
-      final event = await (read ? api.markRead(id) : api.markUnread(id));
-      _replaceEvent(event);
-      changed = event;
+      try {
+        final event = await (read ? api.markRead(id) : api.markUnread(id));
+        _replaceEvent(event);
+        changed = event;
+      } on EventNotFoundException {
+        await _removeEvent(id);
+        rethrow;
+      }
       await _readUnreadCount();
     });
     return (event: error == null ? changed : null, error: error);
@@ -583,7 +743,7 @@ class AppController extends ChangeNotifier {
     savingPushPreferences = true;
     notifyListeners();
     try {
-      registration = await api.setPushPreferences(preferences);
+      _setRegistration(await api.setPushPreferences(preferences));
     } on UnauthorizedException {
       await _forgetRevokedKey();
       return null;
@@ -596,242 +756,6 @@ class AppController extends ChangeNotifier {
     return null;
   }
 
-  /// Reads every device, if this installation is an admin device; otherwise
-  /// forgets any it read before.
-  Future<void> loadDevices() async {
-    final api = _api;
-    if (api == null) return;
-    if (!canManageDevices) {
-      // Devices shown until now: the registration re-read since says this
-      // installation is no longer an admin device.
-      lostAdminRights = devices != null;
-      devices = null;
-      devicesError = null;
-      notifyListeners();
-      return;
-    }
-    try {
-      devices = _activeFirst(await api.listDevices());
-      devicesError = null;
-      lostAdminRights = false;
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-      return;
-    } on ApiException catch (e) {
-      switch (e.statusCode) {
-        case 403:
-          await _lostAdminRights(api);
-        case 404:
-          _devicesUnsupported = true;
-          devices = null;
-          devicesError = null;
-        default:
-          devicesError = e.message;
-      }
-    }
-    notifyListeners();
-  }
-
-  /// Makes the device with [id] an admin device. Returns an error message,
-  /// or `null` on success.
-  Future<String?> makeDeviceAdmin(String id) =>
-      _changeDevice(id, (api) => api.makeDeviceAdmin(id));
-
-  /// Revokes the device with [id], which must not be an admin. Returns an
-  /// error message, or `null` on success.
-  Future<String?> revokeDevice(String id) =>
-      _changeDevice(id, (api) => api.revokeDevice(id));
-
-  Future<String?> _changeDevice(
-    String id,
-    Future<ManagedDevice> Function(SignalHubApi api) change,
-  ) async {
-    final api = _api;
-    if (api == null) return 'Not connected to a server';
-    changingDeviceId = id;
-    notifyListeners();
-    try {
-      final changed = await change(api);
-      devices = _activeFirst([
-        for (final d in devices ?? const <ManagedDevice>[])
-          d.id == changed.id ? changed : d,
-      ]);
-      return null;
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-      return null;
-    } on ApiException catch (e) {
-      return _refusedChange(api, e);
-    } finally {
-      changingDeviceId = null;
-      notifyListeners();
-    }
-  }
-
-  /// Deletes the device with [id], which must be revoked; it leaves
-  /// [devices]. Returns an error message, or `null` on success.
-  Future<String?> deleteDevice(String id) async {
-    final api = _api;
-    if (api == null) return 'Not connected to a server';
-    changingDeviceId = id;
-    notifyListeners();
-    try {
-      await api.deleteDevice(id);
-      _dropDevice(id);
-      return null;
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-      return null;
-    } on ApiException catch (e) {
-      return switch (e.statusCode) {
-        404 => _deviceNotFound(id),
-        405 => _deletingIsUnsupported(),
-        _ => _refusedChange(api, e),
-      };
-    } finally {
-      changingDeviceId = null;
-      notifyListeners();
-    }
-  }
-
-  /// A `404` for a device the list showed: deleted meanwhile, by the
-  /// operator or another admin device, or a server released before deleting
-  /// devices, which has no such endpoint. Reading the list tells them apart.
-  Future<String?> _deviceNotFound(String id) async {
-    await loadDevices();
-    if (devicesError case final error?) return error;
-    if (lostAdminRights) {
-      return phase == ConnectionPhase.connected ? notAdminMessage : null;
-    }
-    final listed = devices?.any((d) => d.id == id) ?? false;
-    return listed ? _deletingIsUnsupported() : null;
-  }
-
-  String _deletingIsUnsupported() {
-    _deletingUnsupported = true;
-    return deletingUnsupportedMessage;
-  }
-
-  void _dropDevice(String id) {
-    devices = devices?.where((d) => d.id != id).toList(growable: false);
-  }
-
-  /// A device change the server refused.
-  Future<String?> _refusedChange(SignalHubApi api, ApiException e) async {
-    if (e.statusCode == 403) {
-      await _lostAdminRights(api);
-      // Unless the key turned out to be revoked too: setup says that.
-      return phase == ConnectionPhase.connected ? notAdminMessage : null;
-    }
-    // Usually a conflict: the operator or another admin device changed the
-    // device meanwhile, so show it as it is now.
-    if (e.statusCode != null) await loadDevices();
-    return e.message;
-  }
-
-  /// Creates a pairing code for a new device named [name], shown as
-  /// [pairing]. Returns an error message, or `null` on success.
-  Future<String?> createPairing(String name) async {
-    final api = _api;
-    if (api == null) return 'Not connected to a server';
-    creatingPairing = true;
-    notifyListeners();
-    try {
-      pairing = await api.createPairing(name);
-      _pairingStatusUnknown = false;
-      return null;
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-      return null;
-    } on ApiException catch (e) {
-      switch (e.statusCode) {
-        case 403:
-          await _lostAdminRights(api);
-          return phase == ConnectionPhase.connected ? notAdminMessage : null;
-        case 404:
-          _pairingUnsupported = true;
-          return pairingUnsupportedMessage;
-        default:
-          return e.message;
-      }
-    } finally {
-      creatingPairing = false;
-      notifyListeners();
-    }
-  }
-
-  /// Forgets the pairing code shown, so it is not kept in memory longer than
-  /// it is on screen.
-  void clearPairing() {
-    pairing = null;
-    notifyListeners();
-  }
-
-  /// Asks the server whether the code shown in [pairing] was used; nothing
-  /// is asked when the server cannot say. Once it was used, forgets it, so
-  /// _Connect a device_ is ready for the next device, and returns the name
-  /// of the device that used it. Returns an error message only when this
-  /// device is no longer an admin device, which also ends the code; other
-  /// failures are left to the next time it asks.
-  Future<({String? connected, String? error})> checkPairing() async {
-    const unchanged = (connected: null, error: null);
-    final api = _api;
-    final asked = pairing;
-    final id = asked?.id;
-    if (api == null || id == null || _pairingStatusUnknown) return unchanged;
-    if (_checkingPairing) return unchanged;
-    _checkingPairing = true;
-    try {
-      final status = await api.getPairingStatus(id);
-      // A code created or dismissed meanwhile is not the one asked about.
-      if (!identical(pairing, asked) || !status.isRedeemed) return unchanged;
-      pairing = null;
-      notifyListeners();
-      return (connected: status.clientName, error: null);
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-    } on ApiException catch (e) {
-      switch (e.statusCode) {
-        case 403:
-          // The server no longer accepts this device's codes either.
-          pairing = null;
-          await _lostAdminRights(api);
-          notifyListeners();
-          // Unless the key turned out to be revoked too: setup says that.
-          if (phase == ConnectionPhase.connected) {
-            return (connected: null, error: notAdminMessage);
-          }
-        case 404 || 405 when identical(pairing, asked):
-          _pairingStatusUnknown = true;
-        default:
-          debugPrint('Pairing status not read: ${e.message}');
-      }
-    } finally {
-      _checkingPairing = false;
-    }
-    return unchanged;
-  }
-
-  /// The server refused device management: shows why, and re-reads the
-  /// registration so the app stops offering it.
-  Future<void> _lostAdminRights(SignalHubApi api) async {
-    lostAdminRights = true;
-    devices = null;
-    devicesError = null;
-    try {
-      registration = await api.getClient();
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-    } on ApiException catch (e) {
-      debugPrint('Registration not re-read: ${e.message}');
-    }
-  }
-
-  static List<ManagedDevice> _activeFirst(List<ManagedDevice> devices) => [
-    ...devices.where((d) => !d.isRevoked),
-    ...devices.where((d) => d.isRevoked),
-  ];
-
   /// The event of a notification the owner tapped, once: the inbox opens it.
   String? takeEventToOpen() {
     final id = _eventToOpen;
@@ -842,12 +766,21 @@ class AppController extends ChangeNotifier {
   /// Stops pushes to this installation and forgets the server.
   Future<void> disconnect() async {
     await _pushRegistration?.unregister();
-    await _forget(null);
+    await _forget(signedOut: false);
+  }
+
+  /// Whether the owner tapped a notice about a device, once: the inbox opens
+  /// the devices.
+  bool takeDeviceNoticeToOpen() {
+    final open = _deviceNoticeToOpen;
+    _deviceNoticeToOpen = false;
+    return open;
   }
 
   void _open(ServerCredentials saved) {
     credentials = saved;
     _api = _apiFactory(saved);
+    _resetFeatures();
     final push = _push;
     if (push != null) _pushRegistration = PushRegistration(push, _api!);
   }
@@ -908,15 +841,14 @@ class AppController extends ChangeNotifier {
     return _pushRegistration != null;
   }
 
-  /// Revoked or replaced: nothing works with this key any more.
-  Future<void> _forgetRevokedKey() => _forget(
-    'The server no longer accepts this client key. '
-    'Set it up again with a new key.',
-  );
+  /// Revoked or replaced, or its person removed: any `401` means nothing works
+  /// with this key any more, and the server cannot say which.
+  Future<void> _forgetRevokedKey() => _forget(signedOut: true);
 
-  Future<void> _forget(String? reason) async {
-    await _pushRegistration?.dispose();
-    await _store.clear();
+  /// Returns to setup. The state is dropped, and setup shown, before anything
+  /// is awaited, so no frame shows the old content.
+  Future<void> _forget({required bool signedOut}) async {
+    final pushRegistration = _pushRegistration;
     _api = null;
     _pushRegistration = null;
     credentials = null;
@@ -929,24 +861,44 @@ class AppController extends ChangeNotifier {
     _lastRead = null;
     _inboxGeneration++;
     inboxLoaded = false;
+    inboxLoadedAt = null;
     loadingMore = false;
     loadMoreError = null;
     savingPushPreferences = false;
-    devices = null;
-    devicesError = null;
-    lostAdminRights = false;
-    _devicesUnsupported = false;
-    _deletingUnsupported = false;
-    changingDeviceId = null;
-    pairing = null;
-    creatingPairing = false;
-    _pairingUnsupported = false;
-    _pairingStatusUnknown = false;
     _eventToOpen = null;
+    _deviceNoticeToOpen = false;
+    _roleChange = null;
+    onboarding = OnboardingStep.done;
+    tab = HomeTab.inbox;
+    _resetFeatures();
     pushStatus = _initialPushStatus;
-    error = reason;
+    error = null;
+    this.signedOut = signedOut;
     serverUnreachable = false;
     _setPhase(ConnectionPhase.disconnected);
+    await pushRegistration?.dispose();
+    await _store.clear();
+  }
+
+  /// The clock the people and devices screens read (countdowns, when a device
+  /// was last active); tests replace it.
+  DateTime Function() clock = DateTime.now;
+
+  DevicesController _newDeviceList() => DevicesController(
+    this,
+    thisDeviceId: () => registration?.id,
+    now: () => clock(),
+  );
+
+  void _resetFeatures() {
+    producers.dispose();
+    ownProducers.dispose();
+    people.dispose();
+    deviceList.dispose();
+    producers = ProducersController(this);
+    ownProducers = OwnProducersController(this);
+    people = PeopleController(this);
+    deviceList = _newDeviceList();
   }
 
   void _onNotice(PushNotice notice) {
@@ -954,6 +906,10 @@ class AppController extends ChangeNotifier {
     // push delivered twice (delivery is at least once) changes nothing.
     if (notice.opened && notice.eventId != null) {
       _eventToOpen = notice.eventId;
+      notifyListeners();
+    } else if (notice.opened && notice.notice != null) {
+      // A notice is about a device and has no event: it opens the devices.
+      _deviceNoticeToOpen = true;
       notifyListeners();
     }
     if (phase == ConnectionPhase.connected) unawaited(_reload());
@@ -965,6 +921,11 @@ class AppController extends ChangeNotifier {
     if (phase == ConnectionPhase.connected) unawaited(_reload());
   }
 
+  /// Re-reads the inbox and the unread count, after a change elsewhere (a
+  /// subscription, events marked read in a producer's own list) altered what
+  /// they hold.
+  Future<void> reloadInbox() => _reload(includeClient: false);
+
   void _setPhase(ConnectionPhase next) {
     phase = next;
     notifyListeners();
@@ -975,6 +936,10 @@ class AppController extends ChangeNotifier {
     unawaited(_notices?.cancel());
     unawaited(_pushRegistration?.dispose());
     alert?.dispose();
+    producers.dispose();
+    ownProducers.dispose();
+    people.dispose();
+    deviceList.dispose();
     super.dispose();
   }
 }

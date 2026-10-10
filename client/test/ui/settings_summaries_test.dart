@@ -13,8 +13,10 @@ void main() {
       EventProducer(id: 'p-3', name: 'backup'),
     ];
 
-    String summary(PushPreferences preferences) =>
-        PushFilters.summary(preferences, producers);
+    String summary(PushPreferences preferences) => PushFilters.summary(
+      preferences,
+      {for (final p in producers) p.id: p.name},
+    );
 
     test('names the minimum severity', () {
       for (final (severity, text) in [

@@ -12,12 +12,11 @@ import 'package:signalhub_client/src/build_identity.dart';
 import 'package:signalhub_client/src/connection/pairing_uri.dart';
 import 'package:signalhub_client/src/push/push_registration.dart';
 import 'package:signalhub_client/src/push/push_service.dart';
-import 'package:signalhub_client/src/ui/connect_device_screen.dart';
 import 'package:signalhub_client/src/settings/settings_groups.dart';
-import 'package:signalhub_client/src/ui/devices_screen.dart';
 import 'package:signalhub_client/src/ui/event_screen.dart';
 
 import 'support/fakes.dart';
+import 'support/first_run_support.dart';
 import 'support/phone.dart';
 
 void main() {
@@ -28,10 +27,12 @@ void main() {
   /// The links the app handed to the platform, and whether it opens them.
   late List<Uri> openedLinks;
   late bool linksOpen;
+  late FakeCamera camera;
 
   setUp(() {
     openedLinks = [];
     linksOpen = true;
+    camera = FakeCamera();
     backend = FakeBackend()..publish('e-1', 'Nightly build failed');
     push = FakePushService();
     controller = AppController(
@@ -47,6 +48,7 @@ void main() {
     await tester.pumpWidget(
       SignalHubApp(
         controller: controller,
+        scanner: camera.build,
         linkOpener: (link) async {
           openedLinks.add(link);
           return linksOpen;
@@ -55,8 +57,9 @@ void main() {
     );
     await tester.runAsync(controller.start);
     await tester.pump();
-    // Manual setup comes after pairing, below the fold.
-    await tester.ensureVisible(find.byKey(const Key('connect')));
+    // Setting up with a client key is one tap away from scanning.
+    await tester.tap(find.byKey(const Key('byHand')));
+    await tester.pump();
     await tester.enterText(find.byKey(const Key('serverUrl')), serverUrl);
     await tester.enterText(find.byKey(const Key('clientKey')), key);
     await tester.tap(find.byKey(const Key('connect')));
@@ -83,88 +86,83 @@ void main() {
         ..pairingCodes.add(pairingCode);
     });
 
-    Future<void> showSetup(
-      WidgetTester tester, {
-      String? scanned,
-      void Function()? onScan,
-    }) async {
+    Future<void> showSetup(WidgetTester tester) async {
       await tester.pumpWidget(
-        SignalHubApp(
-          controller: controller,
-          scanner: (context) async {
-            onScan?.call();
-            return scanned;
-          },
-        ),
+        SignalHubApp(controller: controller, scanner: camera.build),
       );
       await tester.runAsync(controller.start);
       await tester.pump();
     }
 
-    testWidgets('a scanned code sets up the device', (tester) async {
-      await showSetup(tester, scanned: pairingUri);
+    Future<void> pasteLink(WidgetTester tester, String link) async {
+      mockClipboard(tester);
+      await tester.tap(find.byKey(const Key('pasteLink')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('pairingUri')), link);
+      await tester.tap(find.byKey(const Key('pair')));
+      await settle(tester);
+    }
 
-      await tester.tap(find.byKey(const Key('scanPairing')));
+    testWidgets('a scanned code sets up the device', (tester) async {
+      await showSetup(tester);
+
+      camera.scan(pairingUri);
       await settle(tester);
 
       expect(find.text('Nightly build failed'), findsOneWidget);
       expect(backend.acceptedKey, pairedClientKey);
     });
 
-    testWidgets('going back from the scanner stays on setup', (tester) async {
-      var scans = 0;
-      await showSetup(tester, onScan: () => scans++);
-
-      await tester.tap(find.byKey(const Key('scanPairing')));
-      await settle(tester);
-
-      expect(scans, 1);
-      expect(find.byKey(const Key('pairingUri')), findsOneWidget);
-      expect(backend.requests, isEmpty);
-    });
-
     testWidgets('a pasted link sets up the device', (tester) async {
       await showSetup(tester);
 
-      await tester.enterText(find.byKey(const Key('pairingUri')), pairingUri);
-      await tester.tap(find.byKey(const Key('pair')));
-      await settle(tester);
+      await pasteLink(tester, pairingUri);
 
       expect(find.text('Nightly build failed'), findsOneWidget);
     });
 
     testWidgets('an expired or used code says so', (tester) async {
       backend.pairingCodes.clear();
-      await showSetup(tester, scanned: pairingUri);
+      await showSetup(tester);
 
-      await tester.tap(find.byKey(const Key('scanPairing')));
+      camera.scan(pairingUri);
       await settle(tester);
 
       expect(
         find.text(const PairingRejectedException().message),
         findsOneWidget,
       );
+      // The scanner stays ready for a new code.
+      expect(find.text('camera'), findsOneWidget);
     });
 
-    testWidgets('an unreachable server says so', (tester) async {
+    testWidgets('an unreachable server is named, and the code kept', (
+      tester,
+    ) async {
       backend.offline = true;
-      await showSetup(tester, scanned: pairingUri);
+      await showSetup(tester);
 
-      await tester.tap(find.byKey(const Key('scanPairing')));
+      camera.scan(pairingUri);
       await settle(tester);
 
       expect(
-        find.text('Could not reach the server ($serverUrl)'),
+        find.textContaining("Can't reach signalhub.test."),
         findsOneWidget,
       );
+      // The code was not used up: Try again uses it.
+      backend.offline = false;
+      await tester.tap(find.byKey(const Key('tryAgain')));
+      await settle(tester);
+
+      expect(find.text('Nightly build failed'), findsOneWidget);
     });
 
     testWidgets('another QR code is not taken for a pairing code', (
       tester,
     ) async {
-      await showSetup(tester, scanned: 'https://example.org');
+      await showSetup(tester);
 
-      await tester.tap(find.byKey(const Key('scanPairing')));
+      camera.scan('https://example.org');
       await settle(tester);
 
       expect(find.text(PairingUri.invalid), findsOneWidget);
@@ -180,7 +178,7 @@ void main() {
     await tester.runAsync(controller.refresh);
     await tester.pumpAndSettle();
 
-    expect(find.text('Could not reach the server'), findsOneWidget);
+    expect(find.textContaining("You're offline."), findsOneWidget);
     expect(find.text(PushStatus.failed.description), findsNothing);
   });
 
@@ -195,7 +193,7 @@ void main() {
   });
 
   Future<void> openSettings(WidgetTester tester) async {
-    await tester.tap(find.byKey(const Key('settings')));
+    await tester.tap(find.byKey(const Key('tab-settings')));
     await tester.pumpAndSettle();
   }
 
@@ -339,10 +337,26 @@ void main() {
 
   testWidgets('an empty inbox says so', (tester) async {
     backend.events.clear();
+    FakeVisibleProducers().install(backend);
 
     await connect(tester);
 
     expect(find.text('No events yet'), findsOneWidget);
+    expect(find.text('Find producers'), findsOneWidget);
+  });
+
+  testWidgets('an inbox of subscribed producers that sent nothing says so', (
+    tester,
+  ) async {
+    backend.events.clear();
+    FakeVisibleProducers()
+      ..add('p-1', 'nightly-build')
+      ..install(backend);
+
+    await connect(tester);
+
+    expect(find.text('Nothing new from your producers'), findsOneWidget);
+    expect(find.text('Find producers'), findsNothing);
   });
 
   testWidgets('tapping an event shows all of it', (tester) async {
@@ -717,7 +731,7 @@ void main() {
     await connect(tester);
 
     expect(
-      find.text('The server did not accept this client key'),
+      find.text("That key isn't valid, or its device was disconnected."),
       findsOneWidget,
     );
     expect(find.byKey(const Key('connect')), findsOneWidget);
@@ -782,10 +796,10 @@ void main() {
     await settle(tester);
 
     expect(
-      find.text('This event does not exist on the server'),
+      find.text("This event isn't in your inbox any more"),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('retryEvent')), findsOneWidget);
+    expect(find.text('Back to Inbox'), findsOneWidget);
   });
 
   testWidgets('disconnecting from Settings returns to setup after a '
@@ -793,21 +807,25 @@ void main() {
     await connect(tester);
     await openDevice(tester);
 
+    await tester.ensureVisible(find.byKey(const Key('disconnect')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('disconnect')));
     await tester.pumpAndSettle();
     expect(find.text('Disconnect this device?'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
     await settle(tester);
-    expect(find.text('Settings'), findsOneWidget);
+    expect(find.byKey(const Key('disconnect')), findsOneWidget);
     expect(backend.pushTarget, isNotNull);
 
+    await tester.ensureVisible(find.byKey(const Key('disconnect')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('disconnect')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm')));
     await settle(tester);
 
-    expect(find.byKey(const Key('connect')), findsOneWidget);
-    expect(find.text('Settings'), findsNothing);
+    expect(find.byKey(const Key('pasteLink')), findsOneWidget);
+    expect(find.byKey(const Key('tab-settings')), findsNothing);
     expect(backend.pushTarget, isNull);
   });
 
@@ -841,11 +859,18 @@ void main() {
       'Disk almost full',
       producer: {'id': 'p-2', 'name': 'nas-monitor'},
     );
+    // Push filters list the producers this user subscribes to.
+    FakeVisibleProducers()
+      ..add('p-1', 'nightly-build')
+      ..add('p-2', 'nas-monitor')
+      ..add('p-3', 'someone-elses', subscribed: false)
+      ..install(backend);
     await connect(tester);
     await openNotifications(tester);
 
     expect(find.text('nightly-build'), findsOneWidget);
     expect(find.text('nas-monitor'), findsOneWidget);
+    expect(find.text('someone-elses'), findsNothing);
 
     await tapAndSave(tester, find.text('High'));
     await tapAndSave(tester, find.byKey(const Key('category-INFO')));
@@ -1375,6 +1400,11 @@ void main() {
           producer: {'id': 'p-2', 'name': 'nas'},
         )
         ..publish('e-3', 'Deploy done', readAt: '2026-09-25T12:10:00Z');
+      // The producers to filter by are the ones this user subscribes to.
+      FakeVisibleProducers()
+        ..add('p-1', 'nightly-build')
+        ..add('p-2', 'nas')
+        ..install(backend);
     });
 
     Future<void> openFilters(WidgetTester tester) async {
@@ -1565,16 +1595,16 @@ void main() {
       addTearDown(tester.view.reset);
     }
 
-    testWidgets('the gear icon opens Settings with every group folded', (
+    testWidgets('the Settings tab opens Settings with every group folded', (
       tester,
     ) async {
       await connect(tester);
 
-      expect(find.byType(PopupMenuButton<void>), findsNothing);
-      expect(find.byTooltip('Settings'), findsOneWidget);
+      // No gear in the inbox: Settings is a tab of the bottom bar.
+      expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
       await openSettings(tester);
 
-      expect(find.text('Settings'), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Settings'), findsOneWidget);
       expect(find.byKey(const Key('pushEnabled')), findsOneWidget);
       for (final title in ['Push filters', 'Alert', 'This device']) {
         expect(find.text(title), findsOneWidget);
@@ -1774,7 +1804,7 @@ void main() {
       await toggleGroup(tester, SettingsGroup.pushFilters);
       expect(openGroups.saved, {SettingsGroup.alert, SettingsGroup.device});
 
-      await tester.pageBack();
+      await tester.tap(find.byKey(const Key('tab-inbox')));
       await tester.pumpAndSettle();
       await openSettings(tester);
 
@@ -1839,402 +1869,6 @@ void main() {
       await tapAndSave(tester, find.byKey(const Key('pushEnabled')));
 
       expect(find.text(note), findsNothing);
-    });
-
-    testWidgets('an admin device has a Devices row that opens its devices', (
-      tester,
-    ) async {
-      backend
-        ..admin = true
-        ..addClient('c-tablet', 'Tablet')
-        ..addClient('c-laptop', 'Laptop', admin: true)
-        ..addClient('c-old', 'Old laptop', admin: true);
-      // A revoked admin is no longer counted as one.
-      backend.otherClients.last['revokedAt'] = '2026-09-26T09:00:00Z';
-      await connect(tester);
-      await openSettings(tester);
-      await settle(tester);
-
-      final row = find.byKey(const Key('devices'));
-      expect(
-        find.descendant(of: row, matching: find.text('4 devices · 2 admins')),
-        findsOneWidget,
-      );
-      await tester.tap(row);
-      await settle(tester);
-
-      expect(find.text('Devices'), findsOneWidget);
-      expect(find.text('Tablet'), findsOneWidget);
-      expect(find.byKey(const Key('connectDevice')), findsOneWidget);
-    });
-
-    testWidgets('a device that is not an admin has no Devices row', (
-      tester,
-    ) async {
-      await connect(tester);
-      await openSettings(tester);
-      await settle(tester);
-
-      expect(find.byKey(const Key('devices')), findsNothing);
-    });
-  });
-
-  group('device management', () {
-    const tablet = 'c-tablet';
-    const laptop = 'c-laptop';
-
-    setUp(() {
-      backend
-        ..admin = true
-        ..addClient(tablet, 'Tablet')
-        ..addClient(laptop, 'Laptop', admin: true)
-        ..addClient('c-phone', 'Old phone');
-      backend.otherClients.last['revokedAt'] = '2026-09-26T09:00:00Z';
-    });
-
-    Future<void> openDevices(WidgetTester tester) async {
-      await connect(tester);
-      await openSettings(tester);
-      await settle(tester);
-      await tester.tap(find.byKey(const Key('devices')));
-      await settle(tester);
-    }
-
-    Finder inDevice(String id, Finder matching) =>
-        find.descendant(of: find.byKey(Key('device-$id')), matching: matching);
-
-    Future<void> openActions(WidgetTester tester, String id) async {
-      await tester.ensureVisible(find.byKey(Key('deviceActions-$id')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(Key('deviceActions-$id')));
-      await tester.pumpAndSettle();
-    }
-
-    Future<void> choose(WidgetTester tester, String id, String action) async {
-      await openActions(tester, id);
-      await tester.tap(find.byKey(Key(action)));
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('a device that is not an admin shows no devices', (
-      tester,
-    ) async {
-      backend.admin = false;
-
-      await connect(tester);
-      await openSettings(tester);
-      await settle(tester);
-
-      expect(find.byKey(const Key('devices')), findsNothing);
-      expect(find.text('Devices'), findsNothing);
-      expect(find.text('Tablet'), findsNothing);
-      expect(find.byKey(const Key('connectDevice')), findsNothing);
-      expect(
-        backend.requests.where((r) => r.url.path.contains('/devices')),
-        isEmpty,
-      );
-    });
-
-    testWidgets('a server older than device management shows nothing', (
-      tester,
-    ) async {
-      backend.deviceEndpoints = false;
-
-      await connect(tester);
-      await openSettings(tester);
-      await settle(tester);
-
-      expect(find.byKey(const Key('devices')), findsNothing);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(find.text(AppController.notAdminMessage), findsNothing);
-    });
-
-    testWidgets('an admin device lists every device', (tester) async {
-      await openDevices(tester);
-
-      expect(find.text('Devices'), findsOneWidget);
-      const self = '01a0da2c-1f3e-7a51-8d0c-6b1f2e3d4c5b';
-      expect(
-        inDevice(self, find.text('This device · Admin device')),
-        findsOneWidget,
-      );
-      expect(inDevice(laptop, find.text('Admin device')), findsOneWidget);
-      expect(inDevice(tablet, find.text('Tablet')), findsOneWidget);
-      expect(inDevice('c-phone', find.text('Revoked')), findsOneWidget);
-      // Active admins, this device included, offer nothing.
-      expect(find.byKey(const Key('deviceActions-$self')), findsNothing);
-      expect(find.byKey(const Key('deviceActions-$laptop')), findsNothing);
-      expect(find.byKey(const Key('deviceActions-$tablet')), findsOneWidget);
-      expect(find.byKey(const Key('deviceActions-c-phone')), findsOneWidget);
-    });
-
-    testWidgets('only revoked devices offer to delete', (tester) async {
-      await openDevices(tester);
-
-      await openActions(tester, tablet);
-      expect(find.byKey(const Key('revoke')), findsOneWidget);
-      expect(find.byKey(const Key('delete')), findsNothing);
-      await tester.tapAt(Offset.zero);
-      await tester.pumpAndSettle();
-
-      await openActions(tester, 'c-phone');
-      expect(find.byKey(const Key('delete')), findsOneWidget);
-      expect(find.byKey(const Key('revoke')), findsNothing);
-      expect(find.byKey(const Key('makeAdmin')), findsNothing);
-    });
-
-    testWidgets('deletes a revoked device after a confirmation', (
-      tester,
-    ) async {
-      await openDevices(tester);
-
-      await choose(tester, 'c-phone', 'delete');
-      expect(find.text('Delete "Old phone"?'), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      expect(backend.otherClients.map((c) => c['id']), contains('c-phone'));
-
-      await choose(tester, 'c-phone', 'delete');
-      await tester.tap(find.byKey(const Key('confirm')));
-      await settle(tester);
-
-      expect(
-        backend.otherClients.map((c) => c['id']),
-        isNot(contains('c-phone')),
-      );
-      expect(find.byKey(const Key('device-c-phone')), findsNothing);
-      expect(find.text('Old phone'), findsNothing);
-    });
-
-    testWidgets('a server older than deleting devices says so', (tester) async {
-      backend.noDeviceDeletion = 404;
-      await openDevices(tester);
-
-      await choose(tester, 'c-phone', 'delete');
-      await tester.tap(find.byKey(const Key('confirm')));
-      await settle(tester);
-
-      expect(
-        find.text(AppController.deletingUnsupportedMessage),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('device-c-phone')), findsOneWidget);
-      // Delete is not offered again; the other actions still are.
-      expect(find.byKey(const Key('deviceActions-c-phone')), findsNothing);
-      expect(find.byKey(const Key('deviceActions-$tablet')), findsOneWidget);
-    });
-
-    testWidgets('rights taken away before deleting are explained', (
-      tester,
-    ) async {
-      await openDevices(tester);
-      backend.admin = false;
-
-      await choose(tester, 'c-phone', 'delete');
-      await tester.tap(find.byKey(const Key('confirm')));
-      await settle(tester);
-
-      expect(backend.otherClients.map((c) => c['id']), contains('c-phone'));
-      expect(find.byKey(const Key('notAdmin')), findsOneWidget);
-      expect(find.text('Old phone'), findsNothing);
-    });
-
-    testWidgets('the last device scrolls clear of the navigation bar', (
-      tester,
-    ) async {
-      useEdgeToEdgePhone(tester);
-      // More devices than fit on the screen. Revoked ones come last and
-      // offer no actions: the last device here is one that does.
-      backend.otherClients.removeWhere((c) => c['revokedAt'] != null);
-      for (var i = 1; i <= 20; i++) {
-        backend.addClient('c-$i', 'Device $i');
-      }
-      await openDevices(tester);
-
-      await scrollToEnd(tester, find.byType(DevicesScreen));
-
-      expectClearOfNavigationBar(tester, find.byKey(const Key('device-c-20')));
-      final actions = find.byKey(const Key('deviceActions-c-20'));
-      expectClearOfNavigationBar(tester, actions);
-      await tester.tap(actions);
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('revoke')), findsOneWidget);
-    });
-
-    testWidgets('revokes a device after a confirmation', (tester) async {
-      await openDevices(tester);
-
-      await choose(tester, tablet, 'revoke');
-      expect(find.text('Revoke "Tablet"?'), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      expect(backend.otherClients.first['revokedAt'], isNull);
-
-      await choose(tester, tablet, 'revoke');
-      await tester.tap(find.byKey(const Key('confirm')));
-      await settle(tester);
-
-      expect(backend.otherClients.first['revokedAt'], isNotNull);
-      expect(inDevice(tablet, find.text('Revoked')), findsOneWidget);
-      // Revoked, it can only be deleted.
-      await openActions(tester, tablet);
-      expect(find.byKey(const Key('delete')), findsOneWidget);
-      expect(find.byKey(const Key('revoke')), findsNothing);
-    });
-
-    testWidgets('makes a device an admin after a confirmation', (tester) async {
-      await openDevices(tester);
-
-      await choose(tester, tablet, 'makeAdmin');
-      expect(find.text('Make "Tablet" an admin device?'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('confirm')));
-      await settle(tester);
-
-      expect(backend.otherClients.first['admin'], isTrue);
-      expect(inDevice(tablet, find.text('Admin device')), findsOneWidget);
-      expect(find.byKey(const Key('deviceActions-$tablet')), findsNothing);
-    });
-
-    testWidgets('a refused change says why', (tester) async {
-      await openDevices(tester);
-      backend.otherClients.first['admin'] = true;
-
-      await choose(tester, tablet, 'revoke');
-      await tester.tap(find.byKey(const Key('confirm')));
-      await settle(tester);
-
-      expect(
-        find.text('The server answered 409: Client is an admin device'),
-        findsOneWidget,
-      );
-      expect(inDevice(tablet, find.text('Admin device')), findsOneWidget);
-    });
-
-    testWidgets('rights taken away meanwhile are explained', (tester) async {
-      await openDevices(tester);
-      backend.admin = false;
-
-      await choose(tester, tablet, 'makeAdmin');
-      await tester.tap(find.byKey(const Key('confirm')));
-      await settle(tester);
-
-      expect(backend.otherClients.first['admin'], isFalse);
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('notAdmin')),
-          matching: find.text(AppController.notAdminMessage),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Tablet'), findsNothing);
-    });
-
-    Future<void> createPairing(WidgetTester tester, String name) async {
-      await tester.tap(find.byKey(const Key('connectDevice')));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const Key('pairingName')), name);
-      await tester.tap(find.byKey(const Key('createPairing')));
-      await settle(tester);
-    }
-
-    Future<void> goBack(WidgetTester tester) async {
-      await tester.tap(find.byType(BackButton));
-      await settle(tester);
-    }
-
-    testWidgets('an admin device connects a device with a QR code', (
-      tester,
-    ) async {
-      backend.pairingExpiresAt = DateTime.now().add(
-        const Duration(minutes: 10),
-      );
-      await openDevices(tester);
-
-      await createPairing(tester, 'New tablet');
-
-      expect(backend.devicePairingNames, ['New tablet']);
-      expect(
-        tester.widget<PairingQr>(find.byType(PairingQr)).data,
-        controller.pairingLink,
-      );
-      expect(find.textContaining('It works once.'), findsOneWidget);
-      expect(find.byKey(const Key('copyLink')), findsOneWidget);
-
-      // Back on the devices, the code is forgotten and the list re-read.
-      final listings = backend.requests
-          .where((r) => r.url.path == '/api/v1/client/devices')
-          .length;
-      await goBack(tester);
-      expect(controller.pairing, isNull);
-      expect(
-        backend.requests
-            .where((r) => r.url.path == '/api/v1/client/devices')
-            .length,
-        listings + 1,
-      );
-    });
-
-    testWidgets('a used code is announced and its device listed on return', (
-      tester,
-    ) async {
-      backend.pairingExpiresAt = DateTime.now().add(
-        const Duration(minutes: 10),
-      );
-      await openDevices(tester);
-      await createPairing(tester, 'New tablet');
-
-      backend.usePairing('New tablet');
-      await tester.pump(ConnectDeviceScreen.pollInterval);
-      await settle(tester);
-
-      expect(
-        find.text('"New tablet" connected with the pairing code.'),
-        findsOneWidget,
-      );
-      expect(find.byType(PairingQr), findsNothing);
-      expect(find.byKey(const Key('createPairing')), findsOneWidget);
-      await goBack(tester);
-      expect(inDevice('paired-0', find.text('New tablet')), findsOneWidget);
-    });
-
-    testWidgets('a server older than pairing from a device says so', (
-      tester,
-    ) async {
-      backend.devicePairings = false;
-      await openDevices(tester);
-
-      await createPairing(tester, 'New tablet');
-
-      expect(
-        find.text(AppController.pairingUnsupportedMessage),
-        findsOneWidget,
-      );
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('createPairing')))
-            .onPressed,
-        isNull,
-      );
-      await goBack(tester);
-      // Device management stays; connecting a device is no longer offered.
-      expect(find.byKey(const Key('connectDevice')), findsNothing);
-      expect(inDevice(tablet, find.text('Tablet')), findsOneWidget);
-    });
-
-    testWidgets('rights taken away before creating a code are explained', (
-      tester,
-    ) async {
-      await openDevices(tester);
-      backend.admin = false;
-
-      await createPairing(tester, 'New tablet');
-
-      expect(find.text(AppController.notAdminMessage), findsOneWidget);
-      expect(find.byType(PairingQr), findsNothing);
-      expect(backend.devicePairingNames, isEmpty);
-      await goBack(tester);
-      expect(find.byKey(const Key('notAdmin')), findsOneWidget);
-      expect(find.byKey(const Key('connectDevice')), findsNothing);
     });
   });
 }

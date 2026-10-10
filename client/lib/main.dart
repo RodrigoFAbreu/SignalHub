@@ -9,6 +9,7 @@ import 'src/api/signalhub_api.dart';
 import 'src/app.dart';
 import 'src/app_controller.dart';
 import 'src/connection/server_credentials.dart';
+import 'src/onboarding/onboarding_store.dart';
 import 'src/push/firebase_push_service.dart';
 import 'src/settings/settings_groups.dart';
 
@@ -28,6 +29,7 @@ Future<void> main() async {
         ? MethodChannelAlertPlatform()
         : null,
     openGroups: SecureOpenGroupsStore(),
+    onboarding: SecureOnboardingStore(),
   );
   runApp(SignalHubApp(controller: controller));
   unawaited(controller.start());

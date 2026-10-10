@@ -45,6 +45,22 @@ class FakeBackend {
     'mutedProducerIds': <String>[],
   };
 
+  /// The role of this client's user when it is not an admin device (an admin
+  /// device's user is an admin, as on the server): `BASIC`, `MOD` or `ADMIN`.
+  String userRole = 'BASIC';
+
+  /// The name of this client's user.
+  String userName = 'Rodrigo';
+
+  /// When the client's user, as a user's registration says, was last active.
+  String? lastActiveAt;
+
+  /// Handlers a feature's tests add for the paths they cover. Each gets the
+  /// request and its path below `/api/` (`/api/v1/...`), after the key was
+  /// checked, and answers it, or `null` to leave it to the next handler and
+  /// then to the fake itself.
+  final handlers = <FutureOr<http.Response?> Function(http.Request, String)>[];
+
   /// Whether this client is an admin device; `null` for a server released
   /// before admin devices, which leaves the field out.
   bool? admin = false;
@@ -203,6 +219,9 @@ class FakeBackend {
     }
     if (request.headers['Authorization'] != 'Bearer $acceptedKey') {
       return _json(401, {'title': 'Unauthorized', 'status': 401});
+    }
+    for (final handler in handlers) {
+      if (await handler(request, path) case final answer?) return answer;
     }
     final eventId = RegExp(r'^/api/v1/events/([^/]+)$')
         .firstMatch(path)
@@ -447,10 +466,20 @@ class FakeBackend {
   static http.Response _eventNotFound() =>
       _json(404, {'title': 'Event not found', 'status': 404});
 
+  /// This client as the API answers it.
+  Map<String, Object?> clientJson() => _client();
+
   Map<String, Object?> _client() => {
     'id': '01a0da2c-1f3e-7a51-8d0c-6b1f2e3d4c5b',
     'name': 'Pixel 8',
     'admin': ?admin,
+    if (admin != null)
+      'user': {
+        'id': 'user-0',
+        'name': userName,
+        'role': admin == true ? 'ADMIN' : userRole,
+      },
+    'lastActiveAt': lastActiveAt,
     'createdAt': '2026-09-25T18:02:11.108811Z',
     'revokedAt': null,
     'pushTarget': pushTarget,

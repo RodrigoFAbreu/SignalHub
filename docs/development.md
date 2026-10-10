@@ -997,9 +997,9 @@ re-reading the inbox, paging and its
 failures, opening a tapped notification's event, disconnect), the Firebase
 options from build-time values, and the screens in widget tests (inbox,
 paging while scrolling, event details, opening from a notification, the
-Settings screen: the gear icon, each group folded and unfolded, their
+Settings screen: the bottom bar's tab, each group folded and unfolded, their
 summaries, the groups left open kept on the device, greyed groups while
-push is off, the Devices row only on an admin device, disconnecting after
+push is off, the Devices row for every role, disconnecting after
 a confirmation) and
 read state (the API calls, the unread count, marking read on opening,
 marking unread, marking all read up to the newest event shown, and their
@@ -1019,7 +1019,21 @@ as `playedOnPhone` in the test fakes models `AlertPlayer`; the carry-over
 of the critical-only switches an earlier version saved; previews; access
 not given, given later or taken away), and the *Critical alert* sub-group
 inside *Alert* (greyed and closed while the switch is off, unfolding and
-remembered while it is on). Builds without
+remembered while it is on). The screens for users are tested per role
+(`AppHarness(role: 'BASIC' | 'MOD' | 'ADMIN')` in `test/support/harness.dart`
+opens the app against `FakeBackend`, which other fakes extend with `handlers`
+for the paths a screen needs): the bottom bar and role changes, setup and
+its failures, the welcome and *What's new*, Settings and *About this server*,
+the producers (list, bell, own producers, the key shown once, the allow-list),
+people, invitations, devices by role and connecting a device, each with its
+controller, 360 dp at 200 % text and the light theme where the drawings show
+it. Each screen is also compared with its approved drawing in
+`docs/design/users/source/`: render the drawing's page in a headless browser
+(serve the folder with `python3 -m http.server`) and run the widget tests with
+`SIGNALHUB_SCREENSHOTS=<directory>`, which makes the tests that call
+`saveScreenshot` (`test/support/screenshot.dart`, with Roboto and the Material
+icons loaded from the Flutter SDK) write each frame as a PNG to put beside it.
+Builds without
 Firebase options run without push. The Android code that plays the alert
 is compiled by the release APK build and checked on a phone by the device
 review.

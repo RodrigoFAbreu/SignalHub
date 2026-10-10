@@ -44,7 +44,7 @@ SHADE_WINDOWS = frozenset({"NotificationShade", "StatusBar"})
 # The texts the app shows, from client/lib/src (a reference for finding
 # elements on the screen, not a contract).
 PUSH_ON = "Push notifications are on"
-# The inbox's gear icon, which opens the Settings screen.
+# The bottom bar's Settings tab, which opens the Settings screen.
 SETTINGS = "Settings"
 PUSH_SWITCH = "Push notifications"
 # The folding groups of the Settings screen: each header's title, and a text
@@ -728,7 +728,7 @@ class Review:
         raise CheckFailed("the inbox is not on the screen")
 
     def open_settings(self) -> None:
-        """The Settings screen, from the inbox's gear icon."""
+        """The Settings screen, from the bottom bar's Settings tab."""
         self.inbox()
         self.device.tap_label(SETTINGS, exact=True)
         self.device.wait_for(PUSH_FILTERS_GROUP, exact=True)

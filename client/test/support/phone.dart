@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The logical height of the navigation bar drawn over the app.
@@ -43,4 +43,27 @@ void expectClearOfNavigationBar(WidgetTester tester, Finder finder) {
   final rect = tester.getRect(finder);
   expect(rect.top, greaterThanOrEqualTo(0));
   expect(rect.bottom, lessThanOrEqualTo(height - navigationBarHeight));
+}
+
+/// Sizes the test view as the design's phone: 412 x 892 dp at 2x, with the
+/// drawing's 28 dp status bar as a top inset and no navigation bar. `size`
+/// is in dp; 360 x 900 is the narrowest the screens are checked at.
+void useDesignPhone(
+  WidgetTester tester, {
+  Size size = const Size(412, 892),
+  double textScale = 1,
+  Brightness brightness = Brightness.dark,
+}) {
+  const ratio = 2.0;
+  const insets = FakeViewPadding(top: 28 * ratio);
+  tester.view
+    ..physicalSize = size * ratio
+    ..devicePixelRatio = ratio
+    ..padding = insets
+    ..viewPadding = insets;
+  tester.platformDispatcher.textScaleFactorTestValue = textScale;
+  tester.platformDispatcher.platformBrightnessTestValue = brightness;
+  addTearDown(tester.view.reset);
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
 }

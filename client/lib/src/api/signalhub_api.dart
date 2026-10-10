@@ -9,7 +9,9 @@ import '../models/client_registration.dart';
 import '../models/event.dart';
 import '../models/inbox_filter.dart';
 import '../models/json.dart';
+import '../models/producers.dart';
 import '../models/push_config.dart';
+import '../models/users.dart';
 
 /// A request to the backend failed.
 class ApiException implements Exception {
@@ -156,13 +158,20 @@ class SignalHubApi {
         .toList(growable: false),
   );
 
-  /// `POST /api/v1/client/devices/{id}/admin`: makes the client an admin
-  /// device. `409` for a revoked client.
-  Future<ManagedDevice> makeDeviceAdmin(String id) =>
-      _changeDevice(id, 'admin');
+  /// `PATCH /api/v1/client/devices/{id}`: renames a client (a mod their own,
+  /// an admin any that is not an admin's). `409` for a revoked client or an
+  /// admin's device, `403` for a basic user.
+  Future<ManagedDevice> renameDevice(String id, String name) async => _read(
+    await _send(
+      'PATCH',
+      'api/v1/client/devices/${Uri.encodeComponent(id)}',
+      body: {'name': name},
+    ),
+    ManagedDevice.fromJson,
+  );
 
-  /// `POST /api/v1/client/devices/{id}/revoke`: revokes a client that is not
-  /// an admin. Idempotent; `409` for an admin.
+  /// `POST /api/v1/client/devices/{id}/revoke`: revokes a client. Idempotent;
+  /// `409` for an admin's device or a mod's last active device.
   Future<ManagedDevice> revokeDevice(String id) => _changeDevice(id, 'revoke');
 
   /// `DELETE /api/v1/client/devices/{id}`: deletes a revoked client, `204`.
@@ -182,13 +191,18 @@ class SignalHubApi {
   );
 
   /// `POST /api/v1/client/pairings`: a one-time pairing code for a new
-  /// device named [name], never an admin. Only an admin device's key is
-  /// accepted: any other gets `403`, and a server released before pairing
-  /// from a device `404`.
-  Future<DevicePairing> createPairing(String name) async => _read(
-    await _send('POST', 'api/v1/client/pairings', body: {'name': name}),
-    DevicePairing.fromJson,
-  );
+  /// device named [name], for this device's own user or, from an admin's
+  /// device, for [userId]. `403` for a basic user (or a mod naming another
+  /// user), and a server released before pairing from a device `404`.
+  Future<DevicePairing> createPairing(String name, {String? userId}) async =>
+      _read(
+        await _send(
+          'POST',
+          'api/v1/client/pairings',
+          body: {'name': name, 'userId': ?userId},
+        ),
+        DevicePairing.fromJson,
+      );
 
   /// `GET /api/v1/client/pairings/{id}`: whether a pairing code this device
   /// created was used, and by which device. `404` for any other pairing, and
@@ -198,6 +212,188 @@ class SignalHubApi {
     await _send('GET', 'api/v1/client/pairings/${Uri.encodeComponent(id)}'),
     PairingStatus.fromJson,
   );
+
+  /// `GET /api/v1/client/server`: the release the server runs.
+  Future<ServerInfo> getServer() async =>
+      _read(await _send('GET', 'api/v1/client/server'), ServerInfo.fromJson);
+
+  /// `GET /api/v1/client/visible-producers`: the producers this user may
+  /// see, by name.
+  Future<List<VisibleProducer>> listVisibleProducers() async => _read(
+    await _send('GET', 'api/v1/client/visible-producers'),
+    (json) => _items(json, VisibleProducer.fromJson),
+  );
+
+  /// `PUT /api/v1/client/visible-producers/{id}/subscription`. Idempotent;
+  /// `404` for a producer this user does not see.
+  Future<VisibleProducer> subscribe(String producerId) =>
+      _subscription('PUT', producerId);
+
+  /// `DELETE /api/v1/client/visible-producers/{id}/subscription`.
+  Future<VisibleProducer> unsubscribe(String producerId) =>
+      _subscription('DELETE', producerId);
+
+  Future<VisibleProducer> _subscription(String method, String id) async =>
+      _read(
+        await _send(
+          method,
+          'api/v1/client/visible-producers/${Uri.encodeComponent(id)}'
+          '/subscription',
+        ),
+        VisibleProducer.fromJson,
+      );
+
+  /// `GET /api/v1/client/producers`: the producers this user owns.
+  Future<List<OwnProducer>> listOwnProducers() async => _read(
+    await _send('GET', 'api/v1/client/producers'),
+    (json) => _items(json, OwnProducer.fromJson),
+  );
+
+  /// `GET /api/v1/client/producers/{id}`. `404` for a producer this user
+  /// does not own, whatever it is.
+  Future<OwnProducer> getOwnProducer(String id) async =>
+      _read(await _send('GET', _producerPath(id)), OwnProducer.fromJson);
+
+  /// `POST /api/v1/client/producers`: registers a producer this user owns
+  /// and issues its first key, which is in the answer only. `409` for a name
+  /// taken (even by a private producer of someone else's), `400` for a name
+  /// the server does not allow.
+  Future<IssuedProducerKey> createProducer(
+    String name, {
+    ProducerVisibility visibility = ProducerVisibility.private,
+  }) async => _read(
+    await _send(
+      'POST',
+      'api/v1/client/producers',
+      body: {'name': name, 'visibility': visibility.wireName},
+    ),
+    IssuedProducerKey.fromJson,
+  );
+
+  /// `PATCH /api/v1/client/producers/{id}`: renames it and/or sets who may
+  /// see it; at least one.
+  Future<OwnProducer> updateProducer(
+    String id, {
+    String? name,
+    ProducerVisibility? visibility,
+  }) async => _read(
+    await _send(
+      'PATCH',
+      _producerPath(id),
+      body: {'name': ?name, 'visibility': ?visibility?.wireName},
+    ),
+    OwnProducer.fromJson,
+  );
+
+  /// `POST /api/v1/client/producers/{id}/keys`: an additional key, in the
+  /// answer only.
+  Future<IssuedProducerKey> issueProducerKey(String id) async => _read(
+    await _send('POST', '${_producerPath(id)}/keys'),
+    IssuedProducerKey.fromJson,
+  );
+
+  /// `POST /api/v1/client/producers/{id}/keys/{keyId}/revoke`: for good.
+  Future<OwnProducer> revokeProducerKey(String id, String keyId) async => _read(
+    await _send(
+      'POST',
+      '${_producerPath(id)}/keys/${Uri.encodeComponent(keyId)}/revoke',
+    ),
+    OwnProducer.fromJson,
+  );
+
+  /// `POST /api/v1/client/producers/{id}/disable`: its keys stop working;
+  /// its events stay.
+  Future<OwnProducer> disableProducer(String id) =>
+      _producerAction(id, 'disable');
+
+  /// `POST /api/v1/client/producers/{id}/enable`. `409` for a producer the
+  /// host disabled.
+  Future<OwnProducer> enableProducer(String id) =>
+      _producerAction(id, 'enable');
+
+  Future<OwnProducer> _producerAction(String id, String action) async => _read(
+    await _send('POST', '${_producerPath(id)}/$action'),
+    OwnProducer.fromJson,
+  );
+
+  /// `PUT /api/v1/client/producers/{id}/allowed-users/{userId}`.
+  Future<OwnProducer> allowUser(String id, String userId) =>
+      _allowedUser('PUT', id, userId);
+
+  /// `DELETE /api/v1/client/producers/{id}/allowed-users/{userId}`: also
+  /// ends that user's subscription to a private producer.
+  Future<OwnProducer> disallowUser(String id, String userId) =>
+      _allowedUser('DELETE', id, userId);
+
+  Future<OwnProducer> _allowedUser(
+    String method,
+    String id,
+    String userId,
+  ) async => _read(
+    await _send(
+      method,
+      '${_producerPath(id)}/allowed-users/${Uri.encodeComponent(userId)}',
+    ),
+    OwnProducer.fromJson,
+  );
+
+  static String _producerPath(String id) =>
+      'api/v1/client/producers/${Uri.encodeComponent(id)}';
+
+  /// `GET /api/v1/client/users`: the people on the server who are not
+  /// removed. Names only, unless the key is an admin's.
+  Future<List<Person>> listPeople() async => _read(
+    await _send('GET', 'api/v1/client/users'),
+    (json) => _items(json, Person.fromJson),
+  );
+
+  /// `GET /api/v1/client/users/{id}/producers`: admin only. `404` for an
+  /// unknown or removed user.
+  Future<List<PersonProducer>> listPersonProducers(String userId) async =>
+      _read(
+        await _send(
+          'GET',
+          'api/v1/client/users/${Uri.encodeComponent(userId)}/producers',
+        ),
+        (json) => _items(json, PersonProducer.fromJson),
+      );
+
+  /// `POST /api/v1/client/users`: admin only. Invites a user and creates the
+  /// pairing code of their first device. `409` for a name taken.
+  Future<({UserRef user, DevicePairing pairing})> inviteUser(
+    String name, {
+    required UserRole role,
+    String? deviceName,
+  }) async => _read(
+    await _send(
+      'POST',
+      'api/v1/client/users',
+      body: {'name': name, 'role': role.wireName, 'deviceName': ?deviceName},
+    ),
+    (json) => (
+      user: UserRef.fromJson(json.object('user')),
+      pairing: DevicePairing.fromJson(json.object('pairing')),
+    ),
+  );
+
+  /// `PATCH /api/v1/client/users/{id}`: admin only. Sets the role of a user
+  /// who is not an admin to basic or mod.
+  Future<UserRef> setUserRole(String userId, UserRole role) async => _read(
+    await _send(
+      'PATCH',
+      'api/v1/client/users/${Uri.encodeComponent(userId)}',
+      body: {'role': role.wireName},
+    ),
+    UserRef.fromJson,
+  );
+
+  static List<T> _items<T>(
+    Map<String, Object?> json,
+    T Function(Map<String, Object?>) read,
+  ) => json
+      .list('items')
+      .map((item) => read(asObject(item, 'items[]')))
+      .toList(growable: false);
 
   /// `GET /api/v1/events`: one page of events matching [filter], newest
   /// first. Pass the previous page's [EventPage.nextCursor] as [cursor], with

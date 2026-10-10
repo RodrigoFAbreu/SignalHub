@@ -2370,6 +2370,51 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   each choice with its alternatives, what the server must provide, what
   was left out) and an index, `README.md`. Documentation only (`docs`)
 
+### R65 - Users in the app
+
+- **built** from the approved designs in `docs/design/users/` (G4), on the
+  R62, R68 and R69 API, with each screen compared with its rendered drawing:
+  a bottom bar (Inbox, Producers, Settings, and People for an admin; the
+  unread count as its badge; no gear); the Producers tab (search, chips, the
+  bell that subscribes in place with Undo and Retry, offline and older-list
+  states, a producer's events); a producer's key shown once on a full screen
+  with a leave guard, a producer's own screen (rename, who can see it, the
+  allow-list, keys, disable and enable, the host's disabling), and someone
+  else's; People, an invitation, and a person (role, devices, producers);
+  Devices by role and Connect a device (`userId` for an admin); setup that
+  scans the invitation inline, a welcome once and a *What's new* card once,
+  *About this server* (`GET /api/v1/client/server`), the neutral
+  "no longer connected" after any `401`, an event that is no longer in the
+  inbox, device notices that open *Devices*; the role is re-read when an
+  action is refused and the screens follow it; the device admin switch is
+  gone (roles replace it)
+- **decided** where the entry left a choice: the app's calls go through one
+  gateway (a `401` returns to setup quietly, a `403` re-reads the
+  registration); each feature has its own controller beside `AppController`;
+  the Producers tab reads the visible and the owned producers together; the
+  inbox's producer filter and *Push filters* list the producers the user
+  subscribes to; sharing a key or a pairing link uses the platform's share
+  sheet over a method channel of the app, so there is no sharing package;
+  the welcome and *What's new* are kept on the device
+  (`signalhub.onboarding.step`); a browser is drawn as a device row (a globe,
+  a *Browser* tag, *Sign out*) but no device is one yet, because the server
+  does not say (R66 gives it a way); the app's *Sign in a browser* (the
+  Settings row, scanner, typed code and confirmation) is left to R66, as the
+  entry says
+- **deliberate differences from the drawings** (each is data or a rule the
+  server does not give, or Flutter's own metrics): the inbox row keeps the full
+  time the app already shows (the drawings show `01:19` and `Yesterday`);
+  Settings keeps its *Push notifications* switch and the existing groups'
+  summaries; some sentences the drawings do not draw were written in the
+  drawings' words (stale list, a missing producer, About's unknown version);
+  Material's letter spacing wraps a few lines earlier than the browser
+  drawings; touch targets of 48 dp sit a few dp lower than drawn
+- tests: controller and widget tests per role for every screen and state
+  (BASIC, MOD, ADMIN), 360 dp at 200 % text, the light theme where drawn,
+  the gateway, models and API calls; the Flutter formatter, analyzer and tests
+  in CI. `docs/architecture.md` (Client application), `client/README.md`,
+  `docs/development.md`. Compatible (`feat(client)`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2956,8 +3001,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 55    | R69 - When devices and keys were last used, and the server's version                             | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 56    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Done (see section 3)                                                             |
 | 57    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Passed (2026-10-10, approved without changes)                                    |
-| 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Next                                                                             |
-| 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
+| 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Done (see section 3)                                                             |
+| 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -5375,7 +5420,7 @@ orchestrator stops here and never answers it.
 
 ### R65 - Users in the app
 
-Status: next (G4 passed). Added by the maintainer
+Status: done (see section 3). Added by the maintainer
 (2026-10-10).
 
 Goal: the app does everything R62 allows each role, as designed in R64
@@ -5415,7 +5460,7 @@ the approved designs works for an admin and for a basic user.
 
 ### R66 - Users' web page
 
-Status: blocked until R65 is merged. Added by the maintainer
+Status: next (R65 is done). Added by the maintainer
 (2026-10-10).
 
 Goal: a user can do from a browser what R62 allows their role, and read
@@ -5705,9 +5750,10 @@ subscriptions), R62 (self-service for users: the API) and R63 (the admin
 page: traffic by user), R67 (the third batch of Dependabot
 updates), R68 (people's details for admins in the client API) and R69
 (when devices and keys were last used, and the server's version) and R64
-(designs for users in the app and on a web page) are done, and the
-maintainer approved the designs at G4. **R65 (users in the app) is next**,
-then R66 (users' web page). A new
+(designs for users in the app and on a web page) are done, the
+maintainer approved the designs at G4, and R65 (users in the app) is
+done. **R66 (users' web page) is next**, with the app's *Sign in a browser*
+that R65 left to it. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
 
