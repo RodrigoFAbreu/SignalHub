@@ -20,13 +20,17 @@
 ## Purpose
 
 SignalHub accepts generic events from any producer, persists them, and delivers
-notifications about them to the owner's devices. It is a personal platform:
-one owner, many producers, and one or more clients.
+notifications about them to the devices of the people it serves. It is a
+self-hosted platform for one person or a few: many producers, and several
+[users](#users-roles-and-subscriptions), each with their own devices, producers and
+subscriptions, who receive only the events of the producers they subscribed to.
+Most pages of these documents say "the owner" for the person who installed it:
+the first user, an admin.
 
 ## System boundaries
 
 ```
- Producers                     SignalHub                         Owner
+ Producers                     SignalHub                         Users
 ┌──────────────┐          ┌──────────────────────┐          ┌──────────────┐
 │ agents       │          │  Backend (Quarkus)   │  push    │ Clients      │
 │ CI systems   │  HTTPS   │   ├ ingest + validate│ ───────▶ │ (mobile, web,│
@@ -309,10 +313,13 @@ response schemas, with examples. See
 `GET /api/v1/events` is the inbox: what a client shows the owner without
 knowing any event ID in advance.
 
-**Credential.** It requires one of the owner's credentials: a client key (see
-[Clients](#clients)), which is how client applications read, or the admin
-token (see [Producer management](#producer-management)), which lets the
-operator read with curl. Without a configured admin token only client keys
+**Credential.** It requires a client key (see [Clients](#clients)), which is
+how client applications read, or the admin token (see [Producer
+management](#producer-management)), which lets the operator read with curl.
+**Whose events.** A client key lists only the events of the producers its
+[user is subscribed to](#users-roles-and-subscriptions); the admin token lists every
+event, as the operator is no user. A filter on a producer the user does not
+receive matches nothing. Without a configured admin token only client keys
 are accepted; the listing never answers `404`. Anything else, including a
 producer key, gets the same `401` as every credential failure: producers
 publish, they do not read other producers' events.
@@ -334,6 +341,8 @@ matches any of its values (OR), e.g. `severity=HIGH&severity=CRITICAL`.
 | `read` | `false`: only unread events (`readAt` is `null`); `true`: only read events. Anything else is `400`. See [Read state](#read-state). |
 | `createdFrom` | Events with `createdAt` at or after this time (inclusive). |
 | `createdBefore` | Events with `createdAt` before this time (exclusive). |
+| `userId` | **Admin token only** (a client key gets `400`): events of the producers this user owns or is subscribed to, as the operator's view of that user's traffic; revoked users included, `404` for an unknown one. See [Traffic by user](#traffic-by-user). |
+| `relation` | With `userId` (else `400`): `OWNED`, only the producers the user owns, or `SUBSCRIBED`, only those they are subscribed to (an owner is subscribed to their own producer from its creation, so these include theirs). Absent: either. |
 
 Timestamps follow the same rules as in request bodies: ISO-8601 with an
 explicit offset. In a URL, write a `+` offset as `%2B`, or use `Z`. Filters
@@ -382,10 +391,13 @@ parameters are ignored.
 
 ### Read state
 
-Every event is either unread or read, and read state belongs to the owner,
-not to a client: an event one client marks read is read on every client.
-SignalHub has a single owner, so this is one nullable `readAt` per event,
-not a per-client or per-user table.
+Every event is either unread or read, and read state belongs to the user,
+not to a client: an event one device marks read is read on all of that
+user's devices, and on nobody else's (`event_reads`, one row per user and
+event). The operator, who reads with the admin token and is no user, has a
+read state of their own: `events.read_at`, which the admin page shows. Both
+start unread; `V17__create_users_roles_subscriptions.sql` copies the marks
+that existed into the first user's.
 
 - A stored event starts unread: `readAt` is `null` in every representation
   of it, including the `201` answer to its producer.
@@ -399,9 +411,12 @@ not a per-client or per-user table.
   there is deliberately no "mark everything" without a position.
 - `GET /api/v1/events/unread-count` answers `{"unread": <count>}`.
 
-All four require one of the owner's credentials, like the listing; producers
-never change or see read state except as `readAt` in event representations.
-An unknown event ID (also as `through`) is `404`. Marking read changes
+All four require a client key or the admin token, like the listing; producers
+never change or see read state: `readAt` is `null` in every answer to a
+producer. An event ID (also as `through`) that does not exist, or whose
+producer the user is not subscribed to, is `404`, so what a user cannot
+receive is indistinguishable from what does not exist. The unread count, and
+marking read up to an event, cover only the events the user receives. Marking read changes
 nothing about delivery: pushes are sent whether or not an event is read.
 Concurrent marks from several clients are safe: each is one conditional
 `UPDATE`, and marking read never moves an existing `readAt`.
@@ -558,12 +573,16 @@ unique index on `(producer_id, idempotency_key)` over events that have one.
 have none), checked to be 1 to 2000 characters; the API checks the scheme.
 `V16__create_event_deliveries.sql` creates the `event_deliveries` table of
 [delivery records](#delivery-records); existing events have none.
+`V17__create_users_roles_subscriptions.sql` adds `event_reads`, the per-user
+[read state](#read-state), keyed by user and event and deleted with the event;
+`events.read_at` stays as the operator's own read state.
 
 ## Producers and authentication
 
-> Status: implemented. Producers authenticate with API keys; the owner's
-> clients have their own keys (see [Clients](#clients)), and the operator an
-> admin token. There are no user accounts: SignalHub has one owner.
+> Status: implemented. Producers authenticate with API keys; users' devices
+> have their own keys (see [Clients](#clients)), and the operator an admin
+> token. Every producer is owned by a user (see [Users, roles and
+> subscriptions](#users-roles-and-subscriptions)); there are no passwords.
 
 A **producer** is a registered external system that publishes events: a CI
 pipeline, an agent, a monitor, a script. SignalHub treats every producer the
@@ -660,12 +679,14 @@ The operator manages producers through a small HTTP API under
   publishing. This is the default in every environment.
 - With the variable set, requests without the exact token get the same `401`
   as producer failures. Producer keys are not admin tokens and vice versa.
-- The same token also manages clients (see [Clients](#clients)) and may read
-  the event listing (see [Listing events](#listing-events)): in a
-  single-owner service the operator is the owner.
+- The same token also manages users and clients (see [Users, roles and
+  subscriptions](#users-roles-and-subscriptions) and [Clients](#clients)) and
+  may read the event listing (see [Listing events](#listing-events)): the
+  operator is the person with access to the machine, and acts for no user.
+  It is the only way to make a user an admin.
 
-This is a bootstrap mechanism for a single-owner, self-hosted service, not a
-user or role system. See [development.md](development.md#producers-and-api-keys)
+This is a bootstrap mechanism for a self-hosted service, not an identity
+system: the admin token is the final authority, and no user can obtain it. See [development.md](development.md#producers-and-api-keys)
 for curl examples.
 
 | Method and path | Result |
@@ -727,6 +748,16 @@ events reference it. Those events were published before authentication, so
 their attribution was never verified. The operator can issue keys to such a
 producer to keep using its name.
 
+`V17__create_users_roles_subscriptions.sql` adds `owner_id` (the user who owns
+the producer, never changed) and `visibility` (`PUBLIC` or `PRIVATE`, `PRIVATE`
+by default), and creates `producer_allowed_users` and `subscriptions`; see
+[Users, roles and subscriptions](#users-roles-and-subscriptions). Existing
+producers become the first user's, private.
+`V18__add_producer_disabled_by_owner.sql` adds `disabled_by_owner` (`false` by
+default, so existing disabled producers are the operator's): see [Own producers
+from a device](#own-producers-from-a-device). A producer's `name` can be
+changed from a device; its events and keys reference its ID.
+
 ### Logging
 
 Credentials never reach the logs. The backend logs producer registration,
@@ -764,26 +795,179 @@ Every product API endpoint requires a credential. This version does not yet:
   revoking and deleting are the only record that the client existed.
 
 **A stolen admin device** (its client key copied, or the device lost
-unlocked) can do what an [admin device](#device-management-from-an-admin-device)
-can, through the proxy, until the operator acts: read every event, list every
-device (names, push providers and push results, never keys or push tokens),
-make other devices admins, revoke devices that are not admins, delete
-revoked devices, and create pairing codes for new devices that are not
-admins. It cannot revoke an admin or take admin rights away, rename a
-device, pair an admin device, publish, or reach the management API, so the
-owner's admin devices keep working and the operator keeps control. Deleting
-takes nothing from a working device, since only revoked ones can be
-deleted, but it removes them from the list, so the device list alone no
-longer shows everything that happened: the log does. Every change it makes,
-and every device paired with its codes, is logged and pushes a notice to
-the owner's devices naming it; a deletion is logged but pushes nothing. To recover, on the [admin page](#the-admin-page) (or the management API)
-with the admin token: revoke the stolen device (its unused pairing codes
-stop working with it), revoke any device paired with its codes, take admin
-rights away from, or revoke, any device it made an admin, and pair again any
-device it revoked (a revoked client cannot be restored, and a deleted one
-is gone: its ID remains in the log lines `Client <caller> revoked client
-<id>` and `Client <caller> deleted client <id>`). Keep few admin devices:
-each is a key that can do this.
+unlocked) can do what an [admin device](#admin-devices) can, through the
+proxy, until the operator acts: read the events of its user's subscriptions,
+list every device of every user (names, push providers and push results,
+never keys or push tokens), revoke the devices of users who are not admins,
+delete such devices once revoked, and create pairing codes for any user who
+is not revoked, which includes devices of an admin (a pairing for an admin
+user makes an admin device, so a code is a bearer secret worth protecting).
+It cannot make anyone an admin or take admin rights away, revoke or delete an
+admin's device (its own included), publish, or reach the management API, so
+the operator keeps control. Deleting takes nothing from a working device,
+since only revoked ones can be deleted, but it removes them from the list,
+so the device list alone no longer shows everything that happened: the log
+does. Every revocation it makes, and every device paired with its codes, is
+logged and pushes a notice to the user's devices and the admins' devices
+naming it; a deletion is logged but pushes nothing. To recover, on the
+[admin page](#the-admin-page) (or the management API) with the admin token:
+revoke the stolen device (its unused pairing codes stop working with it),
+revoke any device paired with its codes, and pair again any device it
+revoked (a revoked client cannot be restored, and a deleted one is gone: its
+ID remains in the log lines `Client <caller> revoked client <id>` and
+`Client <caller> deleted client <id>`). Keep few admin users: each of their
+devices is a key that can do this.
+
+**A stolen device of an admin** can also, through the proxy, invite users as
+`BASIC` or `MOD` (each with a pairing code that is a bearer secret) and set the
+role of users who are not admins, so it can promote a basic user to mod; it
+still cannot make an admin, and the operator revokes the users it invited.
+**A stolen device of any user** can do what that user can: create, rename,
+make public and disable that user's producers, issue and revoke their keys,
+allow users on them, and subscribe and unsubscribe. It reaches no producer
+of anyone else's (`404`), and it cannot enable a producer the operator
+disabled. The user's producer keys are not in it (a key is shown once, to the
+device that created the producer), but it can issue new ones: revoke the
+device, then rotate the user's keys from another device or with the admin
+token. A user without limits can fill the server with producers; the
+operator revokes them.
+
+**A user's devices** can read only what that user is subscribed to, and a
+basic user's devices can change nothing about devices. The limits that keep
+users apart (events, read state, pushes, producers) are enforced by the
+backend on every request, not by the apps.
+
+## Users, roles and subscriptions
+
+> Status: implemented. SignalHub serves several people on one server. Each
+> person is a **user** with devices, producers and subscriptions of their own,
+> and receives only the events of the producers they are subscribed to.
+> SignalHub stays producer-agnostic and producers keep the same API.
+
+A **user** has a name and a role. There are no passwords, e-mail addresses or
+external identity providers: a user is identified by their paired devices'
+client keys, as the owner always was. A person gets an account only by the
+operator's invitation (a user and a pairing code).
+
+| Field | Meaning |
+|---|---|
+| `id` | Server-generated canonical ID (UUIDv7). |
+| `name` | 1–100 characters, not blank, unique ignoring case. The operator can rename a user. |
+| `role` | `BASIC`, `MOD` or `ADMIN` (below). |
+| `createdAt`, `revokedAt` | When the user was invited, and when they were revoked (`null` while active). |
+
+The data model is in `V17__create_users_roles_subscriptions.sql`:
+
+- `users`, as above. `CHECK (revoked_at IS NULL OR role <> 'ADMIN')`: a revoked
+  user is never an admin.
+- `clients.user_id` and `pairings.user_id`: every client belongs to exactly one
+  user for its whole life, and a pairing code is always for a given user; the
+  device that redeems it belongs to that user.
+- `producers.owner_id` and `producers.visibility` (`PUBLIC` or `PRIVATE`,
+  `PRIVATE` by default): every producer is owned by exactly one user.
+  `producer_allowed_users` is the allow-list of a private producer.
+- `subscriptions (user_id, producer_id)`: the producers whose events a user
+  receives.
+- `event_reads (user_id, event_id, read_at)`: per-user [read state](#read-state).
+- `clients.admin` and `pairings.admin` are gone: a device is an
+  [admin device](#admin-devices) exactly when its user is an `ADMIN`.
+
+### Roles
+
+What each role may do is enforced by the backend; the app and a web page
+follow. Producers and subscriptions are open to every role.
+
+| Role | Devices |
+|---|---|
+| `BASIC` | Reads their own devices. Cannot pair, rename, revoke or delete devices, not even their own. |
+| `MOD` | As `BASIC`, plus pairs, renames, revokes and deletes their own devices. A mod cannot revoke their own last active device, so they cannot lock themselves out. |
+| `ADMIN` | As `MOD`, plus sees every user's devices, renames, revokes and deletes any device that is not an admin's, creates pairing codes for any user who is not revoked, [invites users](#users-from-a-device) as `BASIC` or `MOD` and sets the role of users who are not admins to `BASIC` or `MOD`. |
+
+**Making a user an admin, or no longer one, is done only with the admin
+token** (`PATCH /api/v1/admin/users/{id}`, usually on the [admin
+page](#the-admin-page), on the machine itself), never from a device: machine
+access stays the final authority. An admin cannot demote, revoke or delete
+another admin's devices, nor their own. A device's role checks read its user
+at the time of the change, so an operator's change applies before a device's
+request or after it. Devices manage devices through
+[the client API](#device-management-from-a-device); inviting users and
+setting `BASIC` or `MOD` from a device is [described below](#users-from-a-device), and
+users' own producers and subscriptions are managed from their devices through
+[the self-service API](#own-producers-from-a-device), which every role may
+use.
+
+### Visibility and subscriptions
+
+A producer is `PUBLIC` (every user on the server may see it and subscribe) or
+`PRIVATE` (its owner and the users on its allow-list). New producers are
+`PRIVATE`. A user subscribes to producers they can see; a producer's owner is
+subscribed when it is created and may unsubscribe later. Losing sight of a
+private producer (taking a user off its allow-list, or making a public
+producer private for a subscriber who is neither owner nor allowed) ends that
+user's subscription in the same transaction; it does not come back by itself.
+Making a producer public again changes nobody's subscription.
+
+**What a user gets.** Their devices' inbox (`GET /api/v1/events`), the unread
+count, `GET /api/v1/events/{id}` and pushes cover only events of producers
+they are subscribed to; any other event is `404`. Subscribing shows the
+producer's stored events too, not only new ones. A device's [push
+preferences](#push-preferences) (pause, minimum severity, muted categories and
+producers) apply as before, on top of the subscriptions: an event is pushed to
+a device only if its user is subscribed to the event's producer, and the device
+is not paused or filtered. Devices of other users are not considered at all
+(no [delivery record](#delivery-records) is written for them). A retry
+checks the subscription again, so a user who stopped receiving a producer
+gets no retried push either (a `FILTERED` record says why).
+
+**What the operator gets.** The operator, with the admin token, sees every
+event, private producers' included, for testing and debugging, and every
+delivery record. The per-user view of the traffic comes later.
+
+### Inviting and removing users
+
+On the admin page, or with the management API, the operator creates a user
+(`POST /api/v1/admin/users`, name and role) and then a pairing code for them
+(`POST /api/v1/admin/pairings` with their `userId`); the device that redeems it
+belongs to that user and is an admin device if the user is an admin.
+`PATCH /api/v1/admin/users/{id}` renames a user or sets their role,
+`POST /api/v1/admin/users/{id}/revoke` removes them: all their devices are
+revoked (their keys stop working at once), their producers are disabled (their
+keys stop working too), and an admin is made a basic user as they are revoked.
+Their events stay, and can be deleted with the existing [event
+deletion](#deleting-events). A revoked user never changes again and cannot get
+devices, pairing codes or producers.
+
+| Method and path | Result |
+|---|---|
+| `POST /api/v1/admin/users` | Invites a user (`{"name", "role"}`, `role` optional, `BASIC` by default). `201` with the user; `409` if the name is taken. |
+| `GET /api/v1/admin/users`, `GET /api/v1/admin/users/{id}` | The users, oldest first (`{"items": [...]}`), each with its `devices`, `producers` (with visibility) and `subscriptions`; never a key or a push token. |
+| `PATCH /api/v1/admin/users/{id}` | Renames the user or sets their role, admin included (`{"name", "role"}`, each optional, at least one). `409` if the user is revoked or the name is taken. |
+| `POST /api/v1/admin/users/{id}/revoke` | Revokes the user as above. Idempotent. |
+| `GET /api/v1/admin/users/{id}/traffic` | The user's newest 20 events (of the producers they own or are subscribed to) and newest 20 delivery records of their devices. See [Traffic by user](#traffic-by-user). |
+| `PUT`, `DELETE /api/v1/admin/users/{id}/subscriptions/{producerId}` | Subscribes the user to a producer they can see (`409` if they cannot), or unsubscribes them. Idempotent. |
+| `POST /api/v1/admin/producers` | Registers a producer for `ownerId` (the oldest admin who is not revoked when omitted: the owner of the instance) with a `visibility`. |
+| `PATCH /api/v1/admin/producers/{id}` | Sets `visibility`, replaces the allow-list (`allowedUserIds`, existing users who are not revoked), or both. |
+
+Requests that name no user (registering a client, creating a pairing or a
+producer with the admin token) act for **the oldest admin who is not
+revoked**, the owner of the instance, so scripts written before users keep
+working. If there is none, they are refused with `409` and must name a user.
+
+### Migration
+
+`V17` makes the existing data the first user's: an `ADMIN` named `Owner` (the
+name is editable on the admin page), who owns every existing producer (kept
+private), is subscribed to all of them, has every client and unredeemed
+pairing, and has read what the owner had read (`events.read_at` is copied
+into `event_reads`). After the upgrade the owner sees, receives and can do
+exactly what they did before, with one change: **every existing device of the
+owner is now an admin device, since its user is an admin**, where only the
+devices the operator had marked were. The operator who wants a restricted
+device invites a second user (a `MOD` or `BASIC`) and pairs it for them. The
+migration needs no operator action and loses nothing; `docs/deployment.md`
+has the upgrade notes. It also removes what is replaced: `clients.admin`,
+`pairings.admin`, and the client API's way to make a device an admin (see
+[Admin devices](#admin-devices)).
 
 ## Clients
 
@@ -794,16 +978,17 @@ each is a key that can do this.
 > [push preferences](#push-preferences).
 
 A **client** is one installation of a SignalHub client application on one of
-the owner's devices: a phone app, a desktop app, a CLI. SignalHub has one
-owner, so a client is not a user account: it is a credential for reading the
-owner's events plus, optionally, where to push notifications. The model is
-the same for every platform.
+a user's devices: a phone app, a desktop app, a CLI. It belongs to exactly
+one [user](#users-roles-and-subscriptions) and is not itself an account: it is a
+credential for reading that user's events plus, optionally, where to push
+notifications. The model is the same for every platform.
 
 | Field | Meaning |
 |---|---|
 | `id` | Server-generated canonical ID (UUIDv7). |
-| `name` | Human-readable label chosen by the owner, e.g. `Pixel 8`. 1–100 characters, not blank. Need not be unique. The operator can rename a client. |
-| `admin` | Whether the client is one of the owner's [admin devices](#admin-devices). `false` unless the operator, or another admin device, makes it one. |
+| `name` | Human-readable label chosen by the user, e.g. `Pixel 8`. 1–100 characters, not blank. Need not be unique. The operator can rename a client. |
+| `user` | The user it belongs to, `{id, name, role}`. Fixed for the client's life. |
+| `admin` | Whether the client is an [admin device](#admin-devices): exactly when its user is an `ADMIN`. |
 | `createdAt` | When it was registered. |
 | `revokedAt` | Set once the client is revoked; `null` while it is active. |
 | `pushTarget` | `{provider, updatedAt}`, or `null` if the client has no push target. |
@@ -831,150 +1016,235 @@ installation, so rotating it means registering the installation again as a
 new client and revoking the old one. Revocation is permanent and immediate.
 A revoked client can then be [deleted](#deleting-a-revoked-client).
 
-**What a client key may do:** read the event listing, and read and change its
-own registration (push target and push preferences) under `/api/v1/client`.
-It cannot rename itself or take its own admin rights away. It cannot publish,
-manage producers, or see push tokens of other clients. Only an
-[admin device](#admin-devices)'s key may list the other clients, make one an
-admin, revoke one that is not an admin, delete a revoked one (see
-[Device management from an admin device](#device-management-from-an-admin-device))
-and create pairing codes (see
-[Pairing from an admin device](#pairing-from-an-admin-device)).
+**What a client key may do:** read the events of its user's subscriptions, and
+read and change its own registration (push target and push preferences) under
+`/api/v1/client`. It cannot rename itself. It cannot publish, manage
+producers, or see push tokens of other clients. What it may do with the
+other devices depends on its user's [role](#roles): see [Device management
+from a device](#device-management-from-a-device) and [Pairing from a
+device](#pairing-from-a-device).
 
 ### Admin devices
 
-The operator can make any client an **admin device**, to mark the devices of
-the owner (or of whoever the owner trusts to manage SignalHub) apart from
-devices lent or given to others. Each client response has `admin`, including
-a client's own registration (`GET /api/v1/client`), so an app can tell that
-it is one.
+A client is an **admin device** exactly when its user is an `ADMIN`. The
+per-device admin flag of earlier releases is gone (`V17`): roles are set per
+user, and a user is made an admin, or no longer one, only by the operator,
+with the admin token. Each client response has `admin`, derived from its
+user's role, including a client's own registration (`GET /api/v1/client`),
+so an app can tell that it is one, and `user` with the role.
 
-- **The operator sets it,** with the admin token: when registering a
-  client or creating a pairing (`"admin": true`, optional, `false` when
-  omitted), or afterwards with `PATCH /api/v1/admin/clients/{id}`
-  (`{"admin": true}` or `{"admin": false}`), usually from the
-  [admin page](#the-admin-page). An admin device can also make another
-  device an admin, but only the operator can take admin rights away; no
-  other client key can change it.
-- **It lets the device manage the others,** within limits, and pair new
-  devices that are not admins: see
-  [Device management from an admin device](#device-management-from-an-admin-device)
-  and [Pairing from an admin device](#pairing-from-an-admin-device).
-  Otherwise an admin device reads events and keeps its own registration
-  exactly like any other client.
-- **Existing clients are not admins.** `V13__add_client_admin.sql` adds the
-  column with `false` for every client and unredeemed pairing, so upgrading
-  needs no operator action.
+- **The operator sets it,** by setting the user's role
+  (`PATCH /api/v1/admin/users/{id}`), usually from the [admin
+  page](#the-admin-page). Every device of the user changes with it.
+- **It lets the device manage the others,** within limits: see [Device
+  management from a device](#device-management-from-a-device) and [Pairing from
+  a device](#pairing-from-a-device). Otherwise an admin device reads events
+  and keeps its own registration exactly like any other client.
+- **Asking for it is refused.** `POST /api/v1/client/devices/{id}/admin` of
+  earlier releases now answers `409 Roles are set per user, not per device` to
+  every caller. The management API's `admin` fields (registering a client,
+  creating a pairing, `PATCH /api/v1/admin/clients/{id}`) are kept so old
+  requests still work, but cannot change anything: `false` or `null` is
+  ignored, and `true` for a user who is not an admin, or a flag other than
+  the client's current one, is `409` with the same title.
 - **Revoking works the same** for an admin device as for any other client,
-  with the admin token; an admin device cannot revoke an admin.
+  with the admin token; a device cannot revoke an admin's device.
 
-### Device management from an admin device
+### Device management from a device
 
-An admin device manages the owner's other devices with its own client key,
-under `/api/v1/client/devices`, so the [proxy](deployment.md#network-exposure)
+A device manages devices with its own client key, under
+`/api/v1/client/devices`, so the [proxy](deployment.md#network-exposure)
 forwards it like the rest of the client API and the device needs neither the
-admin token nor the host:
+admin token nor the host. What it may do depends on its user's [role](#roles):
 
 | Method and path | Result |
 |---|---|
-| `GET /api/v1/client/devices` | Every client, revoked or not, oldest first, as `{"items": [...]}`: exactly what `GET /api/v1/admin/clients` returns (schema `ManagedClient`, with `pushStatus`), never a key or a push token. |
-| `POST /api/v1/client/devices/{id}/admin` | Makes the client an admin device. `200` with the client; `200` and no change if it already is one (the caller included); `409 Client is revoked` for a revoked client; `404` for an unknown ID. |
-| `POST /api/v1/client/devices/{id}/revoke` | Revokes a client that is not an admin and removes its push target, as the operator's revoke does. `200` with the client; `200` and no change if it is already revoked; `409 Client is an admin device` for an admin, the caller included; `404` for an unknown ID. |
-| `DELETE /api/v1/client/devices/{id}` | [Deletes a revoked client](#deleting-a-revoked-client), an admin or not, as the operator's delete does. `204`; `409 Client is not revoked` for an active client, the caller included; `404` for an unknown ID or one deleted already. |
+| `GET /api/v1/client/devices` | For an admin, every client, revoked or not, oldest first, as `{"items": [...]}`: exactly what `GET /api/v1/admin/clients` returns (schema `ManagedClient`, with `pushStatus`). For a mod or basic user, only the clients of their own user. Never a key or a push token. |
+| `POST /api/v1/client/devices/{id}/admin` | Always `409`, see [Admin devices](#admin-devices). |
+| `PATCH /api/v1/client/devices/{id}` | Renames a client (`{"name"}`, 1–100 characters, not blank, as when pairing; the key keeps working). A mod: their own devices only (any other is `404`). An admin: any device of a user who is not an admin; `409 Client is an admin device` for an admin's device, the caller included. `200` with the client (`ManagedClient`); `200` and no change if it already has the name; `409 Client is revoked` for a revoked client, which never changes; `404` for an unknown ID; `403` for a basic user. No push is sent. |
+| `POST /api/v1/client/devices/{id}/revoke` | Revokes a client and removes its push target, as the operator's revoke does. A mod: their own devices only (any other is `404`), but not their last active one (`409 Cannot revoke the last active device of a user`). An admin: any device of a user who is not an admin; `409 Client is an admin device` for an admin's device, the caller included. `200` with the client; `200` and no change if it is already revoked; `404` for an unknown ID; `403` for a basic user. |
+| `DELETE /api/v1/client/devices/{id}` | [Deletes a revoked client](#deleting-a-revoked-client), with the same reach: a mod their own, an admin those of users who are not admins. `204`; `409 Client is not revoked` for an active client, the caller included; `409 Client is an admin device`; `404` for an unknown ID, or a mod's device that is not theirs; `403` for a basic user. |
 
-An admin device also creates pairing codes, with `POST
-/api/v1/client/pairings` under the same rules: see
-[Pairing from an admin device](#pairing-from-an-admin-device).
+An admin or a mod also creates pairing codes, with `POST
+/api/v1/client/pairings` under the same rules: see [Pairing from a
+device](#pairing-from-a-device).
 
-No request has a body. The limits keep a stolen admin device from taking
-over:
+Only renaming has a body. The limits keep a stolen key from taking over:
 
-- **Only an admin device's key is accepted.** Every other client key gets
-  `403 Not an admin device` on every path, before the path's client is looked
-  up, so the answer is the same whatever the target and says nothing about
-  it. A missing, unknown or revoked key is the usual `401`, and the admin
-  token is not a client key (`401`): the operator has the
-  [management API](#client-api). The caller's admin flag is read, and its
-  row locked, in the transaction that makes the change, so a device whose
-  rights the operator took away, or that the operator revoked, cannot make
-  a change after that.
-- **An admin device can do nothing to an admin**, itself included: it cannot
-  take admin rights away (there is no endpoint for it) or revoke an admin.
-  Only the operator can, with the admin token, usually on the
-  [admin page](#the-admin-page). Renaming is the operator's too. A revoked
-  admin can be deleted: it can no longer act.
+- **The role is checked first.** A basic user's key gets `403 Not allowed for
+  your role` on every change, before the path's client is looked up, so the
+  answer is the same whatever the target and says nothing about it. A
+  missing, unknown or revoked key (or one of a revoked user) is the usual
+  `401`, and the admin token is not a client key (`401`): the operator has the
+  [management API](#client-api). The caller and its user are locked, and
+  their role read, in the transaction that makes the change, so a device
+  whose user the operator demoted or revoked, or that the operator revoked,
+  cannot make a change after that; the user's own devices change one at a
+  time, so two of a mod's devices cannot revoke each other.
+- **A mod sees nothing of other users' devices.** Their devices, revoked or
+  not, are `404` to a mod, exactly like an unknown ID.
+- **A device can do nothing to an admin's device**, its own included, if it
+  is one: no device can take admin rights away (there is no endpoint for it)
+  or revoke or delete an admin's device. Only the operator can, with the admin
+  token, usually on the [admin page](#the-admin-page). An admin's device is not
+  renamed from a device either.
 - **Every change is logged** at `INFO` with client IDs only: `Client <caller>
-  made client <id> an admin device`, `Client <caller> revoked client <id>`
-  and `Client <caller> deleted client <id>`. A request that changes nothing
-  or is refused logs nothing.
-- **The owner's devices are told** of every change but a deletion, which
-  changes nothing a device can use. A change pushes a
+  renamed client <id>`, `Client <caller> revoked client <id>` and `Client
+  <caller> deleted client <id>`. A request
+  that changes nothing or is refused logs nothing.
+- **The user's devices and the admins' are told** of a revocation (not of a
+  deletion, which changes nothing a device can use). A change pushes a
   [notice](#pairing-notice), naming the device that made it, to every client
-  that has a push target and has not paused pushes, the calling device
-  included (its key may be in someone else's hands):
-
-  ```
-  Device made an admin
-  "Anna's phone" made "Tablet" an admin device. If this was not you, revoke both on the admin page.
-  ```
+  of the revoked client's user and of every admin that has a push target and
+  has not paused pushes, the calling device included (its key may be in
+  someone else's hands). Other users' devices are told nothing:
 
   ```
   Device revoked
   "Anna's phone" revoked "Old tablet". If this was not you, revoke "Anna's phone" on the admin page.
   ```
 
-  with the data `{"notice": "client-made-admin"}` or `{"notice":
-  "client-revoked"}` and `clientId` (the changed client) and `byClientId`
-  (the calling device). It is sent like the pairing notice: after the
-  change commits, once, without retries, never failing the request. A
-  request that changes nothing sends nothing; a revoked device has no push
-  target, so it is not told.
+  with the data `{"notice": "client-revoked"}` and `clientId` (the revoked
+  client) and `byClientId` (the calling device). It is sent like the pairing
+  notice: after the change commits, once, without retries, never failing the
+  request. A request that changes nothing sends nothing; a revoked device has
+  no push target, so it is not told. (The `client-made-admin` notice of
+  earlier releases is no longer sent.)
 
 What a stolen admin key can do, and how to recover, is in
 [Security limitations](#security-limitations).
 
+### Users from a device
+
+A device reads the users on the server, and an admin's device also reads their
+details, invites users and sets their role, with its client key under `/api/v1/client/users`, so the
+proxy forwards it. The operator keeps making and unmaking admins and revoking
+users, with the admin token: no device can.
+
+| Method and path | Result |
+|---|---|
+| `GET /api/v1/client/users` | The users who are not revoked, by name ignoring case, as `{"items": [...]}`. For a **basic or mod** key each item is `{"id", "name"}`, to choose whom to allow on a producer: never a role, so admins are not told apart, and never a device or a producer. For an **admin's** key each item is `{"id", "name", "role", "activeDevices", "hasPaired"}`: `activeDevices` counts the user's devices that are not revoked, and `hasPaired` is whether they have ever had a device, revoked or not (`false` for an invited user who has not paired yet). |
+| `GET /api/v1/client/users/{id}/producers` | Admin only (`403` for anyone else, whatever the ID, so a non-admin learns nothing about which users exist). The producers the user owns, by name ignoring case, as `{"items": [{"id", "name", "visibility", "disabled"}]}`: never a key, an event or an allow-list. `404` for an unknown or a revoked user. |
+| `POST /api/v1/client/users` | Admin only (`403` for anyone else, before the body's meaning is looked at). Invites a user (`{"name", "role", "deviceName"}`; `role` is `BASIC` or `MOD`, `BASIC` when omitted, and `ADMIN` is `400`; `deviceName` defaults to `First device`) and creates a [pairing code](#pairing-from-a-device) for their first device, in one transaction: either both exist or neither. `201` with `{"user": {"id", "name", "role"}, "pairing": {...}}`, the pairing as `POST /api/v1/client/pairings` answers it, its code shown only here; `409` if the name is taken (ignoring case). The code is valid for 10 minutes, and its status is asked at `GET /api/v1/client/pairings/{id}`. |
+| `PATCH /api/v1/client/users/{id}` | Admin only. Sets the role of a user who is not an admin to `BASIC` or `MOD` (`{"role"}`); `200` with `{"id", "name", "role"}`. `400` for `ADMIN` or no role, `404` for an unknown ID, `409` for a revoked user or an admin (the caller included): no device demotes an admin. The user's devices stay as they are; what they may do follows the role from their next request. Setting the role they have changes nothing. |
+
+The two reads use the role read when the key authenticated the request, without
+locking the caller's user: a demotion applies from the next request. They are
+the only fields a device gets about other users beyond their names, and they
+log nothing. Producers are listed for any owner alike; nothing in them depends
+on what a producer is called or publishes.
+
+The caller's user is locked and its role read in the transaction that changes
+anything, so an operator demoting or revoking the admin meanwhile applies
+before the change or after it. Every change is logged at `INFO` with user IDs
+only: `User <caller's user> invited user <id> as MOD` and `User <caller's user>
+made user <id> BASIC`.
+
+### Own producers from a device
+
+Every role manages the producers its user owns from a device, under
+`/api/v1/client/producers`, with the client key: a user with no machine access
+creates a producer, gets its key, publishes with it, and decides who receives
+it. Nothing about it is special to a role, and **nothing reaches a producer the
+caller's user does not own**: another user's producer, an admin's included and
+the operator's, is `404`, the same answer as for an ID that does not exist.
+(An admin has no more reach here than anyone: the operator has the
+[management API](#producer-management).)
+
+| Method and path | Result |
+|---|---|
+| `POST /api/v1/client/producers` | Registers a producer owned by the caller's user (`{"name", "visibility"}`; `visibility` is `PRIVATE` when omitted; the name is as in [Producer management](#producer-management)). The owner is subscribed. `201` with `{"producer", "keyId", "apiKey"}` (`IssuedOwnApiKey`) and `Location`; **the key is shown only in this answer**. `409` if the name is taken. |
+| `GET /api/v1/client/producers` | The caller's producers by name, `{"items": [...]}`. |
+| `GET /api/v1/client/producers/{id}` | One of them (`OwnProducer`): `id`, `name`, `createdAt`, `disabledAt`, `disabledByOperator`, `lastEventAt`, `visibility`, `subscribed`, `allowedUsers` (`{"id", "name"}`) and `keys`: for each key its `id`, `prefix` (`shpk1_` and the key ID, which starts the key and is not secret), `createdAt` and `revokedAt`. **Never a key.** |
+| `PATCH /api/v1/client/producers/{id}` | Renames the producer and/or sets its `visibility` (at least one; `400` otherwise); `409` if another producer has the name. Keys keep working and events stay the producer's own (they show the new name). Making a producer private ends the subscriptions of users who are neither its owner nor on its allow-list. |
+| `POST /api/v1/client/producers/{id}/keys` | Issues an additional key (rotate: issue, switch, revoke). `201` with `IssuedOwnApiKey`. |
+| `POST /api/v1/client/producers/{id}/keys/{keyId}/revoke` | Revokes a key at once and for good. Idempotent. `404` for a key of another producer. |
+| `POST /api/v1/client/producers/{id}/disable`, `.../enable` | Disables the producer (none of its keys authenticate; events are kept) or enables it. Idempotent. `409` when enabling a producer **the operator disabled**: see below. |
+| `PUT`, `DELETE /api/v1/client/producers/{id}/allowed-users/{userId}` | Puts a user who is not revoked on the allow-list (`404` if there is none), or takes them off. Idempotent; allowing the owner changes nothing. Taking a user off a private producer ends their subscription in the same transaction. |
+
+All answers are `OwnProducer`, except the two that issue a key. The decisions
+the entry left to this increment:
+
+- **A producer the operator disabled stays disabled.** `V18` adds
+  `producers.disabled_by_owner`; a producer is disabled "by the owner" only
+  when the owner did it. Disabling with the admin token, or revoking its
+  owner, makes it the operator's, even if the owner had disabled it: then
+  `POST .../enable` is `409` and `disabledByOperator` is `true`, and only the
+  operator enables it. Without this, an owner could undo the operator's block
+  of a misbehaving producer. Existing disabled producers count as the
+  operator's.
+- **Visibility is changed by the owner alone**, and a guest on the allow-list
+  or a subscriber of a public producer does nothing but unsubscribe.
+- **Keys are listed by prefix**, which is not secret, and never otherwise.
+  `IssuedOwnApiKey` omits the key from `toString()`, and nothing logs a key,
+  a hash or a pairing code: producer, key, user and client IDs only (`Owner
+  disabled producer <id>`, `Renamed producer <id>`, `Allowed user <id> on
+  producer <id>`, and the registration and key lines of
+  [Producer management](#logging)).
+- **A producer's name is global and unique**, so creating or renaming to a
+  taken name answers `409` even when the other producer is private; that
+  tells a user a name exists, nothing more. There is no quota (a [non-goal of
+  users](#users-roles-and-subscriptions)): the operator disables or revokes.
+- Changing a producer takes its row lock, as subscribing to it does, so a
+  user cannot subscribe behind the change that hid it from them.
+
+### Subscriptions from a device
+
+Every role sees the producers it may and chooses which to receive, under
+`/api/v1/client/visible-producers`.
+
+| Method and path | Result |
+|---|---|
+| `GET /api/v1/client/visible-producers` | The producers the caller's user sees, by name: public ones, their own and private ones they are allowed on, as `{"items": [{"id", "name", "owner": {"id", "name"}, "visibility", "disabled", "subscribed"}]}`. **Never** a key, an allow-list, a role or when the producer last published. |
+| `PUT /api/v1/client/visible-producers/{id}/subscription` | Subscribes the user, on all their devices: they receive the producer's events from now on and find its stored ones in their inbox. Idempotent. `404` for a producer they do not see, which looks like one that does not exist. |
+| `DELETE /api/v1/client/visible-producers/{id}/subscription` | Unsubscribes. Idempotent; `404` for a producer they do not see. |
+
+Both answer the producer (`VisibleProducer`). The subscription rules are those
+of [Visibility and subscriptions](#visibility-and-subscriptions); a basic user
+subscribes exactly as an admin does.
+
 ### Renaming a client
 
-`PATCH /api/v1/admin/clients/{id}` also renames a client (`{"name": "Anna's
+`PATCH /api/v1/admin/clients/{id}` renames a client (`{"name": "Anna's
 phone"}`), with the same rules as registering (1–100 characters, not blank,
-no NUL); the key keeps working. A body may rename and change `admin`
-together; a field that is omitted or `null` stays as it is, and a body that
-changes nothing is `400`. It answers `200` with the client as `GET` returns
-it (schema `ManagedClient`), `404` for an unknown ID, and **`409 Conflict`
-for a revoked client**, which never changes: it is no longer one of the
-owner's devices, and its name and flag stay the record of what it was.
-Setting a field to the value it has is `200` and changes nothing.
+no NUL); the key keeps working. The deprecated `admin` field may be given
+beside it, but only with the value the client already has (it is the user's
+role, [see above](#admin-devices)); a field that is omitted or `null` stays as it
+is, and a body that changes nothing is `400`. It answers `200` with the client
+as `GET` returns it (schema `ManagedClient`), `404` for an unknown ID, and
+**`409 Conflict` for a revoked client**, which never changes: it is no longer
+a device of anyone's, and its name stays the record of what it was. Setting
+the name to the value it has is `200` and changes nothing.
 
 Every change is logged at `INFO` with the client ID only, like registering and
-revoking: `Renamed client <id>`, `Client <id> is now an admin device`,
-`Client <id> is no longer an admin`, and `Registered client <id> as an admin
-device`.
+revoking: `Renamed client <id>`, and `Registered client <id> for user <id>`.
 
 ### Deleting a revoked client
 
 A revoked client stays in the list, so a phone paired again would show up
 twice. `DELETE /api/v1/admin/clients/{id}` (admin token), or `DELETE
-/api/v1/client/devices/{id}` from an
-[admin device](#device-management-from-an-admin-device), removes it for
-good. Usually it is done on the [admin page](#the-admin-page), or from an
-admin device's device list in the app ([Client application](#client-application)).
+/api/v1/client/devices/{id}` from a [device](#device-management-from-a-device)
+as its user's role allows, removes it for good. Usually it is done on the
+[admin page](#the-admin-page), or from an admin device's device list in the
+app ([Client application](#client-application)).
 
 - **Only a revoked client.** An active client, an admin device included,
   answers `409 Client is not revoked` and does not change: revoke it first.
-  A revoked admin can be deleted too, since it can no longer act.
+  The operator can delete a revoked admin's device too, since it can no
+  longer act; a device cannot (it answers `409 Client is an admin device`).
 - **`204` with no body**; `404` for an unknown ID, so deleting twice
   answers `404` the second time. There is no undo.
 - **What goes with it:** everything that exists only for the client, its
   push results (columns of its row), its pushes waiting for a retry
   (`push_retries`), its lines in events' [delivery
   records](#delivery-records) (`event_deliveries`, V16) and the unused
-  pairing codes it created as an admin device (`pairings.created_by`).
+  pairing codes it created from a device (`pairings.created_by`).
   These tables reference `clients` with `ON DELETE CASCADE` since they
   were created, so no migration was needed and upgrading needs no operator
   action; a test checks that every foreign key to `clients` cascades. A push to it already under way when it is deleted
   records nothing and is not retried.
 - **What stays: every event,** with its read state. Read state is the
-  owner's, not a client's (see [Read state](#read-state)), and events are
+  user's, not a client's (see [Read state](#read-state)), and events are
   never deleted with a client.
 - **Logged** at `INFO` with client IDs only, as revoking is: `Deleted client
   <id>`, or `Client <caller> deleted client <id>` from an admin device. No
@@ -987,19 +1257,20 @@ Pairing lets a new device register itself, so setting it up needs neither
 the admin token on the device nor typing a client key:
 
 1. The operator creates a **pairing** for a client name with the admin token
-   (`POST /api/v1/admin/pairings`, `{"name": "Pixel 8"}`, and `"admin": true`
-   to pair an [admin device](#admin-devices)), or an admin device does
-   ([Pairing from an admin device](#pairing-from-an-admin-device)). The
+   (`POST /api/v1/admin/pairings`, `{"name": "Pixel 8", "userId": "..."}`;
+   without `userId` it is for the oldest admin who is not revoked), or a
+   device of a mod or an admin does ([Pairing from a
+   device](#pairing-from-a-device)). A pairing is always for a user. The
    response has the pairing's `id`, a one-time **pairing code**, when it
    expires, and a **pairing URI** to show as a QR code (for example with
    `qrencode`, see [development.md](development.md#pairing-a-device)).
 2. The device redeems the code once, before it expires:
    `POST /api/v1/pairing` with `Authorization: Bearer <code>` and no body.
-   SignalHub registers a new client of that name (an admin device if the
-   pairing said so), exactly as the management
+   SignalHub registers a new client of that name for the pairing's user (an
+   admin device if that user is an admin), exactly as the management
    API does, and returns it with its client key (`201`, the same body as
    registering a client), shown only in that response.
-3. Whoever shows the code, the operator or the admin device that created
+3. Whoever shows the code, the operator or the device that created
    it, can ask whether it was used, and by which device
    ([Whether a code was used](#whether-a-code-was-used)).
 
@@ -1038,14 +1309,15 @@ signalhub://pair?server=https%3A%2F%2Fsignalhub.example.com&code=shpc1_Zt1vQ3x9r
   dropped.
 - **Reachable.** `/api/v1/pairing` is outside `/api/v1/admin/`, so the Compose
   proxy forwards it; creating pairings with the admin token is management and
-  stays on the host, and an admin device creates them through the proxy
-  ([Pairing from an admin device](#pairing-from-an-admin-device)).
-- **Nothing provider-specific.** A pairing holds only a client name and
-  whether it is an admin device; push is
-  set up afterwards with the client key, as for any client.
-- **The owner is told.** Once a code is redeemed, the owner's devices get a
-  push (see [Pairing notice](#pairing-notice)), so a code that leaked is
-  noticed when it is used.
+  stays on the host, and a device creates them through the proxy
+  ([Pairing from a device](#pairing-from-a-device)).
+- **Nothing provider-specific.** A pairing holds only a client name and the
+  user it is for; push is set up afterwards with the client key, as for any
+  client.
+- **The user is told.** Once a code is redeemed, the user's devices and the
+  admins' devices get a push (see [Pairing notice](#pairing-notice)), so a
+  code that leaked is noticed when it is used. A code for a user who is
+  revoked before it is redeemed stops working and is deleted.
 
 #### Whether a code was used
 
@@ -1056,7 +1328,7 @@ connected and get ready for the next one:
 | Method and path | Credential | Result |
 |---|---|---|
 | `GET /api/v1/admin/pairings/{id}` | admin token | A pairing the operator created: `200` with its `PairingStatus`. |
-| `GET /api/v1/client/pairings/{id}` | admin device's client key | A pairing this device created: `200` with its `PairingStatus`. |
+| `GET /api/v1/client/pairings/{id}` | client key of a mod or an admin | A pairing this device created: `200` with its `PairingStatus`. |
 
 ```json
 {"id": "01997d5e-...", "state": "REDEEMED", "expiresAt": "2026-09-27T10:10:00.123456Z",
@@ -1078,14 +1350,14 @@ connected and get ready for the next one:
   clock is late. Deleting the client it made deletes it too. After that it
   is `404`, like an unknown ID.
 - **Only the creator's own.** The admin token answers only about pairings
-  created with it, and an admin device only about those it created; any
-  other pairing, another device's or the operator's, is `404` exactly like an
-  unknown ID. The client API part is admin only, as
-  [device management](#device-management-from-an-admin-device): every other
-  client key gets `403 Not an admin device` before the pairing is looked up,
-  and a missing, unknown or revoked key `401`, the admin token included. A
-  code whose admin device is revoked or no longer an admin stops working and
-  is deleted; that device can no longer ask either.
+  created with it, and a device only about those it created; any other
+  pairing, another device's or the operator's, is `404` exactly like an
+  unknown ID. The client API part is for mods and admins only, as [device
+  management](#device-management-from-a-device): a basic user's key gets `403
+  Not allowed for your role` before the pairing is looked up, and a missing,
+  unknown or revoked key `401`, the admin token included. A code whose device
+  is revoked, or whose user's role no longer allows creating it, stops working
+  and is deleted.
 - **No secrets.** The status never holds the code or a key, only IDs, times
   and the new device's name. The pairing ID is not a secret: it redeems
   nothing.
@@ -1093,78 +1365,112 @@ connected and get ready for the next one:
   nullable columns; pairings that existed before are unredeemed, as
   redeeming used to delete them.
 
-#### Pairing from an admin device
+#### Pairing from a device
 
-An [admin device](#admin-devices) creates pairing codes with its own client
-key, so the owner can add a device from the app, away from the host:
+A device of a mod or an admin creates pairing codes with its own client key,
+so a user can add a device from the app, away from the host:
 
 | Method and path | Result |
 |---|---|
-| `POST /api/v1/client/pairings` | Creates a pairing for a new client (`{"name": "Pixel 8"}`), exactly like the operator's: `201` with `{"id", "name", "admin", "code", "expiresAt", "uri"}`, `admin` always `false`. The code redeems at `POST /api/v1/pairing` like any other. |
+| `POST /api/v1/client/pairings` | Creates a pairing for a new client (`{"name": "Pixel 8"}`, and optionally `"userId"`), exactly like the operator's: `201` with `{"id", "name", "admin", "user", "code", "expiresAt", "uri"}`. The code redeems at `POST /api/v1/pairing` like any other. |
 | `GET /api/v1/client/pairings/{id}` | Whether a pairing this device created was used, and by which device; `404` for any other pairing. See [Whether a code was used](#whether-a-code-was-used). |
 
-- **Admin only, as device management.** Every other client key gets `403 Not
-  an admin device`; a missing, unknown or revoked key is `401`, and so is the
-  admin token, which has `POST /api/v1/admin/pairings`. The caller's row is
-  locked while the pairing is created, as for
-  [device management](#device-management-from-an-admin-device). The body is
-  validated first (`400` for a blank or long name, as when registering).
-- **Never an admin device.** The body has only `name`; `admin`, `true` or
-  `false`, is an unknown property and `400`. A pairing code is a bearer
-  secret handed over by link or QR code, so it is the part most likely to
-  leak; a code from a device therefore only ever gives a device that reads
-  events. Making the new device an admin is a separate step, from an admin
-  device or the admin page, that pushes its own notice. This also keeps a
-  stolen admin device from quietly minting further admin devices: it can
-  still make an existing device an admin, but every such change names it.
-- **Only while its device stays an admin.** The pairing records the device
-  that created it (`pairings.created_by`, added by
-  `V14__add_pairing_created_by.sql`; empty for pairings created with the
-  admin token, so upgrading needs no operator action). If that device is
-  revoked or is no longer an admin when the code is redeemed, the code gets
-  the usual `401` and is deleted: revoking a stolen admin device also stops
-  the codes it handed out. Its row is locked while the code is redeemed, so
-  the operator's change applies before the redemption or after it.
-- **Logged** at `INFO` with IDs only: `Client <caller> created pairing <id>,
-  expires at <time>`, then `Redeemed pairing <id> as client <new client>` as
-  for every pairing. A refused request logs nothing.
-- **The owner's devices are told** who created the code when it is redeemed,
-  the creating device included (see [Pairing notice](#pairing-notice)).
+- **By role.** The pairing is for the caller's own user unless it names
+  another. A mod pairs only for themselves (naming another user is `403`), an
+  admin for any user who exists and is not revoked (`404`, `409 User is
+  revoked`), a basic user for none (`403 Not allowed for your role`, before
+  anything else is looked at). A missing, unknown or revoked key is `401`, and
+  so is the admin token, which has `POST /api/v1/admin/pairings`. The
+  caller's row is locked while the pairing is created. The body is validated
+  first (`400` for a blank or long name, as when registering).
+- **The device is an admin device exactly when the pairing's user is an
+  admin.** The body has no `admin`: it is an unknown property and `400`.
+  A pairing code is a bearer secret handed over by link or QR code, so it is
+  the part most likely to leak; a code for an admin user therefore gives an
+  admin device, which is why it expires in 10 minutes, is shown once, and
+  tells the user's devices and the admins' devices when it is used.
+- **Only while its creator may still create it.** The pairing records the
+  device that created it (`pairings.created_by`, `V14`; empty for pairings
+  created with the admin token). If that device is revoked, or its user's role
+  no longer allows the pairing (a mod's code for someone else, a basic user's
+  code), when the code is redeemed, the code gets the usual `401` and is
+  deleted: revoking a stolen device also stops the codes it handed out. Its
+  row is locked while the code is redeemed, so the operator's change applies
+  before the redemption or after it.
+- **Logged** at `INFO` with IDs only: `Client <caller> created pairing <id>
+  for user <id>, expires at <time>`, then `Redeemed pairing <id> as client
+  <new client>` as for every pairing. A refused request logs nothing.
+- **The user's devices and the admins' are told** who created the code when
+  it is redeemed, the creating device included (see [Pairing
+  notice](#pairing-notice)).
 - **The URI** is built from `SIGNALHUB_PUBLIC_URL`, as for the operator's
   pairings. Without it, `uri` is `null`, and the app builds the same URI from
   the address it reaches the server at, which is where the new device should
   go too.
 
+### Traffic by user
+
+The operator, and no one else, can follow each user's traffic, for testing
+and debugging: what a user's producers published, what the user receives,
+and how the pushes to their devices went. Nothing here is shown to a user
+or a producer, and there is no aggregation or analytics: only the same
+events and [delivery records](#delivery-records), looked up by user.
+
+- **Events of a user.** `GET /api/v1/events?userId=...` with the admin
+  token (see [Listing events](#listing-events)), optionally with `relation`
+  `OWNED` or `SUBSCRIBED`, plus every other filter and the cursor.
+  **decided: a filter of the existing listing, not a new endpoint**, so the
+  admin page's Events section and its pagination stay as they are. The user's
+  producers are resolved when each page is read, from the producers table
+  (`owner_id`) and `subscriptions`; no migration was needed.
+- **Who an event reached.** The event's delivery records name their user and
+  the response lists the users subscribed to the producer
+  ([Delivery records](#delivery-records)).
+- **A user's recent traffic.** `GET /api/v1/admin/users/{id}/traffic`
+  (admin token; `404` for an unknown user; a revoked user can be looked up)
+  answers `{"events": [...], "deliveries": [...]}`: the 20 newest events of
+  the user's producers and subscriptions, as `Event`s with the operator's
+  read state, and the 20 newest delivery records of the user's devices
+  across events (`eventId`, `eventTitle`, `clientId`, `clientName`,
+  `attempt`, `outcome`, `detail`, `at`), newest first. **decided: a fixed
+  recent window of 20 each, with no paging**: the Events section's filter
+  is the way to see more.
+- **Nothing producer-specific.** Everything goes by ownership,
+  subscription and the generic delivery outcomes. Logs hold IDs only (no
+  new line logs event content); no push token is ever returned.
+
 ### The admin page
 
-`/admin/` is the operator's page for the owner's devices, producers and
-events (test events included) and the service's status, the management API for clients,
+`/admin/` is the operator's page for users, their devices, producers and
+events (test events included) and the service's status, the management API for users, clients,
 pairings, producers, events and status and the event API without a terminal. It is in sections,
-as tabs: **Devices**, **Producers**, **Events** and **Status**. The section shown is the
-address's fragment (`/admin/#devices`, `/admin/#producers`, `/admin/#events`,
+as tabs: **Devices**, **Users**, **Producers**, **Events** and **Status**. The section shown is the
+address's fragment (`/admin/#devices`, `/admin/#users`, `/admin/#producers`, `/admin/#events`,
 `/admin/#events/<id>` for one event, and `/admin/#status`; Devices when there is none), so a
 reload or a bookmark opens it, and switching sections reads its list
 again. A reload asks for the admin token again, since the
 page keeps it only in memory; the fragment never reaches the server.
 
 **Devices.** After the operator types the
-admin token, it shows every client, revoked or not: its name, whether it is
-an admin, when it was created or revoked, whether it has a push target, and
-its last push results (`pushStatus`). For each device that is not revoked,
-it can:
+admin token, it shows every client, revoked or not: its name, its user and
+their role, whether it is an admin device, when it was created or revoked,
+whether it has a push target, and its last push results (`pushStatus`). For
+each device that is not revoked, it can:
 
-- **Rename** it, so the owner can tell whose or what each device is;
-- **Make it an admin** or **take admin rights away** (see
-  [Admin devices](#admin-devices));
+- **Rename** it, so it is clear whose or what each device is;
 - **Revoke** it, admin devices included, after a confirmation.
+
+Whether a device is an admin device is its user's role, set in **Users**
+(see [Admin devices](#admin-devices)).
 
 A revoked device offers only **Delete**, after a confirmation, which
 removes it from the list for good (see
 [Deleting a revoked client](#deleting-a-revoked-client)). Active devices
 have no delete: they must be revoked first.
 
-**Connect a device** creates a pairing for a device name, optionally as an
-admin device, and shows the pairing URI as a QR code, counts down to its
+**Connect a device** creates a pairing for a device name and a user (chosen
+from the users who are not revoked; the device is an admin device when the
+user is an admin), and shows the pairing URI as a QR code, counts down to its
 expiry and blurs the code once it has expired. It copies the QR code as an
 image or the URI as text, or downloads the image, so the code can be sent to
 someone whose device should connect. While the code is shown, the page asks
@@ -1178,19 +1484,41 @@ expired code stays blurred until a new one is created, and the page stops
 asking. The device list is also read again after every change and with
 **Refresh**.
 
-**Producers.** Every producer, by name, with whether it is enabled, when
-it was created (and disabled), its ID, its keys (ID, created, revoked;
+**Users.** Every user, active ones first, with their role, devices (and how
+many are revoked), the producers they own, the producers they are subscribed
+to, when they were invited (and revoked) and their ID. Per active user:
+**Connect a device** asks for the device's name and shows a pairing code for
+that user in *Devices* (this, after **Invite a user**, is how a person is
+invited: the device that redeems the code belongs to them), **Rename**, the
+**role** (`Basic`, `Mod` or `Admin`) with **Set role**, which asks first when
+it makes or unmakes an admin, **Revoke** (after a confirmation: all their
+devices are revoked and their producers disabled, at once and for good), and
+**Subscribe** to a producer they can see or **Unsubscribe** from one. **Invite
+a user** takes a name and a role. This is the only place a user is made an
+admin or no longer one.
+
+Each user also has **Show traffic** (revoked ones too), which reads their
+[traffic](#traffic-by-user) when opened and again with **Refresh traffic**:
+their newest events, each linking to the event, and the pushes to their
+devices (device, how it went, the event it was for), newest first.
+
+**Producers.** Every producer, by name, with its owner and who sees it
+(every user, or its owner and the users allowed on it), whether it is
+enabled, when it was created (and disabled), its ID, its keys (ID, created, revoked;
 valid keys first, newest first) and its last event (`lastEventAt`, with how
 long ago). An enabled producer whose last stored event is more than 7 days
 old, or that has none, is marked **Quiet**, so one that stopped publishing
 stands out; the threshold is fixed in the page, since SignalHub knows
 nothing of how often a producer publishes. **Create a producer** takes its
-name; the producer's first key is then shown **once**, in a field with
+name, its owner (the producer is for them: they are subscribed to it) and
+whether it is private (the default) or public; the producer's first key is then shown **once**, in a field with
 **Copy key** and a warning that it cannot be shown again, until the
 operator presses **I have stored it**, which clears it from the page. Per
 producer, **Issue a key** shows the new key the same way, **Revoke** on a
-valid key revokes it after a confirmation, and **Disable** (after a
-confirmation) and **Enable** switch the producer. Producers are never
+valid key revokes it after a confirmation, **Make public** or **Make
+private** (after a confirmation) sets who sees it, **Allow** and **Remove**
+edit the allow-list of users who see it besides its owner, and **Disable**
+(after a confirmation) and **Enable** switch the producer. Producers are never
 deleted, so their events keep their attribution. The list is read again
 after every change and with **Refresh**. Every change is logged by the
 backend at `INFO` with IDs only, as through the management API (see
@@ -1200,9 +1528,12 @@ backend at `INFO` with IDs only, as through the management API (see
 **Newer** to move between pages, through the
 [listing](#listing-events) with the admin token (its cursor, so events
 that arrive meanwhile never shift a page). It has the app inbox's
-filters: producer (every producer, by name), category, severity and read
+filters: producer (every producer, by name), category, severity, user
+(every user, by name, revoked ones marked), which of the user's producers
+(owned or subscribed to, both by default; offered only with a user) and read
 state (read and unread, unread only, read only); changing one goes back
-to the newest page. Each event shows its title, severity, category,
+to the newest page. With a user it lists the events of the producers that
+user owns or is subscribed to (see [Traffic by user](#traffic-by-user)). Each event shows its title, severity, category,
 whether it is unread, its producer and context, and when it was received.
 Its title opens it at `#events/<id>` (only a canonical ID in the address
 is ever requested), with its title, message, producer, category,
@@ -1212,17 +1543,19 @@ and ID, and **Mark as read** or **Mark as unread**
 ([Read state](#read-state)), shared with every client as always.
 **Back to events** returns to the same page and filters, read again.
 
-- **Deliveries.** An open event shows how its push went to each device,
-  from its [delivery records](#delivery-records), read with the admin
-  token when the event opens and again with **Refresh**: one line per
+- **Deliveries.** An open event shows the users it reached and how its
+  push went to each of their devices, from its [delivery
+  records](#delivery-records), read with the admin token when the event
+  opens and again with **Refresh**: one entry per user, by name (marked
+  _Owner_ for its producer's owner), and under it one line per
   device, by the device's name, in the order the devices were first
   tried, saying how the latest attempt went (_Delivered_, _Filtered out by
   its push preferences_, _Not sent: no push target_, _Temporary failure_,
   _Failed_, and so on), with its reason when there is one (the preference
   that filtered it out, or the provider's, such as `HTTP 503
   UNAVAILABLE`) and when; a device tried more than once lists its earlier
-  attempts under it. An event whose push is not dispatched yet, or that had no
-  device to go to, says _None_. **decided: one line per device, grouped by the page** from the
+  attempts under it. A user whose event is not dispatched yet, or who had no
+  device to go to, says _None_; an event nobody is subscribed to says so. **decided: one line per device, grouped by the page** from the
   records, which stay one per attempt in the API, so the answer to "why
   did my phone not ping?" is the device's own line, and retries stay
   visible under it. Names and reasons are set as text, like everything
@@ -1332,8 +1665,8 @@ and when; and when the most recent event arrived. See
   any script the page loads is not served.
 - **Sharing a code** gives one device, whoever holds it, its own client
   until the code is used or expires. The page says so next to the buttons.
-  The device is revoked like any other client, and the owner's devices are
-  told when it connects.
+  The device is revoked like any other client, and the user's devices and the
+  admins' devices are told when it connects.
 - **It needs `SIGNALHUB_PUBLIC_URL`** for pairing, as the URI does; without
   it, the page says to set it.
 - **`/connect/`**, the Connect page of earlier releases, is gone: its
@@ -1344,14 +1677,16 @@ and when; and when the most recent event arrived. See
 ### Pairing notice
 
 When a device redeems a pairing code, SignalHub pushes a notice to every
-other client that has a push target and has not paused pushes:
+other client of the pairing's user and of every admin that has a push target
+and has not paused pushes (other users' devices are told nothing):
 
 ```
 New device paired
 "Pixel 8" can now read your SignalHub events. If you did not pair it, revoke it.
 ```
 
-or, when the pairing made an [admin device](#admin-devices):
+or, when the pairing's user is an admin and the device an [admin
+device](#admin-devices):
 
 ```
 New admin device paired
@@ -1359,7 +1694,7 @@ New admin device paired
 ```
 
 with the data `{"notice": "client-paired", "clientId": "<the new client>"}`.
-When the code was created [from an admin device](#pairing-from-an-admin-device),
+When the code was created [from a device](#pairing-from-a-device),
 the notice names that device too, and goes to it as well, since its key may
 be in someone else's hands:
 
@@ -1381,9 +1716,9 @@ the pairing's transaction commits, on a thread of its own, so the device
 that is pairing never waits for it and a failed notice never fails a
 pairing. The durable record is the log line `Redeemed pairing ... as client
 ...` and the client itself, listed by the management API. Registering a
-client with the management API sends no notice: the operator holds its key. A device made an admin or revoked
-[from an admin device](#device-management-from-an-admin-device) sends a
-notice of the same kind.
+client with the management API sends no notice: the operator holds its key. A device revoked
+[from a device](#device-management-from-a-device) sends a notice of the same
+kind.
 
 ### Push targets
 
@@ -1447,26 +1782,32 @@ suppressed push is simply not sent to that client.
 
 | Method and path | Credential | Result |
 |---|---|---|
-| `POST /api/v1/admin/clients` | admin token | Registers a client (`{"name": ..., "admin": ...}`, `admin` optional). `201` with the client and `clientKey`. |
+| `POST /api/v1/admin/clients` | admin token | Registers a client for a user (`{"name": ..., "userId": ...}`, `userId` optional: the oldest admin who is not revoked). `201` with the client and `clientKey`; `404` for an unknown user, `409` for a revoked one. |
 | `GET /api/v1/admin/clients` | admin token | All clients, oldest first, as `{"items": [...]}`, each with its `pushStatus`. |
 | `GET /api/v1/admin/clients/{id}` | admin token | One client, with its `pushStatus`. |
-| `PATCH /api/v1/admin/clients/{id}` | admin token | Renames the client or makes it an admin device or not (`{"name", "admin"}`, each optional, at least one). `200` with the client and its `pushStatus`; `409` if it is revoked. See [Renaming a client](#renaming-a-client). |
+| `PATCH /api/v1/admin/clients/{id}` | admin token | Renames the client (`{"name"}`). `200` with the client and its `pushStatus`; `409` if it is revoked, or if the deprecated `admin` field asks for another value than the user's role gives. See [Renaming a client](#renaming-a-client). |
 | `POST /api/v1/admin/clients/{id}/revoke` | admin token | Revokes the client and removes its push target. Idempotent. |
 | `DELETE /api/v1/admin/clients/{id}` | admin token | Deletes a revoked client with its push results, retries and unused pairing codes; events stay. `204`; `409` if it is not revoked; `404` for an unknown ID. See [Deleting a revoked client](#deleting-a-revoked-client). |
-| `POST /api/v1/admin/pairings` | admin token | Creates a pairing for a new client (`{"name": ..., "admin": ...}`, `admin` optional). `201` with `{"id", "name", "admin", "code", "expiresAt", "uri"}`; see [Pairing](#pairing). |
-| `GET /api/v1/admin/pairings/{id}` | admin token | Whether a pairing created with the admin token was used, and by which client (`PairingStatus`); `404` for an unknown ID or an admin device's pairing. See [Whether a code was used](#whether-a-code-was-used). |
+| `POST /api/v1/admin/pairings` | admin token | Creates a pairing for a new client of a user (`{"name": ..., "userId": ...}`, `userId` optional). `201` with `{"id", "name", "admin", "user", "code", "expiresAt", "uri"}`; see [Pairing](#pairing). |
+| `GET /api/v1/admin/pairings/{id}` | admin token | Whether a pairing created with the admin token was used, and by which client (`PairingStatus`); `404` for an unknown ID or a device's pairing. See [Whether a code was used](#whether-a-code-was-used). |
 | `POST /api/v1/pairing` | pairing code | Redeems the code: registers the client. `201` with the client and `clientKey`, `Location` `/api/v1/client`. |
-| `POST /api/v1/client/pairings` | admin device's client key | Creates a pairing for a new client that is not an admin (`{"name": ...}`). `201` as `POST /api/v1/admin/pairings`; `403` for any other client. See [Pairing from an admin device](#pairing-from-an-admin-device). |
-| `GET /api/v1/client/pairings/{id}` | admin device's client key | Whether a pairing this device created was used, and by which client (`PairingStatus`); `404` for an unknown ID or any other pairing; `403` for any other client key, before the pairing is looked up. See [Whether a code was used](#whether-a-code-was-used). |
-| `GET /api/v1/client` | client key | The calling client's registration, including whether it is an admin device. |
+| `POST /api/v1/client/pairings` | client key of a mod or an admin | Creates a pairing for a new client (`{"name": ..., "userId": ...}`, `userId` optional: this device's own user; only an admin may name another). `201` as `POST /api/v1/admin/pairings`; `403` for a basic user. See [Pairing from a device](#pairing-from-a-device). |
+| `GET /api/v1/client/pairings/{id}` | client key of a mod or an admin | Whether a pairing this device created was used, and by which client (`PairingStatus`); `404` for an unknown ID or any other pairing; `403` for a basic user, before the pairing is looked up. See [Whether a code was used](#whether-a-code-was-used). |
+| `GET /api/v1/client` | client key | The calling client's registration, including its user and whether it is an admin device. |
 | `PUT /api/v1/client/push-target` | client key | Sets the push target (`{"provider", "token"}`). `200` with the client. |
 | `DELETE /api/v1/client/push-target` | client key | Removes the push target. Idempotent. `200` with the client. |
 | `PUT /api/v1/client/push-preferences` | client key | Replaces the push preferences (`{"enabled", "minimumSeverity", "mutedCategories", "mutedProducerIds"}`, each optional). `200` with the client. |
 | `GET /api/v1/client/push-config` | client key | The options an app needs to set up push with the server's provider, `{"provider", "options"}` (see [Push client options](#push-client-options)); `404` if the operator configured none. |
-| `GET /api/v1/client/devices` | admin device's client key | Every client, as `GET /api/v1/admin/clients` lists them; `403` for any other client key. See [Device management from an admin device](#device-management-from-an-admin-device). |
-| `POST /api/v1/client/devices/{id}/admin` | admin device's client key | Makes the client an admin device. `200` with the client (`ManagedClient`); `409` if it is revoked; `403` for any other client key. |
-| `POST /api/v1/client/devices/{id}/revoke` | admin device's client key | Revokes a client that is not an admin. `200` with the client (`ManagedClient`), idempotent; `409` for an admin, the caller included; `403` for any other client key. |
-| `DELETE /api/v1/client/devices/{id}` | admin device's client key | Deletes a revoked client, an admin or not. `204`; `409` if it is not revoked; `404` for an unknown ID; `403` for any other client key. |
+| `GET /api/v1/client/devices` | client key | An admin: every client, as `GET /api/v1/admin/clients` lists them; anyone else: the clients of their own user. See [Device management from a device](#device-management-from-a-device). |
+| `PATCH /api/v1/client/devices/{id}` | client key | Renames a client (`{"name"}`): a mod their own, an admin those of users who are not admins. `200` with the client (`ManagedClient`); `409` for an admin's device or a revoked client; `403` for a basic user. |
+| `POST /api/v1/client/devices/{id}/admin` | client key | Always `409`: roles are set per user, only with the admin token. |
+| `POST /api/v1/client/devices/{id}/revoke` | client key | Revokes a client: a mod their own (not their last active one), an admin those of users who are not admins. `200` with the client (`ManagedClient`), idempotent; `409` for an admin's device; `403` for a basic user. |
+| `DELETE /api/v1/client/devices/{id}` | client key | Deletes a revoked client, with the same reach. `204`; `409` if it is not revoked or is an admin's; `404` for an unknown ID; `403` for a basic user. |
+| `GET`, `POST /api/v1/client/producers`, `GET`, `PATCH /api/v1/client/producers/{id}`, and the paths below it | client key, any role | The caller's own producers, their keys, state and allow-list: see [Own producers from a device](#own-producers-from-a-device). |
+| `GET /api/v1/client/visible-producers`, `PUT`, `DELETE /api/v1/client/visible-producers/{id}/subscription` | client key, any role | The producers the caller sees, and subscribing to them: see [Subscriptions from a device](#subscriptions-from-a-device). |
+| `GET /api/v1/client/users` | client key, any role | The users who are not revoked: names only, and for an admin's key also role, active devices and whether they have paired. |
+| `GET /api/v1/client/users/{id}/producers` | client key of an admin | The producers a user owns (ID, name, visibility, disabled). |
+| `POST /api/v1/client/users`, `PATCH /api/v1/client/users/{id}` | client key of an admin | Invites a user with a first pairing code, and sets a role: see [Users from a device](#users-from-a-device). |
 
 The management paths behave like producer management: `404` for every path
 while no admin token is configured, `404` for unknown IDs, and `400` for
@@ -1510,7 +1851,11 @@ every event, so existing clients keep receiving everything; check constraints
 allow only known severities and categories and at most 100 producers.
 `V10__create_pairings.sql` creates `pairings`: `id`, `code_hash` (exactly 32
 bytes, unique), `client_name`, `created_at` and `expires_at`, which must be
-later than `created_at`. `V15__add_pairing_redemption.sql` adds
+later than `created_at`. `V17__create_users_roles_subscriptions.sql` adds
+`user_id` to `clients` and to `pairings` (the user the client belongs to, and
+the one a pairing is for; existing rows become the first user's) and drops the
+`admin` columns `V13__add_client_admin.sql` had added.
+`V15__add_pairing_redemption.sql` adds
 `redeemed_at` and `redeemed_by` (the client the code registered, deleted
 with it), set together when the code is redeemed and `null` before. `V12__add_client_push_results.sql` adds each
 client's last push results: `last_push_succeeded_at` and
@@ -1670,9 +2015,12 @@ operator configured none (an app then needs its own, built in).
 
 ### Push dispatch
 
-Every stored event is pushed to every client that has a push target and whose
-[push preferences](#push-preferences) allow it. Preferences only suppress
-pushes; the event itself is stored and listed either way.
+Every stored event is pushed to every client that has a push target, whose
+user is [subscribed](#visibility-and-subscriptions) to the event's producer,
+and whose [push preferences](#push-preferences) allow it. Preferences only
+suppress pushes; the event itself is stored and listed either way. Clients of
+users who are not subscribed are not considered at all: nothing is sent, and
+no [delivery record](#delivery-records) is written for them.
 
 ```
  POST /api/v1/events ──one transaction──▶ events + push_dispatches (outbox)
@@ -1710,8 +2058,8 @@ pushes; the event itself is stored and listed either way.
   (V8) per event and client, written in the transaction that completes the
   event's dispatch, and claimed like dispatch rows once due, so retries
   survive restarts. A retry reads the client's push target and preferences
-  again: a client that was revoked, lost its target or muted the event
-  meanwhile is not sent to. Retries are only for temporary failures; the
+  again: a client that was revoked, lost its target, muted the event or whose
+  user stopped being subscribed to the producer meanwhile is not sent to. Retries are only for temporary failures; the
   other results are final (see [Push delivery](#push-delivery)).
 - **Final failure.** After the last attempt the retry is dropped and a
   warning names the event and client (`Gave up the push of event ...`);
@@ -1755,21 +2103,35 @@ management API:
 
 | Method and path | Result |
 |---|---|
-| `GET /api/v1/admin/events/{id}/deliveries` | The event's records, oldest first: `200` with `{"items": [...]}` (`EventDeliveryList`), empty while its push is not dispatched; `404 Event not found` for an unknown or deleted event. |
+| `GET /api/v1/admin/events/{id}/deliveries` | The event's records, oldest first, and the users it reached: `200` with `{"items": [...], "users": [...]}` (`EventDeliveryList`), `items` empty while its push is not dispatched; `404 Event not found` for an unknown or deleted event. |
 
 ```json
 {"items": [
-  {"clientId": "01997d4a-...", "clientName": "Pixel 9", "attempt": 1,
+  {"clientId": "01997d4a-...", "clientName": "Pixel 9",
+   "userId": "01997d40-...", "userName": "Anna", "attempt": 1,
    "outcome": "TRANSIENT_FAILURE", "detail": "HTTP 503 UNAVAILABLE",
    "at": "2026-09-30T09:12:40.654321Z"},
-  {"clientId": "01997d4a-...", "clientName": "Pixel 9", "attempt": 2,
+  {"clientId": "01997d4a-...", "clientName": "Pixel 9",
+   "userId": "01997d40-...", "userName": "Anna", "attempt": 2,
    "outcome": "DELIVERED", "detail": null, "at": "2026-09-30T09:13:10.123456Z"},
-  {"clientId": "01997d4b-...", "clientName": "Tablet", "attempt": 1,
+  {"clientId": "01997d4b-...", "clientName": "Tablet",
+   "userId": "01997d41-...", "userName": "Ben", "attempt": 1,
    "outcome": "FILTERED", "detail": "below the minimum severity",
    "at": "2026-09-30T09:12:40.654400Z"}
+],
+ "users": [
+  {"id": "01997d40-...", "name": "Anna", "owner": true},
+  {"id": "01997d41-...", "name": "Ben", "owner": false}
 ]}
 ```
 
+- **Whose.** Each record names its client's user (`userId`, `userName`,
+  as they are now), and `users` lists the users the event reached: those
+  subscribed to its producer now, by name, with whether each owns it. A
+  user without a device is listed with no records. **decided: "reached"
+  means "subscribed"**, which is what decides who gets an event; a user
+  who unsubscribed since still has their records, shown by the page as no
+  longer subscribed.
 - **One record per attempt.** The first dispatch is attempt 1 and each
   [retry](#push-dispatch) one more, so a push that failed temporarily and
   then arrived has two records. An event dispatched again after the
@@ -2083,7 +2445,7 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   or that screen opens and when either is pulled down: active devices first, each with its name and
   whether it is this device, an admin or revoked. A device that is neither
   an admin nor revoked offers *Make an admin* and *Revoke*, each after a
-  confirmation ([Device management from an admin device](#device-management-from-an-admin-device));
+  confirmation ([Device management from a device](#device-management-from-a-device));
   admins, this device included, offer neither, as the server would refuse
   them. A revoked device, an admin or not, offers *Delete*, after a
   confirmation, with `DELETE /api/v1/client/devices/{id}`
@@ -2110,12 +2472,12 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
 - **Connecting a device.** Above the list, an admin device offers *Connect
   a device*: it asks for the new device's name, creates a pairing code with
   `POST /api/v1/client/pairings`
-  ([Pairing from an admin device](#pairing-from-an-admin-device)) and shows
+  ([Pairing from a device](#pairing-from-a-device)) and shows
   it as the admin page does: the pairing URI as a QR code, a countdown to
   its expiry ("Expires in 9:59. It works once."), which hides the code once
   it has expired, and the URI as text with *Copy link*, to send to whoever
-  sets up the new device. It never pairs an admin device; the new device
-  can be made one from the list once it has paired. The QR code is drawn by
+  sets up the new device. The server pairs it for this device's own user, so
+  the new device is an admin device, as this one is. The QR code is drawn by
   the app itself with the pure-Dart [`qr`](https://pub.dev/packages/qr)
   package, black on white with a quiet zone whatever the theme. When the
   server has no public address (`uri` is `null`), the app builds the same
@@ -2124,6 +2486,15 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
   the screen closes. A `403` says "This device is no longer an admin
   device" as for the list; a server without the endpoint (`404`) says it
   cannot create pairing codes from a device, and the app stops offering it.
+- **With users.** From backend v3.0.0 a device is an admin device exactly when
+  its user is an admin ([Users, roles and
+  subscriptions](#users-roles-and-subscriptions)). The app keeps working with
+  such a server: it reads `admin` from its registration as before, and shows
+  the events of its user's subscriptions. Its *Make an admin* action, which
+  the server now refuses with `409 Roles are set per user, not per device`,
+  shows that refusal; the app's own screens for users and roles come later,
+  and until then roles are set on the admin page. Devices of mods and basic
+  users do not show *Devices*, as they are not admin devices.
 - **A used code.** While a code is shown, and only while the screen is
   open and the app in the foreground, the screen asks
   `GET /api/v1/client/pairings/{id}`
@@ -2662,6 +3033,15 @@ instead of silently dropped. A producer that uses a newer field or value
 against an older server therefore gets `400`, and must be upgraded after the
 server, not before. `link` (v2.3.0) is such a field: an older server
 rejects an event that has one. Unknown query parameters are ignored.
+
+**Breaking changes made so far after 1.0.** `v2.0.0` (the database moved to
+PostgreSQL 18, see [deployment.md](deployment.md)) and `v3.0.0` (users and
+roles): the client API no longer changes a device's admin flag, because a
+device is an admin device exactly when its user is an admin (see
+[Users, roles and subscriptions](#users-roles-and-subscriptions)). Producers,
+the event schema, the Python SDK and the released app keep working; the
+migration and its one visible change for the existing owner are in
+[deployment.md](deployment.md#upgrading-to-v300).
 
 **Versioning of the API path.** `/api/v1/` changes only for a redesign that
 cannot be made compatible; a breaking change within `v1` is released under

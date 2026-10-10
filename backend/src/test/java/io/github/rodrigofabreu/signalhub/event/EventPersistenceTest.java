@@ -53,8 +53,8 @@ class EventPersistenceTest {
     try (var connection = dataSource.getConnection();
         var statement = connection.createStatement()) {
       statement.executeUpdate(
-          "INSERT INTO producers (id, name, created_at)"
-              + " VALUES (gen_random_uuid(), 'persistence-test', now())"
+          "INSERT INTO producers (id, name, created_at, owner_id)"
+              + " VALUES (gen_random_uuid(), 'persistence-test', now(), (SELECT id FROM users ORDER BY created_at LIMIT 1))"
               + " ON CONFLICT (name) DO NOTHING");
     }
   }

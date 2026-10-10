@@ -4,7 +4,10 @@ import java.time.Instant;
 import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
-/** One of an event's delivery records: one push attempt to one client, and how it went. */
+/**
+ * One of an event's delivery records: one push attempt to one client (of one user), and how it
+ * went.
+ */
 @Schema(
     name = "EventDelivery",
     description =
@@ -14,6 +17,13 @@ public record EventDelivery(
     @Schema(required = true, examples = "01997d5e-8a3c-7b1e-9f2a-4c6d8e0f1a2b") UUID clientId,
     @Schema(required = true, description = "The client's name now.", examples = "Pixel 9")
         String clientName,
+    @Schema(
+            required = true,
+            description = "The user the client belongs to.",
+            examples = "01997d5e-8a3c-7b1e-9f2a-4c6d8e0f1a2c")
+        UUID userId,
+    @Schema(required = true, description = "The user's name now.", examples = "Anna")
+        String userName,
     @Schema(
             required = true,
             description = "1 for the first dispatch of the event, then one more for each retry.",

@@ -46,6 +46,11 @@ class ProducerPersistenceTest {
     producers.put("name", "text NO");
     producers.put("created_at", "timestamp with time zone NO");
     producers.put("disabled_at", "timestamp with time zone YES");
+    // Added by V17.
+    producers.put("owner_id", "uuid NO");
+    producers.put("visibility", "text NO");
+    // Added by V18.
+    producers.put("disabled_by_owner", "boolean NO");
     assertEquals(producers, columnsOf("producers"));
 
     var keys = new LinkedHashMap<String, String>();
@@ -115,14 +120,15 @@ class ProducerPersistenceTest {
   @Test
   void producerNamesAreUnique() throws SQLException {
     execute(
-        "INSERT INTO producers (id, name, created_at) VALUES (gen_random_uuid(), 'unique', now())");
+        "INSERT INTO producers (id, name, created_at, owner_id) VALUES (gen_random_uuid(),"
+            + " 'unique', now(), (SELECT id FROM users ORDER BY created_at LIMIT 1))");
     var error =
         assertThrows(
             SQLException.class,
             () ->
                 execute(
-                    "INSERT INTO producers (id, name, created_at)"
-                        + " VALUES (gen_random_uuid(), 'unique', now())"));
+                    "INSERT INTO producers (id, name, created_at, owner_id)"
+                        + " VALUES (gen_random_uuid(), 'unique', now(), (SELECT id FROM users ORDER BY created_at LIMIT 1))"));
     assertEquals("23505", error.getSQLState(), error.getMessage());
   }
 

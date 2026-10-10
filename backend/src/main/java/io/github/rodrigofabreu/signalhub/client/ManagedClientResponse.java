@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.client;
 
+import io.github.rodrigofabreu.signalhub.user.UserRef;
 import java.time.Instant;
 import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -23,9 +24,10 @@ public record ManagedClientResponse(
     @Schema(
             required = true,
             description =
-                "Whether the client is one of the owner's admin devices. The operator sets it"
-                    + " with the admin token; an admin device can also make another one an admin.")
+                "Whether the client is an admin device: exactly when its user is an ADMIN.")
         boolean admin,
+    @Schema(required = true, description = "The user the client belongs to, with their role.")
+        UserRef user,
     @Schema(required = true, examples = "2026-09-25T12:00:00.123456Z") Instant createdAt,
     @Schema(
             description =
@@ -44,6 +46,7 @@ public record ManagedClientResponse(
         client.id(),
         client.name(),
         client.admin(),
+        client.user(),
         client.createdAt(),
         client.revokedAt(),
         client.pushTarget(),

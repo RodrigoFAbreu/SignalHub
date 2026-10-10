@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.client;
 
+import io.github.rodrigofabreu.signalhub.user.UserRef;
 import java.time.Instant;
 import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -26,8 +27,11 @@ public record IssuedPairing(
         String name,
     @Schema(
             required = true,
-            description = "Whether the client is an admin device when the code is redeemed.")
+            description =
+                "Whether the client is an admin device: exactly when its user is an ADMIN.")
         boolean admin,
+    @Schema(required = true, description = "The user the client belongs to when it is redeemed.")
+        UserRef user,
     @Schema(
             required = true,
             description =
@@ -54,6 +58,8 @@ public record IssuedPairing(
         + id
         + ", name="
         + name
+        + ", user="
+        + user.id()
         + ", admin="
         + admin
         + ", expiresAt="

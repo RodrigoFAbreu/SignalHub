@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -23,9 +24,28 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
    * the query's cursor. Served by the {@code (created_at, id)} indexes of V3, and unread events by
    * the partial index of V6, so a page costs the same however deep it is.
    */
-  List<EventEntity> find(EventQuery query, int count) {
+  List<EventEntity> find(
+      EventQuery query, int count, Optional<Viewer> viewer, Optional<Set<UUID>> userProducerIds) {
+    if (viewer.isPresent() && viewer.get().producerIds().isEmpty()) {
+      return List.of();
+    }
+    if (userProducerIds.isPresent() && userProducerIds.get().isEmpty()) {
+      return List.of();
+    }
     var conditions = new ArrayList<String>();
     var parameters = new HashMap<String, Object>();
+    viewer.ifPresent(
+        v -> {
+          // Only events of the producers the viewer's user is subscribed to.
+          conditions.add("producerId in :viewerProducers");
+          parameters.put("viewerProducers", v.producerIds());
+        });
+    userProducerIds.ifPresent(
+        ids -> {
+          // The operator's per-user view: the producers a user owns or is subscribed to.
+          conditions.add("producerId in :userProducers");
+          parameters.put("userProducers", ids);
+        });
     if (!query.producerIds().isEmpty()) {
       conditions.add("producerId in :producerIds");
       parameters.put("producerIds", query.producerIds());
@@ -40,8 +60,19 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
     }
     query
         .read()
-        // Literal predicates: "read_at is null" is the one the partial index of V6 matches.
-        .ifPresent(read -> conditions.add(read ? "readAt is not null" : "readAt is null"));
+        .ifPresent(
+            read -> {
+              viewer.ifPresent(v -> parameters.put("viewerUser", v.userId()));
+              conditions.add(
+                  viewer.isPresent()
+                      // A user's read state is theirs alone.
+                      ? (read ? "exists " : "not exists ")
+                          + "(select 1 from EventReadEntity r where r.id.eventId = e.id"
+                          + " and r.id.userId = :viewerUser)"
+                      // Literal predicates: "read_at is null" is the one the partial index of V6
+                      // matches.
+                      : (read ? "readAt is not null" : "readAt is null"));
+            });
     query
         .createdFrom()
         .ifPresent(
@@ -68,9 +99,15 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
     var matching =
         conditions.isEmpty()
             ? findAll(NEWEST_FIRST)
-            : find(String.join(" and ", conditions), NEWEST_FIRST, parameters);
+            : find(
+                "from EventEntity e where " + String.join(" and ", conditions),
+                NEWEST_FIRST,
+                parameters);
     return matching.range(0, count - 1).list();
   }
+
+  /** Whose events a listing is limited to: a user, and the producers they are subscribed to. */
+  record Viewer(UUID userId, Set<UUID> producerIds) {}
 
   /**
    * Waits until no other transaction is publishing and holds the lock until this transaction ends,

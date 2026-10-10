@@ -118,6 +118,8 @@ class OpenApiTest {
                 "read",
                 "createdFrom",
                 "createdBefore",
+                "userId",
+                "relation",
                 "cursor",
                 "limit"))
         .body(
@@ -127,7 +129,7 @@ class OpenApiTest {
         .body(EVENTS + ".get.responses", hasKey("200"))
         .body(EVENTS + ".get.responses", hasKey("400"))
         .body(EVENTS + ".get.responses", hasKey("401"))
-        .body(EVENTS + ".get.responses", not(hasKey("404")))
+        .body(EVENTS + ".get.responses", hasKey("404"))
         .body(
             EVENTS + ".get.responses.'200'.content.'application/json'.schema.$ref",
             equalTo("#/components/schemas/EventPage"))
@@ -305,7 +307,8 @@ class OpenApiTest {
         .statusCode(200)
         .body(
             SCHEMAS + ".ManagedClient.required",
-            containsInAnyOrder("id", "name", "admin", "createdAt", "pushPreferences", "pushStatus"))
+            containsInAnyOrder(
+                "id", "name", "admin", "user", "createdAt", "pushPreferences", "pushStatus"))
         .body(
             SCHEMAS + ".ManagedClient.properties.pushStatus.$ref",
             equalTo("#/components/schemas/PushStatus"))
@@ -352,7 +355,7 @@ class OpenApiTest {
   }
 
   @Test
-  void describesDeviceManagementFromAnAdminDevice() {
+  void describesDeviceManagementFromADevice() {
     var devices = "paths.'/api/v1/client/devices'.get";
     var makeAdmin = "paths.'/api/v1/client/devices/{id}/admin'.post";
     var revoke = "paths.'/api/v1/client/devices/{id}/revoke'.post";
@@ -371,10 +374,8 @@ class OpenApiTest {
         .body(devices + ".responses", hasKey("401"))
         .body(devices + ".responses", hasKey("403"))
         .body(makeAdmin + ".security", equalTo(clientKey))
-        .body(
-            makeAdmin + ".responses.'200'.content.'application/json'.schema.$ref",
-            equalTo("#/components/schemas/ManagedClient"))
-        .body(makeAdmin + ".responses.keySet()", hasItems("200", "401", "403", "404", "409"))
+        // Kept so that an older app gets a clear refusal; roles are set per user.
+        .body(makeAdmin + ".responses.keySet()", hasItems("401", "409"))
         .body(makeAdmin, not(hasKey("requestBody")))
         .body(revoke + ".security", equalTo(clientKey))
         .body(
@@ -385,8 +386,15 @@ class OpenApiTest {
         .body(delete + ".security", equalTo(clientKey))
         .body(delete + ".responses.keySet()", containsInAnyOrder("204", "401", "403", "404", "409"))
         .body(delete + ".responses.'204'", not(hasKey("content")))
-        // Renaming and taking admin rights away stay with the admin token.
-        .body("paths.'/api/v1/client/devices/{id}'.keySet()", containsInAnyOrder("delete"));
+        // Taking admin rights away stays with the admin token; renaming is for mods and admins.
+        .body("paths.'/api/v1/client/devices/{id}'.keySet()", containsInAnyOrder("delete", "patch"))
+        .body(
+            "paths.'/api/v1/client/devices/{id}'.patch.requestBody.content.'application/json'"
+                + ".schema.$ref",
+            equalTo("#/components/schemas/RenameDeviceRequest"))
+        .body(
+            "paths.'/api/v1/client/devices/{id}'.patch.responses.keySet()",
+            hasItems("200", "400", "401", "403", "404", "409"));
   }
 
   @Test
@@ -487,16 +495,25 @@ class OpenApiTest {
         .body(
             deliveries + ".get.responses.'200'.content.'application/json'.schema.$ref",
             equalTo("#/components/schemas/EventDeliveryList"))
-        .body(SCHEMAS + ".EventDeliveryList.required", containsInAnyOrder("items"))
+        .body(SCHEMAS + ".EventDeliveryList.required", containsInAnyOrder("items", "users"))
         .body(
             SCHEMAS + ".EventDeliveryList.properties.items.items.$ref",
             equalTo("#/components/schemas/EventDelivery"))
         .body(
             SCHEMAS + ".EventDelivery.required",
-            containsInAnyOrder("clientId", "clientName", "attempt", "outcome", "at"))
+            containsInAnyOrder(
+                "clientId", "clientName", "userId", "userName", "attempt", "outcome", "at"))
         .body(
             SCHEMAS + ".EventDelivery.properties.keySet()",
-            containsInAnyOrder("clientId", "clientName", "attempt", "outcome", "detail", "at"))
+            containsInAnyOrder(
+                "clientId",
+                "clientName",
+                "userId",
+                "userName",
+                "attempt",
+                "outcome",
+                "detail",
+                "at"))
         .body(
             SCHEMAS + ".DeliveryOutcome.enum",
             contains(
@@ -507,6 +524,29 @@ class OpenApiTest {
                 "INVALID_TARGET",
                 "TRANSIENT_FAILURE",
                 "PERMANENT_FAILURE"));
+  }
+
+  @Test
+  void describesAUsersTraffic() {
+    var traffic = "paths.'/api/v1/admin/users/{id}/traffic'";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(traffic + ".get.security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(traffic + ".get.tags", equalTo(List.of("User traffic")))
+        .body(traffic + ".get.responses.keySet()", containsInAnyOrder("200", "401", "404"))
+        .body(
+            traffic + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/UserTraffic"))
+        .body(SCHEMAS + ".UserTraffic.required", containsInAnyOrder("events", "deliveries"))
+        .body(
+            SCHEMAS + ".UserDelivery.required",
+            containsInAnyOrder(
+                "eventId", "eventTitle", "clientId", "clientName", "attempt", "outcome", "at"))
+        .body(SCHEMAS + ".EventRecipient.required", containsInAnyOrder("id", "name", "owner"));
   }
 
   @Test
@@ -552,7 +592,7 @@ class OpenApiTest {
             equalTo("#/components/schemas/Pairing"))
         .body(
             SCHEMAS + ".Pairing.required",
-            containsInAnyOrder("id", "name", "admin", "code", "expiresAt"))
+            containsInAnyOrder("id", "name", "admin", "user", "code", "expiresAt"))
         .body(SCHEMAS + ".Pairing.properties", hasKey("uri"))
         .body(
             "paths.'/api/v1/admin/pairings/{id}'.get.security",
@@ -606,6 +646,7 @@ class OpenApiTest {
             create + ".responses.'201'.content.'application/json'.schema.$ref",
             equalTo("#/components/schemas/Pairing"))
         .body(create + ".responses.keySet()", hasItems("201", "400", "401", "403"))
+        .body(SCHEMAS + ".CreateDevicePairingRequest.properties", hasKey("userId"))
         .body(status + ".security", equalTo(List.of(Map.of("clientKey", List.of()))))
         .body(status + ".tags", equalTo(List.of("Device management")))
         .body(
@@ -613,7 +654,107 @@ class OpenApiTest {
             equalTo("#/components/schemas/PairingStatus"))
         .body(status + ".responses.keySet()", hasItems("200", "401", "403", "404"))
         .body(SCHEMAS + ".CreateDevicePairingRequest.required", equalTo(List.of("name")))
-        // An admin device pairs only devices that are not admins.
+        // Roles are set per user: a device cannot say whether the new one is an admin device.
         .body(SCHEMAS + ".CreateDevicePairingRequest.properties", not(hasKey("admin")));
+  }
+
+  @Test
+  void describesUsersAndVisibilityInTheManagementApi() {
+    var admin = List.of(Map.of("adminToken", List.of()));
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body("paths.'/api/v1/admin/users'.post.security", equalTo(admin))
+        .body("paths.'/api/v1/admin/users'.get.security", equalTo(admin))
+        .body("paths.'/api/v1/admin/users/{id}'.patch.security", equalTo(admin))
+        .body("paths.'/api/v1/admin/users/{id}/revoke'.post.security", equalTo(admin))
+        .body("paths.'/api/v1/admin/users/{id}/subscriptions/{producerId}'", hasKey("put"))
+        .body("paths.'/api/v1/admin/producers/{id}'", hasKey("patch"))
+        .body(SCHEMAS + ".User.required", hasItem("role"))
+        .body(SCHEMAS + ".UserRef.properties.role.$ref", equalTo("#/components/schemas/Role"))
+        .body(SCHEMAS + ".Role.enum", containsInAnyOrder("BASIC", "MOD", "ADMIN"))
+        .body(SCHEMAS + ".Producer.required", hasItems("owner", "visibility", "allowedUsers"))
+        .body(SCHEMAS + ".Visibility.enum", containsInAnyOrder("PUBLIC", "PRIVATE"))
+        .body(SCHEMAS + ".CreateClientRequest.properties", hasKey("userId"));
+  }
+
+  @Test
+  void describesSelfServiceForUsersInTheClientApi() {
+    var clientKey = List.of(Map.of("clientKey", List.of()));
+    var producers = "paths.'/api/v1/client/producers'";
+    var producer = "paths.'/api/v1/client/producers/{id}'";
+    var visible = "paths.'/api/v1/client/visible-producers'";
+    var users = "paths.'/api/v1/client/users'";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(producers + ".post.security", equalTo(clientKey))
+        .body(
+            producers + ".post.responses.'201'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/IssuedOwnApiKey"))
+        .body(producers + ".post.responses.keySet()", hasItems("201", "400", "401", "409"))
+        .body(
+            producers + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/OwnProducerList"))
+        .body(producer + ".keySet()", containsInAnyOrder("get", "patch"))
+        .body(producer + ".patch.responses.keySet()", hasItems("200", "400", "401", "404", "409"))
+        .body(
+            "paths.'/api/v1/client/producers/{id}/keys'.post.responses.'201'.content"
+                + ".'application/json'.schema.$ref",
+            equalTo("#/components/schemas/IssuedOwnApiKey"))
+        .body(
+            "paths.'/api/v1/client/producers/{id}/keys/{keyId}/revoke'.post.responses.keySet()",
+            hasItems("200", "401", "404"))
+        .body("paths.'/api/v1/client/producers/{id}/disable'.post.security", equalTo(clientKey))
+        .body(
+            "paths.'/api/v1/client/producers/{id}/enable'.post.responses.keySet()",
+            hasItems("200", "404", "409"))
+        .body(
+            "paths.'/api/v1/client/producers/{id}/allowed-users/{userId}'.keySet()",
+            hasItems("put", "delete"))
+        .body(visible + ".get.security", equalTo(clientKey))
+        .body(
+            visible + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/VisibleProducerList"))
+        .body(
+            "paths.'/api/v1/client/visible-producers/{id}/subscription'.keySet()",
+            hasItems("put", "delete"))
+        .body(
+            "paths.'/api/v1/client/visible-producers/{id}/subscription'.put.responses.keySet()",
+            hasItems("200", "401", "404"))
+        .body(users + ".get.security", equalTo(clientKey))
+        .body(
+            users + ".get.responses.'200'.content.'application/json'.schema.oneOf.$ref",
+            containsInAnyOrder(
+                "#/components/schemas/NamedUserList", "#/components/schemas/DetailedUserList"))
+        .body(
+            users + ".post.responses.'201'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/InvitedUser"))
+        .body(users + ".post.responses.keySet()", hasItems("201", "400", "401", "403", "409"))
+        .body(
+            "paths.'/api/v1/client/users/{id}'.patch.responses.keySet()",
+            hasItems("200", "400", "401", "403", "404", "409"))
+        // A key is in the answers that issue one, and nowhere else.
+        .body(SCHEMAS + ".OwnApiKey.properties", not(hasKey("apiKey")))
+        .body(SCHEMAS + ".OwnProducer.properties", not(hasKey("apiKey")))
+        .body(SCHEMAS + ".IssuedOwnApiKey.properties", hasKey("apiKey"))
+        // Other users see an ID and a name, never a role; an admin's device sees the details.
+        .body(SCHEMAS + ".NamedUser.properties.keySet()", containsInAnyOrder("id", "name"))
+        .body(
+            SCHEMAS + ".DetailedUser.properties.keySet()",
+            containsInAnyOrder("id", "name", "role", "activeDevices", "hasPaired"))
+        .body(
+            SCHEMAS + ".PersonProducer.properties.keySet()",
+            containsInAnyOrder("id", "name", "visibility", "disabled"))
+        .body(
+            "paths.'/api/v1/client/users/{id}/producers'.get.responses.keySet()",
+            hasItems("200", "401", "403", "404"))
+        .body("paths.'/api/v1/client/users/{id}/producers'.get.security", equalTo(clientKey));
   }
 }

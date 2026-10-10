@@ -40,9 +40,11 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 public class PairingAdminResource {
 
   private final PairingService pairings;
+  private final OperatorUsers operatorUsers;
 
-  PairingAdminResource(PairingService pairings) {
+  PairingAdminResource(PairingService pairings, OperatorUsers operatorUsers) {
     this.pairings = pairings;
+    this.operatorUsers = operatorUsers;
   }
 
   @POST
@@ -51,8 +53,9 @@ public class PairingAdminResource {
       summary = "Create a pairing for a new client",
       description =
           "Creates a one-time pairing code, valid for 10 minutes, and its pairing URI. The device"
-              + " that redeems it becomes a new client of this name, with its own key, and an admin"
-              + " device if admin is true. The code is shown only once.")
+              + " that redeems it becomes a new client of this name, with its own key, a device of"
+              + " the given user (the oldest admin who is not revoked when none is given), and an"
+              + " admin device exactly when that user is an ADMIN. The code is shown only once.")
   @APIResponse(
       responseCode = "201",
       description = "Pairing created. It has no resource of its own, so no Location.",
@@ -61,8 +64,22 @@ public class PairingAdminResource {
       responseCode = "400",
       description = "The body is malformed or fails validation.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No user has the given ID.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "409",
+      description =
+          "The user is revoked, none is given and no admin is available, or an admin device was"
+              + " asked for a user who is not an admin.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
   public Response create(@NotNull @Valid CreateClientRequest request) {
-    var pairing = pairings.create(request.name(), request.adminRequested());
+    var user = operatorUsers.target(request.userId(), request.adminRequested());
+    var pairing =
+        pairings
+            .create(request.name(), user.id())
+            .orElseThrow(() -> OperatorUsers.conflict("User is revoked"));
     return Response.status(Response.Status.CREATED).entity(pairing).build();
   }
 
@@ -81,8 +98,7 @@ public class PairingAdminResource {
   @APIResponse(
       responseCode = "404",
       description =
-          "No pairing has this ID, it was deleted after it expired, or an admin device created"
-              + " it.",
+          "No pairing has this ID, it was deleted after it expired, or a device created it.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public PairingStatus status(@PathParam("id") UUID id) {
     return pairings

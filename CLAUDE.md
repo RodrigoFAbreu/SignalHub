@@ -27,15 +27,21 @@ Planned stack (details in `docs/architecture.md`):
 
 **Current state:** engineering baseline (docs, CI, release automation) plus
 the backend in `backend/` (Quarkus service, PostgreSQL, Flyway, health,
-OpenAPI, Docker Compose) with generic event ingestion
+OpenAPI, Docker Compose) with users (roles `BASIC`, `MOD` and `ADMIN`, set
+only by the operator) who own devices and producers and receive only the
+events of the producers they subscribed to (public or private, with
+allow-lists), managed in the *Users* section of the admin page and through
+`/api/v1/admin/users`, with generic event ingestion
 (`POST /api/v1/events`, idempotent with an optional `Idempotency-Key`, with
 an optional `link` URL, `GET /api/v1/events/{id}` with a client key or the
 admin token), a paginated event listing
 (`GET /api/v1/events`, with a client key or the admin token, filterable by
 read state among others, and browsed in the *Events* section of the
 admin page, a page at a time with the inbox's filters, opening an event
-to read it, open its link in a new tab, see how its push went to each
-device and mark it read or unread), deleting
+to read it, open its link in a new tab, see which users it reached and
+how its push went to each of their devices, and mark it read or unread, and
+filtered by user; the *Users* section shows each user's recent events and
+deliveries, all for the operator only), deleting
 events by the operator (one, a selection, a producer's or those older than a
 date, each bulk delete with a dry-run count, through `/api/v1/admin/events`
 with the admin token or on the admin page after a confirmation), sending a
@@ -53,17 +59,22 @@ once, issues and revokes keys, and disables and enables producers), and client r
 through `/api/v1/admin/clients` and `/api/v1/client`, or by a device
 redeeming a one-time pairing code from `/api/v1/admin/pairings` at
 `/api/v1/pairing`, made in a browser on the operator's admin page
-`/admin/` on the backend's own port (in sections, *Devices*,
+`/admin/` on the backend's own port (in sections, *Devices*, *Users*,
 *Producers*, *Events* and *Status*, kept in the address; *Status* answers
 whether SignalHub is working, from `/q/info`, `/q/health`, the management
 API and `/api/v1/admin/status`), which also lists every device to
-rename it, make it an admin device or not, revoke it, or delete it once
+rename it, revoke it, or delete it once
 revoked, and says which device used the code shown, with a push to the
-owner's devices when a device pairs, and an admin device can list every
-device, make one an admin, revoke one that is not an admin or delete a
-revoked one through
-`/api/v1/client/devices`, with a push naming it (none for a deletion), and create pairing codes
-for devices that are not admins at `/api/v1/client/pairings`; whoever
+user's devices and the admins' when a device pairs, and a device does so
+as its user's role allows (a mod their own devices, an admin those of
+users who are not admins, a basic user none; a device is an admin device
+exactly when its user is an admin; an admin's device also invites users
+and sets basic or mod roles, and any user's device manages that user's
+own producers, subscribes and lists users' names, and an admin's device
+also sees each user's role, device count and producers, all under
+`/api/v1/client/`) through
+`/api/v1/client/devices`, with a push naming it (none for a deletion), and
+creates pairing codes at `/api/v1/client/pairings`; whoever
 created a pairing asks whether it was used, and by which device, at
 `/api/v1/admin/pairings/{id}` or `/api/v1/client/pairings/{id}`) with
 per-client push preferences (pause, minimum severity, muted categories and producers) and

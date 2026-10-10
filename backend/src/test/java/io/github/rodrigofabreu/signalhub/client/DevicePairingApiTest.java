@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import io.agroal.api.AgroalDataSource;
 import io.github.rodrigofabreu.signalhub.TestClients;
 import io.github.rodrigofabreu.signalhub.TestClients.Registered;
+import io.github.rodrigofabreu.signalhub.TestUsers;
 import io.github.rodrigofabreu.signalhub.producer.ApiKeys;
 import io.github.rodrigofabreu.signalhub.push.DeviceNotifier;
 import io.quarkus.test.junit.QuarkusTest;
@@ -33,9 +34,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Creating pairing codes from an admin device, against real PostgreSQL: admin-only as the rest of
- * device management (an ordinary client, an admin, a revoked admin), never for an admin device, and
- * only as long as the device that created the code stays an active admin; and whether a code it
+ * Creating pairing codes from a device, against real PostgreSQL, as its user's role allows (a basic
+ * user none, a mod for themselves, an admin for anyone), for a device of the user the code is for,
+ * only as long as the device that created the code may still create it; and whether a code it
  * created was used, for that device only.
  */
 @QuarkusTest
@@ -54,15 +55,17 @@ class DevicePairingApiTest {
   }
 
   @Test
-  void anAdminDeviceCreatesAPairingForADeviceThatIsNotAnAdmin() throws SQLException {
-    var caller = TestClients.registerAdmin("pairing-admin");
+  void aDeviceCreatesAPairingForItsOwnUserByDefault() throws SQLException {
+    var caller = TestClients.registerAs("ADMIN", "pairing-admin");
 
     var pairing =
         create(caller, "Tablet")
             .statusCode(201)
             .header("Location", nullValue())
             .body("name", equalTo("Tablet"))
-            .body("admin", equalTo(false))
+            // An admin's device is an admin device.
+            .body("admin", equalTo(true))
+            .body("user.id", equalTo(caller.userId().toString()))
             .body("code", startsWith(PairingCodes.PREFIX))
             .body("id", notNullValue())
             .extract();
@@ -80,19 +83,67 @@ class DevicePairingApiTest {
         redeem(code)
             .statusCode(201)
             .body("client.name", equalTo("Tablet"))
-            .body("client.admin", equalTo(false))
+            .body("client.admin", equalTo(true))
+            .body("client.user.id", equalTo(caller.userId().toString()))
             .extract();
     asClient(issued.path("clientKey")).get(CLIENT).then().statusCode(200);
     redeem(code).statusCode(401);
   }
 
   @Test
-  void aClientThatIsNotAnAdminIsRefused() throws SQLException {
-    var caller = TestClients.register("ordinary-pairing-caller");
+  void anAdminCreatesAPairingForAnotherUser() {
+    var caller = TestClients.registerAs("ADMIN", "pairing-for-others");
+    var user = TestUsers.create("pairing-target", "MOD");
+
+    var code =
+        createFor(caller, "Her phone", user.id())
+            .statusCode(201)
+            .body("admin", equalTo(false))
+            .body("user.id", equalTo(user.id().toString()))
+            .body("user.role", equalTo("MOD"))
+            .extract()
+            .<String>path("code");
+
+    redeem(code)
+        .statusCode(201)
+        .body("client.admin", equalTo(false))
+        .body("client.user.id", equalTo(user.id().toString()));
+  }
+
+  @Test
+  void aModCreatesAPairingOnlyForThemselves() throws SQLException {
+    var caller = TestClients.registerAs("MOD", "pairing-mod");
+    var other = TestUsers.create("pairing-mod-other", "BASIC");
+
+    create(caller, "Own tablet")
+        .statusCode(201)
+        .body("admin", equalTo(false))
+        .body("user.id", equalTo(caller.userId().toString()));
+    createFor(caller, "Own, named", caller.userId()).statusCode(201);
+    createFor(caller, "Someone else's " + caller.id(), other.id())
+        .statusCode(403)
+        .body("title", equalTo("Not allowed for your role"));
+    createFor(caller, "Nobody's " + caller.id(), UUID.randomUUID()).statusCode(403);
+    assertEquals(0, pairingsFor("Someone else's " + caller.id()));
+  }
+
+  @Test
+  void anAdminCannotCreateAPairingForAUnknownOrRevokedUser() {
+    var caller = TestClients.registerAs("ADMIN", "pairing-unknown-user");
+    var gone = TestUsers.create("pairing-revoked-user", "BASIC");
+    asAdmin().post(TestUsers.ADMIN + "/" + gone.id() + "/revoke").then().statusCode(200);
+
+    createFor(caller, "Nobody's", UUID.randomUUID()).statusCode(404);
+    createFor(caller, "Revoked's", gone.id()).statusCode(409);
+  }
+
+  @Test
+  void aBasicUserIsRefused() throws SQLException {
+    var caller = TestClients.registerAs("BASIC", "basic-pairing-caller");
 
     create(caller, "Refused " + caller.id())
         .statusCode(403)
-        .body("title", equalTo("Not an admin device"))
+        .body("title", equalTo("Not allowed for your role"))
         .body("status", equalTo(403))
         .body("violations.size()", equalTo(0));
 
@@ -100,16 +151,16 @@ class DevicePairingApiTest {
   }
 
   @Test
-  void aDeviceWhoseAdminRightsWereTakenAwayIsRefused() {
-    var caller = TestClients.registerAdmin("former-pairing-admin");
-    setAdmin(caller, false);
+  void aDeviceWhoseUserWasMadeBasicIsRefused() {
+    var caller = TestClients.registerAs("ADMIN", "former-pairing-admin");
+    setRole(caller, "BASIC");
 
-    create(caller, "Refused").statusCode(403).body("title", equalTo("Not an admin device"));
+    create(caller, "Refused").statusCode(403).body("title", equalTo("Not allowed for your role"));
   }
 
   @Test
   void aRevokedAdminIsNotAuthenticated() throws SQLException {
-    var caller = TestClients.registerAdmin("revoked-pairing-admin");
+    var caller = TestClients.registerAs("ADMIN", "revoked-pairing-admin");
     asAdmin().post(ADMIN + "/" + caller.id() + "/revoke").then().statusCode(200);
 
     create(caller, "Refused " + caller.id()).statusCode(401).body("title", equalTo("Unauthorized"));
@@ -141,12 +192,12 @@ class DevicePairingApiTest {
         "{\"name\": \" \"}",
         "{\"name\": \"a\\u0000b\"}",
         "{\"name\": 1}",
-        // An admin device cannot pair an admin device, nor say it does not.
+        // Roles are set per user: a device cannot say whether the new one is an admin device.
         "{\"name\": \"x\", \"admin\": true}",
         "{\"name\": \"x\", \"admin\": false}",
       })
   void invalidPairingsAreRejected(String body) {
-    var caller = TestClients.registerAdmin("admin-with-invalid-pairing");
+    var caller = TestClients.registerAs("ADMIN", "admin-with-invalid-pairing");
 
     asClient(caller.clientKey())
         .contentType(ContentType.JSON)
@@ -158,7 +209,7 @@ class DevicePairingApiTest {
 
   @Test
   void aNameOfMoreThan100CharactersIsRejected() {
-    var caller = TestClients.registerAdmin("admin-with-long-name");
+    var caller = TestClients.registerAs("ADMIN", "admin-with-long-name");
 
     create(caller, "x".repeat(101)).statusCode(400);
     create(caller, "x".repeat(100)).statusCode(201);
@@ -166,7 +217,7 @@ class DevicePairingApiTest {
 
   @Test
   void theCodeStopsWorkingOnceItsDeviceIsRevoked() throws SQLException {
-    var caller = TestClients.registerAdmin("stolen-admin");
+    var caller = TestClients.registerAs("ADMIN", "stolen-admin");
     String code = create(caller, "Stolen code").statusCode(201).extract().path("code");
 
     asAdmin().post(ADMIN + "/" + caller.id() + "/revoke").then().statusCode(200);
@@ -178,17 +229,32 @@ class DevicePairingApiTest {
   }
 
   @Test
-  void theCodeStopsWorkingOnceItsDeviceIsNoLongerAnAdmin() throws SQLException {
-    var caller = TestClients.registerAdmin("demoted-admin");
-    String code = create(caller, "Demoted code").statusCode(201).extract().path("code");
+  void theCodeStopsWorkingOnceItsUserMayNoLongerCreateIt() throws SQLException {
+    var caller = TestClients.registerAs("ADMIN", "demoted-admin");
+    var user = TestUsers.create("demoted-admin-target", "BASIC");
+    String code =
+        createFor(caller, "Demoted code", user.id()).statusCode(201).extract().path("code");
 
-    setAdmin(caller, false);
+    // A mod pairs only for themselves, so the admin's code for someone else is void.
+    setRole(caller, "MOD");
 
     redeem(code).statusCode(401);
     assertEquals(0, clientsNamed("Demoted code"));
     // Made an admin again, the old code still does not come back.
-    setAdmin(caller, true);
+    setRole(caller, "ADMIN");
     redeem(code).statusCode(401);
+  }
+
+  @Test
+  void theCodeStopsWorkingOnceItsUserIsRevoked() throws SQLException {
+    var caller = TestClients.registerAs("ADMIN", "inviting-admin");
+    var user = TestUsers.create("revoked-before-redeeming", "MOD");
+    String code = createFor(caller, "Late code", user.id()).statusCode(201).extract().path("code");
+
+    asAdmin().post(TestUsers.ADMIN + "/" + user.id() + "/revoke").then().statusCode(200);
+
+    redeem(code).statusCode(401);
+    assertEquals(0, clientsNamed("Late code"));
   }
 
   @Test
@@ -208,7 +274,7 @@ class DevicePairingApiTest {
 
   @Test
   void anAdminDeviceLearnsThatItsCodeWasUsedAndByWhichDevice() throws SQLException {
-    var caller = TestClients.registerAdmin("pairing-watcher");
+    var caller = TestClients.registerAs("ADMIN", "pairing-watcher");
     var pairing = create(caller, "Watched tablet").statusCode(201).extract();
     String id = pairing.path("id");
 
@@ -233,7 +299,7 @@ class DevicePairingApiTest {
 
   @Test
   void anExpiredCodeOfTheDeviceSaysSo() throws SQLException {
-    var caller = TestClients.registerAdmin("expired-pairing-watcher");
+    var caller = TestClients.registerAs("ADMIN", "expired-pairing-watcher");
     var pairing = create(caller, "Late tablet").statusCode(201).extract();
     expire(pairing.path("code"));
 
@@ -242,8 +308,8 @@ class DevicePairingApiTest {
 
   @Test
   void anotherDevicesCodeIsUnknown() {
-    var creator = TestClients.registerAdmin("pairing-owner");
-    var other = TestClients.registerAdmin("pairing-snoop");
+    var creator = TestClients.registerAs("ADMIN", "pairing-owner");
+    var other = TestClients.registerAs("ADMIN", "pairing-snoop");
     String id = create(creator, "Someone else's").statusCode(201).extract().path("id");
 
     status(other, id).statusCode(404).body("title", equalTo("Not found"));
@@ -253,7 +319,7 @@ class DevicePairingApiTest {
 
   @Test
   void theOperatorsCodeIsUnknownToADevice() {
-    var caller = TestClients.registerAdmin("operator-pairing-snoop");
+    var caller = TestClients.registerAs("ADMIN", "operator-pairing-snoop");
     String id =
         asAdmin()
             .contentType(ContentType.JSON)
@@ -268,22 +334,22 @@ class DevicePairingApiTest {
   }
 
   @Test
-  void onlyAnActiveAdminDeviceAsks() {
-    var creator = TestClients.registerAdmin("pairing-status-admin");
+  void onlyAnActiveModOrAdminDeviceAsks() {
+    var creator = TestClients.registerAs("ADMIN", "pairing-status-admin");
     String id = create(creator, "Asked about").statusCode(201).extract().path("id");
-    var ordinary = TestClients.register("ordinary-pairing-status-caller");
+    var basic = TestClients.registerAs("BASIC", "basic-pairing-status-caller");
 
     // Refused before the pairing is looked up: the same for a known and an unknown ID.
-    status(ordinary, id).statusCode(403).body("title", equalTo("Not an admin device"));
-    status(ordinary, UUID.randomUUID().toString())
+    status(basic, id).statusCode(403).body("title", equalTo("Not allowed for your role"));
+    status(basic, UUID.randomUUID().toString())
         .statusCode(403)
-        .body("title", equalTo("Not an admin device"));
+        .body("title", equalTo("Not allowed for your role"));
     given().get(PAIRINGS + "/" + id).then().statusCode(401);
     asAdmin().get(PAIRINGS + "/" + id).then().statusCode(401);
 
-    setAdmin(creator, false);
+    setRole(creator, "BASIC");
     status(creator, id).statusCode(403);
-    setAdmin(creator, true);
+    setRole(creator, "ADMIN");
     asAdmin().post(ADMIN + "/" + creator.id() + "/revoke").then().statusCode(200);
     status(creator, id).statusCode(401);
   }
@@ -315,13 +381,21 @@ class DevicePairingApiTest {
     return given().header("Authorization", "Bearer " + code).post("/api/v1/pairing").then();
   }
 
-  private static void setAdmin(Registered client, boolean admin) {
+  private static void setRole(Registered client, String role) {
     asAdmin()
         .contentType(ContentType.JSON)
-        .body(Map.of("admin", admin))
-        .patch(ADMIN + "/" + client.id())
+        .body(Map.of("role", role))
+        .patch(TestUsers.ADMIN + "/" + client.userId())
         .then()
         .statusCode(200);
+  }
+
+  private static ValidatableResponse createFor(Registered caller, String name, UUID userId) {
+    return asClient(caller.clientKey())
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", name, "userId", userId.toString()))
+        .post(PAIRINGS)
+        .then();
   }
 
   private UUID createdBy(String code) throws SQLException {

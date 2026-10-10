@@ -20,9 +20,9 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 /**
- * Pairing from an admin device: the same one-time code the operator creates, so the owner can add a
- * device from the app, and whether a code it created was used. Under {@code /api/v1/client}, so the
- * proxy forwards it; admin-only, as the rest of device management.
+ * Pairing from a device: the same one-time code the operator creates, so a user can add a device
+ * from the app, and whether a code it created was used. Under {@code /api/v1/client}, so the proxy
+ * forwards it; for mods and admins only, as the rest of device management.
  */
 @Path("/api/v1/client/pairings")
 @Tag(name = "Device management")
@@ -35,8 +35,9 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @APIResponse(
     responseCode = "403",
     description =
-        "The client is not an admin device. Answered before the path's pairing is looked up, so it"
-            + " says nothing about it.",
+        "The user's role does not allow it (a basic user pairs no device, a mod only for their"
+            + " own user). Answered before the path's pairing is looked up, so it says nothing"
+            + " about it.",
     content = @Content(schema = @Schema(implementation = ApiError.class)))
 @ClientAuthenticated
 @Produces(MediaType.APPLICATION_JSON)
@@ -56,10 +57,13 @@ public class DevicePairingResource {
       summary = "Create a pairing for a new device",
       description =
           "Creates a one-time pairing code, valid for 10 minutes, and its pairing URI, as the"
-              + " operator does. The device that redeems it becomes a new client of this name, never"
-              + " an admin device, and the owner's devices get a push naming this device. The code"
-              + " stops working if this device is revoked or is no longer an admin before it is"
-              + " redeemed. The code is shown only once.")
+              + " operator does. The device that redeems it becomes a new client of this name that"
+              + " belongs to the given user, or to this device's own user, and is an admin device"
+              + " exactly when that user is an ADMIN. A mod pairs only for their own user, an"
+              + " admin for any user who is not revoked, a basic user for none. The user's devices"
+              + " and the admins' devices get a push naming this device. The code stops working"
+              + " if this device is revoked, or its user's role no longer allows the pairing,"
+              + " before it is redeemed. The code is shown only once.")
   @APIResponse(
       responseCode = "201",
       description = "Pairing created. It has no resource of its own, so no Location.",
@@ -69,7 +73,7 @@ public class DevicePairingResource {
       description = "The body is malformed or fails validation, admin included.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public Response create(@NotNull @Valid CreateDevicePairingRequest request) {
-    return switch (pairings.createBy(caller.get().id(), request.name())) {
+    return switch (pairings.createBy(caller.get().id(), request.name(), request.userId())) {
       case PairingService.DevicePairing.Created created ->
           Response.status(Response.Status.CREATED).entity(created.pairing()).build();
       case PairingService.DevicePairing.Refused refused ->

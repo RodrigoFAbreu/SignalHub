@@ -15,6 +15,7 @@ import io.agroal.api.AgroalDataSource;
 import io.github.rodrigofabreu.signalhub.TestClients;
 import io.github.rodrigofabreu.signalhub.TestClients.Registered;
 import io.github.rodrigofabreu.signalhub.TestProducers;
+import io.github.rodrigofabreu.signalhub.TestUsers;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
@@ -27,9 +28,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
- * Deleting revoked clients, with the admin token and from an admin device, against real PostgreSQL:
- * an active client is refused and unchanged, a revoked one goes with everything that exists only
- * for it, and events stay.
+ * Deleting revoked clients, with the admin token and from a device as its user's role allows,
+ * against real PostgreSQL: an active client is refused and unchanged, a revoked one goes with
+ * everything that exists only for it, and events stay.
  */
 @QuarkusTest
 class ClientDeletionApiTest {
@@ -41,7 +42,7 @@ class ClientDeletionApiTest {
   /** The client a request is about, relative to the caller. */
   enum Target {
     ORDINARY,
-    ADMIN,
+    ADMINS,
     ITSELF,
     REVOKED,
     REVOKED_ADMIN,
@@ -75,7 +76,7 @@ class ClientDeletionApiTest {
 
   @Test
   void theOperatorDeletesARevokedAdminWithTheUnusedPairingCodesItCreated() throws SQLException {
-    var admin = TestClients.registerAdmin("revoked-admin-deleted-by-operator");
+    var admin = TestClients.registerAs("ADMIN", "revoked-admin-deleted-by-operator");
     var eventId = clientWithData(admin);
     createPairing(admin);
     revoke(admin.id());
@@ -118,13 +119,13 @@ class ClientDeletionApiTest {
 
   @ParameterizedTest
   @EnumSource(Target.class)
-  void aClientThatIsNotAnAdminIsRefusedWhateverTheTarget(Target target) {
-    var caller = TestClients.register("ordinary-deleting");
+  void aBasicUserIsRefusedWhateverTheTarget(Target target) {
+    var caller = TestClients.registerAs("BASIC", "basic-deleting");
     var id = target(target, caller);
 
     deleteAsDevice(caller, id)
         .statusCode(403)
-        .body("title", equalTo("Not an admin device"))
+        .body("title", equalTo("Not allowed for your role"))
         .body("status", equalTo(403));
 
     if (target != Target.UNKNOWN) {
@@ -135,7 +136,7 @@ class ClientDeletionApiTest {
   @ParameterizedTest
   @EnumSource(Target.class)
   void aRevokedAdminIsNotAuthenticatedWhateverTheTarget(Target target) {
-    var caller = TestClients.registerAdmin("revoked-admin-deleting");
+    var caller = TestClients.registerAs("ADMIN", "revoked-admin-deleting");
     var id = target(target, caller);
     revoke(caller.id());
 
@@ -147,14 +148,18 @@ class ClientDeletionApiTest {
   @ParameterizedTest
   @EnumSource(
       value = Target.class,
-      names = {"ORDINARY", "ADMIN", "ITSELF"})
+      names = {"ORDINARY", "ADMINS", "ITSELF"})
   void anAdminCannotDeleteAnActiveDevice(Target target) {
-    var caller = TestClients.registerAdmin("admin-deleting-active");
+    var caller = TestClients.registerAs("ADMIN", "admin-deleting-active");
     var id = target(target, caller);
 
+    // An admin's device (its own too) is the operator's to deal with; any other must be revoked.
     deleteAsDevice(caller, id)
         .statusCode(409)
-        .body("title", equalTo("Client is not revoked"))
+        .body(
+            "title",
+            equalTo(
+                target == Target.ORDINARY ? "Client is not revoked" : "Client is an admin device"))
         .body("status", equalTo(409));
 
     asAdmin().get(ADMIN + "/" + id).then().statusCode(200).body("revokedAt", nullValue());
@@ -162,34 +167,55 @@ class ClientDeletionApiTest {
 
   @Test
   void anAdminDeletesARevokedDeviceWithItsDataButNotItsEvents() throws SQLException {
-    var caller = TestClients.registerAdmin("admin-deleting");
+    var caller = TestClients.registerAs("ADMIN", "admin-deleting");
     var client = TestClients.register("deleted-by-admin");
+    var user = TestClients.registerAs("MOD", "deleted-by-admin-mod");
     var eventId = clientWithData(client);
-    revoke(client.id());
+    revoke(user.id());
 
-    deleteAsDevice(caller, client.id()).statusCode(204);
+    deleteAsDevice(caller, user.id()).statusCode(204);
 
-    assertGoneWithItsData(client.id(), eventId);
+    asAdmin().get(ADMIN + "/" + user.id()).then().statusCode(404);
+    assertEquals(0, count("SELECT count(*) FROM clients WHERE id = ?", user.id()));
+    asAdmin().get("/api/v1/events/" + eventId).then().statusCode(200);
     asClient(caller.clientKey()).get(DEVICES).then().statusCode(200);
   }
 
   @Test
-  void anAdminDeletesARevokedAdmin() throws SQLException {
-    var caller = TestClients.registerAdmin("admin-deleting-admin");
-    var other = TestClients.registerAdmin("revoked-admin-deleted-by-admin");
-    var eventId = clientWithData(other);
-    createPairing(other);
+  void anAdminCannotDeleteARevokedAdminsDevice() {
+    var caller = TestClients.registerAs("ADMIN", "admin-deleting-admin");
+    var other = TestClients.registerAs("ADMIN", "revoked-admin-deleted-by-admin");
     revoke(other.id());
 
-    deleteAsDevice(caller, other.id()).statusCode(204);
+    deleteAsDevice(caller, other.id())
+        .statusCode(409)
+        .body("title", equalTo("Client is an admin device"));
 
-    assertGoneWithItsData(other.id(), eventId);
+    asAdmin().get(ADMIN + "/" + other.id()).then().statusCode(200);
+  }
+
+  @Test
+  void aModDeletesTheirOwnRevokedDevicesOnly() {
+    var caller = TestClients.registerAs("MOD", "mod-deleting");
+    var own = TestClients.registerFor(caller.userId(), "mod-own-revoked");
+    var other = TestClients.registerAs("MOD", "someone-elses-revoked");
+    revoke(own.id());
+    revoke(other.id());
+
+    deleteAsDevice(caller, other.id()).statusCode(404).body("title", equalTo("Not found"));
+    asAdmin().get(ADMIN + "/" + other.id()).then().statusCode(200);
+    // An own device that is still active must be revoked first.
+    deleteAsDevice(caller, caller.id())
+        .statusCode(409)
+        .body("title", equalTo("Client is not revoked"));
+    deleteAsDevice(caller, own.id()).statusCode(204);
+    asAdmin().get(ADMIN + "/" + own.id()).then().statusCode(404);
   }
 
   @Test
   void anAdminDeletesOnceAndGetsNotFoundForAnUnknownDevice() {
-    var caller = TestClients.registerAdmin("admin-deleting-twice");
-    var client = TestClients.register("deleted-twice-by-admin");
+    var caller = TestClients.registerAs("ADMIN", "admin-deleting-twice");
+    var client = TestClients.registerAs("MOD", "deleted-twice-by-admin");
     revoke(client.id());
 
     deleteAsDevice(caller, client.id()).statusCode(204);
@@ -231,7 +257,9 @@ class ClientDeletionApiTest {
    * returns the event.
    */
   private UUID clientWithData(Registered client) throws SQLException {
-    var producer = TestProducers.register("deletion");
+    // Public, so that the client's user, whoever it is, can be subscribed and read its events.
+    var producer = TestProducers.registerPublic("deletion");
+    TestUsers.subscribe(client.userId(), producer.id());
     var eventId =
         UUID.fromString(
             asProducer(producer.apiKey())
@@ -285,21 +313,19 @@ class ClientDeletionApiTest {
     assertEquals(0, count("SELECT count(*) FROM push_retries WHERE client_id = ?", id));
     assertEquals(0, count("SELECT count(*) FROM event_deliveries WHERE client_id = ?", id));
     assertEquals(0, count("SELECT count(*) FROM pairings WHERE created_by = ?", id));
-    // The event is the owner's, not the client's: it stays, still read.
-    asAdmin()
-        .get("/api/v1/events/" + eventId)
-        .then()
-        .statusCode(200)
-        .body("readAt", notNullValue());
+    // The event is its producer's and its user's, not the client's: it stays, still read by the
+    // user.
+    asAdmin().get("/api/v1/events/" + eventId).then().statusCode(200);
+    assertEquals(1, count("SELECT count(*) FROM event_reads WHERE event_id = ?", eventId));
   }
 
   private static UUID target(Target target, Registered caller) {
     return switch (target) {
-      case ORDINARY -> TestClients.register("ordinary-target").id();
-      case ADMIN -> TestClients.registerAdmin("admin-target").id();
+      case ORDINARY -> TestClients.registerAs("MOD", "ordinary-target").id();
+      case ADMINS -> TestClients.registerAs("ADMIN", "admin-target").id();
       case ITSELF -> caller.id();
-      case REVOKED -> revoke(TestClients.register("revoked-target").id());
-      case REVOKED_ADMIN -> revoke(TestClients.registerAdmin("revoked-admin-target").id());
+      case REVOKED -> revoke(TestClients.registerAs("MOD", "revoked-target").id());
+      case REVOKED_ADMIN -> revoke(TestClients.registerAs("ADMIN", "revoked-admin-target").id());
       case UNKNOWN -> UUID.randomUUID();
     };
   }

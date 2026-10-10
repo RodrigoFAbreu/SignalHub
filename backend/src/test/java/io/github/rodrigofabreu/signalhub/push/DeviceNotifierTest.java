@@ -4,11 +4,11 @@ import static io.github.rodrigofabreu.signalhub.TestClients.CLIENT;
 import static io.github.rodrigofabreu.signalhub.TestClients.asClient;
 import static io.github.rodrigofabreu.signalhub.TestProducers.asAdmin;
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.rodrigofabreu.signalhub.TestClients;
+import io.github.rodrigofabreu.signalhub.TestUsers;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
@@ -20,8 +20,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * The pushes the owner's devices get when a device pairs (with a code from the operator or from an
- * admin device), or is made an admin or revoked from an admin device, with the fake provider.
+ * The pushes a user's devices and the admins' devices get when a device of that user pairs (with a
+ * code from the operator or from a device), or is revoked from a device, with the fake provider.
+ * Other users' devices get none.
  */
 @QuarkusTest
 class DeviceNotifierTest {
@@ -35,27 +36,37 @@ class DeviceNotifierTest {
   }
 
   @Test
-  void theOwnersDevicesAreToldWhenADevicePairs() throws Exception {
-    var phone = clientWithTarget("{}");
+  void theUsersDevicesAndTheAdminsAreToldWhenADevicePairsAndNoOneElse() throws Exception {
+    var admin = clientWithTarget("{}");
+    var user = TestUsers.create("pairing-notice-user", "MOD");
+    var userDevice = deviceWithTarget(user.id(), "User's phone");
+    var stranger = deviceWithTarget(TestUsers.create("pairing-notice-other", "MOD").id(), "Other");
 
-    var paired = pair("Borrowed laptop");
+    var paired = pair("Borrowed laptop", user.id());
     notifier.awaitSent(Duration.ofSeconds(10));
 
-    var sent = sentTo(phone);
-    assertEquals(1, sent.size());
-    var message = sent.get(0);
-    assertEquals("New device paired", message.title());
-    assertEquals(
-        "\"Borrowed laptop\" can now read your SignalHub events. If you did not pair it, revoke it.",
-        message.body());
-    assertEquals(Map.of("notice", "client-paired", "clientId", paired.toString()), message.data());
+    for (var token : List.of(admin, userDevice)) {
+      var sent = sentTo(token);
+      assertEquals(1, sent.size());
+      var message = sent.get(0);
+      assertEquals("New device paired", message.title());
+      assertEquals(
+          "\"Borrowed laptop\" can now read your SignalHub events. If you did not pair it,"
+              + " revoke it.",
+          message.body());
+      assertEquals(
+          Map.of("notice", "client-paired", "clientId", paired.toString()), message.data());
+    }
+    // Another user's devices learn nothing about this user's.
+    assertTrue(sentTo(stranger).isEmpty());
   }
 
   @Test
   void theNoticeSaysWhenTheNewDeviceIsAnAdmin() throws Exception {
     var phone = clientWithTarget("{}");
+    var user = TestUsers.create("pairing-notice-admin", "ADMIN");
 
-    var paired = pair("Second admin", true);
+    var paired = pair("Second admin", user.id());
     notifier.awaitSent(Duration.ofSeconds(10));
 
     var sent = sentTo(phone);
@@ -70,14 +81,15 @@ class DeviceNotifierTest {
   }
 
   @Test
-  void theNoticeNamesTheAdminDeviceThatCreatedTheCode() throws Exception {
+  void theNoticeNamesTheDeviceThatCreatedTheCode() throws Exception {
     var phone = clientWithTarget("{}");
     var admin = adminWithTarget("Anna's phone");
+    var user = TestUsers.create("pairing-notice-by-device", "BASIC");
 
     String code =
         asClient(admin.key())
             .contentType(ContentType.JSON)
-            .body(Map.of("name", "Borrowed tablet"))
+            .body(Map.of("name", "Borrowed tablet", "userId", user.id().toString()))
             .post(CLIENT + "/pairings")
             .then()
             .statusCode(201)
@@ -145,41 +157,14 @@ class DeviceNotifierTest {
   }
 
   @Test
-  void theOwnersDevicesAreToldWhenADeviceMakesAnotherAnAdmin() throws Exception {
+  void theUsersDevicesAndTheAdminsAreToldWhenADeviceRevokesAnother() throws Exception {
     var phone = clientWithTarget("{}");
     var admin = adminWithTarget("Anna's phone");
-    var target = TestClients.register("Tablet");
-
-    asClient(admin.key())
-        .post(CLIENT + "/devices/" + target.id() + "/admin")
-        .then()
-        .statusCode(200);
-    notifier.awaitSent(Duration.ofSeconds(10));
-
-    var expected =
-        new PushMessage(
-            "Device made an admin",
-            "\"Anna's phone\" made \"Tablet\" an admin device. If this was not you, revoke both"
-                + " on the admin page.",
-            Map.of(
-                "notice",
-                "client-made-admin",
-                "clientId",
-                target.id().toString(),
-                "byClientId",
-                admin.id().toString()));
-    assertEquals(List.of(expected), sentTo(phone));
-    // The device that did it is told too: its key may be in someone else's hands.
-    assertEquals(List.of(expected), sentTo(admin.token()));
-  }
-
-  @Test
-  void theOwnersDevicesAreToldWhenADeviceRevokesAnother() throws Exception {
-    var phone = clientWithTarget("{}");
-    var admin = adminWithTarget("Anna's phone");
-    var target = TestClients.register("Old tablet");
+    var target = TestClients.registerAs("MOD", "Old tablet");
     var targetToken = "notice-" + UUID.randomUUID();
     setTarget(target.clientKey(), targetToken);
+    var sibling = deviceWithTarget(target.userId(), "Target's other device");
+    var stranger = deviceWithTarget(TestUsers.create("revoke-notice-other", "MOD").id(), "Other");
 
     asClient(admin.key())
         .post(CLIENT + "/devices/" + target.id() + "/revoke")
@@ -201,6 +186,8 @@ class DeviceNotifierTest {
                 admin.id().toString()));
     assertEquals(List.of(expected), sentTo(phone));
     assertEquals(List.of(expected), sentTo(admin.token()));
+    assertEquals(List.of(expected), sentTo(sibling));
+    assertTrue(sentTo(stranger).isEmpty());
     // Revoking removed its push target, so the revoked device is not told.
     assertTrue(sentTo(targetToken).isEmpty());
   }
@@ -209,22 +196,22 @@ class DeviceNotifierTest {
   void nothingIsSentWhenADeviceChangesNothingOrIsRefused() throws Exception {
     var phone = clientWithTarget("{}");
     var admin = adminWithTarget("Idle admin");
-    var otherAdmin = TestClients.registerAdmin("Other admin");
-    var gone = TestClients.register("Gone");
+    var otherAdmin = TestClients.registerAs("ADMIN", "Other admin");
+    var gone = TestClients.registerAs("MOD", "Gone");
     asAdmin().post(TestClients.ADMIN + "/" + gone.id() + "/revoke").then().statusCode(200);
-    var ordinary = TestClients.register("Ordinary");
+    var basic = TestClients.registerAs("BASIC", "Basic");
 
     asClient(admin.key())
         .post(CLIENT + "/devices/" + otherAdmin.id() + "/admin")
         .then()
-        .statusCode(200);
+        .statusCode(409);
     asClient(admin.key()).post(CLIENT + "/devices/" + gone.id() + "/revoke").then().statusCode(200);
     asClient(admin.key())
         .post(CLIENT + "/devices/" + otherAdmin.id() + "/revoke")
         .then()
         .statusCode(409);
-    asClient(ordinary.clientKey())
-        .post(CLIENT + "/devices/" + gone.id() + "/admin")
+    asClient(basic.clientKey())
+        .post(CLIENT + "/devices/" + gone.id() + "/revoke")
         .then()
         .statusCode(403);
     notifier.awaitSent(Duration.ofSeconds(10));
@@ -237,15 +224,15 @@ class DeviceNotifierTest {
   void aFailedNoticeDoesNotFailTheChange() throws Exception {
     var phone = clientWithTarget("{}");
     var admin = adminWithTarget("Admin");
-    var target = TestClients.register("Laptop");
+    var target = TestClients.registerAs("MOD", "Laptop");
     fake.answer(
         (token, message) -> new PushOutcome(PushOutcome.Status.TRANSIENT_FAILURE, "provider down"));
 
     asClient(admin.key())
-        .post(CLIENT + "/devices/" + target.id() + "/admin")
+        .post(CLIENT + "/devices/" + target.id() + "/revoke")
         .then()
         .statusCode(200)
-        .body("admin", equalTo(true));
+        .body("revokedAt", org.hamcrest.Matchers.notNullValue());
     notifier.awaitSent(Duration.ofSeconds(10));
 
     assertEquals(1, sentTo(phone).size());
@@ -255,28 +242,41 @@ class DeviceNotifierTest {
   private record Admin(UUID id, String key, String token) {}
 
   private static Admin adminWithTarget(String name) {
-    var admin = TestClients.registerAdmin(name);
+    var admin = TestClients.registerAs("ADMIN", name);
     var token = "notice-" + UUID.randomUUID();
     setTarget(admin.clientKey(), token);
     return new Admin(admin.id(), admin.clientKey(), token);
   }
 
-  /** Pairs a device through the API, as the app does, and returns its client ID. */
+  /** Pairs a device of the owner through the API, as the app does, and returns its client ID. */
   private static UUID pair(String name) {
-    return pair(name, false);
+    return pair(name, null);
   }
 
-  private static UUID pair(String name, boolean admin) {
+  private static UUID pair(String name, UUID userId) {
+    var body = new java.util.LinkedHashMap<String, Object>();
+    body.put("name", name);
+    if (userId != null) {
+      body.put("userId", userId.toString());
+    }
     String code =
         asAdmin()
             .contentType(ContentType.JSON)
-            .body(Map.of("name", name, "admin", admin))
+            .body(body)
             .post("/api/v1/admin/pairings")
             .then()
             .statusCode(201)
             .extract()
             .path("code");
     return redeem(code);
+  }
+
+  /** A device of the user with a push target; returns the target. */
+  private static String deviceWithTarget(UUID userId, String name) {
+    var device = TestClients.registerFor(userId, name);
+    var token = "notice-" + UUID.randomUUID();
+    setTarget(device.clientKey(), token);
+    return token;
   }
 
   /** Redeems a pairing code, as the app does, and returns the new client's ID. */

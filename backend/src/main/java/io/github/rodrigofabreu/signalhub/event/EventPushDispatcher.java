@@ -2,8 +2,10 @@ package io.github.rodrigofabreu.signalhub.event;
 
 import static java.util.stream.Collectors.toSet;
 
+import io.github.rodrigofabreu.signalhub.client.ClientOwner;
 import io.github.rodrigofabreu.signalhub.client.ClientService;
 import io.github.rodrigofabreu.signalhub.client.PushRecipient;
+import io.github.rodrigofabreu.signalhub.producer.ProducerAccess;
 import io.github.rodrigofabreu.signalhub.push.DeliveryReport;
 import io.github.rodrigofabreu.signalhub.push.DeliveryResult;
 import io.github.rodrigofabreu.signalhub.push.PushDelivery;
@@ -22,14 +24,14 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.jboss.logging.Logger;
 
 /**
- * Pushes every stored event to every client that has a push target and whose push preferences allow
- * it; events a client's preferences exclude are only not pushed to it. Events come from the {@link
- * PushDispatches} outbox, written with the event, so a push is attempted at least once for every
- * acknowledged event even across restarts; clients deduplicate by event ID. A send that fails
- * temporarily is retried with growing delays, up to {@link #MAX_ATTEMPTS} sends in all; other
- * failures are final, as repeating them cannot help. The result of each send is recorded on the
- * client for the operator, and every attempt, with the clients not sent to and why, in the event's
- * delivery records.
+ * Pushes every stored event to every client that has a push target, whose user is subscribed to the
+ * event's producer, and whose push preferences allow it; events a client's preferences exclude are
+ * only not pushed to it. Events come from the {@link PushDispatches} outbox, written with the
+ * event, so a push is attempted at least once for every acknowledged event even across restarts;
+ * clients deduplicate by event ID. A send that fails temporarily is retried with growing delays, up
+ * to {@link #MAX_ATTEMPTS} sends in all; other failures are final, as repeating them cannot help.
+ * The result of each send is recorded on the client for the operator, and every attempt, with the
+ * clients not sent to and why, in the event's delivery records.
  */
 // Created at startup so its meters are scraped before the first use.
 @Startup
@@ -54,6 +56,7 @@ class EventPushDispatcher {
   static final int MAX_ATTEMPTS = RETRY_DELAYS.size() + 1;
 
   private final PushDispatches dispatches;
+  private final ProducerAccess access;
   private final EventService events;
   private final ClientService clients;
   private final PushDelivery delivery;
@@ -65,12 +68,14 @@ class EventPushDispatcher {
 
   EventPushDispatcher(
       PushDispatches dispatches,
+      ProducerAccess access,
       EventService events,
       ClientService clients,
       PushDelivery delivery,
       EventDeliveries deliveries,
       MeterRegistry registry) {
     this.dispatches = dispatches;
+    this.access = access;
     this.events = events;
     this.clients = clients;
     this.delivery = delivery;
@@ -141,12 +146,22 @@ class EventPushDispatcher {
     if (push.isPresent()) {
       var results = new EnumMap<DeliveryResult, Integer>(DeliveryResult.class);
       var excluded = 0;
-      var recipients = clients.pushRecipients();
+      // Only the users subscribed to the event's producer are considered at all: the devices of
+      // the others are neither pushed to nor recorded.
+      var subscribers = access.subscribers(push.get().producerId());
+      var recipients =
+          clients.pushRecipients().stream()
+              .filter(recipient -> subscribers.contains(recipient.userId()))
+              .toList();
       // Read before sending, as a send can remove a push target; and without the recipients, in
       // case one registered a target between the two reads.
       var recipientIds = recipients.stream().map(PushRecipient::clientId).collect(toSet());
       var withoutTarget =
-          clients.withoutPushTarget().stream().filter(id -> !recipientIds.contains(id)).toList();
+          clients.withoutPushTarget().stream()
+              .filter(owner -> subscribers.contains(owner.userId()))
+              .map(ClientOwner::clientId)
+              .filter(id -> !recipientIds.contains(id))
+              .toList();
       for (var recipient : recipients) {
         var exclusion = push.get().exclusionBy(recipient.preferences());
         if (exclusion.isEmpty()) {
@@ -185,6 +200,14 @@ class EventPushDispatcher {
       var exclusion = recipient.flatMap(r -> push.get().exclusionBy(r.preferences()));
       if (recipient.isEmpty()) {
         recordDelivery(retry.eventId(), retry.clientId(), attempt, DeliveryOutcome.NO_TARGET, null);
+      } else if (!access.subscribers(push.get().producerId()).contains(recipient.get().userId())) {
+        // The user stopped receiving the producer, or lost sight of it, since the first send.
+        recordDelivery(
+            retry.eventId(),
+            retry.clientId(),
+            attempt,
+            DeliveryOutcome.FILTERED,
+            "not subscribed to the producer");
       } else if (exclusion.isPresent()) {
         recordDelivery(
             retry.eventId(), retry.clientId(), attempt, DeliveryOutcome.FILTERED, exclusion.get());

@@ -91,10 +91,15 @@ operator on the host ──http://localhost:8080──▶ backend (management AP
 
    Under **Connect a device** it shows the code as a QR code until it is
    used or expires, and copies it as an image or a link to send to whoever
-   should connect a device; tick **Pair it as an admin device** for your own
-   phone. Once the phone has used the code, the page names it and is ready
-   for the next one. The page also lists every device, to rename it, make it an admin
-   or take admin rights away, revoke it, and delete it once revoked. Its
+   should connect a device; choose yourself (the user **Owner**, an admin,
+   which you can rename) for your own phone. Once the phone has used the
+   code, the page names it and is ready for the next one. The page also lists
+   every device with its user, to rename it, revoke it, and delete it once
+   revoked. Its **Users** section invites other people on this server: a name
+   and a role (basic, mod or admin), then a pairing code for their device,
+   and each of them receives only the events of the producers they are
+   subscribed to (see [Users, roles and
+   subscriptions](architecture.md#users-roles-and-subscriptions)). Its
    **Producers** section registers the producers that publish to you, shows
    each new key once to copy into the producer, and issues and revokes keys,
    disables and enables producers, and shows when each last published; its
@@ -166,7 +171,7 @@ What other machines can reach, with the proxy enabled:
 
 | Port | Serves |
 |---|---|
-| 443 (TCP and UDP for HTTP/3) | `/api/`: publishing, the inbox and read state, the client API (including device management, and creating pairing codes and learning whether they were used, from an [admin device](architecture.md#admin-devices)), redeeming a pairing code. Everything else answers `404`. |
+| 443 (TCP and UDP for HTTP/3) | `/api/`: publishing, the inbox and read state, the client API (including device management, and creating pairing codes and learning whether they were used, from a device of a mod or an admin, as [its user's role](architecture.md#roles) allows), redeeming a pairing code. Everything else answers `404`. |
 | 80 | Redirects to HTTPS; Let's Encrypt's certificate challenges. |
 
 Not reachable from other machines:
@@ -445,6 +450,53 @@ Rolling back to a release with PostgreSQL 17 is
 new volume the same way. Events published after the backup are gone
 either way, so stop producers, or accept losing what they publish during
 the move.
+
+### Upgrading to v3.0.0
+
+v3.0.0 adds [users, roles and subscriptions](architecture.md#users-roles-and-subscriptions)
+and is marked breaking (`!`) for one reason: the client API no longer changes
+a device's admin flag (`POST /api/v1/client/devices/{id}/admin` answers `409`),
+because a device is an admin device exactly when its user is an admin.
+Producers, the event schema, the Python SDK and the released app keep working.
+
+**What the upgrade does to your data** (`V17`, applied at startup, with no
+operator action and nothing lost):
+
+- It creates one user, **Owner**, an admin (rename them on the admin page,
+  *Users*), who becomes the user of every existing client and unredeemed
+  pairing code, the owner of every producer (kept private, and subscribed to
+  each), and has read the events you had read. You see, receive and can do
+  exactly what you did before: your phone, your producers and their keys keep
+  working, and so do the SDK and the `signalhub` command.
+- **Every existing device is now an admin device,** because it belongs to
+  the Owner, an admin; before, only the ones you had marked were. If a
+  device should not be one (a tablet you lent), revoke it and pair it again
+  for a second user with the role *mod* or *basic*.
+- The `admin` flags of clients and pairings are replaced by the role of the
+  user. The management API's `admin` fields are still accepted so old
+  scripts work, but cannot change anything (see
+  [Admin devices](architecture.md#admin-devices)). Requests that name no
+  user (a client, a pairing or a producer made with the admin token) act for
+  the Owner, the oldest admin who is not revoked.
+- The Owner's read state is copied from the events' read marks; the admin
+  page keeps a read state of its own for the admin token.
+
+To go back to an earlier release, restore the backup from step 2: a release
+refuses to start on a database holding a migration it does not have.
+
+CI upgrades a stack of the previous release and one of v0.13.0 to this
+release with their data (see [Upgrades](#upgrades)).
+
+### Upgrading to the self-service release
+
+The release after v3.0.0 that adds [self-service for
+users](architecture.md#own-producers-from-a-device) is compatible: one
+migration (`V18`) adds a flag to producers, applied at startup with no operator
+action and nothing lost. Producers that are disabled stay disabled, and count
+as disabled by you, so their owners cannot enable them from a device. The new
+paths are under `/api/v1/client/`, so the [proxy](#network-exposure) already
+forwards them; there is nothing to configure. Going back is by restoring the
+backup, as for every migration.
 
 ## Health monitoring
 

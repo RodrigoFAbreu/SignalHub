@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.producer;
 
+import io.github.rodrigofabreu.signalhub.user.UserRef;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -26,11 +27,24 @@ public record ProducerResponse(
                     + " null when none is (it never published, or retention deleted its events).",
             examples = "2026-09-30T08:15:00.123456Z")
         Instant lastEventAt,
-    @Schema(required = true, description = "All keys ever issued, oldest first.")
-        List<ApiKey> keys) {
+    @Schema(required = true, description = "All keys ever issued, oldest first.") List<ApiKey> keys,
+    @Schema(required = true, description = "The user who owns the producer.") UserRef owner,
+    @Schema(
+            required = true,
+            description =
+                "PUBLIC: every user may see it and subscribe. PRIVATE: its owner and the users"
+                    + " on its allow-list. New producers are PRIVATE.")
+        Visibility visibility,
+    @Schema(
+            required = true,
+            description =
+                "The users on the allow-list of a private producer, besides its owner, by name."
+                    + " Kept, but without effect, while the producer is public.")
+        List<UserRef> allowedUsers) {
 
   public ProducerResponse {
     keys = List.copyOf(keys);
+    allowedUsers = List.copyOf(allowedUsers);
   }
 
   @Schema(name = "ApiKey", description = "An issued API key. The key itself is never returned.")

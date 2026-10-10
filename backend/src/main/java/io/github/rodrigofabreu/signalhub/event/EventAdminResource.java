@@ -65,6 +65,8 @@ public class EventAdminResource {
               + " and accepted by the provider, filtered out by the client's push preferences, not"
               + " sent for want of a push target, or failed, with the provider's reason. Clients"
               + " revoked before the event are not listed; a deleted client's records go with it."
+              + " Each record names the client's user, and users lists those the event reached"
+              + " (subscribed to its producer)."
               + " An event whose push is not dispatched yet has none. The push token is never"
               + " shown. The provider's answer is the last thing the server sees: whether the"
               + " device showed the push is not known.")
@@ -78,10 +80,9 @@ public class EventAdminResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public EventDeliveryList deliveries(
       @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
-    return deliveries
-        .of(id)
-        .map(EventDeliveryList::new)
-        .orElseThrow(() -> notFound("Event not found"));
+    var records = deliveries.of(id).orElseThrow(() -> notFound("Event not found"));
+    var users = deliveries.recipients(id).orElseThrow(() -> notFound("Event not found"));
+    return new EventDeliveryList(records, users);
   }
 
   @DELETE

@@ -1,11 +1,14 @@
 package io.github.rodrigofabreu.signalhub.event;
 
 import io.github.rodrigofabreu.signalhub.api.ApiError;
+import io.github.rodrigofabreu.signalhub.client.AuthenticatedClient;
+import io.github.rodrigofabreu.signalhub.client.ClientIdentity;
 import io.github.rodrigofabreu.signalhub.client.ClientResource;
 import io.github.rodrigofabreu.signalhub.client.OwnerAuthenticated;
 import io.github.rodrigofabreu.signalhub.producer.AuthenticatedProducer;
 import io.github.rodrigofabreu.signalhub.producer.ProducerAdminResource;
 import io.github.rodrigofabreu.signalhub.producer.ProducerAuthenticated;
+import io.github.rodrigofabreu.signalhub.user.UserDirectory;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.quarkus.runtime.Startup;
@@ -27,6 +30,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -66,11 +70,20 @@ public class EventResource {
 
   private final EventService events;
   private final AuthenticatedProducer producer;
+  private final AuthenticatedClient client;
+  private final UserDirectory userDirectory;
   private final Counter published;
 
-  EventResource(EventService events, AuthenticatedProducer producer, MeterRegistry registry) {
+  EventResource(
+      EventService events,
+      AuthenticatedProducer producer,
+      AuthenticatedClient client,
+      UserDirectory userDirectory,
+      MeterRegistry registry) {
     this.events = events;
+    this.userDirectory = userDirectory;
     this.producer = producer;
+    this.client = client;
     // Untagged: producer names are the owner's data, and categories or severities are in the
     // inbox already.
     this.published =
@@ -186,12 +199,16 @@ public class EventResource {
   @Operation(
       summary = "List events, newest first",
       description =
-          "The event inbox: events ordered by createdAt, newest first (ties broken by id), one"
+          "The event inbox: the events of the producers the caller's user is subscribed to,"
+              + " ordered by createdAt, newest first (ties broken by id), one"
               + " page at a time. Filters combine with AND; repeating a filter parameter matches"
               + " any of its values. To read the next page, repeat the request with the same"
               + " filters and cursor set to the previous page's nextCursor. Events published"
               + " after the first page never shift or repeat entries on later pages; they appear"
-              + " when the listing is started again. Requires a client key or the admin token.")
+              + " when the listing is started again. Requires a client key, which lists its user's"
+              + " events, or the admin token, which lists every event and may also filter by"
+              + " user (userId, relation): the events of the producers that user owns or is"
+              + " subscribed to.")
   @APIResponse(
       responseCode = "200",
       description = "A page of events.",
@@ -203,6 +220,10 @@ public class EventResource {
   @APIResponse(
       responseCode = "401",
       description = "Missing or invalid client key or admin token.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No user has the userId given.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public EventPage list(
       @Parameter(
@@ -243,6 +264,21 @@ public class EventResource {
           @QueryParam("createdBefore")
           String createdBefore,
       @Parameter(
+              description =
+                  "Only events of the producers this user owns or is subscribed to (canonical"
+                      + " user ID), revoked users included. Admin token only: a client key is"
+                      + " refused with 400.",
+              schema = @Schema(type = SchemaType.STRING, format = "uuid"))
+          @QueryParam("userId")
+          String userId,
+      @Parameter(
+              description =
+                  "With userId: only the producers the user owns (OWNED) or is subscribed to"
+                      + " (SUBSCRIBED). Omit for either.",
+              schema = @Schema(implementation = UserRelation.class))
+          @QueryParam("relation")
+          String relation,
+      @Parameter(
               description = "The nextCursor of the previous page. Omit for the first page.",
               schema = @Schema(type = SchemaType.STRING))
           @QueryParam("cursor")
@@ -262,9 +298,47 @@ public class EventResource {
                       defaultValue = "50"))
           @QueryParam("limit")
           String limit) {
-    return events.list(
+    var query =
         EventQuery.parse(
-            producerIds, categories, severities, read, createdFrom, createdBefore, cursor, limit));
+            producerIds,
+            categories,
+            severities,
+            read,
+            createdFrom,
+            createdBefore,
+            userId,
+            relation,
+            cursor,
+            limit);
+    checkUserFilter(query);
+    return events.list(query, user());
+  }
+
+  /**
+   * The per-user view is the operator's: a client key may not ask for another user's events, and
+   * the user must exist.
+   */
+  private void checkUserFilter(EventQuery query) {
+    if (query.userId().isEmpty() && query.relation().isEmpty()) {
+      return;
+    }
+    if (user().isPresent() || query.userId().isEmpty()) {
+      var field = query.userId().isEmpty() ? "relation" : "userId";
+      var message =
+          user().isPresent() ? "is available with the admin token only" : "needs a userId";
+      throw new BadRequestException(
+          Response.status(Response.Status.BAD_REQUEST)
+              .entity(
+                  new ApiError(
+                      "Invalid request", 400, List.of(new ApiError.Violation(field, message))))
+              .build());
+    }
+    if (userDirectory.find(query.userId().get()).isEmpty()) {
+      throw new NotFoundException(
+          Response.status(Response.Status.NOT_FOUND)
+              .entity(new ApiError("User not found", 404, List.of()))
+              .build());
+    }
   }
 
   @GET
@@ -274,7 +348,10 @@ public class EventResource {
   @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
   @Operation(
       summary = "Get an event by its canonical ID",
-      description = "Requires a client key or the admin token.")
+      description =
+          "Requires a client key or the admin token. A client key reads only events of the"
+              + " producers its user is subscribed to; any other event is 404, as if it did not"
+              + " exist. The admin token reads every event.")
   @APIResponse(
       responseCode = "200",
       description = "The event.",
@@ -285,11 +362,11 @@ public class EventResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "404",
-      description = "No event has this ID.",
+      description = "No event has this ID, or the caller's user does not receive it.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public EventResponse get(
       @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
-    return events.find(id).orElseThrow(EventResource::eventNotFound);
+    return events.find(id, user()).orElseThrow(EventResource::eventNotFound);
   }
 
   @GET
@@ -300,8 +377,9 @@ public class EventResource {
   @Operation(
       summary = "Count unread events",
       description =
-          "How many events the owner has not marked read. Requires a client key or the admin"
-              + " token.")
+          "How many of the events the caller's user receives they have not marked read. The admin"
+              + " token counts every event it has not marked read. Requires a client key or the"
+              + " admin token.")
   @APIResponse(
       responseCode = "200",
       description = "The unread count.",
@@ -311,7 +389,7 @@ public class EventResource {
       description = "Missing or invalid client key or admin token.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public UnreadCount unreadCount() {
-    return events.countUnread();
+    return events.countUnread(user());
   }
 
   @PUT
@@ -322,8 +400,9 @@ public class EventResource {
   @Operation(
       summary = "Mark an event read",
       description =
-          "Marks the event read for all of the owner's clients. Idempotent: marking a read event"
-              + " again keeps its readAt. Requires a client key or the admin token.")
+          "Marks the event read for all of the caller's user's devices, and no one else's."
+              + " Idempotent: marking a read event again keeps its readAt. Requires a client key"
+              + " or the admin token (the operator's own read state).")
   @APIResponse(
       responseCode = "200",
       description = "The event, now read.",
@@ -334,11 +413,11 @@ public class EventResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "404",
-      description = "No event has this ID.",
+      description = "No event has this ID, or the caller's user does not receive it.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public EventResponse markRead(
       @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
-    return events.markRead(id).orElseThrow(EventResource::eventNotFound);
+    return events.markRead(id, user()).orElseThrow(EventResource::eventNotFound);
   }
 
   @DELETE
@@ -349,8 +428,8 @@ public class EventResource {
   @Operation(
       summary = "Mark an event unread",
       description =
-          "Marks the event unread again for all of the owner's clients. Idempotent. Requires a"
-              + " client key or the admin token.")
+          "Marks the event unread again for all of the caller's user's devices. Idempotent."
+              + " Requires a client key or the admin token (the operator's own read state).")
   @APIResponse(
       responseCode = "200",
       description = "The event, now unread.",
@@ -361,11 +440,11 @@ public class EventResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "404",
-      description = "No event has this ID.",
+      description = "No event has this ID, or the caller's user does not receive it.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public EventResponse markUnread(
       @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
-    return events.markUnread(id).orElseThrow(EventResource::eventNotFound);
+    return events.markUnread(id, user()).orElseThrow(EventResource::eventNotFound);
   }
 
   @POST
@@ -376,8 +455,8 @@ public class EventResource {
   @Operation(
       summary = "Mark events read up to one",
       description =
-          "Marks read every unread event at or before the given event in listing order (the"
-              + " given event and everything older). Events stored after it stay unread, so"
+          "Marks read every unread event the caller's user receives at or before the given event"
+              + " in listing order (the given event and everything older). Events stored after it stay unread, so"
               + " passing the newest event a client shows never marks events it has not shown."
               + " Requires a client key or the admin token.")
   @APIResponse(
@@ -394,10 +473,18 @@ public class EventResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "404",
-      description = "No event has the ID given as through.",
+      description =
+          "No event has the ID given as through, or the caller's user does not receive it.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public MarkReadResult markReadThrough(@NotNull @Valid MarkReadRequest request) {
-    return events.markReadThrough(request.through()).orElseThrow(EventResource::eventNotFound);
+    return events
+        .markReadThrough(request.through(), user())
+        .orElseThrow(EventResource::eventNotFound);
+  }
+
+  /** The user whose events are read; empty for the operator, who reads them all. */
+  private Optional<UUID> user() {
+    return client.current().map(ClientIdentity::userId);
   }
 
   private static NotFoundException eventNotFound() {

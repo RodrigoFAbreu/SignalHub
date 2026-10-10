@@ -3,10 +3,14 @@ package io.github.rodrigofabreu.signalhub.client;
 import io.github.rodrigofabreu.signalhub.api.ApiError;
 import io.github.rodrigofabreu.signalhub.producer.BearerToken;
 import jakarta.enterprise.event.Event;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.ClientErrorException;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -24,16 +28,19 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 /**
- * Device management from an admin device: list every client, make one an admin, revoke one that is
- * not an admin, and delete a revoked one. Under {@code /api/v1/client}, so the proxy forwards it;
- * everything else, and anything done to an admin, stays with the operator's admin token.
+ * Device management from a device, as its user's role allows: list devices, rename one, revoke one
+ * and delete a revoked one. Under {@code /api/v1/client}, so the proxy forwards it; making a user
+ * an admin, and anything done to an admin's devices, stays with the operator's admin token.
  */
 @Path("/api/v1/client/devices")
 @Tag(
     name = "Device management",
     description =
-        "The owner's devices, managed from an admin device. Requires the key of a client the"
-            + " operator made an admin device; every other client key gets 403.")
+        "Devices, managed from a device as its user's role allows. A basic user reads their own"
+            + " devices and changes none (403). A mod also renames, revokes and deletes their own"
+            + " devices, but may not revoke their last active one. An admin also lists every"
+            + " device and renames, revokes and deletes those of users who are not admins. Roles are set per user, only by the"
+            + " operator with the admin token.")
 @SecurityRequirement(name = ClientResource.SECURITY_SCHEME)
 @APIResponse(
     responseCode = "401",
@@ -43,7 +50,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @APIResponse(
     responseCode = "403",
     description =
-        "The client is not an admin device. Answered before the path's client is looked up, so"
+        "The user's role does not allow it. Answered before the path's client is looked up, so"
             + " it says nothing about it.",
     content = @Content(schema = @Schema(implementation = ApiError.class)))
 @ClientAuthenticated
@@ -63,9 +70,10 @@ public class DeviceResource {
 
   @GET
   @Operation(
-      summary = "List every device",
+      summary = "List devices",
       description =
-          "All clients, revoked or not, oldest first, with their latest push results, as the"
+          "For an admin, all clients, revoked or not, oldest first; for everyone else, the"
+              + " clients of the caller's own user. With their latest push results, as the"
               + " management API lists them. Never a key or a push token.")
   @APIResponse(
       responseCode = "200",
@@ -81,37 +89,66 @@ public class DeviceResource {
   @POST
   @Path("/{id}/admin")
   @Operation(
-      summary = "Make a device an admin",
+      summary = "Make a device an admin (no longer possible)",
       description =
-          "The client becomes an admin device. Making an admin an admin changes nothing. Only the"
-              + " operator can take admin rights away. The owner's devices get a push naming the"
-              + " device that did it. The request has no body.")
+          "Refused with 409 whatever the caller and the device: whether a device is an admin"
+              + " device follows its user's role, roles are set per user, and a user is made an"
+              + " admin, or no longer one, only by the operator on the admin page with the admin"
+              + " token. Kept so that an older app gets this answer instead of a missing route."
+              + " The request has no body.")
+  @APIResponse(
+      responseCode = "409",
+      description = "Roles are set per user, not per device.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public ManagedClientResponse makeAdmin(@PathParam("id") UUID id) {
+    throw error(Response.Status.CONFLICT, OperatorUsers.ROLES_ARE_PER_USER);
+  }
+
+  @PATCH
+  @Path("/{id}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Rename a device",
+      description =
+          "Sets the client's name; its key keeps working. A mod renames their own devices, an"
+              + " admin those of users who are not admins; an admin's devices, this one included,"
+              + " are renamed only by the operator. A revoked device is not renamed. Naming it as"
+              + " it is changes nothing. No push is sent.")
   @APIResponse(
       responseCode = "200",
-      description = "The client, an admin device.",
+      description = "The client, with its name.",
       content = @Content(schema = @Schema(implementation = ManagedClientResponse.class)))
   @APIResponse(
+      responseCode = "400",
+      description = "The body is malformed or fails validation.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
       responseCode = "404",
-      description = "No client has this ID.",
+      description = "No client has this ID, or a mod's is not theirs.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "409",
-      description = "The client is revoked.",
+      description = "The client is an admin device, or it is revoked; nothing changed.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
-  public ManagedClientResponse makeAdmin(@PathParam("id") UUID id) {
-    return apply(
-        clients.makeAdminBy(caller.get().id(), id), ClientChangedByDevice.Change.MADE_ADMIN);
+  public ManagedClientResponse rename(
+      @PathParam("id") UUID id, @NotNull @Valid RenameDeviceRequest request) {
+    return switch (clients.renameBy(caller.get().id(), id, request.name())) {
+      case ClientService.DeviceChange.Done done -> done.client();
+      case ClientService.DeviceChange.Refused refused -> throw refusal(refused.refusal());
+    };
   }
 
   @POST
   @Path("/{id}/revoke")
   @Operation(
-      summary = "Revoke a device that is not an admin",
+      summary = "Revoke a device",
       description =
           "The client's key stops authenticating immediately and permanently, and its push"
-              + " target is removed. Revoking a revoked client changes nothing. An admin device,"
-              + " this one included, can be revoked only by the operator. The owner's devices get"
-              + " a push naming the device that did it. The request has no body.")
+              + " target is removed. Revoking a revoked client changes nothing. A mod revokes"
+              + " their own devices, but not their last active one. An admin revokes the devices"
+              + " of users who are not admins; an admin's devices, this one included, are revoked"
+              + " only by the operator. The user's devices and the admins' devices get a push"
+              + " naming the device that did it. The request has no body.")
   @APIResponse(
       responseCode = "200",
       description = "The client, now revoked.",
@@ -122,7 +159,9 @@ public class DeviceResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "409",
-      description = "The client is an admin device.",
+      description =
+          "The client is an admin device (its user is an admin), or it is the caller's user's last"
+              + " active device and the caller is a mod.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public ManagedClientResponse revoke(@PathParam("id") UUID id) {
     return apply(clients.revokeBy(caller.get().id(), id), ClientChangedByDevice.Change.REVOKED);
@@ -135,9 +174,10 @@ public class DeviceResource {
       description =
           "Removes the client for good, with its push results, its pushes waiting for a retry"
               + " and the unused pairing codes it created. Events are never deleted, and their"
-              + " read state stays. A revoked admin device can be deleted too; an active device,"
-              + " this one included, must be revoked first. No push is sent: deleting changes"
-              + " nothing a device can use. There is no undo.")
+              + " read state stays. A mod deletes their own revoked devices, an admin those of"
+              + " users who are not admins; an active device, this one included, must be revoked"
+              + " first. No push is sent: deleting changes nothing a device can use. There is no"
+              + " undo.")
   @APIResponse(responseCode = "204", description = "The client is deleted.")
   @APIResponse(
       responseCode = "404",
@@ -145,7 +185,7 @@ public class DeviceResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "409",
-      description = "The client is not revoked; nothing changed.",
+      description = "The client is not revoked, or is an admin device; nothing changed.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public void delete(@PathParam("id") UUID id) {
     clients
@@ -166,7 +206,12 @@ public class DeviceResource {
           var by = caller.get();
           changed.fire(
               new ClientChangedByDevice(
-                  by.id(), by.name(), done.client().id(), done.client().name(), change));
+                  by.id(),
+                  by.name(),
+                  done.client().id(),
+                  done.client().name(),
+                  done.client().user().id(),
+                  change));
         }
         yield done.client();
       }
@@ -178,11 +223,15 @@ public class DeviceResource {
     return switch (refusal) {
       // Revoked between authentication and the change: answer as if the key had been rejected.
       case CALLER_REVOKED -> new NotAuthorizedException(BearerToken.unauthorized());
-      case NOT_AN_ADMIN -> error(Response.Status.FORBIDDEN, "Not an admin device");
-      case UNKNOWN_CLIENT, UNKNOWN_PAIRING -> error(Response.Status.NOT_FOUND, "Not found");
-      case CLIENT_REVOKED -> error(Response.Status.CONFLICT, "Client is revoked");
+      case NOT_ALLOWED -> error(Response.Status.FORBIDDEN, "Not allowed for your role");
+      case UNKNOWN_CLIENT, UNKNOWN_PAIRING, UNKNOWN_USER ->
+          error(Response.Status.NOT_FOUND, "Not found");
       case CLIENT_IS_ADMIN -> error(Response.Status.CONFLICT, "Client is an admin device");
       case CLIENT_NOT_REVOKED -> error(Response.Status.CONFLICT, "Client is not revoked");
+      case CLIENT_REVOKED -> error(Response.Status.CONFLICT, "Client is revoked");
+      case LAST_DEVICE ->
+          error(Response.Status.CONFLICT, "Cannot revoke the last active device of a user");
+      case USER_REVOKED -> error(Response.Status.CONFLICT, "User is revoked");
     };
   }
 

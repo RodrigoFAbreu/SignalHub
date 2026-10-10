@@ -2164,6 +2164,161 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `docs/architecture.md` (the FCM provider) says why, and the device
   review's by-hand list has a check with the screen off. Compatible (`fix`)
 
+### R61 - Users, roles and subscriptions
+
+- **users and roles**: `users` (name, `BASIC`, `MOD` or `ADMIN`; no
+  passwords or identity provider), every client belongs to one user and
+  every producer is owned by one. A device is an admin device exactly
+  when its user is an `ADMIN`; `clients.admin` and `pairings.admin` are
+  gone. One migration (`V17`) makes the existing data the first user's,
+  an admin named `Owner`: every client, producer, a subscription to each
+  producer and the read marks, so the owner sees, receives and can do
+  what they did before (their devices are all admin devices now)
+- **visibility and subscriptions**: a producer is `PUBLIC` or `PRIVATE`
+  (the default) with an allow-list; users subscribe to producers they see
+  and the owner is subscribed on creation; losing sight of a private
+  producer ends the subscription. A client's inbox, unread count, event by
+  ID, read marks and pushes cover only its user's subscriptions (any other
+  event is `404`); read state is per user (`event_reads`), the operator's
+  own stays in `events.read_at`
+- **roles in the backend**: a basic user changes no device; a mod pairs,
+  revokes and deletes their own devices, never their last active one; an
+  admin sees every device, revokes and deletes those of users who are not
+  admins and pairs for any user. A user is made an admin or not only with
+  the admin token. Asking a device to make a device an admin is refused
+  with `409`; the management API's `admin` fields are kept but powerless
+  (breaking, `feat!`, `v3.0.0`)
+- **management API and admin page**: `/api/v1/admin/users` (invite,
+  rename, role, revoke, subscribe), producers with owner, visibility and
+  allow-list, clients and pairings for a user; the page's *Users* section
+  and the owner and user shown in *Producers* and *Devices*. Revoking a
+  user revokes their devices and disables their producers; their events
+  stay
+- decisions the section left open: requests that name no user act for the
+  oldest admin who is not revoked (so scripts keep working); revoking an
+  admin makes them basic; user names are unique ignoring case; a mod
+  cannot rename (R62 gave mods and admins that); notices about devices go to
+  the user's devices and the admins'; the operator's read state is
+  separate from every user's; pairing from a device for an admin user
+  makes an admin device
+- tests: every rule above against PostgreSQL, including the negative
+  cases (`EventVisibilityApiTest`, `DeviceApiTest`, `DevicePairingApiTest`,
+  `UserAdminApiTest`, `ProducerVisibilityApiTest`, `UsersMigrationTest`),
+  the admin page, the Compose smoke test (a basic user's device sees none
+  of the owner's events), the upgrade jobs (the owner after the upgrade)
+  and the end-to-end job with a second user and a private producer.
+  `docs/architecture.md` (Users, roles and subscriptions),
+  `docs/deployment.md` (upgrade notes to v3.0.0)
+
+### R62 - Self-service for users: the API
+
+- **own producers** (`/api/v1/client/producers`, a client key, every
+  role): create one (its key shown once in the answer, `IssuedOwnApiKey`),
+  list them and get one (keys by prefix, the last event, the allow-list,
+  whether the caller is subscribed), rename, set `PUBLIC` or `PRIVATE`,
+  issue and revoke keys, disable and enable, and add or remove users on the
+  allow-list. Every operation finds only producers the caller's user owns:
+  another user's, an admin's included, is `404`
+- **producers a user sees and subscriptions**
+  (`/api/v1/client/visible-producers`): the public ones, their own and the
+  private ones they are allowed on, with the owner's name; subscribe and
+  unsubscribe (`404` for one they do not see)
+- **the users' names** (`GET /api/v1/client/users`, every role): ID and
+  name of the users who are not revoked, never a role
+- **devices, by role**: a mod's and an admin's renaming
+  (`PATCH /api/v1/client/devices/{id}`, with the reach of revoking); an
+  admin invites a `BASIC` or `MOD` user with their first pairing code in
+  one transaction (`POST /api/v1/client/users`) and sets a user's role to
+  `BASIC` or `MOD` (`PATCH /api/v1/client/users/{id}`); a basic user gets
+  `403` for every device operation except reading their own devices, as
+  before. Listing, pairing, revoking and deleting devices were R36 to R44
+  and R61, unchanged
+- decisions the entry left open: a producer the operator disabled (or
+  disabled by revoking its owner) stays disabled, as the owner cannot
+  enable it (`V18`, `producers.disabled_by_owner`; `409`, and the response
+  says `disabledByOperator`); the allow-list is changed one user at a time
+  (`PUT`/`DELETE .../allowed-users/{userId}`) rather than replaced, so
+  two changes cannot overwrite each other; the subscription paths are under
+  `visible-producers` so that the listing and the subscribing share a
+  resource; an admin has no reach over other users' producers (the operator
+  has the management API); no admin is made, demoted or invited from a
+  device; there is no quota; changing a producer and subscribing to it
+  take the producer's row lock, so no user subscribes behind a change that
+  hid the producer from them (this also covers the management API's)
+- tests: each operation for each role and for other users' producers and
+  devices, the negative cases (`OwnProducerApiTest`,
+  `SubscriptionSelfServiceApiTest`, `UserSelfApiTest`,
+  `DeviceRenameApiTest`, `OpenApiTest`), the exit criteria (a basic user
+  creates a producer, publishes with its key, makes it public, and a second
+  user subscribes and receives its events; a mod pairs a second device), that
+  logs hold IDs only. `docs/architecture.md` (Users from a device, Own
+  producers from a device, Subscriptions from a device). The Python SDK and
+  command are unchanged. Compatible (`feat`)
+
+### R63 - The admin page: traffic by user
+
+- **events by user**: `GET /api/v1/events` takes `userId` (admin token
+  only; a client key gets `400`, an unknown user `404`) and `relation`
+  (`OWNED` or `SUBSCRIBED`, with `userId`): the events of the producers the
+  user owns or is subscribed to, with every other filter and the cursor.
+  The Events section has *User* and *Their producers* filters
+- **who an event reached**: `GET /api/v1/admin/events/{id}/deliveries`
+  names each record's user (`userId`, `userName`) and lists the `users` the
+  event reached (those subscribed to its producer, with whether each owns
+  it); an open event on the page groups the deliveries by user, then device
+- **a user's traffic**: `GET /api/v1/admin/users/{id}/traffic` answers the
+  newest 20 events and the newest 20 delivery records of the user's devices;
+  the Users section shows them under **Show traffic**, linking each event
+- decisions the entry left open: "reached" means "subscribed" (what decides
+  who gets an event); an owner is subscribed to their own producer, so
+  `SUBSCRIBED` includes theirs; a fixed window of 20, with the Events filter
+  for more; revoked users can be looked up; no migration; the operator only,
+  no aggregation (non-goals)
+- tests: `UserTrafficApiTest` against PostgreSQL (two users, a private and a
+  public producer, the filter and its errors, recipients, the traffic and its
+  limit, the admin token), `OpenApiTest`, `AdminPageTest`.
+  `docs/architecture.md` (Traffic by user, Delivery records, the admin page).
+  Compatible (`feat`)
+
+### R67 - The third batch of Dependabot updates
+
+- four of the five Dependabot updates open on 2026-10-10 applied together
+  on one branch from the latest `main`, as R49 and R58 did:
+  - #127: the `caddy:2-alpine` image in `compose.yaml` moved to its new
+    multi-platform index digest (same tag)
+  - #128: `quarkus.platform.version` 3.39.5 to 3.40.1 in `backend/pom.xml`
+  - #130: `ruff` 0.16.9 to 0.16.10 in `.github/tools/requirements.txt`;
+    `ruff check` and `ruff format --check` report nothing new
+  - #131: `url_launcher` 6.3.2 to 6.3.3 in `client/pubspec.yaml` and
+    `client/pubspec.lock`
+- **not taken: #129**, the build image moving to the non-LTS JDK 26
+  (`maven:3.9-eclipse-temurin-26-noble`). SignalHub stays on Java 25 LTS
+  (decision D2), so it is closed with that reason, as #48 and #49 were
+- no API or behaviour change; CI runs the backend build and tests, the
+  app's analysis and tests, and the Compose smoke tests with the proxy
+  Compatible (`build`)
+
+### R68 - People's details for admins in the client API
+
+- **the list**: for an admin's client key, each user of
+  `GET /api/v1/client/users` also carries `role`, `activeDevices` (devices
+  not revoked) and `hasPaired` (the user has ever had a device, revoked or
+  not; false for an invited user who has not paired). Any other role gets
+  the names only, as before; revoked users stay out
+- **a person's producers**: `GET /api/v1/client/users/{id}/producers`, for
+  an admin's key only (`403` for anyone else, whatever the ID; `404` for an
+  unknown or revoked user): the producers the user owns by name, each with
+  `id`, `name`, `visibility` and `disabled`, never a key, an event or an
+  allow-list
+- decisions the entry left open: the shape above; the caller's role is the
+  one read when the key authenticated, since both are reads; a revoked
+  user's producers are not readable; no migration, nothing logged beyond
+  what exists
+- tests: `UserSelfApiTest` against PostgreSQL (the admin's fields, a user
+  with no device, one whose devices are all revoked, a revoked user, mod and
+  basic getting names only and `403`, unknown IDs), `OpenApiTest`.
+  `docs/architecture.md` (Users from a device). Compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2742,13 +2897,15 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 47    | R58 - The second batch of Dependabot updates                                                     | Increment (`build`)                    | Done (see section 3)                                                             |
 | 48    | R59 - A read event leaves the unread-only inbox                                                  | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 | 49    | R60 - Pushes reach a sleeping phone at once                                                      | Increment (`fix`)                      | Done (see section 3)                                                             |
-| 50    | R61 - Users, roles and subscriptions                                                             | Increment (`feat!`)                    | Next                                                                             |
-| 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Blocked until R61 is merged                                                      |
-| 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Blocked until R62 is merged                                                      |
-| 53    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Blocked until R63 is merged                                                      |
-| 54    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
-| 55    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
-| 56    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
+| 50    | R61 - Users, roles and subscriptions                                                             | Increment (`feat!`)                    | Done (see section 3)                                                             |
+| 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 53    | R67 - The third batch of Dependabot updates                                                      | Increment (`build`)                    | Done (see section 3)                                                             |
+| 54    | R68 - People's details for admins in the client API                                              | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 55    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next                                                                             |
+| 56    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
+| 57    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
+| 58    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
 
 How an autonomous run uses it:
 
@@ -3196,6 +3353,23 @@ G1 → G2 → R19 v1.0.0
   - a reply to an event (an answer recorded for its producer) is wanted
     later by the workflow controller's orchestrator, which will raise it
     itself; it is a deferred candidate, not queued
+- **R67 was added by the maintainer on 2026-10-10**: five Dependabot pull
+  requests (#127 to #131) opened after R58. As R49 decided, four land
+  together in one pull request and one release, and are then closed as
+  superseded; #129 moves the build image to the non-LTS JDK 26 and is
+  closed instead (D2). It runs after R63, while the users' designs (R64)
+  are still being made, since it touches nothing they depend on.
+- **R68 was added by the maintainer on 2026-10-10**, from the design work
+  of R64: the People screens the maintainer chose (people in sections by
+  role, with their devices, an invited person not paired yet, and a
+  person's producers) need what `GET /api/v1/client/users` does not give
+  (names only, by R62's rule). Asked to choose between reducing the
+  design and a small admin-only addition, the maintainer chose the
+  addition. It runs before R64 is finished, as a server item that does not
+  need the designs. The same answers settled R65's and R66's open points:
+  a basic user may sign in a browser of their own, a phone-width page
+  signs in with a typed code, a web session lasts 30 days, and the app
+  calls the server's operator "the host".
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3249,6 +3423,8 @@ advance; they follow from the queue.
 | R64           | patch (`docs`)                                                                                                                                        | drawings only                                                                                              |
 | R65           | minor (`feat(client)`)                                                                                                                                | the app's screens for users; no API change                                                                 |
 | R66           | minor (`feat`)                                                                                                                                        | a public web page for users; the proxy forwards it                                                         |
+| R67           | patch (`build`)                                                                                                                                       | build, CI, image and app library versions; no API or behaviour change                                      |
+| R68           | minor (`feat`)                                                                                                                                        | admin-only fields and endpoints in the client API; nothing changes for other roles                         |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -4874,7 +5050,7 @@ Android records it as a high-priority FCM message.
 
 ### R61 - Users, roles and subscriptions
 
-Status: next. Added by the maintainer (2026-10-10).
+Status: complete (see section 3). Added by the maintainer (2026-10-10).
 
 Goal: SignalHub serves several people on one self-hosted server. Each
 person is a user with their own devices, producers and subscriptions, and
@@ -4970,8 +5146,7 @@ producers and receives a public producer's events once subscribed.
 
 ### R62 - Self-service for users: the API
 
-Status: blocked until R61 is merged. Added by the maintainer
-(2026-10-10).
+Status: done (see section 3). Added by the maintainer (2026-10-10).
 
 Goal: a user manages their own producers and subscriptions, and devices
 as their role allows, from their device, with no work on the machine
@@ -5016,8 +5191,7 @@ and receives its events; a mod pairs a second device of their own.
 
 ### R63 - The admin page: traffic by user
 
-Status: blocked until R62 is merged. Added by the maintainer
-(2026-10-10).
+Status: done (see section 3). Added by the maintainer (2026-10-10).
 
 Goal: the operator (an admin) watches all traffic per user, for testing
 and debugging.
@@ -5038,7 +5212,7 @@ each user's events and deliveries on the admin page.
 
 ### R64 - Designs for users in the app and on a web page
 
-Status: blocked until R63 is merged. Added by the maintainer
+Status: next, now that R68 is done. Added by the maintainer
 (2026-10-10); amended the same day: made in Claude Design, with the
 design skills given fixed roles.
 
@@ -5150,6 +5324,14 @@ user's role; the device admin switch is replaced by roles; tests (widget
 and controller tests per role), `client/README.md`,
 `docs/architecture.md` (Client application).
 
+Decided with the designs (2026-10-10): People shows each person's role,
+devices and producers from R68's fields; an existing device shows a
+one-time *What's new* card after the update (the bottom bar, producers,
+people); *Settings* gains *About this server* ("The host runs this
+server and can see every event on it.") and a *Sign in a browser* row
+for every role (R66); a producer the user loses access to just leaves
+their list.
+
 Compatible (`feat(client)`, minor). Non-goals: anything not in the
 approved designs.
 
@@ -5173,8 +5355,15 @@ Scope:
   of theirs (for example with a code the page shows), and the browser
   becomes a client of that user, revocable like any device and listed
   as a browser; it is a device in every rule (roles, revocation)
+  except one: every role, a basic user included, may approve signing in
+  a browser of their own from their device and sign out or revoke their
+  own browsers (a basic user still cannot pair or remove other devices).
+  The page shows a QR code that the app scans; at phone width, where a
+  phone cannot scan its own screen, it shows a short code typed in the
+  app and an *Open the app* button
 - the session is a cookie that is `HttpOnly`, `Secure` and
-  `SameSite=Strict`, expires, and is ended by signing out; state-changing
+  `SameSite=Strict`, lasts a fixed 30 days, and is ended by signing out
+  or by revoking the browser from a device; state-changing
   requests are protected against cross-site request forgery; the page
   runs only its own scripts under a strict content security policy,
   renders every server value as text, and cannot be framed
@@ -5191,6 +5380,84 @@ admin functions beyond R62's; offline use or web push.
 Exit criteria: on the owner's server, the owner and a second user sign
 in from a browser through the public address, do the approved flows, and
 sign out; revoking the browser from a device signs it out.
+
+### R67 - The third batch of Dependabot updates
+
+Status: done (see section 3). Added by the maintainer (2026-10-10).
+
+Goal: the build, CI, image and app library updates Dependabot proposed
+after R58 are applied, verified and released, and no Dependabot pull
+request is left waiting.
+
+Scope:
+
+- the updates of the Dependabot pull requests open when this increment
+  starts, applied together on one branch from the latest `main`, as R49
+  and R58 did. On 2026-10-10 they were:
+  - #127: the `caddy:2-alpine` image in `compose.yaml` moved to its new
+    multi-platform index digest (same tag); the Compose smoke tests with
+    the proxy still pass on x86-64 and ARM64
+  - #128: `quarkus.platform.version` 3.39.5 to 3.40.1. Its release notes
+    are read for changes to what the backend uses (REST, Hibernate ORM
+    with Panache, Flyway, validation, OpenAPI, health, metrics, the
+    scheduler, Dev Services), and any deprecation `-Xlint:all` reports is
+    fixed, not suppressed
+  - #130: `ruff` 0.16.9 to 0.16.10 in `.github/tools/requirements.txt`;
+    anything it reformats or reports is fixed in the same change
+  - #131: `url_launcher` 6.3.2 to 6.3.3 in the app (`pubspec.yaml` and
+    `pubspec.lock`); an event's link still opens
+- **not taken: #129**, the build image moving to the non-LTS JDK 26
+  (`maven:3.9-eclipse-temurin-26-noble`). SignalHub stays on Java 25 LTS
+  (decision D2, R25), so it is closed with that reason, as #48 and #49
+  were
+- an update that cannot be taken safely is left out with the reason
+  recorded, never forced; a check that fails for a reason outside the
+  change is re-run, not worked around
+- the full validation: `./mvnw verify`, `flutter analyze` and
+  `flutter test`, `ruff check` and `ruff format --check`, and CI green on
+  every job; the release that follows is verified by the orchestrator as
+  usual
+- once merged, each Dependabot pull request it covers is closed with a
+  comment naming the pull request that superseded it, if Dependabot has
+  not closed it already; one opened meanwhile is included if it is of the
+  same kind and its CI is green, as R49 decided
+
+Compatible (`build`, patch): build, CI, image and library versions; no API
+or behaviour change.
+
+Non-goals: changing Dependabot's configuration; updating dependencies
+Dependabot has not proposed; moving off Java 25.
+
+### R68 - People's details for admins in the client API
+
+Status: done (see section 3). Added by the maintainer (2026-10-10), from the
+design work of R64.
+
+Goal: an admin's device can show who each person is on the server: their
+role, their devices and their producers, as the approved People screens
+need. Today `GET /api/v1/client/users` gives every role names only.
+
+Scope:
+
+- for an admin's client key, each user listed by `GET
+  /api/v1/client/users` also carries their role, how many active devices
+  they have, and whether they have ever paired a device (an invited user
+  who has not paired yet); and an admin can read one user's producers
+  (id, name, visibility, disabled) by user, through `/api/v1/client/`
+  (the exact shape is the increment's choice, documented in
+  `docs/architecture.md`)
+- any other role gets exactly what it gets today: names only, never a
+  role, a device or a producer
+- revoked users stay out of the list, as today
+- tests per role (admin sees the fields; mod and basic do not; a user
+  with no device; a user whose devices are all revoked), `OpenApiTest`,
+  `docs/architecture.md`
+
+Compatible (`feat`, minor): additive fields and endpoints for admins; no
+change for other roles, producers or the schema; no migration.
+
+Non-goals: the app's screens (R65); changing roles or removing users from
+a device; anything for non-admins.
 
 ### Already in place (not scheduled again)
 
@@ -5319,10 +5586,14 @@ admin page: browsing events), R53 (deleting events: the API and the
 admin page), R54 (sending a test event from the admin page) and R55 (the
 admin page: a status panel), R56 (an event's delivery), R57 (the
 alert also plays while the app is open), R58 (the second batch of
-Dependabot updates), R59 (a read event leaves the unread-only inbox)
-and R60 (pushes reach a sleeping phone at once) are done. **R61 (users,
-roles and subscriptions) is next**, followed by R62 to R64, the human
-gate G4 (the maintainer approves the user designs), R65 and R66. A new
+Dependabot updates), R59 (a read event leaves the unread-only inbox),
+R60 (pushes reach a sleeping phone at once), R61 (users, roles and
+subscriptions), R62 (self-service for users: the API) and R63 (the admin
+page: traffic by user), R67 (the third batch of Dependabot
+updates) and R68 (people's details for admins in the client API) are
+done. **R64 (designs for users in the app and on a web page) is next**;
+then the human gate G4 (the
+maintainer approves the user designs), R65 and R66. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
 
