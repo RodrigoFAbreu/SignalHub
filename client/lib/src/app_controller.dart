@@ -184,81 +184,6 @@ class AppController extends ChangeNotifier implements ApiGateway {
   /// Whether a change to the push preferences is being saved.
   bool savingPushPreferences = false;
 
-  /// Every client of the owner, active ones first, as this admin device last
-  /// read them; `null` until read, or when it cannot manage devices.
-  List<ManagedDevice>? devices;
-
-  /// Why reading [devices] failed; `null` if it worked.
-  String? devicesError;
-
-  /// Whether this installation turned out not to be an admin device any
-  /// more while managing devices: the server refused it (`403`), or its
-  /// registration, read again, says so. Said once, in place of [devices].
-  bool lostAdminRights = false;
-
-  /// Whether the server has no device endpoints (released before them), so
-  /// the app offers no device management at all.
-  bool _devicesUnsupported = false;
-
-  /// The device a change is being made to; `null` when none is.
-  String? changingDeviceId;
-
-  /// Whether this installation may manage the owner's devices, as its
-  /// registration says and the server supports.
-  bool get canManageDevices =>
-      (registration?.admin ?? false) && !_devicesUnsupported;
-
-  /// For the owner, when the server refuses device management.
-  static const notAdminMessage = 'This device is no longer an admin device';
-
-  /// Whether the server cannot delete devices (released before that), so the
-  /// app stops offering it.
-  bool _deletingUnsupported = false;
-
-  /// Whether this installation may delete revoked devices.
-  bool get canDeleteDevices => canManageDevices && !_deletingUnsupported;
-
-  /// For the owner, when the server cannot delete devices.
-  static const deletingUnsupportedMessage =
-      'This server cannot delete devices. Update SignalHub, or delete it on '
-      'the admin page.';
-
-  /// The pairing code this admin device created last, while _Connect a
-  /// device_ shows it; `null` otherwise.
-  DevicePairing? pairing;
-
-  /// Whether a pairing code is being created.
-  bool creatingPairing = false;
-
-  /// Whether the server cannot create pairing codes for a device (released
-  /// before them), so the app stops offering it.
-  bool _pairingUnsupported = false;
-
-  /// Whether this installation may create pairing codes for new devices.
-  bool get canCreatePairings => canManageDevices && !_pairingUnsupported;
-
-  /// Whether the server cannot say whether the code shown was used (released
-  /// before that), so the app stops asking about it.
-  bool _pairingStatusUnknown = false;
-
-  /// Whether the server is being asked about the code shown.
-  bool _checkingPairing = false;
-
-  /// For the owner, when the server has no pairing codes for devices.
-  static const pairingUnsupportedMessage =
-      'This server cannot create pairing codes from a device. Update '
-      'SignalHub, or create the code on the admin page.';
-
-  /// The link a new device opens or scans to pair: the server's own pairing
-  /// URI, or, when it has no public address configured, one for the address
-  /// this device reaches it at.
-  String? get pairingLink {
-    final pairing = this.pairing;
-    final credentials = this.credentials;
-    if (pairing == null || credentials == null) return null;
-    return pairing.uri ?? PairingUri.format(credentials.baseUrl, pairing.code);
-  }
-
   @override
   UserRole get role => registration?.role ?? UserRole.basic;
 
@@ -296,7 +221,7 @@ class AppController extends ChangeNotifier implements ApiGateway {
   late PeopleController people = PeopleController(this);
 
   /// The devices this role may list and manage, and connecting new ones.
-  late DevicesController deviceList = DevicesController(this);
+  late DevicesController deviceList = _newDeviceList();
 
   /// How this user's role changed under them since the app last said so; `null`
   /// when nothing is to be said. The app learns of a change when a request is
@@ -831,231 +756,6 @@ class AppController extends ChangeNotifier implements ApiGateway {
     return null;
   }
 
-  /// Reads every device, if this installation is an admin device; otherwise
-  /// forgets any it read before.
-  Future<void> loadDevices() async {
-    final api = _api;
-    if (api == null) return;
-    if (!canManageDevices) {
-      // Devices shown until now: the registration re-read since says this
-      // installation is no longer an admin device.
-      lostAdminRights = devices != null;
-      devices = null;
-      devicesError = null;
-      notifyListeners();
-      return;
-    }
-    try {
-      devices = _activeFirst(await api.listDevices());
-      devicesError = null;
-      lostAdminRights = false;
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-      return;
-    } on ApiException catch (e) {
-      switch (e.statusCode) {
-        case 403:
-          await _lostAdminRights(api);
-        case 404:
-          _devicesUnsupported = true;
-          devices = null;
-          devicesError = null;
-        default:
-          devicesError = e.message;
-      }
-    }
-    notifyListeners();
-  }
-
-  /// Revokes the device with [id], which must not be an admin. Returns an
-  /// error message, or `null` on success.
-  Future<String?> revokeDevice(String id) =>
-      _changeDevice(id, (api) => api.revokeDevice(id));
-
-  Future<String?> _changeDevice(
-    String id,
-    Future<ManagedDevice> Function(SignalHubApi api) change,
-  ) async {
-    final api = _api;
-    if (api == null) return 'Not connected to a server';
-    changingDeviceId = id;
-    notifyListeners();
-    try {
-      final changed = await change(api);
-      devices = _activeFirst([
-        for (final d in devices ?? const <ManagedDevice>[])
-          d.id == changed.id ? changed : d,
-      ]);
-      return null;
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-      return null;
-    } on ApiException catch (e) {
-      return _refusedChange(api, e);
-    } finally {
-      changingDeviceId = null;
-      notifyListeners();
-    }
-  }
-
-  /// Deletes the device with [id], which must be revoked; it leaves
-  /// [devices]. Returns an error message, or `null` on success.
-  Future<String?> deleteDevice(String id) async {
-    final api = _api;
-    if (api == null) return 'Not connected to a server';
-    changingDeviceId = id;
-    notifyListeners();
-    try {
-      await api.deleteDevice(id);
-      _dropDevice(id);
-      return null;
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-      return null;
-    } on ApiException catch (e) {
-      return switch (e.statusCode) {
-        404 => _deviceNotFound(id),
-        405 => _deletingIsUnsupported(),
-        _ => _refusedChange(api, e),
-      };
-    } finally {
-      changingDeviceId = null;
-      notifyListeners();
-    }
-  }
-
-  /// A `404` for a device the list showed: deleted meanwhile, by the
-  /// operator or another admin device, or a server released before deleting
-  /// devices, which has no such endpoint. Reading the list tells them apart.
-  Future<String?> _deviceNotFound(String id) async {
-    await loadDevices();
-    if (devicesError case final error?) return error;
-    if (lostAdminRights) {
-      return phase == ConnectionPhase.connected ? notAdminMessage : null;
-    }
-    final listed = devices?.any((d) => d.id == id) ?? false;
-    return listed ? _deletingIsUnsupported() : null;
-  }
-
-  String _deletingIsUnsupported() {
-    _deletingUnsupported = true;
-    return deletingUnsupportedMessage;
-  }
-
-  void _dropDevice(String id) {
-    devices = devices?.where((d) => d.id != id).toList(growable: false);
-  }
-
-  /// A device change the server refused.
-  Future<String?> _refusedChange(SignalHubApi api, ApiException e) async {
-    if (e.statusCode == 403) {
-      await _lostAdminRights(api);
-      // Unless the key turned out to be revoked too: setup says that.
-      return phase == ConnectionPhase.connected ? notAdminMessage : null;
-    }
-    // Usually a conflict: the operator or another admin device changed the
-    // device meanwhile, so show it as it is now.
-    if (e.statusCode != null) await loadDevices();
-    return e.message;
-  }
-
-  /// Creates a pairing code for a new device named [name], shown as
-  /// [pairing]. Returns an error message, or `null` on success.
-  Future<String?> createPairing(String name) async {
-    final api = _api;
-    if (api == null) return 'Not connected to a server';
-    creatingPairing = true;
-    notifyListeners();
-    try {
-      pairing = await api.createPairing(name);
-      _pairingStatusUnknown = false;
-      return null;
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-      return null;
-    } on ApiException catch (e) {
-      switch (e.statusCode) {
-        case 403:
-          await _lostAdminRights(api);
-          return phase == ConnectionPhase.connected ? notAdminMessage : null;
-        case 404:
-          _pairingUnsupported = true;
-          return pairingUnsupportedMessage;
-        default:
-          return e.message;
-      }
-    } finally {
-      creatingPairing = false;
-      notifyListeners();
-    }
-  }
-
-  /// Forgets the pairing code shown, so it is not kept in memory longer than
-  /// it is on screen.
-  void clearPairing() {
-    pairing = null;
-    notifyListeners();
-  }
-
-  /// Asks the server whether the code shown in [pairing] was used; nothing
-  /// is asked when the server cannot say. Once it was used, forgets it, so
-  /// _Connect a device_ is ready for the next device, and returns the name
-  /// of the device that used it. Returns an error message only when this
-  /// device is no longer an admin device, which also ends the code; other
-  /// failures are left to the next time it asks.
-  Future<({String? connected, String? error})> checkPairing() async {
-    const unchanged = (connected: null, error: null);
-    final api = _api;
-    final asked = pairing;
-    final id = asked?.id;
-    if (api == null || id == null || _pairingStatusUnknown) return unchanged;
-    if (_checkingPairing) return unchanged;
-    _checkingPairing = true;
-    try {
-      final status = await api.getPairingStatus(id);
-      // A code created or dismissed meanwhile is not the one asked about.
-      if (!identical(pairing, asked) || !status.isRedeemed) return unchanged;
-      pairing = null;
-      notifyListeners();
-      return (connected: status.clientName, error: null);
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-    } on ApiException catch (e) {
-      switch (e.statusCode) {
-        case 403:
-          // The server no longer accepts this device's codes either.
-          pairing = null;
-          await _lostAdminRights(api);
-          notifyListeners();
-          // Unless the key turned out to be revoked too: setup says that.
-          if (phase == ConnectionPhase.connected) {
-            return (connected: null, error: notAdminMessage);
-          }
-        case 404 || 405 when identical(pairing, asked):
-          _pairingStatusUnknown = true;
-        default:
-          debugPrint('Pairing status not read: ${e.message}');
-      }
-    } finally {
-      _checkingPairing = false;
-    }
-    return unchanged;
-  }
-
-  /// The server refused device management: shows why, and re-reads the
-  /// registration so the app stops offering it.
-  Future<void> _lostAdminRights(SignalHubApi api) async {
-    lostAdminRights = true;
-    devices = null;
-    devicesError = null;
-    await rereadRegistration();
-  }
-
-  static List<ManagedDevice> _activeFirst(List<ManagedDevice> devices) => [
-    ...devices.where((d) => !d.isRevoked),
-    ...devices.where((d) => d.isRevoked),
-  ];
-
   /// The event of a notification the owner tapped, once: the inbox opens it.
   String? takeEventToOpen() {
     final id = _eventToOpen;
@@ -1165,16 +865,6 @@ class AppController extends ChangeNotifier implements ApiGateway {
     loadingMore = false;
     loadMoreError = null;
     savingPushPreferences = false;
-    devices = null;
-    devicesError = null;
-    lostAdminRights = false;
-    _devicesUnsupported = false;
-    _deletingUnsupported = false;
-    changingDeviceId = null;
-    pairing = null;
-    creatingPairing = false;
-    _pairingUnsupported = false;
-    _pairingStatusUnknown = false;
     _eventToOpen = null;
     _deviceNoticeToOpen = false;
     _roleChange = null;
@@ -1190,6 +880,16 @@ class AppController extends ChangeNotifier implements ApiGateway {
     await _store.clear();
   }
 
+  /// The clock the people and devices screens read (countdowns, when a device
+  /// was last active); tests replace it.
+  DateTime Function() clock = DateTime.now;
+
+  DevicesController _newDeviceList() => DevicesController(
+    this,
+    thisDeviceId: () => registration?.id,
+    now: () => clock(),
+  );
+
   void _resetFeatures() {
     producers.dispose();
     ownProducers.dispose();
@@ -1198,7 +898,7 @@ class AppController extends ChangeNotifier implements ApiGateway {
     producers = ProducersController(this);
     ownProducers = OwnProducersController(this);
     people = PeopleController(this);
-    deviceList = DevicesController(this);
+    deviceList = _newDeviceList();
   }
 
   void _onNotice(PushNotice notice) {

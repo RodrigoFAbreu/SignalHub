@@ -93,7 +93,10 @@ void main() {
       expect(devices.loads, greaterThan(0));
 
       await tester.tap(byKey('devices'));
-      await app.settle(tester);
+      // Not settled: the screen's skeleton rows shimmer while its own read
+      // has no handler in this test.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
 
       expect(find.byType(DevicesScreen), findsOneWidget);
     });
