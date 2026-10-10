@@ -2861,10 +2861,11 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 50    | R61 - Users, roles and subscriptions                                                             | Increment (`feat!`)                    | Done (see section 3)                                                             |
 | 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 53    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next                                                                             |
-| 54    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
-| 55    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
-| 56    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
+| 53    | R67 - The third batch of Dependabot updates                                                      | Increment (`build`)                    | Next                                                                             |
+| 54    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next, after R67                                                                  |
+| 55    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
+| 56    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
+| 57    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
 
 How an autonomous run uses it:
 
@@ -3306,6 +3307,12 @@ G1 → G2 → R19 v1.0.0
   - a reply to an event (an answer recorded for its producer) is wanted
     later by the workflow controller's orchestrator, which will raise it
     itself; it is a deferred candidate, not queued
+- **R67 was added by the maintainer on 2026-10-10**: five Dependabot pull
+  requests (#127 to #131) opened after R58. As R49 decided, four land
+  together in one pull request and one release, and are then closed as
+  superseded; #129 moves the build image to the non-LTS JDK 26 and is
+  closed instead (D2). It runs after R63, while the users' designs (R64)
+  are still being made, since it touches nothing they depend on.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3359,6 +3366,7 @@ advance; they follow from the queue.
 | R64           | patch (`docs`)                                                                                                                                        | drawings only                                                                                              |
 | R65           | minor (`feat(client)`)                                                                                                                                | the app's screens for users; no API change                                                                 |
 | R66           | minor (`feat`)                                                                                                                                        | a public web page for users; the proxy forwards it                                                         |
+| R67           | patch (`build`)                                                                                                                                       | build, CI, image and app library versions; no API or behaviour change                                      |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -5239,6 +5247,53 @@ Exit criteria: on the owner's server, the owner and a second user sign
 in from a browser through the public address, do the approved flows, and
 sign out; revoking the browser from a device signs it out.
 
+### R67 - The third batch of Dependabot updates
+
+Status: Next. Added by the maintainer (2026-10-10).
+
+Goal: the build, CI, image and app library updates Dependabot proposed
+after R58 are applied, verified and released, and no Dependabot pull
+request is left waiting.
+
+Scope:
+
+- the updates of the Dependabot pull requests open when this increment
+  starts, applied together on one branch from the latest `main`, as R49
+  and R58 did. On 2026-10-10 they were:
+  - #127: the `caddy:2-alpine` image in `compose.yaml` moved to its new
+    multi-platform index digest (same tag); the Compose smoke tests with
+    the proxy still pass on x86-64 and ARM64
+  - #128: `quarkus.platform.version` 3.39.5 to 3.40.1. Its release notes
+    are read for changes to what the backend uses (REST, Hibernate ORM
+    with Panache, Flyway, validation, OpenAPI, health, metrics, the
+    scheduler, Dev Services), and any deprecation `-Xlint:all` reports is
+    fixed, not suppressed
+  - #130: `ruff` 0.16.9 to 0.16.10 in `.github/tools/requirements.txt`;
+    anything it reformats or reports is fixed in the same change
+  - #131: `url_launcher` 6.3.2 to 6.3.3 in the app (`pubspec.yaml` and
+    `pubspec.lock`); an event's link still opens
+- **not taken: #129**, the build image moving to the non-LTS JDK 26
+  (`maven:3.9-eclipse-temurin-26-noble`). SignalHub stays on Java 25 LTS
+  (decision D2, R25), so it is closed with that reason, as #48 and #49
+  were
+- an update that cannot be taken safely is left out with the reason
+  recorded, never forced; a check that fails for a reason outside the
+  change is re-run, not worked around
+- the full validation: `./mvnw verify`, `flutter analyze` and
+  `flutter test`, `ruff check` and `ruff format --check`, and CI green on
+  every job; the release that follows is verified by the orchestrator as
+  usual
+- once merged, each Dependabot pull request it covers is closed with a
+  comment naming the pull request that superseded it, if Dependabot has
+  not closed it already; one opened meanwhile is included if it is of the
+  same kind and its CI is green, as R49 decided
+
+Compatible (`build`, patch): build, CI, image and library versions; no API
+or behaviour change.
+
+Non-goals: changing Dependabot's configuration; updating dependencies
+Dependabot has not proposed; moving off Java 25.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -5369,9 +5424,10 @@ alert also plays while the app is open), R58 (the second batch of
 Dependabot updates), R59 (a read event leaves the unread-only inbox),
 R60 (pushes reach a sleeping phone at once), R61 (users, roles and
 subscriptions), R62 (self-service for users: the API) and R63 (the admin
-page: traffic by user) are done. **R64 (designs for users in the app and
-on a web page) is next**, followed by the human gate G4 (the maintainer
-approves the user designs), R65 and R66. A new
+page: traffic by user) are done. **R67 (the third batch of Dependabot
+updates) is next**, while the users' designs are being made; then R64
+(designs for users in the app and on a web page), the human gate G4 (the
+maintainer approves the user designs), R65 and R66. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
 
