@@ -730,8 +730,9 @@ class OpenApiTest {
             hasItems("200", "401", "404"))
         .body(users + ".get.security", equalTo(clientKey))
         .body(
-            users + ".get.responses.'200'.content.'application/json'.schema.$ref",
-            equalTo("#/components/schemas/NamedUserList"))
+            users + ".get.responses.'200'.content.'application/json'.schema.oneOf.$ref",
+            containsInAnyOrder(
+                "#/components/schemas/NamedUserList", "#/components/schemas/DetailedUserList"))
         .body(
             users + ".post.responses.'201'.content.'application/json'.schema.$ref",
             equalTo("#/components/schemas/InvitedUser"))
