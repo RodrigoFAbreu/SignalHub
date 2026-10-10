@@ -1,308 +1,313 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:qr/qr.dart';
 
 import '../app_controller.dart';
-import '../models/client_registration.dart';
+import '../features/action_failure.dart';
+import '../features/pairing_code_controller.dart';
+import '../models/users.dart';
+import 'pairing_code_view.dart';
+import 'widgets/app_row.dart';
+import 'widgets/busy_button.dart';
+import 'widgets/callout.dart';
+import 'widgets/name_field.dart';
+import 'widgets/person_avatar.dart';
+import 'widgets/role_gate.dart';
+import 'widgets/skeleton.dart';
+import 'widgets/tags.dart';
 
-/// _Connect a device_, for an admin device: creates a one-time pairing code
-/// for a new device and shows it as a QR code with its countdown, and as a
-/// link to copy, as the admin page does. While the code is shown it asks now
-/// and then whether a device used it, and once one has, says which and is
-/// ready for the next device.
-class ConnectDeviceScreen extends StatefulWidget {
+/// _Connect a device_, for a mod or an admin: step one types the new device's
+/// name (the device that redeems the code cannot name itself), and an admin
+/// first chooses who it is for: themselves or anyone who is not removed.
+/// Step two is the code screen an invitation shares, titled for whoever the
+/// device is for.
+///
+/// [forPerson] fixes who the device is for, as a person's page does with
+/// _Pair a device for Ana_: there is no chooser then.
+class ConnectDeviceScreen extends StatelessWidget {
   const ConnectDeviceScreen({
     super.key,
     required this.controller,
-    this.now = DateTime.now,
+    this.forPerson,
   });
 
   final AppController controller;
-
-  /// The clock the countdown reads; replaced in tests.
-  final DateTime Function() now;
-
-  /// How often the screen asks whether the code shown was used, as the
-  /// admin page does.
-  static const pollInterval = Duration(milliseconds: 2500);
+  final ({String id, String name})? forPerson;
 
   @override
-  State<ConnectDeviceScreen> createState() => _ConnectDeviceScreenState();
+  Widget build(BuildContext context) => RoleGate(
+    controller: controller,
+    allows: (role) => role.managesDevices,
+    child: _Connect(controller: controller, forPerson: forPerson),
+  );
 }
 
-class _ConnectDeviceScreenState extends State<ConnectDeviceScreen> {
-  AppController get _controller => widget.controller;
+class _Connect extends StatefulWidget {
+  const _Connect({required this.controller, required this.forPerson});
 
+  final AppController controller;
+  final ({String id, String name})? forPerson;
+
+  @override
+  State<_Connect> createState() => _ConnectState();
+}
+
+class _ConnectState extends State<_Connect> {
   final _name = TextEditingController();
-  String? _error;
-  late final Timer _ticker;
-  late final Timer _poller;
+  late final PairingCodeController _code = PairingCodeController(
+    widget.controller,
+    serverUrl: widget.controller.credentials?.baseUrl ?? '',
+    now: () => widget.controller.clock(),
+  );
 
-  /// The code last asked about once more as it expired, so it is asked once.
-  DevicePairing? _askedAtExpiry;
+  bool _touched = false;
+
+  /// Who an admin chose; `null` is themselves.
+  String? _chosen;
+
+  AppController get _app => widget.controller;
+  bool get _isAdmin => _app.role.isAdmin;
 
   @override
   void initState() {
     super.initState();
-    // Redraws the countdown; nothing to do while no code is shown.
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      final pairing = _controller.pairing;
-      if (pairing == null) return;
-      setState(() {});
-      if (_expired(pairing) && !identical(_askedAtExpiry, pairing)) {
-        // Once more: it may have been used in its last seconds.
-        _askedAtExpiry = pairing;
-        unawaited(_check());
-      }
-    });
-    // Asks only while an unexpired code is shown; the screen stops asking
-    // when it is left.
-    _poller = Timer.periodic(ConnectDeviceScreen.pollInterval, (_) {
-      final pairing = _controller.pairing;
-      if (pairing != null && !_expired(pairing)) unawaited(_check());
-    });
+    _chosen = widget.forPerson?.id;
+    if (_isAdmin && widget.forPerson == null) {
+      // For the chooser. Not while building: reading notifies listeners.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _app.people.load());
+    }
   }
 
   @override
   void dispose() {
-    _ticker.cancel();
-    _poller.cancel();
     _name.dispose();
+    _code.dispose();
     super.dispose();
   }
 
-  bool _expired(DevicePairing pairing) =>
-      !pairing.expiresAt.isAfter(widget.now());
-
-  Future<void> _check() async {
-    // Not while the app is in the background: the screen is not seen then.
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    if (lifecycle == AppLifecycleState.hidden ||
-        lifecycle == AppLifecycleState.paused) {
-      return;
+  /// Who the device is for: their ID (`null` for this device's own user),
+  /// their name and whether that is you.
+  ({String? id, String name, bool you}) get _target {
+    final myName = _app.userName ?? 'you';
+    final fixed = widget.forPerson;
+    final id = _isAdmin ? (fixed?.id ?? _chosen) : null;
+    if (id == null || id == _app.userId) {
+      return (id: _isAdmin ? _app.userId : null, name: myName, you: true);
     }
-    final result = await _controller.checkPairing();
+    final name = fixed?.id == id ? fixed!.name : _app.people.byId(id)?.name;
+    return (id: id, name: name ?? 'them', you: false);
+  }
+
+  String? get _nameError =>
+      _touched && _name.text.trim().isEmpty ? 'Enter a name.' : null;
+
+  bool get _valid => _name.text.trim().isNotEmpty;
+
+  Future<void> _show() async {
+    if (!_valid || _code.creating) return;
+    final target = _target;
+    await _code.create(_name.text, userId: target.id, personName: target.name);
     if (!mounted) return;
-    if (result.error case final error?) setState(() => _error = error);
-    if (result.connected case final name?) {
-      _name.clear();
-      setState(() => _error = null);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('"$name" connected with the pairing code.')),
-      );
+    if (_code.failure?.kind == FailureKind.removed) {
+      // They were removed: the chooser no longer lists them.
+      setState(() => _chosen = null);
+      unawaited(_app.people.load());
     }
   }
 
-  Future<void> _create() async {
-    final name = _name.text.trim();
-    if (name.isEmpty || name.length > 100) {
-      setState(() => _error = 'Enter a name of up to 100 characters');
-      return;
+  Future<void> _newCode() async {
+    final target = _target;
+    final name = _code.pairing!.name;
+    await _code.create(name, userId: target.id, personName: target.name);
+    if (!mounted) return;
+    if (_code.failure?.kind == FailureKind.removed) {
+      // Back to the first step with why, to choose someone else.
+      _name.text = name;
+      _code.forget();
+      setState(() => _chosen = null);
+      unawaited(_app.people.load());
     }
-    setState(() => _error = null);
-    final error = await _controller.createPairing(name);
-    if (mounted) setState(() => _error = error);
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Connect a device')),
-    body: ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) => ListView(
-        // Explicit padding drops the system insets a list pads by default:
-        // without them, its end is hidden under the navigation bar.
-        padding: const EdgeInsets.all(16) + MediaQuery.paddingOf(context),
-        children: [
-          if (_controller.pairing != null)
-            ..._pairing(context)
-          else
-            ..._form(context),
-        ],
+    appBar: AppBar(
+      leading: IconButton(
+        tooltip: 'Close',
+        icon: const Icon(Icons.close),
+        onPressed: () => Navigator.of(context).maybePop(),
       ),
+      title: const Text('Connect a device'),
+      titleSpacing: 0,
+    ),
+    body: ListenableBuilder(
+      listenable: Listenable.merge([_code, _app.people]),
+      builder: (context, _) =>
+          _code.pairing == null ? _form(context) : _codeScreen(context),
     ),
   );
 
-  List<Widget> _form(BuildContext context) => [
-    const Text(
-      'Create a one-time pairing code, then open SignalHub on the new device '
-      'and scan it, or paste its link. The new device is not an admin '
-      'device; you can make it one afterwards.',
-    ),
-    const SizedBox(height: 16),
-    TextField(
+  Widget _form(BuildContext context) {
+    final theme = Theme.of(context);
+    final insets = MediaQuery.paddingOf(context);
+    final target = _target;
+    final failure = _code.failure;
+    final field = NameField(
       key: const Key('pairingName'),
       controller: _name,
-      maxLength: 100,
-      decoration: const InputDecoration(
-        labelText: 'Name of the new device',
-        hintText: 'Pixel 8',
-      ),
+      label: 'Name of the new device',
+      autofocus: !_isAdmin || widget.forPerson != null,
+      errorText: _nameError,
       textInputAction: TextInputAction.done,
-      onSubmitted: (_) => _create(),
-    ),
-    if (_error case final error?)
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          error,
-          key: const Key('pairingError'),
-          style: TextStyle(color: Theme.of(context).colorScheme.error),
+      onChanged: (_) => setState(() => _touched = true),
+      onSubmitted: (_) => _show(),
+    );
+    final hint = Text(
+      '1 to 100 characters. You can rename it later.',
+      style: theme.textTheme.bodyMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+    final button = BusyFilledButton(
+      key: const Key('showCode'),
+      label: _isAdmin && widget.forPerson == null && !target.you
+          ? 'Show code for ${target.name}'
+          : 'Show code',
+      busy: _code.creating,
+      onPressed: _valid ? _show : null,
+    );
+    final banner = failure == null || failure.isQuiet
+        ? null
+        : Callout.text(
+            failure.message,
+            kind: CalloutKind.error,
+            icon: failure.kind == FailureKind.removed
+                ? Icons.person_off
+                : Icons.error_outline,
+            live: true,
+          );
+    if (_isAdmin && widget.forPerson == null) {
+      return Column(
+        children: [
+          Expanded(
+            child: ListView(
+              children: [
+                if (banner != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: banner,
+                  ),
+                const SectionLabel('For'),
+                _chooser(context),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [field, const SizedBox(height: 8), hint],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + insets.bottom),
+            child: Align(alignment: Alignment.centerRight, child: button),
+          ),
+        ],
+      );
+    }
+    return ListView(
+      padding: screenPadding(context),
+      children: [
+        ?banner,
+        if (banner != null) const SizedBox(height: 16),
+        Text(
+          'For ${target.name}${target.you ? ' (you)' : ''}.',
+          style: theme.textTheme.bodyLarge,
         ),
-      ),
-    FilledButton(
-      key: const Key('createPairing'),
-      onPressed: _controller.canCreatePairings && !_controller.creatingPairing
-          ? _create
-          : null,
-      child: const Text('Create pairing code'),
-    ),
-  ];
-
-  List<Widget> _pairing(BuildContext context) {
-    final pairing = _controller.pairing!;
-    final link = _controller.pairingLink!;
-    final left = pairing.expiresAt.difference(widget.now());
-    final expired = left <= Duration.zero;
-    return [
-      Text(
-        'Pairing code for "${pairing.name}"',
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-      const SizedBox(height: 16),
-      Center(
-        child: expired
-            ? const SizedBox.square(
-                dimension: PairingQr.size,
-                child: Icon(Icons.timer_off_outlined, size: 64),
-              )
-            : PairingQr(link, key: const Key('pairingQr')),
-      ),
-      const SizedBox(height: 8),
-      Text(
-        expired
-            ? 'This code has expired.'
-            : 'Expires in ${_minutesAndSeconds(left)}. It works once.',
-        key: const Key('countdown'),
-        textAlign: TextAlign.center,
-      ),
-      const SizedBox(height: 16),
-      if (!expired) ...[
-        SelectableText(link, key: const Key('pairingLink')),
+        const SizedBox(height: 16),
+        field,
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          key: const Key('copyLink'),
-          onPressed: () => _copy(context, link),
-          icon: const Icon(Icons.copy),
-          label: const Text('Copy link'),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Anyone with this code or link can pair a device until it is used '
-          'or expires. Your devices are told when a device pairs.',
-        ),
+        hint,
+        const SizedBox(height: 16),
+        Align(alignment: Alignment.centerRight, child: button),
       ],
-      TextButton(
-        key: const Key('newPairing'),
-        onPressed: _controller.clearPairing,
-        child: const Text('Create another code'),
-      ),
-    ];
-  }
-
-  static Future<void> _copy(BuildContext context, String link) async {
-    final messenger = ScaffoldMessenger.of(context);
-    await Clipboard.setData(ClipboardData(text: link));
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Pairing link copied.')),
     );
   }
 
-  static String _minutesAndSeconds(Duration left) {
-    // Rounded up, so the countdown reaches 0:00 only when the code expires.
-    final seconds = (left.inMilliseconds / 1000).ceil();
-    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
-  }
-}
-
-/// [data] as a QR code, black on white with a quiet zone, whatever the
-/// theme, so any camera reads it.
-class PairingQr extends StatefulWidget {
-  const PairingQr(this.data, {super.key});
-
-  static const size = 240.0;
-
-  final String data;
-
-  @override
-  State<PairingQr> createState() => _PairingQrState();
-}
-
-class _PairingQrState extends State<PairingQr> {
-  // Encoded once per link, not on every tick of the countdown.
-  late QrImage _image = _encode(widget.data);
-
-  @override
-  void didUpdateWidget(PairingQr old) {
-    super.didUpdateWidget(old);
-    if (old.data != widget.data) _image = _encode(widget.data);
-  }
-
-  // Level M survives a slightly blurry photo, as on the admin page.
-  static QrImage _encode(String data) => QrImage(
-    QrCode(
-      payload: QrPayload.fromString(data),
-      errorCorrectLevel: QrErrorCorrectLevel.medium,
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    label: 'Pairing QR code',
-    child: CustomPaint(
-      size: const Size.square(PairingQr.size),
-      painter: _QrPainter(_image),
-    ),
-  );
-}
-
-class _QrPainter extends CustomPainter {
-  _QrPainter(this.image);
-
-  final QrImage image;
-
-  // The quiet zone the QR standard asks for, in modules.
-  static const _quiet = 4;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final modules = image.moduleCount;
-    // Whole pixels per module, so no seams show between modules.
-    final scale = (size.shortestSide / (modules + 2 * _quiet)).floorToDouble();
-    final offset = (size.shortestSide - scale * modules) / 2;
-    canvas.drawRect(Offset.zero & size, Paint()..color = Colors.white);
-    final dark = Paint()
-      ..color = Colors.black
-      ..isAntiAlias = false;
-    for (var row = 0; row < modules; row++) {
-      for (var col = 0; col < modules; col++) {
-        if (image.isDark(row, col)) {
-          canvas.drawRect(
-            Rect.fromLTWH(
-              offset + col * scale,
-              offset + row * scale,
-              scale,
-              scale,
-            ),
-            dark,
-          );
-        }
-      }
+  /// Everyone who is not removed, you first. If the list has not been read,
+  /// there is at least you.
+  Widget _chooser(BuildContext context) {
+    final list = _app.people.list;
+    if (list.showSkeleton && _app.people.people.isEmpty) {
+      return const SkeletonRows(count: 3);
     }
+    final me = _app.userId ?? '';
+    final people = [
+      (id: me, name: _app.userName ?? 'You', role: _app.role),
+      for (final p in _app.people.people)
+        if (p.id != me)
+          (id: p.id, name: p.name, role: p.role ?? UserRole.basic),
+    ];
+    final selected = _chosen ?? me;
+    return RadioGroup<String>(
+      groupValue: selected,
+      onChanged: (id) => setState(() => _chosen = id == me ? null : id),
+      child: Column(
+        children: [
+          for (final p in people)
+            AppRow(
+              key: Key('for-${p.id}'),
+              leading: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Radio<String>(value: p.id),
+                  PersonAvatar(p.name, you: p.id == me, size: 32),
+                ],
+              ),
+              title: p.name,
+              tags: [
+                if (p.id == me)
+                  const LabelTag('You', style: LabelTagStyle.primary),
+              ],
+              trailing: RoleTag(p.role),
+              onTap: () => setState(() => _chosen = p.id == me ? null : p.id),
+            ),
+        ],
+      ),
+    );
   }
 
-  @override
-  bool shouldRepaint(_QrPainter old) => old.image != image;
+  Widget _codeScreen(BuildContext context) {
+    final target = _target;
+    final name = target.name;
+    final device = _code.pairing!.name;
+    return PairingCodeView(
+      controller: _code,
+      intro: TextSpan(
+        text:
+            'For $name${target.you ? ' (you)' : ''}. New '
+            'device: $device. Scan this in SignalHub on the other device, or '
+            'open the link there.',
+      ),
+      countdownLead: 'Works once.',
+      warning: target.you
+          ? 'Whoever uses this code gets a device of yours. Share it only '
+                'with yourself.'
+          : 'Whoever uses this code gets a device of ${possessive(name)}. '
+                'Share it only with $name.',
+      joined: (used) => TextSpan(
+        children: [
+          const TextSpan(
+            text: 'Connected.',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          TextSpan(text: " $used used this code. It can't be used again."),
+        ],
+      ),
+      ranOut: 'This code ran out. Make a new one.',
+      onNewCode: _newCode,
+      onDone: () => Navigator.of(context).pop(),
+    );
+  }
 }

@@ -41,6 +41,9 @@ class RoleTag extends StatelessWidget {
       ),
       child: Text(
         role.label,
+        // A tag keeps its size, like the chevron and the bell: it is a
+        // word beside a name that is the one to grow.
+        textScaler: TextScaler.noScaling,
         style: Theme.of(context).textTheme.labelMedium
             ?.copyWith(color: foreground),
       ),
@@ -86,6 +89,7 @@ class LabelTag extends StatelessWidget {
         label,
         maxLines: 1,
         softWrap: false,
+        textScaler: TextScaler.noScaling,
         style: Theme.of(context).textTheme.labelMedium
             ?.copyWith(color: foreground),
       ),

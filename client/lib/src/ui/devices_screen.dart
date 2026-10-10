@@ -1,279 +1,205 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
+import '../features/devices_controller.dart';
 import '../models/client_registration.dart';
+import '../models/users.dart';
 import 'connect_device_screen.dart';
+import 'device_rows.dart';
+import 'widgets/app_row.dart';
+import 'widgets/callout.dart';
+import 'widgets/empty_state.dart';
+import 'widgets/resource_status.dart';
+import 'widgets/skeleton.dart';
+import 'widgets/tags.dart';
 
-/// The owner's devices, for an admin device, opened from Settings: to
-/// connect a new one, make one an admin, revoke one that is not an admin or
-/// delete one that is revoked.
+/// The devices of every role, opened from Settings or a device notice. What
+/// it shows and offers follows the role the server last said:
+///
+/// - a basic user sees their own, read only, with who can help;
+/// - a mod sees their own, connects new ones and renames and revokes them
+///   from the row menu;
+/// - an admin sees everyone's, grouped by person, can also delete revoked
+///   ones, and connects a device for anyone. An admin's own devices cannot be
+///   changed from a device.
+///
+/// A role that changes while the screen is open rebuilds it; the shell says
+/// so once.
 class DevicesScreen extends StatefulWidget {
   const DevicesScreen({super.key, required this.controller});
 
   final AppController controller;
-
-  /// One line for the row that opens this screen, such as _7 devices · 2
-  /// admins_; `null` until the devices are read.
-  static String? summary(AppController controller) {
-    if (controller.lostAdminRights) return AppController.notAdminMessage;
-    if (controller.devicesError case final error?) return error;
-    final devices = controller.devices;
-    if (devices == null) return null;
-    final admins = devices.where((d) => d.admin && !d.isRevoked).length;
-    return '${_count(devices.length, 'device')} · ${_count(admins, 'admin')}';
-  }
-
-  static String _count(int n, String noun) =>
-      n == 1 ? '1 $noun' : '$n ${noun}s';
 
   @override
   State<DevicesScreen> createState() => _DevicesScreenState();
 }
 
 class _DevicesScreenState extends State<DevicesScreen> {
-  AppController get _controller => widget.controller;
+  AppController get _app => widget.controller;
+  DevicesController get _devices => _app.deviceList;
+  late final DeviceActions _actions = DeviceActions(context, _app);
 
   @override
   void initState() {
     super.initState();
-    // Not while building: reading them notifies the controller's listeners.
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _controller.loadDevices(),
-    );
+    // Not while building: reading notifies the controller's listeners.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _devices.load());
   }
 
   Future<void> _refresh() async {
-    await _controller.refresh();
-    await _controller.loadDevices();
+    // The role may have changed: read it again with the devices.
+    await _app.rereadRegistration();
+    await _devices.load();
+  }
+
+  Future<void> _connect() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ConnectDeviceScreen(controller: _app),
+      ),
+    );
+    // The device it paired, if any, is listed.
+    if (mounted) unawaited(_devices.load());
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Devices')),
+    appBar: AppBar(title: const Text('Devices'), titleSpacing: 0),
     body: ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) => RefreshIndicator(
-        onRefresh: _refresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          // Explicit padding drops the system insets a list pads by default:
-          // without them, its end is hidden under the navigation bar.
-          padding: const EdgeInsets.all(16) + MediaQuery.paddingOf(context),
-          children: [_DevicesSection(controller: _controller)],
-        ),
-      ),
+      listenable: Listenable.merge([_app, _devices]),
+      builder: (context, _) => _body(context),
     ),
   );
-}
 
-/// The owner's devices, for an admin device. Actions are offered only where
-/// the server accepts them: making an admin and revoking on devices that are
-/// neither admins nor revoked, deleting on revoked devices.
-class _DevicesSection extends StatelessWidget {
-  const _DevicesSection({required this.controller});
-
-  final AppController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final devices = controller.devices;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (controller.lostAdminRights)
-          const Card(
-            key: Key('notAdmin'),
-            child: ListTile(
-              leading: Icon(Icons.no_accounts_outlined),
-              title: Text(AppController.notAdminMessage),
-              subtitle: Text(
-                'It can no longer manage devices. The operator, or another '
-                'admin device, can make it one again.',
-              ),
-            ),
-          )
-        else if (devices != null) ...[
-          if (controller.canCreatePairings)
-            Card(
-              child: ListTile(
-                key: const Key('connectDevice'),
-                leading: const Icon(Icons.qr_code_2),
-                title: const Text('Connect a device'),
-                subtitle: const Text('Pair a new device with a one-time code'),
-                onTap: () => _connectDevice(context),
-              ),
-            ),
-          for (final device in devices)
-            _DeviceTile(
-              device: device,
-              isThisDevice: device.id == controller.registration?.id,
-              busy: controller.changingDeviceId != null,
-              revoke: () => _revoke(context, device),
-              delete: controller.canDeleteDevices
-                  ? () => _delete(context, device)
-                  : null,
-            ),
-        ] else if (controller.devicesError case final error?)
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.error_outline),
-              title: Text(error),
-              subtitle: const Text('Pull down to retry.'),
-            ),
-          )
-        else
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-      ],
-    );
-  }
-
-  Future<void> _connectDevice(BuildContext context) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => ConnectDeviceScreen(controller: controller),
-      ),
-    );
-    // The code is not kept once off screen, and the device it paired, if
-    // any, is listed. Rights lost meanwhile stay explained instead.
-    controller.clearPairing();
-    if (controller.canManageDevices) await controller.loadDevices();
-  }
-
-  Future<void> _revoke(BuildContext context, ManagedDevice device) async {
-    final confirmed = await _confirm(
-      context,
-      title: 'Revoke "${device.name}"?',
-      message:
-          'Its client key stops working at once and it gets no more pushes. '
-          'This cannot be undone: to use it again, set it up again.',
-      action: 'Revoke',
-    );
-    if (confirmed && context.mounted) {
-      await _show(context, controller.revokeDevice(device.id));
+  Widget _body(BuildContext context) {
+    final list = _devices.list;
+    if (_devices.unsupported) {
+      return const EmptyState(
+        icon: Icons.devices_other,
+        title: "This server can't manage devices",
+        body:
+            'Update SignalHub on the server, or manage devices on the admin '
+            'page.',
+      );
     }
-  }
-
-  Future<void> _delete(BuildContext context, ManagedDevice device) async {
-    final confirmed = await _confirm(
-      context,
-      title: 'Delete "${device.name}"?',
-      message:
-          'It leaves the list of devices for good. Events and whether they '
-          'are read stay. This cannot be undone.',
-      action: 'Delete',
-    );
-    if (confirmed && context.mounted) {
-      await _show(context, controller.deleteDevice(device.id));
+    if (list.showSkeleton) {
+      return const SkeletonRows(count: 4, circleLeading: false);
     }
-  }
-
-  static Future<bool> _confirm(
-    BuildContext context, {
-    required String title,
-    required String message,
-    required String action,
-  }) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              key: const Key('confirm'),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(action),
-            ),
+    if (list.failedWithoutList) {
+      return LoadFailed(
+        resource: list,
+        what: 'devices',
+        onRetry: _devices.load,
+      );
+    }
+    final role = _app.role;
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(
+          bottom: 16 + MediaQuery.paddingOf(context).bottom,
+        ),
+        children: [
+          if (list.stale) StaleBanner(resource: list, onRetry: _devices.load),
+          if (role.managesDevices) _connectRow(role),
+          if (role.isAdmin)
+            for (final group in _devices.groups) ..._group(group, role)
+          else ...[
+            if (role == UserRole.mod) const SectionLabel('Yours'),
+            for (final device in _devices.ownDevices) _row(device, role),
           ],
-        ),
-      ) ??
-      false;
-
-  static Future<void> _show(
-    BuildContext context,
-    Future<String?> change,
-  ) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final error = await change;
-    if (error != null) {
-      messenger.showSnackBar(SnackBar(content: Text(error)));
-    }
-  }
-}
-
-class _DeviceTile extends StatelessWidget {
-  const _DeviceTile({
-    required this.device,
-    required this.isThisDevice,
-    required this.busy,
-    required this.revoke,
-    required this.delete,
-  });
-
-  final ManagedDevice device;
-  final bool isThisDevice;
-  final bool busy;
-  final VoidCallback revoke;
-
-  /// `null` when the server cannot delete devices.
-  final VoidCallback? delete;
-
-  @override
-  Widget build(BuildContext context) {
-    final details = [
-      if (isThisDevice) 'This device',
-      if (device.admin) 'Admin device',
-      if (device.isRevoked) 'Revoked',
-    ];
-    final delete = this.delete;
-    final actions = <PopupMenuEntry<VoidCallback>>[
-      if (!device.admin && !device.isRevoked) ...[
-        PopupMenuItem(
-          key: const Key('revoke'),
-          value: revoke,
-          child: const Text('Revoke'),
-        ),
-      ],
-      if (device.isRevoked && delete != null)
-        PopupMenuItem(
-          key: const Key('delete'),
-          value: delete,
-          child: const Text('Delete'),
-        ),
-    ];
-    // Greyed out by hand: a disabled tile would also ignore its menu.
-    final revokedColor = device.isRevoked
-        ? Theme.of(context).disabledColor
-        : null;
-    return Card(
-      key: Key('device-${device.id}'),
-      child: ListTile(
-        textColor: revokedColor,
-        leading: Icon(
-          device.admin
-              ? Icons.admin_panel_settings_outlined
-              : Icons.phone_android,
-          color: revokedColor,
-        ),
-        title: Text(device.name),
-        subtitle: details.isEmpty ? null : Text(details.join(' · ')),
-        trailing: actions.isNotEmpty
-            ? PopupMenuButton<VoidCallback>(
-                key: Key('deviceActions-${device.id}'),
-                tooltip: 'Manage',
-                enabled: !busy,
-                onSelected: (action) => action(),
-                itemBuilder: (context) => actions,
-              )
-            : null,
+          if (!role.managesDevices)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Callout(
+                kind: CalloutKind.neutral,
+                icon: Icons.info_outline,
+                child: Text(
+                  'To add or remove a device, ask an admin of this server.',
+                ),
+              ),
+            ),
+        ],
       ),
     );
+  }
+
+  Widget _connectRow(UserRole role) => AppRow(
+    key: const Key('connectDevice'),
+    leading: Icon(
+      Icons.add_circle_outline,
+      color: Theme.of(context).colorScheme.primary,
+    ),
+    title: 'Connect a device',
+    subtitle: role.isAdmin
+        ? 'For you or for someone else'
+        : 'Pair a new device with a one-time code',
+    onTap: _connect,
+  );
+
+  List<Widget> _group(DeviceGroup group, UserRole role) {
+    final user = group.user;
+    return [
+      SectionLabel(
+        user?.name ?? 'Devices',
+        trailing: user == null ? null : RoleTag(user.role),
+      ),
+      for (final device in group.devices) _row(device, role),
+    ];
+  }
+
+  Widget _row(ManagedDevice device, UserRole role) {
+    final inUse = _devices.isThisDevice(device);
+    return DeviceRow(
+      key: Key('device-${device.id}'),
+      device: device,
+      now: _devices.now(),
+      inUse: inUse,
+      trailing: _trailing(device, role, inUse: inUse),
+    );
+  }
+
+  /// The one control a row offers this role, if any. Nothing is a disabled
+  /// button: what a role cannot do is not drawn.
+  Widget? _trailing(
+    ManagedDevice device,
+    UserRole role, {
+    required bool inUse,
+  }) {
+    final busy = _devices.busyId == device.id;
+    if (device.isRevoked) {
+      // A revoked device never changes again; only deleting it is left.
+      return role.managesDevices
+          ? DeviceButton(
+              label: 'Delete',
+              device: device,
+              destructive: true,
+              onPressed: busy ? null : () => _actions.delete(device),
+            )
+          : null;
+    }
+    // No device changes an admin's device, its own included.
+    if (device.admin) return null;
+    if (role.managesDevices) {
+      return DeviceMenu(
+        key: Key('menu-${device.id}'),
+        device: device,
+        actions: _actions,
+        canRevoke: !inUse,
+        busy: busy,
+      );
+    }
+    // A basic user signs out their own browsers, and nothing else.
+    if (device.isBrowser && !inUse) {
+      return DeviceButton(
+        label: 'Sign out',
+        device: device,
+        onPressed: busy ? null : () => _actions.revoke(device),
+      );
+    }
+    return null;
   }
 }

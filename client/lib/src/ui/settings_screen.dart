@@ -37,7 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // For the Devices row's summary. Not while building: reading them
     // notifies the controller's listeners.
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _controller.loadDevices(),
+      (_) => _controller.deviceList.load(),
     );
   }
 
@@ -49,7 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _refresh() async {
     await _controller.refresh();
-    await _controller.loadDevices();
+    await _controller.deviceList.load();
   }
 
   Future<void> _save(PushPreferences changed) async {
@@ -65,7 +65,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     appBar: AppBar(title: const Text('Settings')),
     body: ListenableBuilder(
       // The alert's summaries follow its settings.
-      listenable: Listenable.merge([_controller, ?_controller.alert]),
+      listenable: Listenable.merge([
+        _controller,
+        _controller.deviceList,
+        ?_controller.alert,
+      ]),
       builder: (context, _) {
         final preferences = _controller.registration?.pushPreferences;
         final alert = _controller.alert;
@@ -138,22 +142,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ].join(' · '),
                 child: _ThisDevice(controller: _controller),
               ),
-              if (_controller.canManageDevices || _controller.lostAdminRights)
-                ListTile(
-                  key: const Key('devices'),
-                  leading: const Icon(Icons.devices_outlined),
-                  title: const Text('Devices'),
-                  subtitle: switch (DevicesScreen.summary(_controller)) {
-                    final summary? => Text(summary),
-                    null => null,
-                  },
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => DevicesScreen(controller: _controller),
-                    ),
+              ListTile(
+                key: const Key('devices'),
+                leading: const Icon(Icons.devices_outlined),
+                title: const Text('Devices'),
+                subtitle: switch (_controller.deviceList.summary) {
+                  final summary? => Text(summary),
+                  null => null,
+                },
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => DevicesScreen(controller: _controller),
                   ),
                 ),
+              ),
               // Clear of the navigation bar.
               SizedBox(height: 16 + MediaQuery.paddingOf(context).bottom),
             ],
