@@ -5396,9 +5396,13 @@ for every role (R66); a producer the user loses access to just leaves
 their list. Devices show when each was last active, keys when each was
 last used, and *About this server* the server's version, from R69.
 
-Built from `docs/design/users/` (approved at G4): `DESIGN.md` for tokens,
-components, wording and accessibility, `WALKTHROUGH.md` for the flows, and
-the images of every screen and state, which each screen is compared with.
+Built from `docs/design/users/` (approved at G4). Its `source/` holds the
+drawings themselves, the same `.dc.html` sources as the design project with
+everything they load vendored, so they render the same with no network:
+they are the source of truth for sizes, spacing, colours, icons and copy,
+and each screen is compared with its rendered drawing. `DESIGN.md` gives
+the tokens, components, wording and accessibility, `WALKTHROUGH.md` the
+flows; the images are previews.
 The app's *Sign in a browser* (its *Settings* row, the scanner, the typed
 code and the confirmation) needs R66's server and is built in R66; R65
 builds everything else.
@@ -5417,8 +5421,9 @@ Status: blocked until R65 is merged. Added by the maintainer
 Goal: a user can do from a browser what R62 allows their role, and read
 their inbox, as designed in R64 and approved at G4.
 
-Built from `docs/design/users/` (approved at G4), each screen compared
-with its image.
+Built from `docs/design/users/` (approved at G4), as R65 is: the drawings
+in `source/` are the source of truth, each screen compared with its
+rendered drawing.
 
 Scope:
 

@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--tertiary-container:#5d3c55;--error:#ffb4ab;--on-error:#690005;--error-container:#93000a;--on-error-container:#ffdad6;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-lowest:#0d0e13;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f;--inv-surface:#e4e1e9;--on-inv:#2f3036;--inv-primary:#515b92}
+          body{margin:0;background:#0b0c10;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          .dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(255,255,255,.08);background:#0b0c10}
+          .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+          .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#e4e1e9;color:#121318;border-radius:4px;text-decoration:none}
+          .dv-tname{font:600 14px/1.2 Roboto,sans-serif;color:#e4e1e9}
+          .dv-why{font:14px/20px Roboto,sans-serif;color:#c7c5d0;max-width:900px;margin:0 0 24px}
+          .dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+          .dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;width:412px}
+          .dv-opt.n360{width:360px}
+          .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#e4e1e9;border-radius:5px;text-decoration:none}
+          .dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 13px/1.3 Roboto,sans-serif;color:#e4e1e9}
+          .dv-onote{font:13px/19px Roboto,sans-serif;color:#9a98a3;margin:0;text-wrap:pretty}
+          .dv-opt:target .dv-oid{background:#bac3ff;color:#222c61}
+          .dv-next{margin:24px 0 0;font:13px/1.5 Roboto,sans-serif;color:#9a98a3}
+          .ph{width:412px;height:892px;background:var(--surface);border-radius:28px;border:1px solid #2c2d33;overflow:hidden;display:flex;flex-direction:column;position:relative}
+          .ph.s{height:660px}.ph.d{height:560px}.ph.x{height:420px}.ph.w360{width:360px}.ph.t{height:1100px}
+          .sb{height:28px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:13px}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .appbar{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 4px}
+          .appbar .t{font-size:22px;line-height:28px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .pad{padding:0 16px}
+          .lt{display:flex;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .t2n{font-size:14px;line-height:20px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .p{font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0;text-wrap:pretty}
+          .c-primary{color:var(--primary)}.c-error{color:var(--error)}.c-var{color:var(--on-surface-variant)}
+          .lab{font-size:14px;line-height:20px;font-weight:500;color:var(--primary);padding:16px 16px 4px}
+          .seg{display:flex;border:1px solid var(--outline);border-radius:20px;overflow:hidden;height:40px;flex:none}
+          .seg>span{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;border-left:1px solid var(--outline);white-space:nowrap}
+          .seg>span:first-child{border-left:0}
+          .seg>.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .tf{border:1px solid var(--outline);border-radius:4px;height:56px;display:flex;align-items:center;padding:0 16px;font-size:16px;position:relative;box-sizing:border-box}
+          .tf.focus{border:2px solid var(--primary);padding:0 15px}
+          .tf.err{border:2px solid var(--error);padding:0 15px}
+          .tf .fl{position:absolute;top:-9px;left:12px;padding:0 4px;background:var(--surface);font-size:12px;line-height:16px;color:var(--primary)}
+          .tf.err .fl{color:var(--error)}
+          .tf.err .ms{margin-left:auto;color:var(--error)}
+          .help{font-size:12px;line-height:16px;color:var(--on-surface-variant);padding:4px 16px 0}
+          .help.err{color:var(--error)}
+          .btn-f{height:40px;border-radius:20px;background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-f.dis{background:rgba(228,225,233,.12);color:rgba(228,225,233,.38)}
+          .btn-t{height:40px;border-radius:20px;background:var(--secondary-container);color:var(--on-secondary-container);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500}
+          .btn-o{height:40px;border-radius:20px;border:1px solid var(--outline);color:var(--primary);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-x{height:48px;min-width:48px;border-radius:24px;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 12px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-x.dng{color:var(--error)}
+          .btn-o .ms,.btn-t .ms,.btn-f .ms,.btn-x .ms{font-size:18px;width:18px;height:18px}
+          .btn-w{flex:1;height:48px;border-radius:24px}
+          .key{font-family:"Roboto Mono",ui-monospace,monospace;font-size:14px;line-height:22px;word-break:break-all;background:var(--sc-high);border-radius:12px;padding:12px 16px;color:var(--on-surface)}
+          .code{font-family:"Roboto Mono",ui-monospace,monospace;font-size:12px;line-height:18px;background:var(--sc-lowest);border-radius:12px;padding:12px 14px;color:var(--on-surface-variant);white-space:pre-wrap;word-break:break-all}
+          .warn{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:20px;color:var(--on-surface);background:var(--sc-low);border-radius:12px;padding:12px 16px}
+          .warn.err{background:var(--error-container);color:var(--on-error-container)}
+          .warn.err .ms{color:var(--on-error-container)}
+          .chip{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 4px 0 4px;border:1px solid var(--outline);border-radius:16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .chip .cx{width:32px;height:32px;margin:-4px -4px -4px 0;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant)}
+          .avs{width:24px;height:24px;border-radius:12px;background:var(--tertiary-container);color:#ffd8ee;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+          .chips{display:flex;gap:8px;flex-wrap:wrap;padding:4px 16px 8px}
+          .div{height:1px;background:var(--outline-variant);margin:8px 0}
+          .sw-t2{width:52px;height:32px;border-radius:16px;flex:none;position:relative;box-sizing:border-box}
+          .sw-on{background:var(--primary)}
+          .sw-on::after{content:"";position:absolute;right:4px;top:4px;width:24px;height:24px;border-radius:12px;background:var(--on-primary)}
+          .sw-off{background:var(--sc-highest);border:2px solid var(--outline)}
+          .sw-off::after{content:"";position:absolute;left:6px;top:6px;width:16px;height:16px;border-radius:8px;background:var(--outline)}
+          .cb{width:18px;height:18px;border-radius:2px;border:2px solid var(--on-surface-variant);flex:none;margin:3px;box-sizing:border-box}
+          .cb.on{background:var(--primary);border-color:var(--primary);color:var(--on-primary);display:flex;align-items:center;justify-content:center}
+          .av{width:40px;height:40px;border-radius:20px;background:var(--sc-highest);color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;flex:none;font-size:16px;font-weight:500}
+          .mono{font-family:"Roboto Mono",ui-monospace,monospace}
+          .stack{display:flex;flex-direction:column;gap:16px;padding:8px 16px 0}
+          .bar{display:flex;justify-content:flex-end;gap:8px;padding:16px}
+          .dim{opacity:.55}
+          .scrim{position:absolute;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:0 24px}
+          .dlg{background:var(--sc-high);border-radius:28px;padding:24px;width:100%;box-sizing:border-box}
+          .dlg h4{margin:0 0 16px;font-size:24px;line-height:32px;font-weight:400}
+          .dlg .p{color:var(--on-surface-variant)}
+          .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:24px}
+          .snack{position:absolute;left:8px;right:8px;bottom:16px;min-height:48px;box-sizing:border-box;border-radius:4px;background:var(--inv-surface);color:var(--on-inv);display:flex;align-items:center;gap:8px;padding:6px 8px 6px 16px;font-size:14px;line-height:20px}
+          .snack span:first-child{flex:1}
+          .snack b{font-weight:500;color:var(--inv-primary);min-height:48px;min-width:48px;display:flex;align-items:center;justify-content:center;padding:0 8px;box-sizing:border-box}
+          .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 40px 80px;text-align:center}
+          .empty>.ms{font-size:48px;width:48px;height:48px;color:var(--outline)}
+          .empty .h{font-size:22px;line-height:28px}
+          .empty .p2{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .tonal{margin-top:12px;height:40px;border-radius:20px;padding:0 24px;display:flex;align-items:center;background:var(--secondary-container);color:var(--on-secondary-container);font-size:14px;font-weight:500}
+          .tag{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;vertical-align:middle}
+          .search{margin:4px 16px 8px;height:56px;border-radius:28px;background:var(--sc-high);display:flex;align-items:center;gap:16px;padding:0 16px;color:var(--on-surface-variant);font-size:16px;flex:none}
+          .search .q{flex:1;color:var(--on-surface)}
+          .x2 .appbar .t{font-size:44px;line-height:52px;white-space:normal}
+          .x2 .appbar{height:auto;min-height:72px;padding:4px}
+          .x2 .p{font-size:28px;line-height:38px}
+          .x2 .key{font-size:28px;line-height:40px}
+          .x2 .btn-t,.x2 .btn-o,.x2 .btn-f{height:auto;min-height:64px;font-size:28px;line-height:34px;white-space:normal;padding-top:6px;padding-bottom:6px}
+          .x2 .warn{font-size:28px;line-height:38px}
+          .x2 .lab{font-size:28px;line-height:38px}
+          .x2 .code{font-size:22px;line-height:32px}
+          .rule{width:100%;max-width:880px;border-collapse:collapse;font:13px/19px Roboto,sans-serif;color:#c7c5d0}
+          .rule td,.rule th{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.1);text-align:left;vertical-align:top}
+          .rule th{color:#e4e1e9;font-weight:500}
+        </style>
+      </helmet>
+
+      <!-- ============ Turn 2: the screens ============ -->
+      <section class="dv-turn" id="t2" data-screen-label="Turn 2: a new producer and its key">
+        <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">A new producer, its key shown once, and the producer's screens</span></div>
+        <p class="dv-why">Creating a producer is the moment a key exists in clear text, once. <a class="dv-oid" href="#2b">2b</a> is a full screen with Copy, Share and a send example, plus a primary <b>Copy and close</b> button. New producers start Private. A Private producer reads <b>Only you</b> until people are added, then <b>Shared with N people</b> (who was added); the owner never sees who subscribed. Every icon button and chip close has a 48dp target.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2a" data-screen-label="2a New producer">
+            <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>New producer</div>
+            <div class="ph">
+              <div class="sb"><span>01:32</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">New producer</div></div>
+              <div class="stack">
+                <p class="p">A producer is anything that sends you events: a script, a CI pipeline, a home server. It gets its own key.</p>
+                <div><div class="tf focus"><span class="fl">Name</span>garage-door</div><div class="help">Letters, numbers and . _ : / - only, starting with a letter or number. Others see this name.</div></div>
+                <div class="lab" style="padding:8px 0 0">Who can see it</div>
+                <div class="seg"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div>
+                <p class="p">Only you, and people you add later. Anyone on this server can find and subscribe to a public producer.</p>
+              </div>
+              <div style="flex:1"></div>
+              <div class="bar"><span class="btn-f">Create</span></div>
+            </div>
+            <p class="dv-onote">A full screen, not a dialog: it explains what a producer is the first time. Visibility can change later. The help text follows the server's real rule (letters, digits and . _ : / -, up to 100 characters). The X (accessible name “Close”) closes without asking; nothing was created.</p>
+          </div>
+
+          <div class="dv-opt" id="2b" data-screen-label="2b Key, full screen">
+            <div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Key: a full screen you leave on purpose</div>
+            <div class="ph">
+              <div class="sb"><span>01:33</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">garage-door is ready</div></div>
+              <div class="stack">
+                <p class="p" style="color:var(--on-surface)">This is its key. Put it where the producer runs; it sends events with it.</p>
+                <div class="key">{{ key }}</div>
+                <div style="display:flex;gap:8px"><span class="btn-t"><span class="ms">content_copy</span>Copy</span><span class="btn-o"><span class="ms">share</span>Share</span></div>
+                <div class="warn"><span class="ms c-var">visibility_off</span><span>Shown once. You won't see this key again. If you lose it, make a new key on the producer's screen.</span></div>
+                <div class="lab" style="padding:4px 0 0">To send a test event</div>
+                <div class="code">{{ snippet }}</div>
+              </div>
+              <div style="flex:1"></div>
+              <div class="bar"><span class="btn-f btn-w"><span class="ms">content_copy</span>Copy and close</span></div>
+            </div>
+            <p class="dv-onote">Calm and complete: the key (a sample, plainly not real), Copy and Share, one plain warning, a send example with a sample host. Copy and close copies the key and leaves for the producer's screen. The close icon (accessible name “Close”), the system Back and predictive back all go through the same leave guard (2b2). The states after Copy, the guard and a lost answer are in turn 7.</p>
+          </div>
+
+          <div class="dv-opt" id="2e" data-screen-label="2e Your producer">
+            <div class="dv-olabel"><a class="dv-oid" href="#2e">2e</a>Your producer</div>
+            <div class="ph">
+              <div class="sb"><span>01:40</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">homelab-monitor</div><span class="ib"><span class="ms">edit</span></span></div>
+              <div class="pad t2" style="padding-bottom:4px">Last event 00:36</div>
+              <div class="lt"><span class="ms c-primary fill">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2">Its events are in your inbox</span></div><span class="sw-t2 sw-on"></span></div>
+              <div class="lab">Who can see it</div>
+              <div class="pad"><div class="seg"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div></div>
+              <div class="lab">Shared with 2 people</div>
+              <div class="chips"><span class="chip"><span class="avs">A</span>Ana<span class="cx"><span class="ms ms18">close</span></span></span><span class="chip"><span class="avs">M</span>Marta<span class="cx"><span class="ms ms18">close</span></span></span><span class="chip" style="padding:0 12px 0 8px;color:var(--primary)"><span class="ms ms18">person_add</span>Add people</span></div>
+              <div class="lab">Keys</div>
+              <div class="lt"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE1…</span><span class="t2n">Created 27 Sep · last used 00:36</span></div><span class="btn-x">Revoke</span></div>
+              <div class="lt"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE2…</span><span class="t2n">Created 2 Oct · not used yet</span></div><span class="btn-x">Revoke</span></div>
+              <div class="pad" style="padding-top:4px"><span class="btn-o"><span class="ms">add</span>New key</span></div>
+              <div class="div" style="margin-top:16px"></div>
+              <div class="lt"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+              <div class="lt"><span class="ms c-var">pause_circle</span><div class="tx"><span class="t1">Disable</span><span class="t2n">Its keys stop working. Its events stay.</span></div></div>
+            </div>
+            <p class="dv-onote">One screen for everything you own. The Subscribed switch is yours alone (you can unsubscribe from your own producer). The sharing line shows only while the producer is Private: “Only you” (2e1), “Shared with 1 person”, “Shared with N people”; a Public producer shows none (the server keeps the list but it has no effect). A key row gives its prefix, creation date and when it was last used (or “not used yet”). Each key row carries its own sample prefix (shpk1_EXAMPLE1…, shpk1_EXAMPLE2…), plainly not real, so two keys never look alike. Accessible names: pencil “Rename homelab-monitor”, chip x “Remove Ana”, key button “Revoke key shpk1_EXAMPLE1…”. Rename is a dialog (turn 3); Disable is a plain row confirmed in a dialog (turn 4). A new key opens the same screen as 2b (turn 7).</p>
+            <p class="dv-onote">Needs a server change (queued with the design lock-in)</p>
+          </div>
+
+          <div class="dv-opt" id="2e1" data-screen-label="2e1 Your new producer">
+            <div class="dv-olabel"><a class="dv-oid" href="#2e1">2e1</a>Your producer, nobody added yet</div>
+            <div class="ph s">
+              <div class="sb"><span>01:40</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">garage-door</div><span class="ib"><span class="ms">edit</span></span></div>
+              <div class="pad t2" style="padding-bottom:4px">No events yet</div>
+              <div class="lab">Who can see it</div>
+              <div class="pad"><div class="seg"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div></div>
+              <div class="lab">Only you</div>
+              <div class="chips"><span class="chip" style="padding:0 12px 0 8px;color:var(--primary)"><span class="ms ms18">person_add</span>Add people</span></div>
+              <div class="lab">Keys</div>
+              <div class="lt"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE1…</span><span class="t2n">Created 10 Oct · not used yet</span></div><span class="btn-x">Revoke</span></div>
+            </div>
+            <p class="dv-onote">A Private producer with an empty list says “Only you”, never “Shared with 0 people”. There are no chips, and Add people stays.</p>
+          </div>
+
+          <div class="dv-opt" id="2f" data-screen-label="2f Add people">
+            <div class="dv-olabel"><a class="dv-oid" href="#2f">2f</a>Add people to a private producer</div>
+            <div class="ph">
+              <div class="sb"><span>01:41</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Who can see homelab-monitor</div></div>
+              <div class="pad"><p class="p" style="padding-bottom:8px">They can find it and subscribe. You choose; they don't get a request.</p></div>
+              <sc-for list="{{ people }}" as="u" hint-placeholder-count="4">
+                <div class="lt" style="min-height:64px"><span class="av">{{ u.i }}</span><div class="tx"><span class="t1">{{ u.name }}</span></div><span class="cb {{ u.cb }}"><span class="ms ms18" style="font-size:16px;width:16px;height:16px">{{ u.tick }}</span></span></div>
+              </sc-for>
+              <div style="flex:1"></div>
+              <div class="bar"><span class="btn-f">Save</span></div>
+            </div>
+            <p class="dv-onote">Names only, as the server serves them (revoked people are not listed). The whole row is the 48dp target, not the 18dp checkbox. Save is off until the selection changes. States in turn 8.</p>
+          </div>
+
+          <div class="dv-opt" id="2g" data-screen-label="2g Someone else's producer">
+            <div class="dv-olabel"><a class="dv-oid" href="#2g">2g</a>Someone else's producer, subscribed</div>
+            <div class="ph s">
+              <div class="sb"><span>01:42</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">ana-reports</div></div>
+              <div class="lt"><span class="av" style="background:var(--tertiary-container);color:#ffd8ee">A</span><div class="tx"><span class="t1">Ana's producer</span><span class="t2">Public · anyone on this server can subscribe</span></div></div>
+              <div class="div"></div>
+              <div class="lt"><span class="ms c-primary fill">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2">Its events are in your inbox, and pushed as your filters allow. Turn it off and they leave your inbox; they come back if you subscribe again.</span></div><span class="sw-t2 sw-on"></span></div>
+              <div class="lt"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+            </div>
+            <p class="dv-onote">The bell on the list and this switch are the same thing, with the same name: “Subscribed” (the state) and “Subscribe” (the action). The web page uses this same switch row. You only control your own subscription. Variants (not subscribed, shared with you and muted here, an owner who unsubscribed) are in turn 6.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============ Turn 3: names ============ -->
+      <section class="dv-turn" id="t3" data-screen-label="Turn 3: names and renaming">
+        <div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Names: taken, not allowed, and renaming</span></div>
+        <p class="dv-why">A producer name is shared by everyone on the server, even for a private producer, and it must follow the server's rule (letters, digits and <span class="mono">. _ : / -</span>, starting with a letter or number, up to 100 characters). Both errors show under the field as the person types, on Create and in the rename dialog alike, and Create or Rename stays off until the name is valid. Renaming changes the name everyone sees; the events stay with the producer.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2a1" data-screen-label="2a1 Name taken">
+            <div class="dv-olabel"><a class="dv-oid" href="#2a1">2a1</a>Create: the name is taken</div>
+            <div class="ph s">
+              <div class="sb"><span>01:32</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">New producer</div></div>
+              <div class="stack">
+                <div><div class="tf err"><span class="fl">Name</span>ci-pipeline<span class="ms">error</span></div><div class="help err">That name is taken. Names are shared by everyone on this server.</div></div>
+                <div class="lab" style="padding:8px 0 0">Who can see it</div>
+                <div class="seg"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div>
+              </div>
+              <div style="flex:1"></div>
+              <div class="bar"><span class="btn-f dis">Create</span></div>
+            </div>
+            <p class="dv-onote">The server answers 409 and the field says so. The name is taken even if the other producer is private and not yours; that is accepted. Create is drawn off (12 % fill, 38 % text).</p>
+          </div>
+
+          <div class="dv-opt" id="2a2" data-screen-label="2a2 Name not allowed">
+            <div class="dv-olabel"><a class="dv-oid" href="#2a2">2a2</a>Create: the name is not allowed</div>
+            <div class="ph s">
+              <div class="sb"><span>01:32</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">New producer</div></div>
+              <div class="stack">
+                <div><div class="tf err"><span class="fl">Name</span>garage door<span class="ms">error</span></div><div class="help err">Use letters, numbers and . _ : / - only, starting with a letter or number.</div></div>
+                <div class="lab" style="padding:8px 0 0">Who can see it</div>
+                <div class="seg"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div>
+              </div>
+              <div style="flex:1"></div>
+              <div class="bar"><span class="btn-f dis">Create</span></div>
+            </div>
+            <p class="dv-onote">An empty name shows “Give it a name.” after the field is left; a name over 100 characters shows “Use 100 characters or fewer.”</p>
+          </div>
+
+          <div class="dv-opt" id="2h" data-screen-label="2h Rename">
+            <div class="dv-olabel"><a class="dv-oid" href="#2h">2h</a>Rename: the pencil on the producer's screen</div>
+            <div class="ph d">
+              <div class="sb"><span>01:44</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">homelab-monitor</div><span class="ib"><span class="ms">edit</span></span></div>
+              <div class="dim"><div class="lab">Who can see it</div><div class="pad"><div class="seg"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div></div></div>
+              <div class="scrim"><div class="dlg">
+                <h4>Rename producer</h4>
+                <div class="tf focus" style="margin-top:4px"><span class="fl" style="background:var(--sc-high)">Name</span>homelab-nas</div>
+                <p class="p" style="margin-top:12px">Events keep the producer. They show the new name, and so does everyone it is shared with.</p>
+                <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x">Rename</span></div>
+              </div></div>
+            </div>
+            <p class="dv-onote">Rename is off until the name is valid and different. The same two errors (taken, not allowed) appear under the field, in the same words. Keys keep working: they belong to the producer, not to its name. Mutes are by producer, so a rename does not unmute.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============ Turn 4: confirmations ============ -->
+      <section class="dv-turn" id="t4" data-screen-label="Turn 4: confirmations">
+        <div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">Confirmation dialogs, with their exact copy</span></div>
+        <p class="dv-why">One pattern: a title that names the thing (never truncated), one or two plain sentences that say who is affected and whether it can be undone, a quiet <b>Cancel</b> and the action in words (an error-coloured text button for what can't be taken back). <a class="dv-oid" href="#2i">2i</a> and <a class="dv-oid" href="#2j">2j</a> revoke a key, <a class="dv-oid" href="#2k">2k</a> disables the producer, <a class="dv-oid" href="#2l">2l</a> removes someone from the list, <a class="dv-oid" href="#2m">2m</a> makes it private.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2i" data-screen-label="2i Revoke key">
+            <div class="dv-olabel"><a class="dv-oid" href="#2i">2i</a>Revoke a key</div>
+            <div class="ph d">
+              <div class="sb"><span>01:45</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">homelab-monitor</div></div>
+              <div class="dim"><div class="lab">Keys</div><div class="lt"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE1…</span><span class="t2n">Created 27 Sep · last used 00:36</span></div><span class="btn-x">Revoke</span></div></div>
+              <div class="scrim"><div class="dlg">
+                <h4>Revoke this key?</h4>
+                <p class="p">shpk1_EXAMPLE1… stops working at once, and whatever sends with it is turned away. This can't be undone.</p>
+                <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x dng">Revoke</span></div>
+              </div></div>
+            </div>
+            <p class="dv-onote">Revoking is for good: a revoked key never works again. Make the new key first, switch the producer to it, then revoke.</p>
+          </div>
+
+          <div class="dv-opt" id="2j" data-screen-label="2j Revoke the only key">
+            <div class="dv-olabel"><a class="dv-oid" href="#2j">2j</a>Revoke the only working key</div>
+            <div class="ph d">
+              <div class="sb"><span>01:45</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">backup-jobs</div></div>
+              <div class="dim"><div class="lab">Keys</div><div class="lt"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE1…</span><span class="t2n">Created 20 Sep · last used 3 Oct</span></div><span class="btn-x">Revoke</span></div></div>
+              <div class="scrim"><div class="dlg">
+                <h4>Revoke the only key?</h4>
+                <p class="p">shpk1_EXAMPLE1… is the only working key of backup-jobs. Once it is revoked, nothing can send its events until you make a new key. This can't be undone.</p>
+                <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x dng">Revoke</span></div>
+              </div></div>
+            </div>
+            <p class="dv-onote">Shown instead of 2i when no other key of the producer is working.</p>
+          </div>
+
+          <div class="dv-opt" id="2k" data-screen-label="2k Disable">
+            <div class="dv-olabel"><a class="dv-oid" href="#2k">2k</a>Disable the producer</div>
+            <div class="ph d">
+              <div class="sb"><span>01:46</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">homelab-monitor</div></div>
+              <div class="dim"><div class="lt"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div></div><div class="lt"><span class="ms c-var">pause_circle</span><div class="tx"><span class="t1">Disable</span></div></div></div>
+              <div class="scrim"><div class="dlg">
+                <h4>Disable homelab-monitor?</h4>
+                <p class="p">Its keys stop working. Its events stay. You can enable it again.</p>
+                <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x">Disable</span></div>
+              </div></div>
+            </div>
+            <p class="dv-onote">There is no delete: Disable is the only way to stop a producer. Enable needs no confirmation. The action is primary-coloured because it is reversible.</p>
+          </div>
+
+          <div class="dv-opt" id="2l" data-screen-label="2l Remove someone">
+            <div class="dv-olabel"><a class="dv-oid" href="#2l">2l</a>Remove someone from the list</div>
+            <div class="ph d">
+              <div class="sb"><span>01:46</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">homelab-monitor</div></div>
+              <div class="dim"><div class="lab">Shared with 2 people</div><div class="chips"><span class="chip"><span class="avs">A</span>Ana<span class="cx"><span class="ms ms18">close</span></span></span><span class="chip"><span class="avs">M</span>Marta<span class="cx"><span class="ms ms18">close</span></span></span></div></div>
+              <div class="scrim"><div class="dlg">
+                <h4>Remove Marta?</h4>
+                <p class="p">Marta can't see homelab-monitor any more. If they were subscribed, they stop getting its events, and they have to subscribe again after you add them back.</p>
+                <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x dng">Remove</span></div>
+              </div></div>
+            </div>
+            <p class="dv-onote">This one is confirmed, not undone with a snackbar: adding someone back does not bring their subscription back, so Undo would be a lie. The wording never claims to know whether they had subscribed.</p>
+          </div>
+
+          <div class="dv-opt" id="2m" data-screen-label="2m Public to Private">
+            <div class="dv-olabel"><a class="dv-oid" href="#2m">2m</a>Public to Private</div>
+            <div class="ph d">
+              <div class="sb"><span>01:47</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">ci-pipeline</div></div>
+              <div class="dim"><div class="lab">Who can see it</div><div class="pad"><div class="seg"><span><span class="ms ms18">lock</span>Private</span><span class="on"><span class="ms ms18">public</span>Public</span></div></div></div>
+              <div class="scrim"><div class="dlg">
+                <h4>Make ci-pipeline private?</h4>
+                <p class="p">Only you and the people you add will see it. Everyone not on your list stops getting its events, and you'd have to add them to bring it back.</p>
+                <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x">Make private</span></div>
+              </div></div>
+            </div>
+            <p class="dv-onote">The switch does not move until this is confirmed. The action is primary-coloured (reversible). With an empty list the sentence reads “Everyone else stops getting its events”. Private to Public needs no dialog: “Anyone on this server can find and subscribe to it.” is the line under the control. The owner never sees how many people this affects.</p>
+          </div>
+
+        </div>
+        <p class="dv-why" style="margin:28px 0 12px"><b>Undo or confirm.</b> The rule: if the action can be reversed exactly, give a snackbar with Undo; if it can't, or someone else is affected, ask first.</p>
+        <table class="rule">
+          <tr><th>Action</th><th>Pattern</th><th>Why</th></tr>
+          <tr><td>Subscribe, unsubscribe</td><td>Snackbar with Undo</td><td>Idempotent; stored events are hidden, not deleted</td></tr>
+          <tr><td>Enable a producer</td><td>None</td><td>Keys work again; nothing is lost</td></tr>
+          <tr><td>Disable a producer</td><td>Confirm (primary, reversible)</td><td>Its senders are turned away until it is enabled</td></tr>
+          <tr><td>Revoke a key</td><td>Confirm (error text button)</td><td>For good; the key never works again</td></tr>
+          <tr><td>Remove someone from the list</td><td>Confirm (error text button)</td><td>Ends their subscription; adding back does not restore it</td></tr>
+          <tr><td>Public to Private</td><td>Confirm (primary, reversible)</td><td>Ends the subscriptions of everyone but you and the people on the list</td></tr>
+          <tr><td>Revoke a device</td><td>Confirm (error text button)</td><td>For good; owned by the People and devices page</td></tr>
+        </table>
+      </section>
+
+      <!-- ============ Turn 5: keys and disabled ============ -->
+      <section class="dv-turn" id="t5" data-screen-label="Turn 5: no keys, revoked keys, disabled">
+        <div class="dv-thd"><a class="dv-tid" href="#t5">5</a><span class="dv-tname">No working key, and a producer that is disabled</span></div>
+        <p class="dv-why">Two things can stop a producer: its keys, and being disabled. <a class="dv-oid" href="#2n">2n</a> shows every key revoked. <a class="dv-oid" href="#2o">2o</a> is disabled by you (you can enable it). <a class="dv-oid" href="#2p">2p</a> is disabled by the host (the person running the server): you can't enable it, only ask. Each says what stopped and what to do, in one banner, and the same words reach the owner's list rows (the Producers page, 1g). Other people's disabled producers read only “Disabled”.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2n" data-screen-label="2n Revoked keys">
+            <div class="dv-olabel"><a class="dv-oid" href="#2n">2n</a>Every key revoked</div>
+            <div class="ph">
+              <div class="sb"><span>01:50</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">backup-jobs</div><span class="ib"><span class="ms">edit</span></span></div>
+              <div class="pad" style="padding-bottom:8px"><div class="warn"><span class="ms c-var">key_off</span><span>No working key. Nothing can send events as backup-jobs. Make a new key to start again.</span></div></div>
+              <div class="lab">Keys</div>
+              <div class="lt dim"><span class="ms c-var">key_off</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE1…</span><span class="t2n">Revoked 4 Oct</span></div></div>
+              <div class="lt dim"><span class="ms c-var">key_off</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE2…</span><span class="t2n">Revoked 4 Oct</span></div></div>
+              <div class="pad" style="padding-top:8px"><span class="btn-f"><span class="ms">add</span>New key</span></div>
+              <div class="div" style="margin-top:16px"></div>
+              <div class="lt"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+              <div class="lt"><span class="ms c-var">pause_circle</span><div class="tx"><span class="t1">Disable</span><span class="t2n">Its keys stop working. Its events stay.</span></div></div>
+            </div>
+            <p class="dv-onote">Revoked keys stay listed, quiet and without Revoke, so the history is honest. New key becomes the filled button. The list row shows nothing special: a producer with no key is not disabled, and its key count counts only keys that still work.</p>
+          </div>
+
+          <div class="dv-opt" id="2o" data-screen-label="2o Disabled by you">
+            <div class="dv-olabel"><a class="dv-oid" href="#2o">2o</a>Disabled by you</div>
+            <div class="ph">
+              <div class="sb"><span>01:51</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">garage-door</div><span class="ib"><span class="ms">edit</span></span></div>
+              <div class="pad" style="padding-bottom:8px"><div class="warn"><span class="ms c-var">pause_circle</span><span>Paused by you. Its keys don't work, so it sends nothing. Its events stay.</span></div></div>
+              <div class="lt"><span class="ms c-primary fill">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2">Its events are in your inbox</span></div><span class="sw-t2 sw-on"></span></div>
+              <div class="lab">Keys</div>
+              <div class="lt" style="min-height:72px"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE1…</span><span class="t2n">Created 10 Oct · not used yet</span><span class="t2n">Not working while paused</span></div><span class="btn-x">Revoke</span></div>
+              <div class="pad" style="padding-top:4px"><span class="btn-o"><span class="ms">add</span>New key</span></div>
+              <div class="div" style="margin-top:16px"></div>
+              <div class="lt"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+              <div class="lt"><span class="ms c-primary">play_circle</span><div class="tx"><span class="t1">Enable</span><span class="t2n">Its keys work again</span></div></div>
+            </div>
+            <p class="dv-onote">Enable replaces Disable and needs no confirmation. In the list the row reads “Paused by you”. The key row is two lines (row at least 72dp high) so the Revoke button keeps its 48dp target.</p>
+          </div>
+
+          <div class="dv-opt" id="2p" data-screen-label="2p Disabled by the host">
+            <div class="dv-olabel"><a class="dv-oid" href="#2p">2p</a>Disabled by the host</div>
+            <div class="ph">
+              <div class="sb"><span>01:52</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">old-sensor</div><span class="ib"><span class="ms">edit</span></span></div>
+              <div class="pad" style="padding-bottom:8px"><div class="warn err"><span class="ms">block</span><span>Disabled by the host. Its keys don't work. Ask the host to enable it.</span></div></div>
+              <div class="lt"><span class="ms c-primary fill">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2">Its events are in your inbox</span></div><span class="sw-t2 sw-on"></span></div>
+              <div class="lab">Keys</div>
+              <div class="lt" style="min-height:72px"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE1…</span><span class="t2n">Created 14 Aug · last used 2 Oct</span><span class="t2n">Not working while disabled</span></div><span class="btn-x">Revoke</span></div>
+              <div class="pad" style="padding-top:4px"><span class="btn-o"><span class="ms">add</span>New key</span></div>
+              <div class="div" style="margin-top:16px"></div>
+              <div class="lt"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+              <div class="lt dim"><span class="ms c-var">play_circle</span><div class="tx"><span class="t1">Enable</span><span class="t2n">Only the host can enable it</span></div></div>
+            </div>
+            <p class="dv-onote">Enable is shown but off, with the reason, so it doesn't look like a missing feature. The server would answer 409 “The operator disabled this producer”; the app never lets you get that far. In the list the row reads “Disabled by the host”.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============ Turn 6: unavailable and subscription variants ============ -->
+      <section class="dv-turn" id="t6" data-screen-label="Turn 6: not available, and the subscription">
+        <div class="dv-thd"><a class="dv-tid" href="#t6">6</a><span class="dv-tname">A producer that isn't available, and the subscription row</span></div>
+        <p class="dv-why">When you lose sight of a producer (it was made private) it leaves your list without a notice. If you had its screen open, or tap an old push or link, the server answers 404 and the app says so plainly, with one way back (<a class="dv-oid" href="#2q">2q</a>). An event that is no longer in your inbox, most often because you unsubscribed from its producer, has one screen only: 4o on the First run and empty states page (the former 2r was folded into it). <a class="dv-oid" href="#2g1">2g1</a> to <a class="dv-oid" href="#2g3">2g3</a> are the subscription row of 2g in its other states.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2q" data-screen-label="2q Producer not available">
+            <div class="dv-olabel"><a class="dv-oid" href="#2q">2q</a>A producer that isn't available any more</div>
+            <div class="ph s">
+              <div class="sb"><span>01:55</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Producer</div></div>
+              <div class="empty"><span class="ms">sensors_off</span><span class="h">This producer isn't available<br>any more</span><span class="p2">It may have been made private. It's gone from your list too.</span><span class="tonal">Back to Producers</span></div>
+            </div>
+            <p class="dv-onote">No name in the title, because the server no longer tells us. The row has already left the Producers list. Producers are never deleted, so the text does not say “removed”.</p>
+          </div>
+
+          <div class="dv-opt" id="2g1" data-screen-label="2g1 Not subscribed">
+            <div class="dv-olabel"><a class="dv-oid" href="#2g1">2g1</a>Not subscribed yet</div>
+            <div class="ph s">
+              <div class="sb"><span>01:57</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">weather-alerts</div></div>
+              <div class="lt"><span class="av" style="background:var(--tertiary-container);color:#ffd8ee">J</span><div class="tx"><span class="t1">João's producer</span><span class="t2">Public · anyone on this server can subscribe</span></div></div>
+              <div class="div"></div>
+              <div class="lt"><span class="ms c-var">notifications</span><div class="tx"><span class="t1">Subscribed</span><span class="t2">Subscribe to get its events in your inbox. You'll find its older events too.</span></div><span class="sw-t2 sw-off"></span></div>
+            </div>
+            <p class="dv-onote">“See its events” is absent until you are subscribed, because the inbox only holds subscribed producers.</p>
+          </div>
+
+          <div class="dv-opt" id="2g2" data-screen-label="2g2 Shared with you, muted here">
+            <div class="dv-olabel"><a class="dv-oid" href="#2g2">2g2</a>Shared with you, and muted on this device</div>
+            <div class="ph s">
+              <div class="sb"><span>01:57</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">family-calendar</div></div>
+              <div class="lt"><span class="av" style="background:var(--tertiary-container);color:#ffd8ee">A</span><div class="tx"><span class="t1">Ana added you</span><span class="t2">Private · only Ana and the people Ana added can see it</span></div></div>
+              <div class="div"></div>
+              <div class="lt"><span class="ms c-primary fill">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2">Its events are in your inbox.</span></div><span class="sw-t2 sw-on"></span></div>
+              <div class="lt"><span class="ms c-var">volume_off</span><div class="tx"><span class="t1">Muted on this device</span><span class="t2">No pushes from it here. Its events still reach your inbox.</span></div><span class="ms c-var">chevron_right</span></div>
+              <div class="lt"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+            </div>
+            <p class="dv-onote">Subscribed is shared across your devices; muting is per device and lives in Settings > Push filters, which the muted row opens. Subscribed and muted are different on purpose.</p>
+          </div>
+
+          <div class="dv-opt" id="2g3" data-screen-label="2g3 Owner unsubscribed">
+            <div class="dv-olabel"><a class="dv-oid" href="#2g3">2g3</a>The owner, who unsubscribed</div>
+            <div class="ph x">
+              <div class="sb"><span>01:58</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">ci-pipeline</div><span class="ib"><span class="ms">edit</span></span></div>
+              <div class="lt"><span class="ms c-var">notifications</span><div class="tx"><span class="t1">Subscribed</span><span class="t2">You own it but don't get its events. Anyone on this server can still subscribe.</span></div><span class="sw-t2 sw-off"></span></div>
+              <div class="lab">Who can see it</div>
+              <div class="pad"><div class="seg"><span><span class="ms ms18">lock</span>Private</span><span class="on"><span class="ms ms18">public</span>Public</span></div></div>
+            </div>
+            <p class="dv-onote">The top of 2e with the switch off. An owner keeps the switch, as for any producer.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============ Turn 7: key screen states ============ -->
+      <section class="dv-turn" id="t7" data-screen-label="Turn 7: the key screen's states">
+        <div class="dv-thd"><a class="dv-tid" href="#t7">7</a><span class="dv-tname">The key screen: Copied, leaving, a lost answer, and a new key</span></div>
+        <p class="dv-why">The key is in the server's answer once; nothing keeps it. <a class="dv-oid" href="#2b1">2b1</a> is after Copy. <a class="dv-oid" href="#2b2">2b2</a> is Back before the key was copied. <a class="dv-oid" href="#2b3">2b3</a> and <a class="dv-oid" href="#2b4">2b4</a> are the answer being lost: the producer exists but its key never arrived. <a class="dv-oid" href="#2b5">2b5</a> is the same screen again for a New key. <a class="dv-oid" href="#2b6">2b6</a> is the key screen at 360dp wide and 200 % text.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2b1" data-screen-label="2b1 Copied">
+            <div class="dv-olabel"><a class="dv-oid" href="#2b1">2b1</a>After Copy</div>
+            <div class="ph">
+              <div class="sb"><span>01:33</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">garage-door is ready</div></div>
+              <div class="stack">
+                <p class="p" style="color:var(--on-surface)">This is its key. Put it where the producer runs; it sends events with it.</p>
+                <div class="key">{{ key }}</div>
+                <div style="display:flex;gap:8px"><span class="btn-t"><span class="ms">check</span>Copied</span><span class="btn-o"><span class="ms">share</span>Share</span></div>
+                <div class="warn"><span class="ms c-var">visibility_off</span><span>Shown once. You won't see this key again. If you lose it, make a new key on the producer's screen.</span></div>
+                <div class="lab" style="padding:4px 0 0">To send a test event</div>
+                <div class="code">{{ snippet }}</div>
+              </div>
+              <div style="flex:1"></div>
+              <div class="bar"><span class="btn-f btn-w">Done</span></div>
+            </div>
+            <p class="dv-onote">Copy turns into “Copied” with a check (a 120 ms cross-fade, the width held) and stays so for as long as this screen is open; every other Copy button in the app reverts after 2 seconds. Android 13 and later also shows its own clipboard confirmation, so no snackbar is added. The primary button becomes Done. Sharing counts as copying.</p>
+          </div>
+
+          <div class="dv-opt" id="2b2" data-screen-label="2b2 Leave guard">
+            <div class="dv-olabel"><a class="dv-oid" href="#2b2">2b2</a>Back, before copying</div>
+            <div class="ph">
+              <div class="sb"><span>01:33</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">garage-door is ready</div></div>
+              <div class="stack dim">
+                <p class="p" style="color:var(--on-surface)">This is its key. Put it where the producer runs; it sends events with it.</p>
+                <div class="key">{{ key }}</div>
+                <div style="display:flex;gap:8px"><span class="btn-t"><span class="ms">content_copy</span>Copy</span><span class="btn-o"><span class="ms">share</span>Share</span></div>
+              </div>
+              <div class="scrim"><div class="dlg">
+                <h4>Did you copy the key?</h4>
+                <p class="p">It's shown once. If you leave now, you'll need to make a new key for garage-door.</p>
+                <div class="acts"><span class="btn-x dng">Leave</span><span class="btn-x">Stay</span></div>
+              </div></div>
+            </div>
+            <p class="dv-onote">Asked only if Copy, Share and Copy and close were all unused. It fires from the close icon, the system Back and predictive back alike. Stay is the default, on the right.</p>
+          </div>
+
+          <div class="dv-opt" id="2b3" data-screen-label="2b3 Lost answer">
+            <div class="dv-olabel"><a class="dv-oid" href="#2b3">2b3</a>The answer was lost: Create again</div>
+            <div class="ph s">
+              <div class="sb"><span>01:36</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">New producer</div></div>
+              <div class="stack">
+                <div><div class="tf err"><span class="fl">Name</span>garage-door<span class="ms">error</span></div><div class="help err">You already have a producer called garage-door.</div></div>
+                <div class="warn"><span class="ms c-var">key_off</span><span>Your first try probably worked, but its key never reached this phone. Keys are shown once, so make a new key for it.</span></div>
+                <span class="btn-t" style="align-self:flex-start">Open garage-door</span>
+              </div>
+              <div style="flex:1"></div>
+              <div class="bar"><span class="btn-f dis">Create</span></div>
+            </div>
+            <p class="dv-onote">When the connection drops after the server created the producer, Create again answers “taken”. The server's answer does not say whose the name is, so the app checks its own list of producers first: if the name is one of yours, it says what happened instead of a plain error. Create is off.</p>
+          </div>
+
+          <div class="dv-opt" id="2b4" data-screen-label="2b4 Producer with no key">
+            <div class="dv-olabel"><a class="dv-oid" href="#2b4">2b4</a>The producer, with no key</div>
+            <div class="ph s">
+              <div class="sb"><span>01:37</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">garage-door</div><span class="ib"><span class="ms">edit</span></span></div>
+              <div class="pad" style="padding-bottom:8px"><div class="warn"><span class="ms c-var">key_off</span><span>No key yet. Nothing can send events as garage-door. Make a new key to start.</span></div></div>
+              <div class="lab">Keys</div>
+              <div class="lt"><span class="ms c-var">key_off</span><div class="tx"><span class="t1">No keys</span></div></div>
+              <div class="pad" style="padding-top:8px"><span class="btn-f"><span class="ms">add</span>New key</span></div>
+            </div>
+            <p class="dv-onote">Where “Open garage-door” leads. The same state for any producer whose keys are all gone.</p>
+          </div>
+
+          <div class="dv-opt" id="2b5" data-screen-label="2b5 New key">
+            <div class="dv-olabel"><a class="dv-oid" href="#2b5">2b5</a>New key for an existing producer</div>
+            <div class="ph">
+              <div class="sb"><span>01:38</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">New key for garage-door</div></div>
+              <div class="stack">
+                <p class="p" style="color:var(--on-surface)">This is its new key. Switch the producer to it, then revoke the old one.</p>
+                <div class="key">{{ key }}</div>
+                <div style="display:flex;gap:8px"><span class="btn-t"><span class="ms">content_copy</span>Copy</span><span class="btn-o"><span class="ms">share</span>Share</span></div>
+                <div class="warn"><span class="ms c-var">visibility_off</span><span>Shown once. You won't see this key again. If you lose it, make another new key.</span></div>
+                <div class="lab" style="padding:4px 0 0">To send a test event</div>
+                <div class="code">{{ snippet }}</div>
+              </div>
+              <div style="flex:1"></div>
+              <div class="bar"><span class="btn-f btn-w"><span class="ms">content_copy</span>Copy and close</span></div>
+            </div>
+            <p class="dv-onote">2b reused: only the title, the first line and the warning's last sentence change. The old keys keep working until you revoke them, so there is no gap. Same leave guard as 2b2.</p>
+          </div>
+
+          <div class="dv-opt n360" id="2b6" data-screen-label="2b6 Key at 360dp, 200 % text">
+            <div class="dv-olabel"><a class="dv-oid" href="#2b6">2b6</a>360dp wide, text at 200 %</div>
+            <div class="ph w360 t x2">
+              <div class="sb"><span>01:33</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">garage-door is ready</div></div>
+              <div class="stack">
+                <p class="p" style="color:var(--on-surface)">This is its key. Put it where the producer runs; it sends events with it.</p>
+                <div class="key">{{ key }}</div>
+                <div style="display:flex;gap:8px"><span class="btn-t"><span class="ms">content_copy</span>Copy</span><span class="btn-o"><span class="ms">share</span>Share</span></div>
+                <div class="warn"><span class="ms c-var">visibility_off</span><span>Shown once. You won't see this key again. If you lose it, make a new key on the producer's screen.</span></div>
+              </div>
+              <div style="flex:1"></div>
+              <div class="bar"><span class="btn-f btn-w"><span class="ms">content_copy</span>Copy and close</span></div>
+            </div>
+            <p class="dv-onote">The key wraps at any character, buttons grow and their labels wrap, the page scrolls (the send example is below the fold here). Nothing is clipped or truncated.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============ Turn 8: add people ============ -->
+      <section class="dv-turn" id="t8" data-screen-label="Turn 8: adding people">
+        <div class="dv-thd"><a class="dv-tid" href="#t8">8</a><span class="dv-tname">Adding people: nobody to add, many people, saving</span></div>
+        <p class="dv-why">2f lists the other people on the server by name. <a class="dv-oid" href="#2f1">2f1</a> is a server with nobody else. <a class="dv-oid" href="#2f2">2f2</a> is a long list with search, and a failed save. <a class="dv-oid" href="#2f3">2f3</a> is Save when it removes someone. Revoked people are never listed.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2f1" data-screen-label="2f1 Nobody to add">
+            <div class="dv-olabel"><a class="dv-oid" href="#2f1">2f1</a>Nobody else on the server</div>
+            <div class="ph s">
+              <div class="sb"><span>01:41</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Who can see garage-door</div></div>
+              <div class="empty"><span class="ms">group</span><span class="h">Nobody else is here yet</span><span class="p2">There's no one else on this server to add. An admin of this server can invite people.</span></div>
+              <div class="bar"><span class="btn-f dis">Save</span></div>
+            </div>
+            <p class="dv-onote">The same words for everyone: only an admin has an Invite button, so the screen doesn't promise one.</p>
+          </div>
+
+          <div class="dv-opt" id="2f2" data-screen-label="2f2 Many people, save failed">
+            <div class="dv-olabel"><a class="dv-oid" href="#2f2">2f2</a>Many people: search, and a failed save</div>
+            <div class="ph s">
+              <div class="sb"><span>01:42</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Who can see homelab-monitor</div></div>
+              <div class="search" style="margin-top:0"><span class="ms">search</span><span class="q">ma</span><span class="ms">close</span></div>
+              <div class="pad t2" style="padding-bottom:4px">3 selected</div>
+              <sc-for list="{{ many }}" as="u" hint-placeholder-count="3">
+                <div class="lt" style="min-height:64px"><span class="av">{{ u.i }}</span><div class="tx"><span class="t1">{{ u.name }}</span></div><span class="cb {{ u.cb }}"><span class="ms ms18" style="font-size:16px;width:16px;height:16px">{{ u.tick }}</span></span></div>
+              </sc-for>
+              <div style="flex:1"></div>
+              <div class="bar" style="padding-bottom:80px"><span class="btn-f">Save</span></div>
+              <div class="snack"><span>Couldn't save. Your changes are still here.</span><b>Retry</b></div>
+            </div>
+            <p class="dv-onote">Search filters by name; the count keeps counting people hidden by the search. After a failed save nothing is lost and the screen stays. Accessible names: the search field “Search people”, its x “Clear search”.</p>
+          </div>
+
+          <div class="dv-opt" id="2f3" data-screen-label="2f3 Save removes someone">
+            <div class="dv-olabel"><a class="dv-oid" href="#2f3">2f3</a>Save, when it removes someone</div>
+            <div class="ph d">
+              <div class="sb"><span>01:43</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Who can see homelab-monitor</div></div>
+              <div class="dim"><div class="lt"><span class="av">A</span><div class="tx"><span class="t1">Ana</span></div></div><div class="lt"><span class="av">M</span><div class="tx"><span class="t1">Marta</span></div></div></div>
+              <div class="scrim"><div class="dlg">
+                <h4>Save these changes?</h4>
+                <p class="p">Marta can't see homelab-monitor any more. If they were subscribed, they stop getting its events. Rui is added.</p>
+                <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x">Save</span></div>
+              </div></div>
+            </div>
+            <p class="dv-onote">Asked only when someone is removed; adding alone saves straight away. Wording matches 2l.</p>
+          </div>
+
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        renderVals() {
+          const key = 'shpk1_EXAMPLEKEY-not-a-real-key-0000';
+          const snippet = 'curl -X POST https://signalhub.example/api/v1/events \\\n  -H "Authorization: Bearer shpk1_EXAMPLEKEY-not-a-real-key-0000" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"category":"INFO","severity":"NORMAL","title":"Hello"}\'';
+          const p = (name, on) => ({ name, i: name[0], cb: on ? 'on' : '', tick: on ? 'check' : '' });
+          const people = [p('Ana', true), p('João', false), p('Marta', true), p('Rui', false)];
+          const many = [p('Marta', true), p('Mariana', true), p('Mateus', false), p('Amadeu', true)];
+          return { key, snippet, people, many };
+        }
+      }
+    </script>
+  </body>
+</html>

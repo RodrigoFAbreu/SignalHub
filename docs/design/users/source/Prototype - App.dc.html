@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--tertiary-container:#5d3c55;--error:#ffb4ab;--on-error:#690005;--error-container:#93000a;--on-error-container:#ffdad6;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-lowest:#0d0e13;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f}
+          body{margin:0;background:#0b0c10;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          /* prototype chrome */
+          .pt{max-width:1000px;margin:0 auto;padding:32px 24px 56px}
+          .pt h1{font:500 22px/28px Roboto,sans-serif;margin:0 0 6px;color:#e4e1e9}
+          .pt .lead{font:14px/20px Roboto,sans-serif;color:#c7c5d0;max-width:760px;margin:0 0 20px}
+          .picker{display:flex;flex-wrap:wrap;gap:8px}
+          .pk{min-height:48px;padding:0 16px;border-radius:24px;border:1px solid var(--outline);background:transparent;color:var(--on-surface-variant);font:500 14px Roboto,sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-sizing:border-box}
+          .pk:hover{background:rgba(255,255,255,.06)}
+          .pk.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container)}
+          .pk:disabled{opacity:.38;cursor:default}
+          .pk .ms{font-size:18px;width:18px;height:18px}
+          .pk:focus-visible,[data-n]:focus-visible{outline:2px solid #fff;outline-offset:3px}
+          .ctl{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+          .stage{display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;margin-top:20px}
+          .strip{flex:1;min-width:280px;max-width:420px;font:14px/20px Roboto,sans-serif;color:#c7c5d0}
+          .strip .sh{font:600 11px ui-monospace,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase;color:#9a98a3;margin:0 0 10px}
+          .strip ol{list-style:none;margin:0 0 18px;padding:0;display:flex;flex-direction:column;gap:2px}
+          .strip li{display:flex;gap:12px;align-items:center;min-height:36px;padding:0 12px;border-radius:10px;color:#9a98a3}
+          .strip li b{font:600 11px ui-monospace,Menlo,monospace;width:22px;height:22px;border-radius:11px;border:1px solid #46464f;display:flex;align-items:center;justify-content:center;flex:none}
+          .strip li.done{color:#c7c5d0}
+          .strip li.done b{background:#434659;border-color:#434659;color:#e0e1f9}
+          .strip li.cur{background:#1f1f25;color:#e4e1e9;font-weight:500}
+          .strip li.cur b{background:#bac3ff;border-color:#bac3ff;color:#222c61}
+          .strip .cap{background:#1b1b21;border-radius:12px;padding:12px 16px;color:#e4e1e9;margin:0}
+          .strip .cap span{display:block;font:600 11px ui-monospace,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase;color:#bac3ff;margin-bottom:4px}
+          .hot{outline:2px dashed var(--primary);outline-offset:3px;animation:ptp 1.8s ease-in-out infinite}
+          .nohot .hot{outline:none;animation:none}
+          @keyframes ptp{50%{outline-color:rgba(186,195,255,.25)}}
+          @media (prefers-reduced-motion:reduce){.hot{animation:none}}
+          [data-n]{cursor:pointer}
+          /* the phone and its screens, as designed */
+          .ph{width:412px;height:892px;background:var(--surface);border-radius:28px;border:1px solid #2c2d33;overflow:hidden;position:relative;flex:none}
+          .scr{position:absolute;left:0;right:0;top:0;bottom:0;display:none;flex-direction:column}
+          .sb{height:28px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:13px}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .appbar{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 4px}
+          .appbar .t{font-size:22px;line-height:28px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .appbar .t.pl{padding-left:12px}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .body{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative}
+          .pad{padding:0 16px}
+          .lt{display:flex;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .lt.r4{padding-right:4px}
+          .lt.off{opacity:.62}
+          .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t1b{font-size:16px;line-height:24px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .t2n{font-size:14px;line-height:20px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .meta{display:flex;gap:12px;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .meta .m1{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .dot{width:10px;height:10px;border-radius:5px;background:var(--primary);flex:none}
+          .nodot{width:10px;flex:none}
+          .p{font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0;text-wrap:pretty}
+          .pb{font-size:16px;line-height:24px;color:var(--on-surface);margin:0;text-wrap:pretty}
+          .h{font-size:24px;line-height:32px;margin:0;font-weight:400}
+          .c-primary{color:var(--primary)}.c-var{color:var(--on-surface-variant)}.c-err{color:var(--error)}
+          .lab{font-size:14px;line-height:20px;font-weight:500;color:var(--primary);padding:16px 16px 4px}
+          .sec{display:flex;align-items:center;gap:8px;padding:16px 16px 0}
+          .sec .st{font-size:14px;line-height:20px;font-weight:500;color:var(--primary)}
+          .sec .sn{font-size:12px;line-height:16px;color:var(--on-surface-variant)}
+          .secd{font-size:13px;line-height:18px;color:var(--on-surface-variant);padding:2px 16px 4px;margin:0;text-wrap:pretty}
+          .seg{display:flex;border:1px solid var(--outline);border-radius:20px;overflow:hidden;height:40px;flex:none}
+          .seg>span{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;border-left:1px solid var(--outline);white-space:nowrap}
+          .seg>span:first-child{border-left:0}
+          .seg>.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .seg>.dis{color:rgba(228,225,233,.38)}
+          .tf{border:1px solid var(--outline);border-radius:4px;height:56px;display:flex;align-items:center;padding:0 16px;font-size:16px;position:relative;box-sizing:border-box;flex:none}
+          .tf.focus{border:2px solid var(--primary);padding:0 15px}
+          .tf .fl{position:absolute;top:-9px;left:12px;padding:0 4px;background:var(--surface);font-size:12px;line-height:16px;color:var(--primary)}
+          .tf .fl.mut{color:var(--on-surface-variant)}
+          .tf .ph2{color:var(--on-surface-variant)}
+          .help{font-size:12px;line-height:16px;color:var(--on-surface-variant);padding:4px 16px 0}
+          .btn-f{height:40px;border-radius:20px;background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-f.dis{background:rgba(228,225,233,.12);color:rgba(228,225,233,.38)}
+          .btn-t{height:40px;border-radius:20px;background:var(--secondary-container);color:var(--on-secondary-container);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500}
+          .btn-o{height:40px;border-radius:20px;border:1px solid var(--outline);color:var(--primary);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-x{min-height:48px;min-width:48px;border-radius:24px;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 12px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-x.err{color:var(--error)}
+          .btn-w{flex:1;height:48px;border-radius:24px}
+          .btn-o .ms,.btn-t .ms,.btn-f .ms,.btn-x .ms{font-size:18px;width:18px;height:18px}
+          .btn-f[data-n],.btn-t[data-n],.btn-o[data-n],.seg>span[data-n],.fc[data-n],.chip[data-n]{position:relative}
+          .btn-f[data-n]::after,.btn-t[data-n]::after,.btn-o[data-n]::after,.seg>span[data-n]::after{content:"";position:absolute;left:0;right:0;top:-4px;bottom:-4px}
+          .fc[data-n]::after,.chip[data-n]::after{content:"";position:absolute;left:0;right:0;top:-8px;bottom:-8px}
+          .fab{position:absolute;right:16px;bottom:96px;height:56px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;gap:12px;padding:0 20px 0 16px;font-size:14px;font-weight:500;z-index:2}
+          .av{width:40px;height:40px;border-radius:20px;background:var(--tertiary-container);color:#ffd8ee;display:flex;align-items:center;justify-content:center;flex:none;font-size:16px;font-weight:500}
+          .av.me{background:var(--primary-container);color:var(--on-primary-container)}
+          .av.g{background:var(--sc-highest);color:var(--on-surface-variant)}
+          .pa{width:40px;height:40px;border-radius:20px;background:var(--sc-highest);display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);flex:none}
+          .nav{height:80px;flex:none;background:var(--sc);display:flex;padding:12px 8px 16px;box-sizing:border-box}
+          .nv{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant)}
+          .nv .pill{width:64px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .nv.on{color:var(--on-surface)}
+          .nv.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .nbadge{position:absolute;top:2px;left:36px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:var(--on-error);font-size:11px;line-height:16px;text-align:center;box-sizing:border-box}
+          .qr{width:200px;height:200px;border-radius:12px;background:repeating-linear-gradient(45deg,#e4e1e9 0 6px,#cfccd6 6px 12px);color:#121318;display:flex;align-items:center;justify-content:center;font:12px "Roboto Mono",monospace;margin:0 auto;flex:none}
+          .qr.gone{opacity:.28}
+          .link{font-family:"Roboto Mono",monospace;font-size:13px;background:var(--sc-high);border-radius:12px;padding:10px 14px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .stack{display:flex;flex-direction:column;gap:16px;padding:8px 16px 0}
+          .stack.fr{padding:24px 24px 0}
+          .note{display:flex;gap:12px;align-items:flex-start;background:var(--sc);border-radius:12px;padding:12px 16px;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .ok{display:flex;gap:12px;align-items:flex-start;background:var(--primary-container);color:var(--on-primary-container);border-radius:12px;padding:12px 16px;font-size:14px;line-height:20px}
+          .warn{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:20px;color:var(--on-surface);background:var(--sc-low);border-radius:12px;padding:12px 16px}
+          .scrim{position:absolute;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:5}
+          .scrim.sh{align-items:stretch;background:rgba(0,0,0,.55)}
+          .dlg{width:324px;background:var(--sc-high);border-radius:28px;padding:24px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px}
+          .dlg h3{margin:0;font-size:24px;line-height:32px;font-weight:400;color:var(--on-surface)}
+          .acts{display:flex;justify-content:flex-end;gap:8px}
+          .snack{position:absolute;left:8px;right:8px;bottom:96px;min-height:48px;border-radius:4px;background:#e4e1e9;color:#303036;display:flex;align-items:center;padding:6px 8px 6px 16px;gap:8px;font-size:14px;line-height:20px;box-sizing:border-box;z-index:4}
+          .snack .sa{color:#515b92;font-weight:500;min-height:48px;display:flex;align-items:center;padding:0 12px;flex:none}
+          .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 40px 80px;text-align:center}
+          .empty>.ms{font-size:48px;width:48px;height:48px;color:var(--on-surface-variant)}
+          .cd{text-align:center;font-size:14px;line-height:20px;color:var(--on-surface);margin:0}
+          .scan{height:220px;border-radius:16px;background:repeating-linear-gradient(45deg,#1f1f25 0 8px,#29292f 8px 16px);display:flex;align-items:center;justify-content:center;font:12px "Roboto Mono",monospace;color:var(--on-surface-variant);flex:none}
+          .scan2{flex:1;margin:12px;border-radius:16px;background:repeating-linear-gradient(45deg,#1f1f25 0 8px,#29292f 8px 16px);display:flex;align-items:center;justify-content:center;font:11px "Roboto Mono",monospace;color:var(--on-surface-variant);position:relative}
+          .frame{position:absolute;left:60px;right:60px;top:60px;bottom:60px;border:2px solid var(--primary);border-radius:16px}
+          .facts{display:flex;flex-direction:column;gap:12px;background:var(--sc);border-radius:16px;padding:16px}
+          .fact{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:20px}
+          .card{margin:8px 16px;background:var(--primary-container);color:var(--on-primary-container);border-radius:16px;padding:16px 16px 8px;display:flex;flex-direction:column;gap:12px}
+          .card .fact{color:var(--on-primary-container)}
+          .card h3{margin:0;font-size:16px;line-height:24px;font-weight:500}
+          .search{margin:4px 16px 8px;height:56px;border-radius:28px;background:var(--sc-high);display:flex;align-items:center;gap:16px;padding:0 16px;color:var(--on-surface-variant);font-size:16px;flex:none}
+          .fchips{display:flex;gap:8px;padding:0 16px 8px;flex:none;overflow:hidden}
+          .fc{height:32px;border-radius:8px;border:1px solid var(--outline);display:flex;align-items:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500;color:var(--on-surface-variant);box-sizing:border-box;white-space:nowrap;flex:none}
+          .fc.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container);padding-left:8px}
+          .own{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;vertical-align:middle}
+          .dtag{display:inline-flex;align-items:center;flex:none;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500}
+          .nm{display:flex;align-items:center;min-width:0}
+          .nm .t1,.nm .t1b{flex:0 1 auto;min-width:0}
+          .tbtn{width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex:none;border-radius:24px}
+          .bl{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+          .bl.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .bl.off{border:1px solid var(--outline);color:var(--on-surface-variant)}
+          .key{font-family:"Roboto Mono",ui-monospace,monospace;font-size:14px;line-height:22px;word-break:break-all;background:var(--sc-high);border-radius:12px;padding:12px 16px;color:var(--on-surface)}
+          .code{font-family:"Roboto Mono",ui-monospace,monospace;font-size:12px;line-height:18px;background:var(--sc-lowest);border-radius:12px;padding:12px 14px;color:var(--on-surface-variant);white-space:pre-wrap;word-break:break-all}
+          .mono{font-family:"Roboto Mono",ui-monospace,monospace}
+          .chips{display:flex;gap:8px;flex-wrap:wrap;padding:4px 16px 8px}
+          .chip{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 4px;border:1px solid var(--outline);border-radius:16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .chip .cx{width:32px;height:32px;margin:-4px -4px -4px 0;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant)}
+          .avs{width:24px;height:24px;border-radius:12px;background:var(--tertiary-container);color:#ffd8ee;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+          .div{height:1px;background:var(--outline-variant);margin:8px 0}
+          .sw-t2{width:52px;height:32px;border-radius:16px;flex:none;position:relative;box-sizing:border-box}
+          .sw-on{background:var(--primary)}
+          .sw-on::after{content:"";position:absolute;right:4px;top:4px;width:24px;height:24px;border-radius:12px;background:var(--on-primary)}
+          .cb{width:18px;height:18px;border-radius:2px;border:2px solid var(--on-surface-variant);flex:none;margin:3px;box-sizing:border-box}
+          .cb.on{background:var(--primary);border-color:var(--primary);color:var(--on-primary);display:flex;align-items:center;justify-content:center}
+          .bar{display:flex;justify-content:flex-end;gap:8px;padding:16px}
+          .okmark{width:56px;height:56px;border-radius:28px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;align-self:center}
+          .okmark .ms{font-size:32px;width:32px;height:32px}
+          .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--sc-low);border-radius:28px 28px 0 0;padding:8px 24px 24px;display:flex;flex-direction:column;gap:14px;z-index:6}
+          .sheet h2{font-size:20px;line-height:26px;margin:0;font-weight:400}
+          .handle{width:32px;height:4px;border-radius:2px;background:var(--outline);margin:6px auto 4px}
+          .sfact{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:18px;color:var(--on-surface-variant)}
+          .sfact .ms{font-size:18px;width:18px;height:18px}
+          .sfact b{color:var(--on-surface);font-weight:500}
+        </style>
+      </helmet>
+
+      <div class="pt" id="pt" data-screen-label="Prototype: App">
+        <h1>Prototype - App</h1>
+        <p class="lead">Pick a flow, then tap the outlined element on the phone to move on. Back steps back, Restart starts the flow again. The screens are the designed ones, with sample data only.</p>
+        <div class="picker" id="picker" role="tablist" aria-label="Flow"></div>
+        <div class="ctl">
+          <button class="pk" id="b-back" type="button"><span class="ms">arrow_back</span>Back</button>
+          <button class="pk" id="b-restart" type="button"><span class="ms">restart_alt</span>Restart</button>
+          <button class="pk on" id="b-hot" type="button" aria-pressed="true"><span class="ms">touch_app</span>Show tap targets</button>
+        </div>
+        <div class="stage">
+          <div class="ph" id="ph" data-screen-label="Phone"></div>
+          <div class="strip">
+            <p class="sh" id="fname">Flow</p>
+            <ol id="steps"></ol>
+            <p class="cap" id="cap" aria-live="polite"></p>
+          </div>
+        </div>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        componentDidMount() {
+          const ph = document.getElementById('ph');
+          if (!ph) { setTimeout(() => this.componentDidMount(), 50); return; }
+          const I = (n, c, s) => `<span class="ms${c ? ' ' + c : ''}"${s ? ` style="${s}"` : ''}>${n}</span>`;
+          const N = (f, by) => ` data-n="${f}"${by ? ` data-by="${by}"` : ''}`;
+          const V = (v) => ` data-vs="${v}"`;
+          const sb = (t) => `<div class="sb"><span>${t}</span>${I('signal_cellular_alt', 'ms18')}</div>`;
+          const ab = (t, o) => { o = o || {}; return `<div class="appbar">${o.ic ? `<span class="ib"${o.n ? N(o.n) : ''}>${I(o.ic)}</span>` : ''}<div class="t${o.ic ? '' : ' pl'}">${t}</div>${o.r || ''}</div>`; };
+          const nav = (on, adm, badge, hot) => { hot = hot || {}; const t = [['inbox', 'Inbox'], ['sensors', 'Producers']]; if (adm) t.push(['group', 'People']); t.push(['settings', 'Settings']); return `<div class="nav">${t.map((x) => `<div class="nv${x[1] === on ? ' on' : ''}"${hot[x[1]] ? N(hot[x[1]]) : ''}><span class="pill">${I(x[0], x[1] === on ? 'fill' : '')}${x[1] === 'Inbox' && badge ? `<span class="nbadge">${badge}</span>` : ''}</span>${x[1]}</div>`).join('')}</div>`; };
+          const ev = (ic, tone, title, meta, time, un) => `<div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms ${tone}" style="margin-top:2px">${ic}</span><div class="tx"><span class="${un ? 't1b' : 't1'}">${title}</span><div class="meta"><span class="m1">${meta}</span><span>${time}</span></div></div><span class="${un ? 'dot' : 'nodot'}" style="margin-top:7px"></span></div>`;
+          const bellOn = `<span class="tbtn"><span class="bl on">${I('notifications_active', 'fill')}</span></span>`;
+          const bellOff = (n, v) => `<span class="tbtn"${n ? N(n) : ''}${v ? V(v) : ''}><span class="bl off">${I('notifications')}</span></span>`;
+          const prow = (name, sub, o) => { o = o || {}; return `<div class="lt r4"><span class="pa">${I('sensors')}</span><div class="tx"><span class="t1">${name}${o.own ? '<span class="own">Yours</span>' : ''}</span><span class="t2n">${sub}</span></div>${o.bell || (o.on ? bellOn : bellOff())}</div>`; };
+          const chipsRow = (on, n) => ['All', 'Yours', 'Subscribed', 'Can subscribe'].map((c) => c === on ? `<span class="fc on">${I('check', 'ms18')}${c}</span>` : `<span class="fc">${c}</span>`).join('');
+          const row3 = (ic, t, s, tail, n) => `<div class="lt"${n ? N(n) : ''}><span class="ms c-var">${ic}</span><div class="tx"><span class="t1">${t}</span><span class="t2n">${s}</span></div>${tail || ''}</div>`;
+          const KEY = 'shpk1_EXAMPLEKEY-not-a-real-key-0000';
+          const SNIP = 'curl -X POST https://signalhub.example/api/v1/events \\\n  -H "Authorization: Bearer shpk1_EXAMPLEKEY-not-a-real-key-0000" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"category":"INFO","severity":"NORMAL","title":"Hello"}\'';
+          const chev = I('chevron_right', 'c-var');
+          const PLINK = 'signalhub://pair?server=https%3A%2F%2Fsignalhub.example&code=shpc1_…';
+          const S = {};
+          /* ---- flow 1: an invited person's first run ---- */
+          S.setup = sb('18:02') + `<div class="stack fr"><h1 class="h">Connect to SignalHub</h1><p class="pb">Scan the code someone shared with you, or paste its link.</p><div class="scan"${N('f1')}>camera preview</div><div style="display:flex;gap:8px"><span class="btn-t">${I('content_paste')}Paste link</span></div><p class="p">A code works once and for a few minutes. If it has run out, ask for a new one.</p><p class="p"><span style="text-decoration:underline">With a client key</span> instead</p></div>`;
+          S.welcome = sb('18:03') + `<div class="stack fr"><h1 class="h">Welcome, Rui</h1><p class="pb">You're connected to signalhub.example as Rui - iPhone.</p><div class="facts"><div class="fact">${I('sensors', 'c-primary')}<span><b>Producers</b> send events: a script, a CI pipeline, a home server. Subscribe to the ones you want.</span></div><div class="fact">${I('inbox', 'c-primary')}<span><b>Your inbox</b> holds their events; your phone is notified as your filters allow.</span></div><div class="fact">${I('add_circle', 'c-primary')}<span><b>Your own producers</b>: make one and send yourself events.</span></div></div><p class="p">The host runs this server and can see every event on it.</p></div><div style="flex:1"></div><div style="display:flex;justify-content:flex-end;gap:8px;padding:16px"><span class="btn-x"${N('f1')}>Later</span><span class="btn-f">Find producers</span></div>`;
+          S.inbox0 = sb('18:04') + `<div class="appbar"><div class="t pl">SignalHub</div><span class="ib">${I('filter_list')}</span></div><div class="empty">${I('inbox')}<div class="pb">No events yet</div><p class="p">Events show up here once you subscribe to a producer.</p><span class="btn-t" style="margin-top:8px"${N('f1')}>${I('sensors')}Find producers</span></div>` + nav('Inbox', false, 0);
+          S.prodcs = sb('18:05') + ab('Producers') + `<div class="search">${I('search')}Find a producer</div><div class="fchips">${chipsRow('Can subscribe')}</div><div class="body">` +
+            prow('ana-reports', 'Ana · Public', { bell: `<span class="tbtn"${N('f1@base')}${V('base')}><span class="bl off">${I('notifications')}</span></span><span class="tbtn"${V('sub')}><span class="bl on">${I('notifications_active', 'fill')}</span></span>` }) +
+            prow('family-calendar', 'Ana · Private, shared with you') + prow('price-watch', 'João · Public') + prow('weather-alerts', 'João · Public') +
+            `</div><div class="fab">${I('add')}New producer</div><div class="snack"${V('sub')}><span style="flex:1">Subscribed to ana-reports. Its older events are in your inbox too.</span><span class="sa">Undo</span></div>` + nav('Producers', false, 0, { Inbox: 'f1@sub' });
+          S.inbox1 = sb('18:05') + `<div class="appbar"><div class="t pl">SignalHub</div><span class="ib">${I('filter_list')}</span><span class="ib">${I('done_all')}</span></div><div class="body">${ev('info', 'c-primary', 'Weekly report is ready', 'Info · Normal · ana-reports', 'Yesterday', true)}</div>` + nav('Inbox', false, 1);
+
+          /* ---- flow 2: a new producer and its key ---- */
+          S.prodmy = sb('01:32') + ab('Producers') + `<div class="search">${I('search')}Find a producer</div><div class="fchips">${chipsRow('All')}</div><div class="body">` +
+            prow('backup-jobs', 'Private · 1 key · last event 00:41', { own: 1, on: 1 }) + prow('ci-pipeline', 'Public · 2 keys · last event 01:19', { own: 1, on: 1 }) + prow('homelab-monitor', 'Private · 2 people · last event 00:36', { own: 1, on: 1 }) +
+            prow('ana-reports', 'Ana · Public', { on: 1 }) + prow('family-calendar', 'Ana · Private, shared with you', { on: 1 }) + prow('price-watch', 'João · Public') + prow('weather-alerts', 'João · Public') +
+            `</div><div class="fab"${N('f2')}>${I('add')}New producer</div>` + nav('Producers', false, 3);
+          S.newp = sb('01:32') + ab('New producer', { ic: 'close' }) + `<div class="stack"><p class="p">A producer is anything that sends you events: a script, a CI pipeline, a home server. It gets its own key.</p><div><div class="tf focus"${N('f2@base')}><span class="fl">Name</span><span${V('typed')}>garage-door</span></div><div class="help">Letters, numbers and . _ : / - only, starting with a letter or number. Others see this name.</div></div><div class="lab" style="padding:8px 0 0">Who can see it</div><div class="seg"><span class="on">${I('lock', 'ms18')}Private</span><span>${I('public', 'ms18')}Public</span></div><p class="p">Only you, and people you add later. Anyone on this server can find and subscribe to a public producer.</p></div><div style="flex:1"></div><div class="bar"><span class="btn-f dis"${V('base')}>Create</span><span class="btn-f"${V('typed')}${N('f2@typed')}>Create</span></div>`;
+          const keyScreen = sb('01:33') + `<div class="appbar"><span class="ib">${I('close')}</span><div class="t">garage-door is ready</div></div><div class="stack"><p class="p" style="color:var(--on-surface)">This is its key. Put it where the producer runs; it sends events with it.</p><div class="key">${KEY}</div><div style="display:flex;gap:8px"><span class="btn-t"${V('base')}${N('f2@base')}>${I('content_copy')}Copy</span><span class="btn-t"${V('copied')}>${I('check')}Copied</span><span class="btn-o">${I('share')}Share</span></div><div class="warn">${I('visibility_off', 'c-var')}<span>Shown once. You won't see this key again. If you lose it, make a new key on the producer's screen.</span></div><div class="lab" style="padding:4px 0 0">To send a test event</div><div class="code">${SNIP}</div></div><div style="flex:1"></div><div class="bar"><span class="btn-f btn-w"${V('base')}${N('f2@base', 2)}>${I('content_copy')}Copy and close</span><span class="btn-f btn-w"${V('copied')}${N('f2@copied')}>Done</span></div>`;
+          S.key = keyScreen;
+          S.pp = sb('01:40') + ab('garage-door', { ic: 'arrow_back', r: `<span class="ib">${I('edit')}</span>` }) +
+            `<div class="pad t2" style="padding-bottom:4px">No events yet</div><div class="lt">${I('notifications_active', 'c-primary fill')}<div class="tx"><span class="t1">Subscribed</span><span class="t2">Its events are in your inbox</span></div><span class="sw-t2 sw-on"></span></div><div class="lab">Who can see it</div><div class="pad"><div class="seg"><span class="on">${I('lock', 'ms18')}Private</span><span>${I('public', 'ms18')}Public</span></div></div>` +
+            `<div class="lab"${V('base')}>Only you</div><div class="chips"${V('base')}><span class="chip" style="padding:0 12px 0 8px;color:var(--primary)"${N('f2@base')}>${I('person_add', 'ms18')}Add people</span></div>` +
+            `<div class="lab"${V('saved')}>Shared with 2 people</div><div class="chips"${V('saved')}><span class="chip"><span class="avs">A</span>Ana<span class="cx">${I('close', 'ms18')}</span></span><span class="chip"><span class="avs">M</span>Marta<span class="cx">${I('close', 'ms18')}</span></span><span class="chip" style="padding:0 12px 0 8px;color:var(--primary)">${I('person_add', 'ms18')}Add people</span></div>` +
+            `<div class="lab">Keys</div><div class="lt">${I('key', 'c-var')}<div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE1…</span><span class="t2n">Created 2026-10-10 · not used yet</span></div><span class="btn-x">Revoke</span></div><div class="note" style="margin:8px 16px">${I('info')}<span>Needs a server change (queued with the design lock-in)</span></div><div class="pad" style="padding-top:4px"><span class="btn-o">${I('add')}New key</span></div><div class="div" style="margin-top:16px"></div>` +
+            `<div class="lt">${I('filter_list', 'c-var')}<div class="tx"><span class="t1">See its events</span></div>${chev}</div><div class="lt">${I('pause_circle', 'c-var')}<div class="tx"><span class="t1">Disable</span><span class="t2n">Its keys stop working. Its events stay.</span></div></div>`;
+          const prow2 = (n, on) => `<div class="lt" style="min-height:64px"><span class="av g">${n[0]}</span><div class="tx"><span class="t1">${n}</span></div><span class="cb${on ? ' on' : ''}">${on ? I('check', 'ms18', 'font-size:16px;width:16px;height:16px') : ''}</span></div>`;
+          S.addp = sb('01:41') + ab('Who can see garage-door', { ic: 'close' }) + `<div class="pad"><p class="p" style="padding-bottom:8px">They can find it and subscribe. You choose; they don't get a request.</p></div>` + prow2('Ana', 1) + prow2('João', 0) + prow2('Marta', 1) + prow2('Rui', 0) + `<div style="flex:1"></div><div class="bar"><span class="btn-f"${N('f2')}>Save</span></div>`;
+
+          /* ---- flow 3: an admin invites a person, sets the role, revokes a device ---- */
+          const psec = (t, n, d) => `<div class="sec"><span class="st">${t}</span><span class="sn">${n}</span></div><p class="secd">${d}</p>`;
+          const prs = (init, name, sub, me, n) => `<div class="lt"${n ? N(n) : ''}><span class="av${me ? ' me' : ''}">${init}</span><div class="tx"><div class="nm"><span class="t1">${name}</span></div><span class="t2n">${sub}</span></div>${chev}</div>`;
+          const people = (rui) => sb('01:50') + `<div class="appbar"><div class="t pl">People</div><span class="ib">${I('search')}</span></div><div class="body">` +
+            psec('Admins', 2, 'Manage people and their devices, except other admins. Set on the admin page.') + prs('R', 'Rodrigo<span class="dtag">You</span>', '2 devices', 1) + prs('S', 'Sofia', '1 device') +
+            psec('Mods', 1, 'Manage their own devices, producers and subscriptions.') + prs('A', 'Ana', '2 devices') +
+            psec('Basic', rui ? 3 : 2, 'Create producers and subscribe. Their devices are read only.') + prs('J', 'João', '1 device') + prs('M', 'Marta', '1 device') + (rui ? prs('R', 'Rui', '1 device', 0, 'f3') : '') +
+            `</div><div class="fab"${rui ? '' : N('f3')}>${I('person_add')}Invite</div>` + nav('People', true, 3);
+          S.people = people(false);
+          S.people2 = people(true);
+          S.invite = sb('01:51') + ab('Invite someone', { ic: 'close' }) + `<div class="stack"><div class="tf focus"${N('f3@base')}><span class="fl">Their name</span><span${V('typed')}>Rui</span></div><div class="tf"><span class="fl mut">First device name (optional)</span><span class="ph2"${V('base')}>First device</span><span${V('typed')}>Rui - iPhone</span></div><div class="seg"><span class="on">${I('check', 'ms18')}Basic</span><span>Mod</span></div><p class="p">Basic: their own producers and subscriptions. Mod: also pairs and removes their own devices.</p><div style="display:flex;justify-content:flex-end"><span class="btn-f dis"${V('base')}>Make invitation</span><span class="btn-f"${V('typed')}${N('f3@typed')}>Make invitation</span></div></div>`;
+          S.qr = sb('01:51') + ab('Invite someone', { ic: 'close' }) + `<div class="stack"><p class="pb">Invitation for <b>Rui</b> · Basic · first device “Rui - iPhone”</p><div class="qr"${N('f3')}>pairing QR code</div><p class="cd">Rui scans this in SignalHub on their phone. <b>9:41</b> left.</p><div class="link">${PLINK}</div><div style="display:flex;gap:8px;justify-content:center"><span class="btn-t">${I('content_copy')}Copy link</span><span class="btn-o">${I('share')}Share</span></div><div class="note">${I('warning')}<span>Whoever uses this code joins as Rui. Share it only with Rui.</span></div></div>`;
+          S.joined = sb('01:56') + ab('Invite someone', { ic: 'close' }) + `<div class="stack"><div class="ok">${I('check_circle')}<span><b>Rui joined</b> on Rui - iPhone. The code can't be used again.</span></div><div class="qr gone">pairing QR code</div><div style="display:flex;justify-content:flex-end"><span class="btn-f"${N('f3')}>Done</span></div></div>`;
+          const dlgRole = `<div class="scrim"${V('dlg')}><div class="dlg"><h3>Make Rui a Mod?</h3><p class="p">Rui will be able to connect, rename, revoke and delete their own devices.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-x"${N('f3@dlg')}>Make Mod</span></div></div></div>`;
+          const dlgRev = `<div class="scrim"${V('rev')}><div class="dlg"><h3>Revoke Rui - iPhone?</h3><p class="p">It stops getting events at once and can't be used again. To use it again, Rui has to connect it with a new code. Rui's other devices and the admins are told.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-x err"${N('f3@rev')}>Revoke</span></div></div></div>`;
+          S.person = sb('01:52') + ab('Rui', { ic: 'arrow_back' }) + `<div class="lab">Role</div><div class="pad"><div class="seg"${V('base dlg')}><span class="on">${I('check', 'ms18')}Basic</span><span${N('f3@base')}>Mod</span><span class="dis">Admin</span></div><div class="seg"${V('mod rev done')}><span>Basic</span><span class="on">${I('check', 'ms18')}Mod</span><span class="dis">Admin</span></div></div><p class="p pad" style="padding-top:8px">Admin is set on the admin page, on the computer running SignalHub.</p><div class="lab">Devices</div>` +
+            `<div class="lt r4"${V('base dlg mod rev')}>${I('smartphone', 'c-var')}<div class="tx"><span class="t1">Rui - iPhone</span><span class="t2n">Last active today</span></div><span class="btn-x"${N('f3@mod')}>Revoke</span></div>` +
+            `<div class="note" style="margin:8px 16px"${V('base dlg mod rev')}>${I('info')}<span>Needs a server change (queued with the design lock-in)</span></div>` +
+            `<div class="lt off"${V('done')}>${I('smartphone', 'c-var')}<div class="tx"><span class="t1">Rui - iPhone</span><span class="t2n">Revoked 10 Oct</span></div></div>` +
+            `<div class="pad" style="padding-top:4px"><span class="btn-o">${I('add')}Pair a device for Rui</span></div><div class="lab">Producers</div><div class="lt"><span class="t2">Rui has no producers.</span></div>` + dlgRole + dlgRev;
+
+          /* ---- flow 4: a Mod's own devices, and signing in a browser ---- */
+          const setm = (devSub, hotDev, hotBrowser) => sb('20:04') + ab('Settings') + `<div class="body">` +
+            row3('notifications', 'Push filters', 'On · Low and up · 1 muted', I('expand_more', 'c-var')) + row3('volume_up', 'Alert', 'Chime · volume 70% · vibration', I('expand_more', 'c-var')) +
+            row3('devices', 'Devices', devSub, chev, hotDev) + row3('qr_code_scanner', 'Sign in a browser', 'Scan the code a web page shows', chev, hotBrowser) +
+            row3('info', 'About this server', 'signalhub.example · who can see what', I('expand_more', 'c-var')) +
+            row3('phone_android', 'This device', 'Ana - Pixel · Push notifications are on', I('expand_more', 'c-var')) + `</div>` + nav('Settings', false, 0);
+          S.modset = setm('2 devices · 1 browser', 'f4');
+          S.modset2 = setm('3 devices · 1 browser', null, 'f4');
+          const dev = (ic, name, sub, o) => { o = o || {}; return `<div class="lt r4"${o.v ? ' ' + V(o.v) : ''}>${I(ic, 'c-var')}<div class="tx"><div class="nm"><span class="t1">${name}</span>${o.tag ? `<span class="dtag">${o.tag}</span>` : ''}</div><span class="t2n">${sub}</span></div>${o.noMenu ? '' : `<span class="ib">${I('more_vert')}</span>`}</div>`; };
+          S.devs = sb('01:53') + ab('Devices', { ic: 'arrow_back', n: 'f4@more' }) + `<div class="lt"${N('f4@base')}>${I('add_circle', 'c-primary')}<div class="tx"><span class="t1">Connect a device</span><span class="t2n">Pair a new device with a one-time code</span></div></div><div class="lab">Yours</div>` +
+            row3('smartphone', 'Ana - Pixel', 'This device') + dev('smartphone', 'Ana - Phone 2', 'Last active today', { v: 'more' }) + dev('tablet', 'Ana - Tablet', 'Last active 3 days ago') + dev('language', 'Firefox on Linux', 'Last active 4 Oct', { tag: 'Browser' });
+          S.connname = sb('02:19') + ab('Connect a device', { ic: 'close' }) + `<div class="stack"><p class="pb">For Ana (you).</p><div class="tf focus"${N('f4@base')}><span class="fl">Name of the new device</span><span${V('base')}>&nbsp;</span><span${V('typed')}>Ana - Phone 2</span></div><p class="p">1 to 100 characters. You can rename it later.</p><div style="display:flex;justify-content:flex-end"><span class="btn-f dis"${V('base')}>Show code</span><span class="btn-f"${V('typed')}${N('f4@typed')}>Show code</span></div></div>`;
+          S.conn = sb('02:20') + ab('Connect a device', { ic: 'close' }) + `<div class="stack"><p class="pb">For Ana (you). New device: Ana - Phone 2. Scan this in SignalHub on the other device, or open the link there.</p><div class="qr"${N('f4')}>pairing QR code</div><p class="cd">Works once. <b>9:12</b> left.</p><div class="link">${PLINK}</div><div style="display:flex;gap:8px;justify-content:center"><span class="btn-t">${I('content_copy')}Copy link</span><span class="btn-o">${I('share')}Share</span></div><div class="note">${I('warning')}<span>Whoever uses this code gets a device of yours. Share it only with yourself.</span></div></div>`;
+          S.connused = sb('02:24') + ab('Connect a device', { ic: 'close' }) + `<div class="stack"><div class="ok">${I('check_circle')}<span><b>Connected.</b> Ana - Phone 2 used this code. It can't be used again.</span></div><div class="qr gone">pairing QR code</div><div style="display:flex;justify-content:flex-end"><span class="btn-f"${N('f4')}>Done</span></div></div>`;
+          S.scan = sb('20:05') + ab('Sign in a browser', { ic: 'close' }) + `<div class="scan2"${N('f4@base')}><div class="frame"></div>camera preview</div><div style="padding:0 16px 8px"><p class="p" style="text-align:center">Point the camera at the code on the page.</p></div><div style="display:flex;justify-content:center;padding-bottom:20px"><span class="btn-x">Type a code</span></div>` +
+            `<div class="scrim sh"${V('sheet')}></div><div class="sheet"${V('sheet')}><div class="handle"></div><h2>Sign in this browser?</h2><div class="sfact">${I('language')}<span><b>Firefox on Linux</b></span></div><div class="sfact">${I('schedule')}<span>Asked just now</span></div><p class="p" style="font-size:13px;line-height:18px">Only sign in a browser you are looking at right now. It can read and send what you can for 30 days, or until you sign it out.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-f"${N('f4@sheet')}>Sign in</span></div></div>`;
+          S.scandone = sb('20:05') + ab('Sign in a browser', { ic: 'close' }) + `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 28px 60px;text-align:center"><span class="okmark">${I('check')}</span><div style="font-size:20px;line-height:26px">Browser signed in</div><p class="p">Firefox on Linux can now use your SignalHub for 30 days. You can sign it out any time in Devices.</p><span class="btn-f" style="margin-top:8px">Done</span></div>`;
+
+          /* ---- flow 5: an existing device after the update ---- */
+          S.whatsnew = sb('09:12') + `<div class="appbar"><div class="t pl">Inbox</div><span class="ib">${I('filter_list')}</span></div><div class="card"><h3>What's new</h3><div class="fact">${I('dock_to_bottom')}<span><b>A bottom bar.</b> Inbox, Producers and Settings are one tap away.</span></div><div class="fact">${I('sensors')}<span><b>Producers.</b> Make your own, share them, and subscribe to others'.</span></div><div class="fact">${I('group')}<span><b>People.</b> Invite people and manage their devices.</span></div><div style="display:flex;justify-content:flex-end;gap:4px"><span class="btn-x" style="color:var(--on-primary-container)">See Producers</span><span class="btn-x" style="color:var(--on-primary-container)"${N('f5')}>Got it</span></div></div>` +
+            ev('info', 'c-primary', 'Backup finished', 'Info · Normal · home-server', '09:10', true).replace('t1b', 't1b') + ev('pan_tool', 'c-err', 'Disk at 80%', 'Action required · High · home-server', '08:50', false) + `<div style="flex:1"></div>` + nav('Inbox', true, 0);
+          S.inbox5 = sb('09:12') + `<div class="appbar"><div class="t pl">SignalHub</div><span class="ib">${I('filter_list')}</span><span class="ib">${I('done_all')}</span></div><div class="body">` +
+            ev('pan_tool', 'c-err', 'Your action: approve the release', 'Action required · High · ci-pipeline', '01:19', true) + ev('info', 'c-primary', 'Nightly backup finished', 'Info · Normal · backup-jobs', '00:41', true) + ev('block', 'c-err', 'Disk almost full on nas-01', 'Blocked · Critical · homelab-monitor', '00:36', true) +
+            ev('check_circle', 'c-var', 'Deploy to staging done', 'Completed · Low · ci-pipeline', '00:14', false) + ev('info', 'c-primary', 'Weekly report is ready', 'Info · Normal · ana-reports', 'Yesterday', false) + ev('check_circle', 'c-var', 'Photos synced', 'Completed · Low · backup-jobs', 'Yesterday', false) +
+            `</div>` + nav('Inbox', true, 3);
+
+          /* ---- flows ---- */
+          const F = {
+            f1: { name: '1 · An invited person\'s first run', steps: [
+              ['setup', 'Scan the invitation', 'Tap the camera preview to scan the code.'],
+              ['welcome', 'Welcome', 'Tap Later.'],
+              ['inbox0', 'Empty inbox', 'Tap Find producers.'],
+              ['prodcs', 'Producers, Can subscribe', 'Tap the bell of ana-reports to subscribe.'],
+              ['prodcs:sub', 'Subscribed, with the snackbar', 'Tap the Inbox tab.'],
+              ['inbox1', 'Back to the inbox, with an event', 'End of the flow.'] ] },
+            f2: { name: '2 · A new producer and its key', steps: [
+              ['prodmy', 'Producers', 'Tap New producer.'],
+              ['newp', 'New producer', 'Tap the Name field to type garage-door.'],
+              ['newp:typed', 'Name and Private', 'Tap Create.'],
+              ['key', 'The key, shown once', 'Tap Copy.'],
+              ['key:copied', 'Copied', 'Tap Done.'],
+              ['pp', 'The producer\'s page', 'Tap Add people.'],
+              ['addp', 'Add people', 'Tap Save.'],
+              ['pp:saved', 'Saved', 'End of the flow.'] ] },
+            f3: { name: '3 · Admin: invite, role, revoke', steps: [
+              ['people', 'People', 'Tap Invite.'],
+              ['invite', 'Invite someone', 'Tap the name field to type Rui.'],
+              ['invite:typed', 'Name and Basic', 'Tap Make invitation.'],
+              ['qr', 'The pairing QR', 'Tap the code to let Rui scan it.'],
+              ['joined', 'Rui joined', 'Tap Done.'],
+              ['people2', 'People, with Rui', 'Tap Rui.'],
+              ['person', 'Rui, Basic', 'Tap Mod.'],
+              ['person:dlg', 'Confirm the role', 'Tap Make Mod.'],
+              ['person:mod', 'Rui, Mod, and their devices', 'Tap Revoke on Rui - iPhone.'],
+              ['person:rev', 'Confirm the revoke', 'Tap Revoke.'],
+              ['person:done', 'Revoked', 'End of the flow.'] ] },
+            f4: { name: '4 · Mod: own devices, sign in a browser', steps: [
+              ['modset', 'Settings', 'Tap Devices.'],
+              ['devs', 'Devices (their own)', 'Tap Connect a device.'],
+              ['connname', 'Connect a device: name', 'Tap the Name field to type Ana - Phone 2.'],
+              ['connname:typed', 'Name of the new device', 'Tap Show code.'],
+              ['conn', 'Connect a device: the code', 'Tap the code to let the other device scan it.'],
+              ['connused', 'Used', 'Tap Done.'],
+              ['devs:more', 'Devices, with the new one', 'Tap the back arrow.'],
+              ['modset2', 'Settings', 'Tap Sign in a browser.'],
+              ['scan', 'The scanner', 'Tap the camera preview to scan the page\'s code.'],
+              ['scan:sheet', 'Sign in this browser?', 'Tap Sign in.'],
+              ['scandone', 'Browser signed in', 'End of the flow.'] ] },
+            f5: { name: '5 · An existing device after the update', steps: [
+              ['whatsnew', 'The What\'s new card', 'Tap Got it.'],
+              ['inbox5', 'The inbox, with the bottom bar', 'End of the flow.'] ] }
+          };
+
+          ph.innerHTML = Object.keys(S).map((id) => `<div class="scr" data-s="${id}" data-screen-label="${id}">${S[id]}</div>`).join('');
+          ph.querySelectorAll('[data-n]').forEach((e) => { e.setAttribute('role', 'button'); e.setAttribute('tabindex', '0'); });
+
+          let flow = 'f1', idx = 0, timer = null;
+          const root = document.getElementById('pt');
+          const $ = (id) => document.getElementById(id);
+          const isShown = (e) => e.getClientRects().length > 0;
+
+          const render = () => {
+            const steps = F[flow].steps;
+            const parts = steps[idx][0].split(':');
+            const id = parts[0], v = parts[1] || 'base';
+            ph.querySelectorAll('.scr').forEach((s) => { s.style.display = s.dataset.s === id ? 'flex' : 'none'; });
+            const scr = ph.querySelector('.scr[data-s="' + id + '"]');
+            scr.querySelectorAll('[data-vs]').forEach((e) => { e.style.display = e.dataset.vs.split(' ').indexOf(v) >= 0 ? '' : 'none'; });
+            scr.querySelectorAll('[data-n]').forEach((e) => {
+              const hot = e.dataset.n.split(' ').some((t) => { const q = t.split('@'); return q[0] === flow && (!q[1] || q[1] === v); }) && isShown(e);
+              e._hot = hot; e.classList.toggle('hot', hot);
+            });
+            $('fname').textContent = F[flow].name;
+            $('steps').innerHTML = steps.map((s, i) => `<li class="${i < idx ? 'done' : i === idx ? 'cur' : ''}"${i === idx ? ' aria-current="step"' : ''}><b>${i < idx ? '✓' : i + 1}</b>${s[1]}</li>`).join('');
+            $('cap').innerHTML = `<span>Step ${idx + 1} of ${steps.length}</span>${steps[idx][2]}`;
+            $('b-back').disabled = idx === 0;
+            document.querySelectorAll('#picker .pk').forEach((b) => { const on = b.dataset.f === flow; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+          };
+          const go = (i) => { clearTimeout(timer); idx = Math.max(0, Math.min(F[flow].steps.length - 1, i)); render(); };
+
+          $('picker').innerHTML = Object.keys(F).map((k) => `<button class="pk" type="button" role="tab" data-f="${k}">${F[k].name}</button>`).join('');
+          $('picker').addEventListener('click', (e) => { const b = e.target.closest('.pk'); if (b) { flow = b.dataset.f; go(0); } });
+          $('b-back').addEventListener('click', () => go(idx - 1));
+          $('b-restart').addEventListener('click', () => go(0));
+          $('b-hot').addEventListener('click', () => { const on = !root.classList.contains('nohot'); root.classList.toggle('nohot', on); $('b-hot').classList.toggle('on', !on); $('b-hot').setAttribute('aria-pressed', on ? 'false' : 'true'); });
+          const tap = (t) => { let e = t.closest('[data-n]'); while (e && !e._hot) e = e.parentElement && e.parentElement.closest('[data-n]'); if (e && e._hot) go(idx + (+e.dataset.by || 1)); };
+          ph.addEventListener('click', (ev2) => tap(ev2.target));
+          ph.addEventListener('keydown', (ev2) => { if (ev2.key === 'Enter' || ev2.key === ' ') { ev2.preventDefault(); tap(ev2.target); } });
+          go(0);
+        }
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

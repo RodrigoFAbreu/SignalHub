@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--tertiary-container:#5d3c55;--error:#ffb4ab;--on-error:#690005;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-lowest:#0d0e13;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f}
+          body{margin:0;background:#0b0c10;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          .dv-turn{padding:40px 44px 32px;background:#0b0c10}
+          .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+          .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#e4e1e9;color:#121318;border-radius:4px;text-decoration:none}
+          .dv-tname{font:600 14px/1.2 Roboto,sans-serif;color:#e4e1e9}
+          .dv-why{font:14px/20px Roboto,sans-serif;color:#c7c5d0;max-width:960px;margin:0 0 24px}
+          .dv-opts{display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start}
+          .dv-opt{display:flex;flex-direction:column;gap:10px}
+          .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#e4e1e9;border-radius:5px;text-decoration:none}
+          .dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 13px/1.3 Roboto,sans-serif;color:#e4e1e9}
+          .dv-onote{font:13px/19px Roboto,sans-serif;color:#9a98a3;margin:0;max-width:1000px;text-wrap:pretty}
+          .dv-opt:target .dv-oid{background:#bac3ff;color:#222c61}
+          .r66{font:12px/16px Roboto,sans-serif;color:#9a98a3;border:1px dashed #46464f;border-radius:6px;padding:4px 8px;align-self:flex-start}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .br{width:1280px;height:760px;background:var(--surface);border-radius:12px;border:1px solid #2c2d33;overflow:hidden;display:flex;flex-direction:column;flex:none}
+          .chrome{height:40px;flex:none;background:#1b1c21;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid #2c2d33}
+          .dots{display:flex;gap:6px}.dots span{width:10px;height:10px;border-radius:5px;background:#3a3b42}
+          .url{flex:1;height:26px;border-radius:13px;background:#0f1014;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;color:#9a98a3;white-space:nowrap;overflow:hidden;min-width:0}
+          .url .ms{font-size:14px;width:14px;height:14px}
+          .app{flex:1;display:flex;min-height:0;position:relative}
+          .rail{width:88px;flex:none;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0;background:var(--surface)}
+          .rlogo{width:40px;height:40px;border-radius:12px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+          .ri{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:500;color:var(--on-surface-variant)}
+          .ri .pill{width:56px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .ri.on{color:var(--on-surface)}
+          .ri.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .acct{margin-top:auto;width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center}
+          .acct.open{background:var(--secondary-container)}
+          .acct .av{background:var(--primary-container);color:var(--on-primary-container);font-size:16px;font-weight:500}
+          .menu{position:absolute;background:var(--sc-high);border-radius:12px;padding:8px 0;width:260px;box-shadow:0 4px 16px rgba(0,0,0,.5);z-index:3}
+          .mhead{padding:8px 16px 12px;border-bottom:1px solid var(--outline-variant);margin-bottom:4px}
+          .mhead .n{font-size:16px;line-height:24px}
+          .mhead .s{font-size:13px;line-height:18px;color:var(--on-surface-variant)}
+          .mi{display:flex;align-items:center;gap:12px;height:48px;padding:0 16px;font-size:14px;font-weight:500}
+          .nbadge{position:absolute;top:2px;left:32px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:var(--on-error);font-size:11px;line-height:16px;text-align:center;box-sizing:border-box}
+          .listp{width:420px;flex:none;display:flex;flex-direction:column;background:var(--sc-low);border-radius:16px 0 0 0;margin-top:8px;position:relative}
+          .detp{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--sc-low);margin:8px 8px 0 1px;border-radius:0 16px 0 0;padding:28px 40px;gap:16px;overflow:hidden}
+          .detp.prod{padding:16px 40px;gap:8px}
+          .phead{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px 0 20px}
+          .phead .t{font-size:22px;line-height:28px;flex:1}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .lt{display:flex;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .lt.sel{background:var(--secondary-container);border-radius:16px;margin:0 8px;padding-left:8px;padding-right:16px}
+          .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t1b{font-size:16px;line-height:24px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2n{font-size:14px;line-height:20px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2w{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .meta{display:flex;gap:12px;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .meta .m1{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .dot{width:10px;height:10px;border-radius:5px;background:var(--primary);flex:none}
+          .nodot{width:10px;flex:none}
+          .c-primary{color:var(--primary)}.c-error{color:var(--error)}.c-var{color:var(--on-surface-variant)}
+          .lab{font-size:14px;line-height:20px;font-weight:500;color:var(--primary);padding:16px 16px 4px}
+          .h{font-size:28px;line-height:36px;margin:0;font-weight:400;max-width:62ch}
+          .chips{display:flex;gap:8px;flex-wrap:wrap}
+          .chip{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 16px 0 8px;border:1px solid var(--outline);border-radius:8px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .chip .ms{font-size:18px;width:18px;height:18px}
+          .body{font-size:16px;line-height:24px;max-width:66ch;margin:0;text-wrap:pretty}
+          .kv{display:grid;grid-template-columns:120px 1fr;gap:8px 16px;font-size:14px;line-height:20px;max-width:640px}
+          .kv b{font-weight:500;color:var(--on-surface-variant)}
+          .btn-t{height:48px;border-radius:24px;background:var(--secondary-container);color:var(--on-secondary-container);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-f{height:48px;border-radius:24px;background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-o{height:48px;border-radius:24px;border:1px solid var(--outline);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-x{height:48px;border-radius:24px;color:var(--primary);display:inline-flex;align-items:center;gap:8px;padding:0 12px;font-size:14px;font-weight:500}
+          .btn-t .ms,.btn-o .ms,.btn-x .ms,.btn-f .ms{font-size:18px;width:18px;height:18px}
+          .focusring{outline:2px solid var(--primary);outline-offset:2px}
+          .row{display:flex;gap:8px;align-items:center}
+          .av{width:40px;height:40px;border-radius:20px;background:var(--sc-highest);color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;flex:none}
+          .tbtn{width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;flex:none}
+          .tbtn.on{color:var(--on-secondary-container)}
+          .tbtn.off{color:var(--on-surface-variant)}
+          .own{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;vertical-align:middle}
+          .lt.sel .own{background:var(--sc-high)}
+          .search{margin:0 16px 8px;height:48px;border-radius:24px;background:var(--sc-high);display:flex;align-items:center;gap:12px;padding:0 16px;color:var(--on-surface-variant);font-size:16px;flex:none}
+          .fchips{display:flex;gap:8px;padding:0 16px;flex:none;overflow:hidden}
+          .fc{height:32px;margin:8px 0;border-radius:8px;border:1px solid var(--outline);display:flex;align-items:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500;color:var(--on-surface-variant);box-sizing:border-box;white-space:nowrap;flex:none}
+          .fc.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container);padding-left:8px}
+          .fab{position:absolute;right:16px;bottom:16px;height:56px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;gap:12px;padding:0 20px 0 16px;font-size:14px;font-weight:500}
+          .seg{display:flex;border:1px solid var(--outline);border-radius:24px;overflow:hidden;height:48px;width:320px;box-sizing:border-box;flex:none}
+          .seg>span{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;border-left:1px solid var(--outline)}
+          .seg>span:first-child{border-left:0}
+          .seg>.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .pchip{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 12px 0 8px;border:1px solid var(--outline);border-radius:22px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .avs{width:24px;height:24px;border-radius:12px;background:var(--tertiary-container);color:#ffd8ee;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+          .keyrow{display:flex;align-items:center;gap:16px;max-width:640px;min-height:56px;padding:4px 0;border-top:1px solid var(--outline-variant)}
+          .mono{font-family:"Roboto Mono",monospace}
+          .sw{width:52px;height:32px;border-radius:16px;background:var(--primary);position:relative;flex:none}
+          .sw::after{content:"";position:absolute;right:4px;top:4px;width:24px;height:24px;border-radius:12px;background:var(--on-primary)}
+          .sw.off{background:var(--sc-highest);border:2px solid var(--outline);box-sizing:border-box}
+          .sw.off::after{right:auto;left:4px;top:2px;background:var(--outline);width:16px;height:16px;border-radius:8px;left:6px;top:6px}
+          .ph{width:390px;height:844px;background:var(--surface);border-radius:28px;border:1px solid #2c2d33;overflow:hidden;display:flex;flex-direction:column;flex:none;position:relative}
+          .phchrome{height:52px;flex:none;background:#1b1c21;display:flex;align-items:center;padding:16px 14px 8px;box-sizing:border-box}
+          .phchrome .url{height:30px;border-radius:15px}
+          .pbody{flex:1;overflow:hidden;display:flex;flex-direction:column}
+          .pform{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:16px;padding:8px 16px}
+          .nav{height:80px;flex:none;background:var(--sc);display:flex;padding:12px 8px 16px;box-sizing:border-box}
+          .nv{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant)}
+          .nv .pill{width:64px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .nv.on{color:var(--on-surface)}
+          .nv.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .nv .nbadge{left:36px}
+          .mini{width:32px;height:32px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500}
+          .tf{border:1px solid var(--outline);border-radius:4px;height:56px;display:flex;align-items:center;padding:0 16px;font-size:16px;position:relative;box-sizing:border-box}
+          .tf.focus{border:2px solid var(--primary);padding:0 15px}
+          .tf .fl{position:absolute;top:-9px;left:12px;padding:0 4px;background:var(--surface);font-size:12px;line-height:16px;color:var(--primary)}
+          .hint{font-size:12px;line-height:16px;color:var(--on-surface-variant);padding:0 16px;margin-top:-10px}
+        </style>
+      </helmet>
+
+      <section class="dv-turn" id="t7" data-screen-label="Turn 7: the web page">
+        <div class="dv-thd"><a class="dv-tid" href="#t7">7</a><span class="dv-tname">The web page: the same app, laid out for a big screen</span></div>
+        <p class="dv-why">The web page is the app in a browser: the same tabs, rows, wording and colors, so nothing has to be learnt twice. On a wide screen the bottom bar becomes a navigation rail and lists open their item beside them (list and detail); at phone width it is the app's layout. People is for admins only: the rail and the bottom bar do not show it to anyone else (7g). The Producers view follows the app's Producers tab (search plus filter chips All, Yours, Subscribed, Can subscribe; "Yours" is both the chip and the tag on a row), and a signed-in account menu with Sign out sits at the bottom of the rail on a desktop and at the top right on a phone. A producer's address uses its id (<code>#producers/01997d60-2f4b-7c3a…</code>), because a name can change when it is renamed. Settings, Devices, People and the key shown once are in <code>Web - Settings, people and states</code>. It only uses its own scripts and fonts it serves itself, so Roboto and the icons are bundled, not loaded from Google. Touch targets are 48 px or more (a 32 px chip has a 48 px hit area). Frames 7a to 7f sign in as Rodrigo (Admin); 7g signs in as Rui (Basic). Icon-only controls have accessible names: the account button is "Account menu, Rodrigo", the list's icons "Filter events" and "Mark all as read", the pencil "Rename NAME"; the account menu closes on Escape and returns focus to its button.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="7a" data-screen-label="7a Web inbox, desktop">
+            <div class="dv-olabel"><a class="dv-oid" href="#7a">7a</a>Inbox on a desktop (an admin's rail): list and the open event</div>
+            <div class="br">
+              <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox/01997d5e-8a3c-7b1e…</div></div>
+              <div class="app">
+                <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri on"><span class="pill"><span class="ms fill">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div><span class="acct" role="button" aria-label="Account menu, Rodrigo"><span class="av">R</span></span></div>
+                <div class="listp">
+                  <div class="phead"><div class="t">Inbox</div><span class="ib" role="button" aria-label="Filter events"><span class="ms">filter_list</span></span><span class="ib" role="button" aria-label="Mark all as read"><span class="ms">done_all</span></span></div>
+                  <sc-for list="{{ inbox }}" as="e" hint-placeholder-count="7">
+                    <div class="lt {{ e.sel }}" style="align-items:flex-start"><span class="ms {{ e.tone }}" style="margin-top:2px">{{ e.icon }}</span><div class="tx"><span class="{{ e.tcls }}">{{ e.title }}</span><div class="meta"><span class="m1">{{ e.meta }}</span><span>{{ e.time }}</span></div></div><span class="{{ e.dot }}" style="margin-top:7px"></span></div>
+                  </sc-for>
+                </div>
+                <div class="detp">
+                  <div class="row" style="justify-content:flex-end"><span class="btn-x focusring"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+                  <h1 class="h">Your action: approve the release</h1>
+                  <div class="chips"><span class="chip"><span class="ms">pan_tool</span>Action required</span><span class="chip"><span class="ms c-error">priority_high</span>High</span></div>
+                  <p class="body">The release of 3.0.0 is waiting at the approval gate. Check the changelog and the upgrade notes, then approve it in the pipeline.</p>
+                  <div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div>
+                  <div class="kv"><b>Producer</b><span>ci-pipeline</span><b>Context</b><span>release-3.0.0</span><b>Received</b><span>2026-10-10 01:19</span></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">Opening an event marks it read, as in the app; the selected row is highlighted, and the address keeps the open event's id so a reload returns to it. Keyboard: arrow keys move through the list, Enter opens. The focus ring (2 px primary, 2 px offset, never removed) is drawn on Mark as unread, the focused control here; rows, chips and buttons all show it, and hover and pressed use the design system's state layers (8 % and 10 %). This is an admin's rail: People is shown to admins only (the rail of anyone else has Inbox, Producers and Settings). The account button sits at the bottom of the rail (menu in 7b).</p>
+          </div>
+
+          <div class="dv-opt" id="7b" data-screen-label="7b Web producers, desktop">
+            <div class="dv-olabel"><a class="dv-oid" href="#7b">7b</a>Producers on a desktop: search, chips, your producer open beside the list, the account menu open</div>
+            <div class="br" style="height:900px">
+              <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers/01997d60-2f4b-7c3a…</div></div>
+              <div class="app">
+                <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="ri on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div><span class="acct open" role="button" aria-label="Account menu, Rodrigo"><span class="av">R</span></span></div>
+                <div class="menu" style="left:76px;bottom:12px">
+                  <div class="mhead"><div class="n">Rodrigo</div><div class="s">Admin · signed in on Firefox on Linux</div></div>
+                  <div class="mi"><span class="ms c-var">devices</span>Devices</div>
+                  <div class="mi"><span class="ms c-var">logout</span>Sign out</div>
+                </div>
+                <div class="listp">
+                  <div class="phead"><div class="t">Producers</div></div>
+                  <div class="search"><span class="ms">search</span>Find a producer</div>
+                  <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span></div>
+                  <sc-for list="{{ producers }}" as="p" hint-placeholder-count="6">
+                    <div class="lt {{ p.sel }}"><span class="av"><span class="ms">sensors</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></div>
+                  </sc-for>
+                  <div class="fab"><span class="ms">add</span>New producer</div>
+                </div>
+                <div class="detp prod">
+                  <div class="row"><h1 class="h">homelab-monitor</h1><span class="ib" role="button" aria-label="Rename homelab-monitor"><span class="ms">edit</span></span></div>
+                  <span class="t2n">Last event 00:36</span>
+                  <div class="lt" style="padding:0;max-width:640px"><span class="ms c-primary">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2w">Its events are in your inbox</span></div><span class="sw" role="switch" aria-checked="true"></span></div>
+                  <div class="lab" style="padding:8px 0 0">Who can see it</div>
+                  <div class="seg"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div>
+                  <span class="t2n">Shared with 2 people</span>
+                  <div class="chips"><span class="pchip"><span class="avs">A</span>Ana<span class="ms ms18 c-var">close</span></span><span class="pchip"><span class="avs">M</span>Marta<span class="ms ms18 c-var">close</span></span><span class="pchip" style="color:var(--primary)"><span class="ms ms18">person_add</span>Add people</span></div>
+                  <div class="lab" style="padding:8px 0 0">Keys</div>
+                  <div class="keyrow"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 27 Sep · last used 00:36</span></div><span class="btn-x">Revoke</span></div>
+                  <div class="keyrow"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 2 Oct · not used yet</span></div><span class="btn-x">Revoke</span></div>
+                  <div class="row"><span class="btn-o"><span class="ms">add</span>New key</span></div>
+                  <div class="keyrow"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+                  <div class="keyrow"><span class="ms c-var">pause_circle</span><div class="tx"><span class="t1">Disable</span><span class="t2w">Its keys stop working. Its events stay.</span></div></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">The list is the app's Producers tab: search, chips All, Yours, Subscribed, Can subscribe, rows with the Yours tag and the bell, a New producer button. The list leaves 88 px at its bottom so the last row scrolls clear of the button. Rows read <i>Private · 2 people · last event 00:36</i> or <i>Public · 2 keys · last event 01:19</i> for yours (the key count is the working keys) and <i>Ana · Public</i> for others'. Sorted Yours, then Subscribed, then Can subscribe, each A to Z. The producer beside it is the app's producer screen (2e), section for section and in the same order: the name with the rename pencil (a dialog, as in the app), the last event, the Subscribed switch (yours alone; the bell on the list is the same thing), who can see it, Shared with N people with the allowed people (only while Private), keys by prefix, New key, See its events (opens <code>#inbox</code> filtered to this producer) and Disable with its sentence. The key rows are two lines, so nothing truncates; their Revoke is a 48 px text button. The other states (every key revoked, disabled by you, disabled by the host) are the app's 2n, 2o and 2p, unchanged on the web. A new key is shown once in a dialog with the content of 2b (drawn in <code>Web - Settings, people and states</code>, 8e). The account menu shows who is signed in and where; Sign out ends this browser's session, and signing out on this page leaves the phone's app untouched.</p>
+            <p class="dv-onote">A key's second line reads "Created 27 Sep · last used 00:36" or "Created 2 Oct · not used yet". Needs a server change (queued with the design lock-in)</p>
+            <span class="r66">R66 decides: the wording of "signed in on…" in the account menu and what the Devices entry opens.</span>
+          </div>
+
+          <div class="dv-opt" id="7c" data-screen-label="7c Web at phone width">
+            <div class="dv-olabel"><a class="dv-oid" href="#7c">7c</a>The web page on a phone: inbox with the account button (an admin's bar)</div>
+            <div class="ph">
+              <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox</div></div>
+              <div class="phead" style="padding-left:16px"><div class="t">SignalHub</div><span class="ib" role="button" aria-label="Filter events"><span class="ms">filter_list</span></span><span class="ib" role="button" aria-label="Mark all as read"><span class="ms">done_all</span></span><span class="ib" role="button" aria-label="Account menu, Rodrigo"><span class="mini">R</span></span></div>
+              <div class="pbody">
+                <sc-for list="{{ phone }}" as="e" hint-placeholder-count="6">
+                  <div class="lt" style="align-items:flex-start"><span class="ms {{ e.tone }}" style="margin-top:2px">{{ e.icon }}</span><div class="tx"><span class="{{ e.tcls }}">{{ e.title }}</span><div class="meta"><span class="m1">{{ e.meta }}</span><span>{{ e.time }}</span></div></div><span class="{{ e.dot }}" style="margin-top:7px"></span></div>
+                </sc-for>
+              </div>
+              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Below about 840 px wide the rail turns into the bottom bar and an open event takes the whole screen, like the app. The account button moves to the app bar (menu in 7d). People is on this bar because this is an admin; everyone else gets three tabs (7g). Push alerts stay the app's job: the web page shows events, it doesn't notify.</p>
+          </div>
+
+          <div class="dv-opt" id="7d" data-screen-label="7d Web Producers at phone width">
+            <div class="dv-olabel"><a class="dv-oid" href="#7d">7d</a>The web page on a phone: Producers, account menu open</div>
+            <div class="ph">
+              <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers</div></div>
+              <div class="phead" style="padding-left:16px"><div class="t">Producers</div><span class="ib" role="button" aria-label="Account menu, Rodrigo"><span class="mini" style="outline:2px solid var(--primary)">R</span></span></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span></div>
+              <div class="pbody">
+                <sc-for list="{{ producers }}" as="p" hint-placeholder-count="6">
+                  <div class="lt"><span class="av"><span class="ms">sensors</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></div>
+                </sc-for>
+              </div>
+              <div class="fab" style="bottom:96px"><span class="ms">add</span>New producer</div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              <div class="menu" style="right:12px;top:112px">
+                <div class="mhead"><div class="n">Rodrigo</div><div class="s">Admin · signed in on Firefox on Linux</div></div>
+                <div class="mi"><span class="ms c-var">devices</span>Devices</div>
+                <div class="mi"><span class="ms c-var">logout</span>Sign out</div>
+              </div>
+            </div>
+            <p class="dv-onote">The same Producers view as the app, at its width: search, the chips (All, Yours, Subscribed, Can subscribe, each with a 48 px hit area), rows with the Yours tag and a 48 px bell, and the account menu open from the app bar's avatar. The list has 88 px of bottom padding so the last row scrolls clear of the New producer button. Tapping a row opens it (7e).</p>
+          </div>
+
+          <div class="dv-opt" id="7e" data-screen-label="7e Web producer detail at phone width">
+            <div class="dv-olabel"><a class="dv-oid" href="#7e">7e</a>A producer of yours at phone width, at an address that uses its id</div>
+            <div class="ph" style="height:1040px">
+              <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers/01997d60-2f4b-7c3a…</div></div>
+              <div class="phead" style="padding-left:4px"><span class="ib" role="button" aria-label="Back"><span class="ms">arrow_back</span></span><div class="t">homelab-monitor</div><span class="ib" role="button" aria-label="Rename homelab-monitor"><span class="ms">edit</span></span></div>
+              <div class="pform" style="gap:8px">
+                <span class="t2n">Last event 00:36</span>
+                <div class="lt" style="padding:0"><span class="ms c-primary">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2w">Its events are in your inbox</span></div><span class="sw" role="switch" aria-checked="true"></span></div>
+                <div class="lab" style="padding:8px 0 0">Who can see it</div>
+                <div class="seg" style="width:100%"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div>
+                <span class="t2n">Shared with 2 people</span>
+                <div class="chips"><span class="pchip"><span class="avs">A</span>Ana<span class="ms ms18 c-var">close</span></span><span class="pchip"><span class="avs">M</span>Marta<span class="ms ms18 c-var">close</span></span><span class="pchip" style="color:var(--primary)"><span class="ms ms18">person_add</span>Add people</span></div>
+                <div class="lab" style="padding:8px 0 0">Keys</div>
+                <div class="keyrow"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 27 Sep · last used 00:36</span></div><span class="btn-x">Revoke</span></div>
+                <div class="keyrow"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 2 Oct · not used yet</span></div><span class="btn-x">Revoke</span></div>
+                <div class="row"><span class="btn-o"><span class="ms">add</span>New key</span></div>
+                <div class="keyrow"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="keyrow"><span class="ms c-var">pause_circle</span><div class="tx"><span class="t1">Disable</span><span class="t2w">Its keys stop working. Its events stay.</span></div></div>
+              </div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The producer takes the whole screen (drawn tall here; on a phone it scrolls); the back arrow returns to the list with its search and chips kept. Same sections, in the same order, as the desktop pane (7b). The address ends in the producer's id, not its name, so a rename doesn't break a link or a reload. If the id isn't one the person can see, the page shows "This isn't here" (the 404 in <code>Web - Settings, people and states</code>, 8f). A key's Revoke and the buttons are 48 px tall.</p>
+          </div>
+
+          <div class="dv-opt" id="7f" data-screen-label="7f Web new producer form at phone width">
+            <div class="dv-olabel"><a class="dv-oid" href="#7f">7f</a>New producer at phone width, and someone else's producer</div>
+            <div class="pair-row" style="display:flex;gap:32px;align-items:flex-start">
+              <div class="ph">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers/new</div></div>
+                <div class="phead" style="padding-left:4px"><span class="ib" role="button" aria-label="Close"><span class="ms">close</span></span><div class="t">New producer</div></div>
+                <div class="pform">
+                  <p class="t2w" style="margin:0">A producer is anything that sends you events: a script, a CI pipeline, a home server. It gets its own key.</p>
+                  <div class="tf focus" style="margin-top:8px"><span class="fl">Name</span>weather-station</div>
+                  <div class="hint">Letters, numbers and . _ : / - only, starting with a letter or number. Others see this name.</div>
+                  <div class="lab" style="padding:0">Who can see it</div>
+                  <div class="seg" style="width:100%"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div>
+                  <div class="hint" style="margin-top:-8px">Only you, and people you add later. Anyone on this server can find and subscribe to a public producer.</div>
+                  <div style="flex:1"></div>
+                  <span class="btn-f" style="width:100%">Create</span>
+                </div>
+              </div>
+              <div class="ph">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers/01997d61-7e22-7d90…</div></div>
+                <div class="phead" style="padding-left:4px"><span class="ib" role="button" aria-label="Back"><span class="ms">arrow_back</span></span><div class="t">ana-reports</div></div>
+                <div class="pform" style="gap:10px">
+                  <span class="t2w">Ana's producer · Public · anyone on this server can subscribe</span>
+                  <div class="lt" style="padding:0"><span class="ms c-primary">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2w">Its events are in your inbox, and pushed as your filters allow. Turn it off and they leave your inbox; they come back if you subscribe again.</span></div><span class="sw" role="switch" aria-checked="true"></span></div>
+                  <div class="keyrow"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+                </div>
+                <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              </div>
+            </div>
+            <p class="dv-onote">Left: the new-producer form, with the app's strings (2a) and the same Create button; it closes with the x (the bottom bar is hidden while a form is open). A key is made after, and shown once (8e). Right: another person's producer, with the same Subscribed switch row as the app (2g) and no owner controls; the switch is the only way to subscribe, there is no separate button. This view has no list of who else subscribed. Someone else's producer that is disabled says "Disabled" in its list row.</p>
+          </div>
+
+          <div class="dv-opt" id="7h" data-screen-label="7h Web producer: only you, and a public one">
+            <div class="dv-olabel"><a class="dv-oid" href="#7h">7h</a>A producer that is only yours, and a public one</div>
+            <div class="pair-row" style="display:flex;gap:32px;align-items:flex-start">
+              <div class="ph" style="height:860px">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers/01997d62-0a15-7f43…</div></div>
+                <div class="phead" style="padding-left:4px"><span class="ib" role="button" aria-label="Back"><span class="ms">arrow_back</span></span><div class="t">weather-station</div><span class="ib" role="button" aria-label="Rename weather-station"><span class="ms">edit</span></span></div>
+                <div class="pform" style="gap:8px">
+                  <span class="t2n">No events yet</span>
+                  <div class="lt" style="padding:0"><span class="ms c-primary">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2w">Its events are in your inbox</span></div><span class="sw" role="switch" aria-checked="true"></span></div>
+                  <div class="lab" style="padding:8px 0 0">Who can see it</div>
+                  <div class="seg" style="width:100%"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div>
+                  <span class="t2n">Only you</span>
+                  <div class="chips"><span class="pchip" style="color:var(--primary)"><span class="ms ms18">person_add</span>Add people</span></div>
+                  <div class="lab" style="padding:8px 0 0">Keys</div>
+                  <div class="keyrow"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 10 Oct · not used yet</span></div><span class="btn-x">Revoke</span></div>
+                  <div class="row"><span class="btn-o"><span class="ms">add</span>New key</span></div>
+                  <div class="keyrow"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+                  <div class="keyrow"><span class="ms c-var">pause_circle</span><div class="tx"><span class="t1">Disable</span><span class="t2w">Its keys stop working. Its events stay.</span></div></div>
+                </div>
+              </div>
+              <div class="ph" style="height:860px">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers/01997d63-3b6e-7a08…</div></div>
+                <div class="phead" style="padding-left:4px"><span class="ib" role="button" aria-label="Back"><span class="ms">arrow_back</span></span><div class="t">ci-pipeline</div><span class="ib" role="button" aria-label="Rename ci-pipeline"><span class="ms">edit</span></span></div>
+                <div class="pform" style="gap:8px">
+                  <span class="t2n">Last event 01:19</span>
+                  <div class="lt" style="padding:0"><span class="ms c-primary">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2w">Its events are in your inbox</span></div><span class="sw" role="switch" aria-checked="true"></span></div>
+                  <div class="lab" style="padding:8px 0 0">Who can see it</div>
+                  <div class="seg" style="width:100%"><span>Private</span><span class="on"><span class="ms ms18">public</span>Public</span></div>
+                  <span class="t2w">Anyone on this server can find and subscribe to it.</span>
+                  <div class="lab" style="padding:8px 0 0">Keys</div>
+                  <div class="keyrow"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 1 Sep · last used 8 Oct</span></div><span class="btn-x">Revoke</span></div>
+                  <div class="keyrow"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 20 Sep · last used 01:19</span></div><span class="btn-x">Revoke</span></div>
+                  <div class="row"><span class="btn-o"><span class="ms">add</span>New key</span></div>
+                  <div class="keyrow"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+                  <div class="keyrow"><span class="ms c-var">pause_circle</span><div class="tx"><span class="t1">Disable</span><span class="t2w">Its keys stop working. Its events stay.</span></div></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">Left: a new Private producer with nobody added reads "Only you" (not "Shared with 0 people"); one person reads "Shared with 1 person", more "Shared with N people". Right: a Public producer shows no Shared with line, because the people it was shared with are kept but have no effect while it is public.</p>
+          </div>
+
+          <div class="dv-opt" id="7g" data-screen-label="7g Web bottom bar of a Basic or Mod user">
+            <div class="dv-olabel"><a class="dv-oid" href="#7g">7g</a>The bottom bar of anyone who is not an admin: no People (signed in as Rui, Basic)</div>
+            <div class="ph" style="height:420px">
+              <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox</div></div>
+              <div class="phead" style="padding-left:16px"><div class="t">SignalHub</div><span class="ib" role="button" aria-label="Account menu, Rui"><span class="mini">R</span></span></div>
+              <div class="pbody"><div class="lt"><span class="ms c-primary">info</span><div class="tx"><span class="t1b">Weekly report is ready</span><span class="t2n">Info · Normal · ana-reports</span></div><span class="dot"></span></div></div>
+              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Three tabs for a Basic or Mod user, and the same three in a desktop rail. The server refuses People's actions (invite, set a role, pair a device for someone) to anyone else, so a pasted <code>#people</code> address gets the page-not-found state.</p>
+          </div>
+
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        renderVals() {
+          const ev = (icon, tone, title, meta, time, unread, sel) => ({ icon, tone, title, meta, time, tcls: unread ? 't1b' : 't1', dot: unread ? 'dot' : 'nodot', sel: sel ? 'sel' : '' });
+          const inbox = [
+            ev('pan_tool', 'c-error', 'Your action: approve the release', 'Action required · High · ci-pipeline', '01:19', false, true),
+            ev('info', 'c-primary', 'Nightly backup finished', 'Info · Normal · backup-jobs', '00:41', true),
+            ev('block', 'c-error', 'Disk almost full on nas-01', 'Blocked · Critical · homelab-monitor', '00:36', true),
+            ev('check_circle', 'c-var', 'Deploy to staging done', 'Completed · Low · ci-pipeline', '00:14', false),
+            ev('info', 'c-primary', 'Weekly report is ready', 'Info · Normal · ana-reports', 'Yesterday', true),
+            ev('check_circle', 'c-var', 'Photos synced', 'Completed · Low · backup-jobs', 'Yesterday', false),
+            ev('info', 'c-primary', 'Certificate renewed', 'Info · Normal · homelab-monitor', 'Mon', false)
+          ];
+          const phone = inbox.slice(1, 7).map((e) => Object.assign({}, e, { sel: '' }));
+          const on = (name, sub, own, sel) => ({ name, sub, bell: 'on', fill: 'fill', icon: 'notifications_active', own: own ? 'own' : '', ownText: own ? 'Yours' : '', sel: sel ? 'sel' : '' });
+          const off = (name, sub) => ({ name, sub, bell: 'off', fill: '', icon: 'notifications', own: '', ownText: '', sel: '' });
+          const producers = [
+            on('ci-pipeline', 'Public · 2 keys · last event 01:19', true, false),
+            on('homelab-monitor', 'Private · 2 people · last event 00:36', true, true),
+            on('ana-reports', 'Ana · Public', false, false),
+            on('family-calendar', 'Ana · Private', false, false),
+            off('weather-alerts', 'João · Public'),
+            off('price-watch', 'João · Public')
+          ];
+          return { inbox, phone, producers };
+        }
+      }
+    </script>
+  </body>
+</html>

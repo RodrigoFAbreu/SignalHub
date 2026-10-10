@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--tertiary-container:#5d3c55;--error:#ffb4ab;--on-error:#690005;--error-container:#93000a;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-lowest:#0d0e13;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f}
+          body{margin:0;background:#0b0c10;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          .dv-turn{padding:40px 44px 32px;background:#0b0c10;border-bottom:1px solid rgba(255,255,255,.08)}
+          .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+          .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#e4e1e9;color:#121318;border-radius:4px;text-decoration:none}
+          .dv-tname{font:600 14px/1.2 Roboto,sans-serif;color:#e4e1e9}
+          .dv-why{font:14px/20px Roboto,sans-serif;color:#c7c5d0;max-width:960px;margin:0 0 24px}
+          .dv-opts{display:flex;flex-direction:column;gap:48px}
+          .dv-opt{display:flex;flex-direction:column;gap:10px}
+          .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#e4e1e9;border-radius:5px;text-decoration:none}
+          .dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 13px/1.3 Roboto,sans-serif;color:#e4e1e9}
+          .dv-onote{font:13px/19px Roboto,sans-serif;color:#9a98a3;margin:0;max-width:1000px;text-wrap:pretty}
+          .dv-opt:target .dv-oid{background:#bac3ff;color:#222c61}
+          .r66{font:12px/16px Roboto,sans-serif;color:#9a98a3;border:1px dashed #46464f;border-radius:6px;padding:4px 8px;align-self:flex-start}
+          .pair{display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .br{width:1280px;height:700px;background:var(--surface);border-radius:12px;border:1px solid #2c2d33;overflow:hidden;display:flex;flex-direction:column;flex:none;position:relative}
+          .br.md{width:900px;height:560px}
+          .chrome{height:40px;flex:none;background:#1b1c21;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid #2c2d33}
+          .dots{display:flex;gap:6px}.dots span{width:10px;height:10px;border-radius:5px;background:#3a3b42}
+          .url{flex:1;height:26px;border-radius:13px;background:#0f1014;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;color:#9a98a3;min-width:0;white-space:nowrap;overflow:hidden}
+          .url .ms{font-size:14px;width:14px;height:14px}
+          .app{flex:1;display:flex;min-height:0;position:relative}
+          .rail{width:88px;flex:none;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0;background:var(--surface)}
+          .rlogo{width:40px;height:40px;border-radius:12px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+          .ri{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:500;color:var(--on-surface-variant)}
+          .ri .pill{width:56px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .ri.on{color:var(--on-surface)}
+          .ri.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .acct{margin-top:auto;width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center}
+          .nbadge{position:absolute;top:2px;left:32px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:var(--on-error);font-size:11px;line-height:16px;text-align:center;box-sizing:border-box}
+          .listp{width:420px;flex:none;display:flex;flex-direction:column;background:var(--sc-low);border-radius:16px 0 0 0;margin-top:8px;position:relative;overflow:hidden}
+          .detp{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--sc-low);margin:8px 8px 0 1px;border-radius:0 16px 0 0;padding:28px 40px;gap:16px;overflow:hidden;position:relative}
+          .detp.solo{margin-left:0;border-radius:16px 16px 0 0}
+          .phead{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px 0 20px}
+          .phead .t{font-size:22px;line-height:28px;flex:1}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .lt{display:flex;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .lt.sel{background:var(--secondary-container);border-radius:16px;margin:0 8px;padding-left:8px;padding-right:16px}
+          .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2n{font-size:14px;line-height:20px;color:var(--on-surface-variant);overflow:hidden;text-overflow:ellipsis}
+          .t2n.nw{white-space:nowrap}
+          .c-primary{color:var(--primary)}.c-error{color:var(--error)}.c-var{color:var(--on-surface-variant)}
+          .lab{font-size:14px;line-height:20px;font-weight:500;color:var(--primary);padding:8px 0 0}
+          .h{font-size:28px;line-height:36px;margin:0;font-weight:400}
+          .h2{font-size:24px;line-height:32px;margin:0;font-weight:400}
+          .p{font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0;text-wrap:pretty}
+          .btn-f{height:48px;border-radius:24px;background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-f.off{background:rgba(228,225,233,.12);color:rgba(228,225,233,.38)}
+          .btn-t{height:48px;border-radius:24px;background:var(--secondary-container);color:var(--on-secondary-container);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-o{height:48px;border-radius:24px;border:1px solid var(--outline);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-x{height:48px;border-radius:24px;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500;flex:none}
+          .btn-x.er{color:var(--error)}
+          .btn-f .ms,.btn-t .ms,.btn-o .ms,.btn-x .ms{font-size:18px;width:18px;height:18px}
+          .full{display:flex;width:100%}
+          .row{display:flex;gap:8px;align-items:center}
+          .av{width:40px;height:40px;border-radius:20px;background:var(--sc-highest);color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;flex:none}
+          .avp{background:var(--primary-container);color:var(--on-primary-container);font-size:16px;font-weight:500}
+          .tag{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;vertical-align:middle}
+          .tag.me{background:var(--primary-container);color:var(--on-primary-container)}
+          .grp{border-radius:16px;background:var(--sc);overflow:hidden;max-width:640px}
+          .gh{display:flex;align-items:center;gap:16px;padding:12px 16px;min-height:64px;box-sizing:border-box}
+          .gh .tx{gap:0}
+          .gb{padding:0 0 8px;border-top:1px solid var(--outline-variant)}
+          .kvr{display:flex;align-items:center;gap:16px;padding:8px 16px;min-height:56px;box-sizing:border-box}
+          .fab{position:absolute;right:16px;bottom:16px;height:56px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;gap:12px;padding:0 20px 0 16px;font-size:14px;font-weight:500}
+          .seg{display:flex;border:1px solid var(--outline);border-radius:24px;overflow:hidden;height:48px;width:320px;box-sizing:border-box}
+          .seg>span{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;border-left:1px solid var(--outline)}
+          .seg>span:first-child{border-left:0}
+          .seg>.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .seg>.dis{color:rgba(228,225,233,.38)}
+          .scrim{position:absolute;inset:0;background:rgba(0,0,0,.6);z-index:5}
+          .dlgw{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:6;padding:16px}
+          .dlg{width:480px;max-width:100%;background:var(--sc-high);border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box}
+          .dlg .acts{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+          .tf{border:1px solid var(--outline);border-radius:4px;height:56px;display:flex;align-items:center;padding:0 16px;font-size:16px;position:relative;box-sizing:border-box}
+          .tf.focus{border:2px solid var(--primary);padding:0 15px}
+          .tf .fl{position:absolute;top:-9px;left:12px;padding:0 4px;background:var(--sc-high);font-size:12px;line-height:16px;color:var(--primary)}
+          .keybox{background:var(--sc-lowest);border:1px solid var(--outline-variant);border-radius:12px;padding:12px 16px;font:14px/22px "Roboto Mono",monospace;word-break:break-all}
+          .keybox.sel{border:2px solid var(--primary);padding:11px 15px}
+          .keybox.sel b{font-weight:400;background:var(--primary-container);color:var(--on-primary-container)}
+          .snip{background:var(--sc-lowest);border-radius:12px;padding:12px 16px;font:12px/18px "Roboto Mono",monospace;color:var(--on-surface-variant);white-space:pre-wrap;word-break:break-all}
+          .warn{display:flex;gap:12px;align-items:flex-start;background:var(--sc-highest);border-radius:12px;padding:12px 14px;font-size:14px;line-height:20px}
+          .warn .ms{color:var(--primary)}
+          .warn.er .ms{color:var(--error)}
+          .qr{width:176px;height:176px;border-radius:12px;background:repeating-linear-gradient(45deg,#e4e1e9 0 6px,#cfccd6 6px 12px);color:#121318;display:flex;align-items:center;justify-content:center;font:12px "Roboto Mono",monospace;margin:0 auto;flex:none}
+          .linkbox{background:var(--sc-lowest);border-radius:12px;padding:10px 14px;font:12px/18px "Roboto Mono",monospace;color:var(--on-surface-variant);word-break:break-all}
+          .rolesec{font-size:14px;line-height:20px;font-weight:500;color:var(--primary);padding:16px 16px 0}
+          .rolesub{font-size:13px;line-height:18px;color:var(--on-surface-variant);padding:0 16px 4px}
+          .ph{width:390px;height:760px;background:var(--surface);border-radius:28px;border:1px solid #2c2d33;overflow:hidden;display:flex;flex-direction:column;flex:none;position:relative}
+          .ph.s{height:620px}
+          .phchrome{height:52px;flex:none;background:#1b1c21;display:flex;align-items:center;padding:16px 14px 8px;box-sizing:border-box}
+          .phchrome .url{height:30px;border-radius:15px}
+          .pbody{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative}
+          .nav{height:80px;flex:none;background:var(--sc);display:flex;padding:12px 8px 16px;box-sizing:border-box}
+          .nv{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant)}
+          .nv .pill{width:64px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .nv.on{color:var(--on-surface)}
+          .nv.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .mini{width:32px;height:32px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500}
+          .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px 32px;text-align:center}
+          .empty>.ms{font-size:48px;width:48px;height:48px;color:var(--outline)}
+          .empty .h3{font-size:22px;line-height:28px;margin:0;font-weight:400;text-wrap:balance}
+          .banner{display:flex;gap:12px;align-items:center;background:var(--sc-high);color:var(--on-surface);padding:8px 8px 8px 16px;font-size:14px;line-height:20px;min-height:56px;box-sizing:border-box;flex:none}
+          .banner .tx{flex:1}
+          .skel{height:14px;border-radius:7px;background:var(--sc-highest)}
+        </style>
+      </helmet>
+
+      <section class="dv-turn" id="t8" data-screen-label="Turn 8: settings, devices, people, key and states on the web">
+        <div class="dv-thd"><a class="dv-tid" href="#t8">8</a><span class="dv-tname">The web page: settings, devices, people, the key shown once, and states</span></div>
+        <p class="dv-why">The rest of the web page, in the same layout as <code>Web - Inbox and producers</code>. Roles: every role signs in a browser, Basic included. People is for admins only: the rail and the bottom bar hide it for everyone else (so a Basic or Mod user sees Inbox, Producers, Settings). The web never gets pushes, so Settings has no push filters. All buttons and rows are at least 48 px tall. Frames with a People entry in the rail sign in as Rodrigo (Admin); frames without it sign in as Rui (Basic); a frame never mixes the two. Dashed notes marked R66 decides are left to that increment and are not specified here.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="8a" data-screen-label="8a Web Settings, desktop">
+            <div class="dv-olabel"><a class="dv-oid" href="#8a">8a</a>Settings on a desktop (Rodrigo, Admin): Devices, About this server, this browser</div>
+            <div class="br" style="height:900px">
+              <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#settings</div></div>
+              <div class="app">
+                <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div><span class="acct" role="button" aria-label="Account menu, Rodrigo"><span class="av avp">R</span></span></div>
+                <div class="detp solo">
+                  <h1 class="h">Settings</h1>
+                  <div class="grp"><div class="gh" style="min-height:72px"><span class="ms c-var">devices</span><div class="tx"><span class="t1">Devices</span><span class="t2n">4 devices · 2 browsers</span></div><span class="ms c-var">chevron_right</span></div></div>
+                  <div class="grp">
+                    <div class="gh"><span class="ms c-var">dns</span><div class="tx"><span class="t1">About this server</span><span class="t2n nw">signalhub.example</span></div><span class="ms c-var">expand_less</span></div>
+                    <div class="gb">
+                      <div class="kvr"><div class="tx"><span class="t2n">Server</span><span class="t1">https://signalhub.example</span></div></div>
+                      <div class="kvr"><div class="tx"><span class="t2n">Server version</span><span class="t1">SignalHub 3.4.0 · commit a1b2c3d</span></div></div>
+                      <div class="kvr"><span class="ms c-var">info</span><span class="p">The host runs this server and can see every event on it.</span></div>
+                    </div>
+                  </div>
+                  <div class="grp">
+                    <div class="gh"><span class="ms c-var">language</span><div class="tx"><span class="t1">This browser</span><span class="t2n nw">Firefox on Linux · signed in until 2026-11-09</span></div><span class="ms c-var">expand_less</span></div>
+                    <div class="gb">
+                      <div class="kvr"><div class="tx"><span class="t2n">Name</span><span class="t1">Firefox on Linux</span></div><span class="btn-x"><span class="ms">edit</span>Rename</span></div>
+                      <div class="kvr"><div class="tx"><span class="t2n">Signed in</span><span class="t1">2026-10-10 · lasts 30 days, until 2026-11-09</span></div></div>
+                      <div class="kvr"><div class="tx"><span class="t2n">This page</span><span class="t1">SignalHub 3.4.0 · commit a1b2c3d (sample)</span></div></div>
+                      <div class="kvr"><span class="btn-o"><span class="ms">logout</span>Sign out</span><span class="p">Signing out here leaves your phone's app untouched.</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">One Settings order on the web: Devices, About this server, then this browser. The app has one more row, Sign in a browser, that the web page does not: a browser cannot scan another browser's QR code, and signing in is always approved from the app. Same folding groups as the app, with their one-line summaries. There is no group for push filters, sound or vibration: the web page does not notify. About this server gives the server's address, version and commit, the host sentence, and the page's own build. The same screen for a Basic or Mod user is identical, apart from the rail having no People and the Devices summary counting only their own. The sign-in lasts a fixed 30 days; the date is shown, and nothing extends it.</p>
+            <span class="r66">Needs a server change (queued with the design lock-in)</span>
+          </div>
+
+          <div class="dv-opt" id="8b" data-screen-label="8b Sign out dialog and Settings at phone width">
+            <div class="dv-olabel"><a class="dv-oid" href="#8b">8b</a>Sign out: the confirmation, and Settings at phone width (Rui, Basic)</div>
+            <div class="pair">
+              <div class="br md">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#settings</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div></div>
+                  <div class="detp solo"><h1 class="h">Settings</h1><div class="skel" style="width:60%"></div><div class="skel" style="width:40%"></div></div>
+                  <div class="scrim"></div>
+                  <div class="dlgw"><div class="dlg" role="dialog">
+                    <h2 class="h2">Sign out of this browser?</h2>
+                    <p class="p" style="font-size:16px;line-height:24px">This browser stops being a device of yours. Your phone and your other devices are not affected.</p>
+                    <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x">Sign out</span></div>
+                  </div></div>
+                </div>
+              </div>
+              <div class="ph">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#settings</div></div>
+                <div class="phead" style="padding-left:16px"><div class="t">Settings</div><span class="ib" role="button" aria-label="Account menu, Rui"><span class="mini">R</span></span></div>
+                <div class="pbody" style="padding:0 16px;gap:12px">
+                  <div class="grp"><div class="gh" style="min-height:72px"><span class="ms c-var">devices</span><div class="tx"><span class="t1">Devices</span><span class="t2n">2 devices · 1 browser</span></div><span class="ms c-var">chevron_right</span></div></div>
+                  <div class="grp"><div class="gh"><span class="ms c-var">dns</span><div class="tx"><span class="t1">About this server</span><span class="t2n nw">signalhub.example</span></div><span class="ms c-var">expand_more</span></div></div>
+                  <div class="grp">
+                    <div class="gh"><span class="ms c-var">language</span><div class="tx"><span class="t1">This browser</span><span class="t2n nw">Safari on iPhone · until 2026-11-09</span></div><span class="ms c-var">expand_less</span></div>
+                    <div class="gb">
+                      <div class="kvr"><div class="tx"><span class="t2n">Name</span><span class="t1">Safari on iPhone</span></div><span class="btn-x">Rename</span></div>
+                      <div class="kvr"><span class="btn-o full" style="justify-content:center"><span class="ms">logout</span>Sign out</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div></div>
+              </div>
+            </div>
+            <p class="dv-onote">Left: the confirmation, with the words "This browser stops being a device of yours." Both actions are text buttons: Cancel and Sign out in the primary colour, because signing out is ordinary and reversible (an error colour is for revoking and deleting). Cancel is the default; the dialog closes on Escape. After Sign out the page shows the sign-in page (6a), with no message beyond a plain "You're signed out". Right: the phone-width Settings of a Basic user, whose bottom bar has three tabs: People is for admins only.</p>
+          </div>
+
+          <div class="dv-opt" id="8c" data-screen-label="8c Web Devices">
+            <div class="dv-olabel"><a class="dv-oid" href="#8c">8c</a>Devices (Rui, Basic): browsers carry a globe and a "Browser" tag; revoking one</div>
+            <div class="pair">
+              <div class="br" style="width:880px">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#settings/devices</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div></div>
+                  <div class="detp solo" style="padding:0">
+                    <div class="phead"><span class="ib" role="button" aria-label="Back"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+                    <div class="rolesec">Your devices</div>
+                    <div class="lt"><span class="av"><span class="ms">smartphone</span></span><div class="tx"><span class="t1">Rui - iPhone</span><span class="t2n">Last active 3 days ago</span></div></div>
+                    <div class="lt"><span class="av"><span class="ms">language</span></span><div class="tx"><span class="t1">Firefox on Linux<span class="tag">Browser</span><span class="tag me">This browser</span></span><span class="t2n">Signed in 2026-10-10 · until 2026-11-09</span></div></div>
+                    <div class="lt"><span class="av"><span class="ms">language</span></span><div class="tx"><span class="t1">Chrome on Windows<span class="tag">Browser</span></span><span class="t2n">Signed in 2026-10-02</span></div><span class="btn-x er">Revoke</span></div>
+                    <div class="lt"><span class="av"><span class="ms">language</span></span><div class="tx"><span class="t1 c-var">Safari on Mac<span class="tag">Browser</span><span class="tag">Revoked</span></span><span class="t2n">Revoked 2026-09-30</span></div><span class="btn-x er">Delete</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="br md" style="height:420px">
+                <div class="app" style="position:relative">
+                  <div class="detp solo" style="margin:0;border-radius:0"><div class="lt"><span class="av"><span class="ms">language</span></span><div class="tx"><span class="t1">Chrome on Windows<span class="tag">Browser</span></span></div></div></div>
+                  <div class="scrim"></div>
+                  <div class="dlgw"><div class="dlg" role="dialog">
+                    <h2 class="h2">Revoke Chrome on Windows?</h2>
+                    <p class="p" style="font-size:16px;line-height:24px">It is signed out at once and stops being a device of yours. You can sign it in again later from your phone.</p>
+                    <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x er">Revoke</span></div>
+                  </div></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">The app's Devices list with browsers added: the globe icon and a "Browser" tag after the name, and "This browser" on the current one, which has no Revoke (use Sign out in Settings). Rows say when a device was last active, or when a browser signed in. A Basic user sees and can revoke their own browsers only (the Revoke and Delete here follow that). A revoked browser stays listed until deleted, like any device. Revoking a browser signs it out on its next request (see 6f). The dialog's Revoke is an error-coloured text button, as in the app.</p>
+            <span class="r66">Needs a server change (queued with the design lock-in)</span>
+            <span class="r66">R66 decides: which of Rename, Revoke and Delete a Basic user has on their own browsers.</span>
+          </div>
+
+          <div class="dv-opt" id="8c2" data-screen-label="8c2 Web Devices, an admin's grouped list">
+            <div class="dv-olabel"><a class="dv-oid" href="#8c2">8c2</a>Devices as an admin sees them (Rodrigo): grouped by person</div>
+            <div class="br" style="width:880px;height:760px">
+              <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#settings/devices</div></div>
+              <div class="app">
+                <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div></div>
+                <div class="detp solo" style="padding:0">
+                  <div class="phead"><span class="ib" role="button" aria-label="Back"><span class="ms">arrow_back</span></span><div class="t">Devices</div></div>
+                  <div class="rolesec">Rodrigo<span class="tag me">You</span></div>
+                  <div class="lt"><span class="av"><span class="ms">smartphone</span></span><div class="tx"><span class="t1">Rodrigo - Pixel 9<span class="tag me">Admin device</span></span><span class="t2n">Last active today</span></div><span class="ib" role="button" aria-label="More actions for Rodrigo - Pixel 9"><span class="ms">more_vert</span></span></div>
+                  <div class="lt"><span class="av"><span class="ms">language</span></span><div class="tx"><span class="t1">Firefox on Linux<span class="tag">Browser</span><span class="tag me">This browser</span></span><span class="t2n">Signed in 2026-10-10 · until 2026-11-09</span></div></div>
+                  <div class="rolesec">Ana</div>
+                  <div class="lt"><span class="av"><span class="ms">smartphone</span></span><div class="tx"><span class="t1">Ana - Pixel</span><span class="t2n">Last active 4 Oct</span></div><span class="btn-x er">Revoke</span><span class="ib" role="button" aria-label="More actions for Ana - Pixel"><span class="ms">more_vert</span></span></div>
+                  <div class="lt"><span class="av"><span class="ms">language</span></span><div class="tx"><span class="t1">Chrome on Windows<span class="tag">Browser</span></span><span class="t2n">Signed in 2026-10-02</span></div><span class="btn-x er">Revoke</span><span class="ib" role="button" aria-label="More actions for Chrome on Windows"><span class="ms">more_vert</span></span></div>
+                  <div class="lt"><span class="av"><span class="ms">tablet</span></span><div class="tx"><span class="t1 c-var">Ana - Tablet<span class="tag">Revoked</span></span><span class="t2n">Revoked 2026-10-04</span></div><span class="btn-x er">Delete</span></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">The same grouped list as the app's admin Devices (3h): one section per person, the admin's own first, each row with Rename and Revoke in its menu (the menu button is "More actions for NAME"), and Delete on a revoked one. An admin device has no Revoke here: admin devices are managed on the admin page. Admins see every device except that other admins' are read only.</p>
+          </div>
+
+          <div class="dv-opt" id="8d" data-screen-label="8d Web People (admins only)">
+            <div class="dv-olabel"><a class="dv-oid" href="#8d">8d</a>People, admins only (Rodrigo): list, a person open, and Invite: the form, then the QR code</div>
+            <div class="pair">
+              <div class="br">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#people/01997d64-91c0-7e55…</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri on"><span class="pill"><span class="ms fill">group</span></span>People</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div><span class="acct" role="button" aria-label="Account menu, Rodrigo"><span class="av avp">R</span></span></div>
+                  <div class="listp">
+                    <div class="phead"><div class="t">People</div><span class="ib" role="button" aria-label="Search people"><span class="ms">search</span></span></div>
+                    <div class="rolesec" style="padding-top:0">Admins</div>
+                    <div class="rolesub">Manage people and their devices, except other admins. Set on the admin page.</div>
+                    <div class="lt"><span class="av avp">R</span><div class="tx"><span class="t1">Rodrigo<span class="tag me">You</span></span><span class="t2n nw">2 devices</span></div></div>
+                    <div class="rolesec">Mods</div>
+                    <div class="rolesub">Manage their own devices, producers and subscriptions.</div>
+                    <div class="lt sel"><span class="av">A</span><div class="tx"><span class="t1">Ana</span><span class="t2n nw">2 devices</span></div></div>
+                    <div class="rolesec">Basic</div>
+                    <div class="rolesub">Create producers and subscribe. Their devices are read only.</div>
+                    <div class="lt"><span class="av">J</span><div class="tx"><span class="t1">João</span><span class="t2n nw">1 device</span></div></div>
+                    <div class="lt"><span class="av">M</span><div class="tx"><span class="t1">Marta</span><span class="t2n nw">Invited · not paired yet</span></div></div>
+                    <div class="fab"><span class="ms">person_add</span>Invite</div>
+                  </div>
+                  <div class="detp">
+                    <h1 class="h">Ana</h1>
+                    <span class="t2n">Mod</span>
+                    <div class="lab">Role</div>
+                    <div class="seg" style="width:400px"><span><span class="ms ms18">visibility</span>Basic</span><span class="on"><span class="ms ms18">check</span>Mod</span><span class="dis" role="radio" aria-disabled="true" aria-label="Admin, not available. Set on the admin page">Admin</span></div>
+                    <span class="t2n">Admin is set on the admin page, on the computer running SignalHub.</span>
+                    <div class="lab">Devices</div>
+                    <div class="lt" style="padding-left:0"><span class="av"><span class="ms">smartphone</span></span><div class="tx"><span class="t1">Ana - Pixel</span><span class="t2n">Last active 4 Oct</span></div><span class="btn-x er">Revoke</span></div>
+                    <div class="lab">Producers</div>
+                    <div class="lt" style="padding-left:0"><span class="av"><span class="ms">sensors</span></span><div class="tx"><span class="t1">ana-reports</span><span class="t2n">Public</span></div></div>
+                    <div class="lt" style="padding-left:0"><span class="av"><span class="ms">sensors</span></span><div class="tx"><span class="t1">garage-door</span><span class="t2n">Private · Disabled</span></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="br md" style="height:560px">
+                <div class="app">
+                  <div class="detp solo" style="margin:0;border-radius:0"><h1 class="h">People</h1><div class="skel" style="width:50%"></div></div>
+                  <div class="scrim"></div>
+                  <div class="dlgw"><div class="dlg" role="dialog">
+                    <h2 class="h2">Invite someone</h2>
+                    <div class="tf focus" style="margin-top:8px"><span class="fl">Their name</span>Marta</div>
+                    <div class="seg" style="width:100%"><span class="on"><span class="ms ms18">check</span>Basic</span><span>Mod</span><span class="dis" role="radio" aria-disabled="true" aria-label="Admin, not available. Set on the admin page">Admin</span></div>
+                    <p class="p">Basic: their own producers and subscriptions. Mod: also pairs and removes their own devices.</p>
+                    <div class="tf"><span class="fl" style="color:var(--on-surface-variant)">First device name</span>Marta - phone</div>
+                    <div class="acts"><span class="btn-x">Cancel</span><span class="btn-f">Make invitation</span></div>
+                  </div></div>
+                </div>
+              </div>
+              <div class="br md" style="height:700px">
+                <div class="app">
+                  <div class="detp solo" style="margin:0;border-radius:0"><h1 class="h">People</h1><div class="skel" style="width:50%"></div></div>
+                  <div class="scrim"></div>
+                  <div class="dlgw"><div class="dlg" role="dialog">
+                    <h2 class="h2">Invite Marta</h2>
+                    <p class="p" style="font-size:16px;line-height:24px">Marta opens the SignalHub app and scans this code, or pastes the link below. It works once and runs out in 10 minutes.</p>
+                    <div class="qr">pairing QR code</div>
+                    <div class="linkbox">signalhub://pair?server=https%3A%2F%2Fsignalhub.example&amp;code=shpc1_…</div>
+                    <div class="row" style="justify-content:center"><span class="btn-o"><span class="ms">content_copy</span>Copy link</span></div>
+                    <div class="acts"><span class="btn-f">Done</span></div>
+                  </div></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">People mirrors the app's People tab (list by role with the role's one-line explanation, a person with Basic or Mod, devices and producers). The route uses the person's id, not the name. Admin is drawn but not available: it is set on the admin page. Invite is the app's 3d: first the form (name, Basic or Mod, an optional first device name), then the pairing QR on screen, which the invitee's phone scans from the admin's browser: that works, since the QR is not for this browser. The link is the real form (<code>signalhub://pair?server=…&amp;code=shpc1_…</code>, shortened here); there is no typed code. Non-admins never see this section: the rail entry is hidden and the address <code>#people</code> shows the not-found state in 8h.</p>
+            <p class="dv-onote">What the API gives: the list comes from <code>GET /api/v1/client/users</code>, which has only <code>role</code>, <code>activeDevices</code> and <code>hasPaired</code> for each person. So a row's second line is only “N devices”, “Invited · not paired yet” when they have never paired, or “No devices” when they paired before and have none active now. A person's page asks for their producers separately, with <code>GET /api/v1/client/users/{id}/producers</code> (id, name, visibility, disabled), and shows each one's name with Public or Private and “Disabled” when it is. There is no joined date: the API does not give one.</p>
+          </div>
+
+          <div class="dv-opt" id="8e" data-screen-label="8e The key shown once, as a web dialog">
+            <div class="dv-olabel"><a class="dv-oid" href="#8e">8e</a>A new key, shown once: the dialog (the content of 2b), with Share when the browser has it</div>
+            <div class="pair">
+              <div class="br md" style="height:700px">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers/01997d60-2f4b-7c3a…</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="ri on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+                  <div class="detp solo"><h1 class="h">homelab-monitor</h1><div class="skel" style="width:50%"></div></div>
+                  <div class="scrim"></div>
+                  <div class="dlgw"><div class="dlg" role="dialog" aria-labelledby="k1">
+                    <h2 class="h2" id="k1">homelab-monitor is ready</h2>
+                    <div class="warn"><span class="ms">visibility_off</span><span>Shown once. You won't see this key again. If you lose it, make a new key on the producer's screen.</span></div>
+                    <div class="keybox">shpk1_EXAMPLEKEY-not-a-real-key-0000</div>
+                    <div class="row"><span class="btn-t"><span class="ms">check</span>Copied</span><span class="btn-t"><span class="ms">share</span>Share</span></div>
+                    <div class="lab" style="padding:0">To send a test event</div>
+                    <div class="snip">curl -X POST https://signalhub.example/api/v1/events \
+  -H "Authorization: Bearer shpk1_EXAMPLEKEY-not-a-real-key-0000" \
+  -H "Content-Type: application/json" \
+  -d '{"category":"INFO","severity":"NORMAL","title":"Hello"}'</div>
+                    <div class="acts"><span class="btn-f full" style="justify-content:center">Done</span></div>
+                  </div></div>
+                </div>
+              </div>
+              <div class="br md" style="height:700px">
+                <div class="app">
+                  <div class="detp solo" style="margin:0;border-radius:0"><h1 class="h">homelab-monitor</h1></div>
+                  <div class="scrim"></div>
+                  <div class="dlgw"><div class="dlg" role="dialog">
+                    <h2 class="h2">New key for homelab-monitor</h2>
+                    <div class="warn er"><span class="ms">content_paste_off</span><span>This browser did not allow copying. The key is selected below: press Ctrl+C (Cmd+C on a Mac) to copy it. Don't close this until you have.</span></div>
+                    <div class="keybox sel"><b>shpk1_EXAMPLEKEY-not-a-real-key-0000</b></div>
+                    <div class="row"><span class="btn-t"><span class="ms">content_copy</span>Try copy again</span></div>
+                    <div class="lab" style="padding:0">To send a test event</div>
+                    <div class="snip">curl -X POST https://signalhub.example/api/v1/events \
+  -H "Authorization: Bearer shpk1_EXAMPLEKEY-not-a-real-key-0000" \
+  -H "Content-Type: application/json" \
+  -d '{"category":"INFO","severity":"NORMAL","title":"Hello"}'</div>
+                    <div class="acts"><span class="btn-f full" style="justify-content:center">I have saved the key</span></div>
+                  </div></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">The titles are the app's: "NAME is ready" for a new producer's first key, "New key for NAME" for another key. Left (after Copy): Copy has turned into Copied and stays that way for as long as the dialog is open; the primary button becomes Done. Share is drawn only when the browser has the Web Share API (<code>navigator.share</code>); otherwise the row has Copy alone, and nothing is greyed out or explained. Right (no Share here either): the clipboard was denied, so the key is selected in its box, the warning says how to copy by hand, and the primary button is "I have saved the key", which asks nothing more. In both, Escape and a click on the scrim do nothing: the key can only be left with the button, so it isn't lost by accident. Focus starts on Copy; the key text is selectable. The example needs only curl and sends the fields the server requires (category and severity).</p>
+          </div>
+
+          <div class="dv-opt" id="8f" data-screen-label="8f Empty, 404, offline, load error">
+            <div class="dv-olabel"><a class="dv-oid" href="#8f">8f</a>Empty, not found, offline and load error (phone width; the same words on a desktop)</div>
+            <div class="pair">
+              <div class="ph s">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox</div></div>
+                <div class="phead" style="padding-left:16px"><div class="t">SignalHub</div><span class="ib" role="button" aria-label="Account menu, Rui"><span class="mini">R</span></span></div>
+                <div class="empty"><span class="ms">inbox</span><h2 class="h3">Nothing here yet</h2><p class="p">Events from the producers you subscribed to will show up here.</p><span class="btn-t" style="margin-top:8px">Find producers</span></div>
+                <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              </div>
+              <div class="ph s">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox/01997d65-c2d1-7a30…</div></div>
+                <div class="phead"><span class="ib" role="button" aria-label="Back"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+                <div class="empty"><span class="ms">search_off</span><h2 class="h3">This isn't here</h2><p class="p">It may have been deleted, or it isn't one of yours.</p><span class="btn-t" style="margin-top:8px">Back to the inbox</span></div>
+                <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              </div>
+              <div class="ph s">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox</div></div>
+                <div class="phead" style="padding-left:16px"><div class="t">SignalHub</div><span class="ib" role="button" aria-label="Account menu, Rui"><span class="mini">R</span></span></div>
+                <div class="banner"><span class="ms">cloud_off</span><span class="tx">You're offline. This is what was loaded at 18:12. Changes are paused until you're back.</span></div>
+                <div class="lt" style="align-items:flex-start"><span class="ms c-error" style="margin-top:2px">block</span><div class="tx"><span class="t1">Disk almost full on nas-01</span><span class="t2n nw">Blocked · Critical · homelab-monitor</span></div></div>
+                <div class="lt" style="align-items:flex-start"><span class="ms c-primary" style="margin-top:2px">info</span><div class="tx"><span class="t1">Nightly backup finished</span><span class="t2n nw">Info · Normal · backup-jobs</span></div></div>
+                <div style="flex:1"></div>
+                <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              </div>
+              <div class="ph s">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox</div></div>
+                <div class="phead" style="padding-left:16px"><div class="t">SignalHub</div><span class="ib" role="button" aria-label="Account menu, Rui"><span class="mini">R</span></span></div>
+                <div class="empty"><span class="ms">error_outline</span><h2 class="h3">Couldn't load your events</h2><p class="p">SignalHub didn't answer. Check your connection and try again.</p><span class="btn-f" style="margin-top:8px"><span class="ms">refresh</span>Try again</span></div>
+                <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              </div>
+            </div>
+            <p class="dv-onote">In order: the empty inbox (the button goes to Producers); a deep link to an event that isn't in the inbox (the same copy for "deleted" and "not yours", so it reveals nothing); offline, with what was already loaded kept on screen and a banner with no button (surface container high, like the app's banners; it retries by itself and the banner goes away); a failed load with a Try again button. The address stays as it was in each. Empty-state titles are 22/28 over a 48 px outline-coloured icon, as in the design system. On a desktop, the empty detail pane beside the list says "Select an event" and the 404 sits in the detail pane with the list still beside it (8g). These frames are Rui's (Basic).</p>
+          </div>
+
+          <div class="dv-opt" id="8g" data-screen-label="8g Desktop empty detail pane">
+            <div class="dv-olabel"><a class="dv-oid" href="#8g">8g</a>Desktop: nothing selected, and a missing event beside the list</div>
+            <div class="pair">
+              <div class="br md" style="height:420px">
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div></div>
+                  <div class="listp" style="width:340px"><div class="phead"><div class="t">Inbox</div></div><div class="lt"><span class="ms c-error">block</span><div class="tx"><span class="t1">Disk almost full on nas-01</span><span class="t2n nw">Blocked · homelab-monitor</span></div></div><div class="lt"><span class="ms c-primary">info</span><div class="tx"><span class="t1">Nightly backup finished</span><span class="t2n nw">Info · backup-jobs</span></div></div></div>
+                  <div class="detp"><div class="empty"><span class="ms">inbox</span><h2 class="h3">Select an event</h2><p class="p">Pick one from the list to read it here.</p></div></div>
+                </div>
+              </div>
+              <div class="br md" style="height:420px">
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div></div>
+                  <div class="listp" style="width:340px"><div class="phead"><div class="t">Inbox</div></div><div class="lt"><span class="ms c-error">block</span><div class="tx"><span class="t1">Disk almost full on nas-01</span><span class="t2n nw">Blocked · homelab-monitor</span></div></div></div>
+                  <div class="detp"><div class="empty"><span class="ms">search_off</span><h2 class="h3">This isn't here</h2><p class="p">It may have been deleted, or it isn't one of yours.</p><span class="btn-t" style="margin-top:8px">Back to the inbox</span></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="8h" data-screen-label="8h Page not found">
+            <div class="dv-olabel"><a class="dv-oid" href="#8h">8h</a>An address that is not a page (for example People for a non-admin)</div>
+            <div class="pair">
+              <div class="br md" style="height:420px">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#people</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+                  <div class="detp solo"><div class="empty"><span class="ms">search_off</span><h2 class="h3">This page isn't here</h2><p class="p">Check the address, or go back to your inbox.</p><span class="btn-t" style="margin-top:8px">Go to the inbox</span></div></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">Used for any unknown address, including <code>#people</code> for someone who isn't an admin (the server refuses its actions too). It does not say that the page exists.</p>
+          </div>
+
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

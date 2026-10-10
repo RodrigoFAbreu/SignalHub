@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono-400-500.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#515b92;--on-primary:#ffffff;--primary-container:#dee0ff;--on-primary-container:#394379;--secondary-container:#e0e1f9;--on-secondary-container:#434659;--tertiary-container:#ffd7f1;--on-tertiary-container:#5d3c55;--error:#ba1a1a;--on-error:#ffffff;--error-container:#ffdad6;--on-error-container:#93000a;--inv-surface:#303036;--on-inv:#f2eff7;--inv-primary:#bac3ff;--surface:#fbf8ff;--on-surface:#1b1b21;--on-surface-variant:#46464f;--sc-lowest:#ffffff;--sc-low:#f5f2fa;--sc:#efedf4;--sc-high:#e9e7ef;--sc-highest:#e4e1e9;--outline:#767680;--outline-variant:#c7c5d0}
+          body{margin:0;background:#e9e7ef;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          .dv-turn{padding:40px 44px 32px;background:#e9e7ef}
+          .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+          .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1b1b21;color:#fff;border-radius:4px;text-decoration:none}
+          .dv-tname{font:600 14px/1.2 Roboto,sans-serif}
+          .dv-why{font:14px/20px Roboto,sans-serif;color:#46464f;max-width:900px;margin:0 0 24px}
+          .dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+          .dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;width:412px}
+          .dv-opt.w{width:auto}
+          .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1b1b21;border-radius:5px;text-decoration:none}
+          .dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 13px/1.3 Roboto,sans-serif}
+          .dv-onote{font:13px/19px Roboto,sans-serif;color:#5e5d66;margin:0;text-wrap:pretty;max-width:900px}
+          .dv-opt:target .dv-oid{background:#515b92;color:#fff}
+          .ph{width:412px;height:892px;background:var(--surface);border-radius:28px;border:1px solid #d6d4dc;overflow:hidden;display:flex;flex-direction:column;position:relative}
+          .ph.s{height:660px}
+          .sb{height:28px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:13px}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .appbar{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 4px 0 16px}
+          .appbar .t{font-size:22px;line-height:28px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .body{flex:1;overflow:hidden;display:flex;flex-direction:column}
+          .lt{display:flex;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .lt.r4{padding-right:4px}
+          .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t1b{font-size:16px;line-height:24px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2n{font-size:14px;line-height:20px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2n.e{color:var(--error)}
+          .meta{display:flex;gap:12px;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .meta .m1{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .dot{width:10px;height:10px;border-radius:5px;background:var(--primary);flex:none}
+          .nodot{width:10px;flex:none}
+          .p{font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0;text-wrap:pretty}
+          .c-primary{color:var(--primary)}.c-error{color:var(--error)}.c-var{color:var(--on-surface-variant)}
+          .lab{font-size:14px;line-height:20px;font-weight:500;color:var(--primary);padding:16px 16px 4px}
+          .sec{display:flex;align-items:center;gap:8px;padding:16px 16px 0}
+          .sec .st{font-size:14px;line-height:20px;font-weight:500;color:var(--primary)}
+          .sec .sn{font-size:12px;line-height:16px;color:var(--on-surface-variant)}
+          .secd{font-size:13px;line-height:18px;color:var(--on-surface-variant);padding:2px 16px 4px;margin:0;text-wrap:pretty}
+          .nav{height:80px;flex:none;background:var(--sc);display:flex;padding:12px 8px 16px;box-sizing:border-box}
+          .nv{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant)}
+          .nv .pill{width:64px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .nv.on{color:var(--on-surface)}
+          .nv.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .nbadge{position:absolute;top:2px;left:36px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:var(--on-error);font-size:11px;line-height:16px;text-align:center;box-sizing:border-box}
+          .av{width:40px;height:40px;border-radius:20px;background:var(--sc-highest);color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;flex:none;font-size:16px;font-weight:500}
+          .av.u{background:var(--tertiary-container);color:var(--on-tertiary-container)}
+          .av.me{background:var(--primary-container);color:var(--on-primary-container)}
+          .bw{width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex:none}
+          .tbtn{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box}
+          .tbtn.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .tbtn.off{border:1px solid var(--outline);color:var(--on-surface-variant)}
+          .tbtn.dis{opacity:.38}
+          .fab{position:absolute;right:16px;bottom:96px;height:56px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;gap:12px;padding:0 20px 0 16px;font-size:14px;font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+          .search{margin:4px 16px 8px;height:56px;border-radius:28px;background:var(--sc-high);display:flex;align-items:center;gap:16px;padding:0 16px;color:var(--on-surface-variant);font-size:16px;flex:none}
+          .fchips{display:flex;gap:8px;padding:0 16px 8px;flex:none;overflow:hidden}
+          .fc{height:32px;border-radius:8px;border:1px solid var(--outline);display:flex;align-items:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500;color:var(--on-surface-variant);box-sizing:border-box;white-space:nowrap;flex:none}
+          .fc.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container);padding-left:8px}
+          .own{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;vertical-align:middle}
+          .own.me{background:var(--primary-container);color:var(--on-primary-container)}
+          .stack{display:flex;flex-direction:column;gap:16px;padding:8px 16px 0}
+          .key{font-family:"Roboto Mono",ui-monospace,monospace;font-size:14px;line-height:22px;word-break:break-all;background:var(--sc-high);border-radius:12px;padding:12px 16px}
+          .code{font-family:"Roboto Mono",ui-monospace,monospace;font-size:12px;line-height:18px;background:var(--sc);border-radius:12px;padding:12px 14px;color:var(--on-surface-variant);white-space:pre-wrap;word-break:break-all}
+          .btn-f{height:40px;border-radius:20px;background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-w{flex:1;height:48px;border-radius:24px}
+          .btn-t{height:40px;border-radius:20px;background:var(--secondary-container);color:var(--on-secondary-container);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500}
+          .btn-o{height:40px;border-radius:20px;border:1px solid var(--outline);color:var(--primary);display:inline-flex;align-items:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-o .ms,.btn-t .ms,.btn-f .ms{font-size:18px;width:18px;height:18px}
+          .btn-x{height:48px;min-width:48px;border-radius:24px;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;padding:0 12px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-x.dng{color:var(--error)}
+          .warn{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:20px;background:var(--sc-low);border-radius:12px;padding:12px 16px}
+          .bn{display:flex;gap:12px;align-items:center;border-radius:12px;padding:4px 4px 4px 16px;min-height:56px;margin:0 16px 8px;box-sizing:border-box;font-size:14px;line-height:20px}
+          .bn>.tx{flex:1;padding:8px 0}
+          .bn.err{background:var(--error-container);color:var(--on-error-container)}
+          .bn.neu{background:var(--sc-high);color:var(--on-surface)}
+          .snack{position:absolute;left:8px;right:8px;bottom:96px;min-height:48px;box-sizing:border-box;border-radius:4px;background:var(--inv-surface);color:var(--on-inv);display:flex;align-items:center;gap:8px;padding:6px 8px 6px 16px;font-size:14px;line-height:20px;z-index:4}
+          .snack>span{flex:1}
+          .snack>b{font-weight:500;color:var(--inv-primary);min-height:48px;min-width:48px;display:flex;align-items:center;justify-content:center;padding:0 8px;box-sizing:border-box}
+          .dim{opacity:.55}
+          .scrim{position:absolute;inset:0;background:rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center;padding:0 24px;z-index:5}
+          .dlg{background:var(--sc-high);border-radius:28px;padding:24px;width:100%;box-sizing:border-box}
+          .dlg h4{margin:0 0 16px;font-size:24px;line-height:32px;font-weight:400}
+          .dlg p{margin:0;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:24px}
+          .mono{font-family:"Roboto Mono",ui-monospace,monospace}
+          .div{height:1px;background:var(--outline-variant);margin:8px 0}
+
+          .br{width:960px;height:600px;background:var(--surface);border-radius:12px;border:1px solid #d6d4dc;overflow:hidden;display:flex;flex-direction:column;flex:none;position:relative}
+          .br.tall{width:1180px;height:760px}
+          .chrome{height:40px;flex:none;background:#e4e1e9;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid var(--outline-variant)}
+          .dots{display:flex;gap:6px}.dots span{width:10px;height:10px;border-radius:5px;background:#c7c5d0}
+          .url{flex:1;height:26px;border-radius:13px;background:var(--surface);display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;color:var(--on-surface-variant);min-width:0;white-space:nowrap;overflow:hidden}
+          .url .ms{font-size:14px;width:14px;height:14px}
+          .page{flex:1;display:flex;align-items:center;justify-content:center;padding:32px;flex-direction:column}
+          .card{width:420px;background:var(--sc-low);border:1px solid var(--outline-variant);border-radius:24px;padding:32px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box}
+          .h{font-size:24px;line-height:32px;margin:0;font-weight:400}
+          .brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:500}
+          .logo{width:28px;height:28px;border-radius:8px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center}
+          .logo .ms{font-size:18px;width:18px;height:18px}
+          .qr{width:168px;height:168px;border-radius:12px;background:repeating-linear-gradient(45deg,#1b1b21 0 6px,#ffffff 6px 12px);border:12px solid #ffffff;outline:1px solid var(--outline-variant);box-sizing:border-box;margin:0 auto;flex:none}
+          .qrw{display:flex;justify-content:center}
+          .wait{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--on-surface-variant);justify-content:center}
+          .spin{width:18px;height:18px;border-radius:9px;border:2px solid var(--outline-variant);border-top-color:var(--primary);box-sizing:border-box}
+          .wcode{font:500 26px/32px "Roboto Mono",monospace;letter-spacing:4px;text-align:center;background:var(--sc-highest);border-radius:12px;padding:12px}
+          .wbtn{height:48px;border-radius:24px;background:var(--primary);color:var(--on-primary);display:flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .wbtn .ms{font-size:18px;width:18px;height:18px}
+          .wbtno{height:48px;border-radius:24px;border:1px solid var(--outline);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .wbtno .ms{font-size:18px;width:18px;height:18px}
+          .steps{margin:0;padding-left:20px;font-size:14px;line-height:22px;color:var(--on-surface-variant)}
+          .mchrome{height:36px;flex:none;background:#e4e1e9;display:flex;align-items:center;padding:0 10px;border-bottom:1px solid var(--outline-variant)}
+          .mpage{flex:1;padding:20px 16px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+          .app{flex:1;display:flex;min-height:0;position:relative}
+          .rail{width:88px;flex:none;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0;background:var(--surface)}
+          .rlogo{width:40px;height:40px;border-radius:12px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+          .ri{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:500;color:var(--on-surface-variant)}
+          .ri .pill{width:56px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .ri.on{color:var(--on-surface)}
+          .ri.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .ri .nbadge{left:32px}
+          .acct{margin-top:auto;width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center}
+          .detp{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--sc-low);margin:8px 0 0 0;border-radius:16px 0 0 0;padding:28px 40px;gap:16px;overflow:hidden}
+          .wh{font-size:28px;line-height:36px;margin:0;font-weight:400}
+          .grp{border-radius:16px;background:var(--sc);overflow:hidden;max-width:640px;flex:none}
+          .gh{display:flex;align-items:center;gap:16px;padding:12px 16px;min-height:64px;box-sizing:border-box}
+          .gb{padding:0 0 8px;border-top:1px solid var(--outline-variant)}
+          .kvr{display:flex;align-items:center;gap:16px;padding:8px 16px;min-height:56px;box-sizing:border-box}
+          .wbn{display:flex;align-items:center;gap:12px;background:var(--sc-high);color:var(--on-surface);padding:4px 8px 4px 16px;min-height:56px;font-size:14px;line-height:20px;box-sizing:border-box}
+          .wbn>.tx{flex:1}
+          .wbn .btn-x{color:var(--primary)}
+          .t2nw{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+        </style>
+      </helmet>
+
+      <section class="dv-turn" id="t5" data-screen-label="Turn 5: light theme check">
+        <div class="dv-thd"><a class="dv-tid" href="#t5">5</a><span class="dv-tname">Light theme check: the key screens with the light roles</span></div>
+        <p class="dv-why">The app follows the phone's light or dark mode. These are the decided screens, <a class="dv-oid" href="#5a">5a</a> the inbox (1a), <a class="dv-oid" href="#5b">5b</a> Producers (1d), <a class="dv-oid" href="#5c">5c</a> the key shown once (2b) and <a class="dv-oid" href="#5d">5d</a> People (3b), with only the color roles swapped to the light scheme from the same indigo seed. Nothing is styled per theme.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="5a" data-screen-label="5a Inbox, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#5a">5a</a>Inbox</div>
+            <div class="ph">
+              <div class="sb"><span>11:20</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">SignalHub</div><span class="ib"><span class="ms">filter_list</span></span><span class="ib"><span class="ms">done_all</span></span></div>
+              <div class="body">
+                <sc-for list="{{ inbox }}" as="e" hint-placeholder-count="5">
+                  <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms {{ e.tone }}" style="margin-top:2px">{{ e.icon }}</span><div class="tx"><span class="{{ e.tcls }}">{{ e.title }}</span><div class="meta"><span class="m1">{{ e.meta }}</span><span>{{ e.time }}</span></div></div><span class="{{ e.dot }}" style="margin-top:7px"></span></div>
+                </sc-for>
+              </div>
+              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Severity still reads by color and icon: error-red for high and critical, primary for normal, plain for low. The app bar has Filter and Mark all as read; Settings is the tab.</p>
+          </div>
+
+          <div class="dv-opt" id="5b" data-screen-label="5b Producers, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#5b">5b</a>Producers (search and chips)</div>
+            <div class="ph">
+              <div class="sb"><span>11:20</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span></div>
+              <div class="body">
+                <sc-for list="{{ producers }}" as="p" hint-placeholder-count="6">
+                  <div class="lt r4"><span class="av"><span class="ms">{{ p.av }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n {{ p.subcls }}">{{ p.sub }}</span></div><span class="bw"><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></span></div>
+                </sc-for>
+              </div>
+              <div class="fab"><span class="ms">add</span>New producer</div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">The subscribed bell keeps its contrast in light mode: a tonal fill against an outline (4.3:1 for the outline against the surface, above the 3:1 needed). The search field is one container step darker than the surface. The chip is called Yours, like the tag.</p>
+          </div>
+
+          <div class="dv-opt" id="5c" data-screen-label="5c Key, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#5c">5c</a>Key shown once (full screen)</div>
+            <div class="ph">
+              <div class="sb"><span>11:21</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar" style="padding-left:4px"><span class="ib" aria-label="Close"><span class="ms">close</span></span><div class="t">garage-door is ready</div></div>
+              <div class="stack">
+                <p class="p" style="color:var(--on-surface)">This is its key. Put it where the producer runs; it sends events with it.</p>
+                <div class="key">shpk1_EXAMPLEKEY-not-a-real-key-0000</div>
+                <div style="display:flex;gap:8px"><span class="btn-t"><span class="ms">content_copy</span>Copy</span><span class="btn-o"><span class="ms">share</span>Share</span></div>
+                <div class="warn"><span class="ms c-var">visibility_off</span><span>Shown once. You won't see this key again. If you lose it, make a new key on the producer's screen.</span></div>
+                <div class="lab" style="padding:4px 0 0">To send a test event</div>
+                <div class="code">curl -X POST https://signalhub.example/api/v1/events \
+  -H "Authorization: Bearer shpk1_EXAMPLEKEY-not-a-real-key-0000" \
+  -H "Content-Type: application/json" \
+  -d '{"category":"INFO","severity":"NORMAL","title":"Hello"}'</div>
+              </div>
+              <div style="flex:1"></div>
+              <div style="display:flex;padding:16px"><span class="btn-f btn-w"><span class="ms">content_copy</span>Copy and close</span></div>
+            </div>
+            <p class="dv-onote">Monospace key on a container one step darker than the surface; readable in daylight. The warning sits on its own low container so it doesn't rely on color. The Close icon at the top left (named "Close") and the system Back go through the same guard as in the dark design; Copied stays on this screen while it is open.</p>
+          </div>
+
+          <div class="dv-opt" id="5d" data-screen-label="5d People, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#5d">5d</a>People (3b, sections by role)</div>
+            <div class="ph">
+              <div class="sb"><span>11:22</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t" style="padding-left:0">People</div><span class="ib"><span class="ms">search</span></span></div>
+              <div class="body">
+                <div class="sec"><span class="st">Admins</span><span class="sn">2</span></div>
+                <p class="secd">Manage people and their devices, except other admins. Set on the admin page.</p>
+                <div class="lt"><span class="av me">R</span><div class="tx"><span class="t1">Rodrigo<span class="own me">You</span></span><span class="t2n">2 devices</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="lt"><span class="av">S</span><div class="tx"><span class="t1">Sofia</span><span class="t2n">1 device</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="sec"><span class="st">Mods</span><span class="sn">1</span></div>
+                <p class="secd">Manage their own devices, producers and subscriptions.</p>
+                <div class="lt"><span class="av u">A</span><div class="tx"><span class="t1">Ana</span><span class="t2n">2 devices</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="sec"><span class="st">Basic</span><span class="sn">3</span></div>
+                <p class="secd">Create producers and subscribe. Their devices are read only.</p>
+                <div class="lt"><span class="av u">J</span><div class="tx"><span class="t1">João</span><span class="t2n">1 device</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="lt"><span class="av u">M</span><div class="tx"><span class="t1">Marta</span><span class="t2n">1 device</span></div><span class="ms c-var">chevron_right</span></div>
+                <div class="lt"><span class="av u">R</span><div class="tx"><span class="t1">Rui</span><span class="t2n">Invited · not paired yet</span></div><span class="ms c-var">chevron_right</span></div>
+              </div>
+              <div class="fab"><span class="ms">person_add</span>Invite</div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv on"><span class="pill"><span class="ms fill">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Roles are told apart by their section and its explanation, not by color. A second admin is listed like the first; the empty Mods or Basic section would be left out. A row's second line is only the active device count, “Invited · not paired yet”, or “No devices”: the admin list call gives only role, active device count and whether the person has paired. Producers are on the person's own page.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t6" data-screen-label="Turn 6: light states and feedback" style="border-top:1px solid #d6d4dc">
+        <div class="dv-thd"><a class="dv-tid" href="#t6">6</a><span class="dv-tname">Light theme: producer row states, a dialog, a snackbar and the banners</span></div>
+        <p class="dv-why"><a class="dv-oid" href="#5e">5e</a> is the Producers tab with every row state (1g). <a class="dv-oid" href="#5f">5f</a> is the confirmation dialog (2i) and <a class="dv-oid" href="#5g">5g</a> the snackbar with Retry (1i). <a class="dv-oid" href="#5h">5h</a> is the offline banner (4j) and <a class="dv-oid" href="#5i">5i</a> the error banner (2p). The light error is #ba1a1a, the error banner is errorContainer #ffdad6 with onErrorContainer #93000a, the snackbar inverseSurface #303036. Contrast was checked for every pair (see the notes under each frame); none needed changing.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="5e" data-screen-label="5e Producer rows by state, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#5e">5e</a>Producers: the row in each state</div>
+            <div class="ph">
+              <div class="sb"><span>11:24</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span></div>
+              <div class="body">
+                <sc-for list="{{ states }}" as="p" hint-placeholder-count="7">
+                  <div class="lt r4"><span class="av"><span class="ms">{{ p.av }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n {{ p.subcls }}">{{ p.sub }}</span></div><span class="bw"><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></span></div>
+                </sc-for>
+              </div>
+              <div class="fab"><span class="ms">add</span>New producer</div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Top to bottom: yours and public; yours and paused by you; yours and disabled by the host (the summary in error color, #ba1a1a on #fbf8ff is 6.1:1); someone's producer you are subscribed to and have muted on this device; a private producer shared with you; disabled, which says only Disabled because the server does not tell who disabled someone else's producer; not subscribed. The tags (Yours) are 7.2:1; the avatars' pause and block icons are state, backed by the words in the summary.</p>
+          </div>
+
+          <div class="dv-opt" id="5f" data-screen-label="5f Confirmation dialog, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#5f">5f</a>Confirmation dialog: revoke a key</div>
+            <div class="ph">
+              <div class="sb"><span>11:25</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar" style="padding-left:4px"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">homelab-monitor</div></div>
+              <div class="dim"><div class="lab">Keys</div><div class="lt r4"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE1…</span><span class="t2n">Created 27 Sep · last used 00:36</span></div><span class="btn-x">Revoke</span></div><div class="lt r4"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE2…</span><span class="t2n">Created 2 Oct · not used yet</span></div><span class="btn-x">Revoke</span></div></div>
+              <div class="scrim"><div class="dlg">
+                <h4>Revoke this key?</h4>
+                <p>shpk1_EXAMPLE1… stops working at once, and whatever sends with it is turned away. This can't be undone.</p>
+                <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x dng">Revoke</span></div>
+              </div></div>
+            </div>
+            <p class="dv-onote">The dialog sits on surfaceContainerHigh (#e9e7ef) over a 32% black scrim (Material's light scrim; the dark scheme uses 62%). Body text #46464f on it is 7.6:1; the Revoke action, an error-coloured text button (#ba1a1a), is 5.3:1 on the dialog. Key rows show when each key was last used. Needs a server change (queued with the design lock-in).</p>
+          </div>
+
+          <div class="dv-opt" id="5g" data-screen-label="5g Snackbar, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#5g">5g</a>Snackbar: a change failed, with Retry</div>
+            <div class="ph s">
+              <div class="sb"><span>11:26</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="body">
+                <sc-for list="{{ failed }}" as="p" hint-placeholder-count="4">
+                  <div class="lt r4"><span class="av"><span class="ms">{{ p.av }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="bw"><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></span></div>
+                </sc-for>
+              </div>
+              <div class="snack"><span>Couldn't subscribe to price-watch. Try again.</span><b>Retry</b></div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">A dark snackbar on a light screen, as Material draws it: text #f2eff7 on #303036 is 11.5:1 and the Retry action #bac3ff is 7.7:1. The bell went back to what it was.</p>
+          </div>
+
+          <div class="dv-opt" id="5h" data-screen-label="5h Offline banner, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#5h">5h</a>Offline banner: an older list</div>
+            <div class="ph s">
+              <div class="sb"><span>11:27</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><div class="t">Producers</div></div>
+              <div class="search"><span class="ms">search</span>Find a producer</div>
+              <div class="bn neu"><span class="ms c-var">cloud_off</span><span class="tx">You're offline. This is the list from 18:12. Changes are paused until you're back.</span></div>
+              <div class="body">
+                <sc-for list="{{ offline }}" as="p" hint-placeholder-count="3">
+                  <div class="lt r4"><span class="av"><span class="ms">{{ p.av }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="bw"><span class="tbtn dis {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></span></div>
+                </sc-for>
+              </div>
+              <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+            </div>
+            <p class="dv-onote">Neutral on purpose: being offline is not an error. Text #1b1b21 on surfaceContainerHigh is 14:1, the icon #46464f 7.6:1. The greyed bells are disabled controls, which have no contrast requirement; the banner says why.</p>
+          </div>
+
+          <div class="dv-opt" id="5i" data-screen-label="5i Error banner, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#5i">5i</a>Error banner: disabled by the host</div>
+            <div class="ph s">
+              <div class="sb"><span>11:28</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar" style="padding-left:4px"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">old-sensor</div><span class="ib"><span class="ms">edit</span></span></div>
+              <div class="bn err"><span class="ms">block</span><span class="tx">Disabled by the host. Its keys don't work. Ask the host to enable it.</span></div>
+              <div class="lt"><span class="ms c-primary fill">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2n">Its events are in your inbox</span></div></div>
+              <div class="lab">Keys</div>
+              <div class="lt r4" style="min-height:72px"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 14 Aug · last used 12 Sep</span><span class="t2n">Not working while disabled</span></div><span class="btn-x dng">Revoke</span></div>
+              <div class="bn err" style="margin-top:16px"><span class="ms">cloud_off</span><span class="tx">SignalHub had a problem. Try again in a moment.</span><span class="btn-x" style="color:var(--on-error-container)">Try again</span></div>
+            </div>
+            <p class="dv-onote">errorContainer #ffdad6 with onErrorContainer #93000a is 7.2:1 for the text and its icon; the action uses the same color. The Revoke text button on the surface uses error #ba1a1a, 6.1:1. The second banner is the server-fault variant, shown here only to compare.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="dv-turn" id="t7" data-screen-label="Turn 7: light, the web page" style="border-top:1px solid #d6d4dc">
+        <div class="dv-thd"><a class="dv-tid" href="#t7">7</a><span class="dv-tname">Light theme: the web page (sign-in on a desktop and a phone, and Settings)</span></div>
+        <p class="dv-why">The web page follows the browser's light or dark preference with the same roles. <a class="dv-oid" href="#6a-l">6a</a> is the desktop sign-in with its QR code, <a class="dv-oid" href="#6d-l">6d</a> the phone browser's sign-in with a typed code, <a class="dv-oid" href="#8a-l">8a</a> Settings, <a class="dv-oid" href="#8c-l">8c</a> the revoke dialog and <a class="dv-oid" href="#6f-l">6f</a> the banners. In light the sign-in card gets a 1 px outlineVariant edge, because surfaceContainerLow is almost the page color, and the QR code is dark on a white plate, which is what a scanner needs.</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt w" id="6a-l" data-screen-label="6a Web sign-in desktop, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#6a-l">6a</a>Sign in on a desktop browser</div>
+            <div class="br">
+              <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/</div></div>
+              <div class="page"><div class="card">
+                <div class="brand"><span class="logo"><span class="ms">sensors</span></span>SignalHub</div>
+                <h1 class="h">Sign in with your phone</h1>
+                <p class="p">Open SignalHub on your phone, go to Settings › Sign in a browser, and scan this code.</p>
+                <div class="qrw"><div class="qr" aria-label="Sign-in QR code. To sign in without scanning, use a code instead."></div></div>
+                <div class="wait"><span class="spin"></span>Waiting for your phone · 2:41</div>
+                <div style="text-align:center"><span class="btn-x" style="text-decoration:underline">Use a code instead</span></div>
+              </div></div>
+            </div>
+            <p class="dv-onote">Heading #1b1b21 and body #46464f on surfaceContainerLow #f5f2fa are 15:1 and 8.4:1; the link and the countdown ring use primary #515b92 (5.8:1 on the card). R66 decides the code's lifetime, its refresh and the countdown.</p>
+          </div>
+
+          <div class="dv-opt w" id="6d-l" data-screen-label="6d Web sign-in phone, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#6d-l">6d</a>Sign in on a phone's own browser</div>
+            <div class="ph" style="height:660px">
+              <div class="mchrome"><div class="url" style="height:24px"><span class="ms">lock</span>signalhub.example/app/</div></div>
+              <div class="mpage">
+                <div class="brand"><span class="logo"><span class="ms">sensors</span></span>SignalHub</div>
+                <h1 class="h">Sign in with the app</h1>
+                <p class="p">A phone can't scan its own screen, so type this code in the SignalHub app.</p>
+                <div class="wcode">K7Q-4MX</div>
+                <div class="wait"><span class="spin"></span>Waiting for the app · 2:41</div>
+                <span class="wbtn"><span class="ms">open_in_new</span>Open the app</span>
+                <ol class="steps"><li>Open the app.</li><li>Go to Settings › Sign in a browser.</li><li>Choose "Type a code" and enter the code above.</li></ol>
+                <p class="p" style="font-size:13px">No app on this phone? Ask an admin of this server.</p>
+              </div>
+            </div>
+            <p class="dv-onote">The code sits on surfaceContainerHighest (#1b1b21 on #e4e1e9 is 13:1); the button is white on primary, 6.4:1. K7Q-4MX is a sample code format; R66 decides the real one and the Open the app link.</p>
+          </div>
+
+          <div class="dv-opt w" id="8a-l" data-screen-label="8a Web Settings, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#8a-l">8a</a>Settings on a desktop: this browser, Devices, About this server</div>
+            <div class="br tall" style="height:940px">
+              <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#settings</div></div>
+              <div class="app">
+                <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div><span class="acct"><span class="av me">R</span></span></div>
+                <div class="detp">
+                  <h1 class="wh">Settings</h1>
+                  <div class="grp">
+                    <div class="gh"><span class="ms c-var">language</span><div class="tx"><span class="t1">Firefox on Linux<span class="own me">This browser</span></span><span class="t2n">Signed in until 2026-11-09</span></div><span class="ms c-var">expand_less</span></div>
+                    <div class="gb">
+                      <div class="kvr"><div class="tx"><span class="t2n">Name</span><span class="t1">Firefox on Linux</span></div><span class="btn-x"><span class="ms ms18" style="margin-right:8px">edit</span>Rename</span></div>
+                      <div class="kvr"><div class="tx"><span class="t2n">Signed in</span><span class="t1">2026-10-10 · lasts 30 days, until 2026-11-09</span></div></div>
+                      <div class="kvr"><span class="wbtno"><span class="ms">logout</span>Sign out</span><span class="t2nw">Signing out here leaves your phone's app untouched.</span></div>
+                    </div>
+                  </div>
+                  <div class="grp"><div class="gh" style="min-height:72px"><span class="ms c-var">devices</span><div class="tx"><span class="t1">Devices</span><span class="t2n">3 devices · 2 browsers</span></div><span class="ms c-var">chevron_right</span></div></div>
+                  <div class="grp">
+                    <div class="gh"><span class="ms c-var">dns</span><div class="tx"><span class="t1">About this server</span><span class="t2n">signalhub.example</span></div><span class="ms c-var">expand_less</span></div>
+                    <div class="gb">
+                      <div class="kvr"><div class="tx"><span class="t2n">Address</span><span class="t1">https://signalhub.example</span></div></div>
+                      <div class="kvr"><div class="tx"><span class="t2n">Server</span><span class="t1">SignalHub 3.4.0 · commit a1b2c3d</span></div></div>
+                      <div class="kvr"><div class="tx"><span class="t2n">This page</span><span class="t1">SignalHub web 3.4.0 · build d4e5f6a</span></div></div>
+                      <div class="kvr"><span class="ms c-var">info</span><span class="t2nw">The host runs this server and can see every event on it.</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">The panel is surfaceContainerLow on the surface and the groups surfaceContainer, so the layers still read as steps in light. Text #46464f on #efedf4 is 8:1; the Sign out outline #767680 against the group is 3.9:1 (needs 3). About this server shows the server's version and commit. Needs a server change (queued with the design lock-in).</p>
+          </div>
+
+          <div class="dv-opt w" id="8c-l" data-screen-label="8c Web revoke dialog, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#8c-l">8c</a>Revoke a browser: the confirmation on the web page</div>
+            <div class="br" style="height:520px">
+              <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#devices</div></div>
+              <div class="app">
+                <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri on"><span class="pill"><span class="ms fill">settings</span></span>Settings</div><span class="acct"><span class="av me">R</span></span></div>
+                <div class="detp">
+                  <h1 class="wh">Devices</h1>
+                  <div class="grp">
+                    <div class="gh"><span class="ms c-var">smartphone</span><div class="tx"><span class="t1">Rodrigo - Pixel 9<span class="own me">Admin device</span></span><span class="t2n">Last active today</span></div></div>
+                    <div class="gh" style="border-top:1px solid var(--outline-variant)"><span class="ms c-var">language</span><div class="tx"><span class="t1">Chrome on Windows<span class="own">Browser</span></span><span class="t2n">Last active 3 days ago</span></div><span class="btn-x dng">Revoke</span></div>
+                  </div>
+                </div>
+                <div class="scrim"><div class="dlg" style="max-width:480px">
+                  <h4>Revoke Chrome on Windows?</h4>
+                  <p style="font-size:16px;line-height:24px">It is signed out at once and stops being a device of yours. You can sign it in again later from your phone.</p>
+                  <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x dng">Revoke</span></div>
+                </div></div>
+              </div>
+            </div>
+            <p class="dv-onote">Both actions are text buttons, as in the app: Cancel in primary and Revoke in error #ba1a1a, 5.3:1 on the dialog (surfaceContainerHigh #e9e7ef) over the 32% scrim. The browser row uses the language icon and a Browser tag. Device rows show when each was last active. Needs a server change (queued with the design lock-in).</p>
+          </div>
+
+          <div class="dv-opt w" id="6f-l" data-screen-label="6f Web banners, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#6f-l">6f</a>The web banner: sign-in ended, and offline</div>
+            <div class="br" style="height:300px">
+              <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/</div></div>
+              <div class="wbn"><span class="ms c-var">lock_clock</span><span class="tx">Your sign-in ended.</span><span class="btn-x">Sign in again</span></div>
+              <div class="wbn" style="margin-top:1px"><span class="ms c-var">cloud_off</span><span class="tx">You're offline. This is what was loaded at 18:12. Changes are paused until you're back.</span></div>
+              <div style="padding:20px 24px;display:flex;flex-direction:column;gap:12px"><div style="height:14px;width:70%;border-radius:6px;background:var(--sc-high)"></div><div style="height:14px;width:50%;border-radius:6px;background:var(--sc-high)"></div></div>
+            </div>
+            <p class="dv-onote">The web banner is the same neutral bar as the app's: surfaceContainerHigh with onSurface text (#1b1b21 on #e9e7ef, 14:1) and a primary text action (#515b92, 5.3:1). It is not a secondaryContainer bar.</p>
+          </div>
+
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        renderVals() {
+          const ev = (icon, tone, title, meta, time, unread) => ({ icon, tone, title, meta, time, tcls: unread ? 't1b' : 't1', dot: unread ? 'dot' : 'nodot' });
+          const inbox = [
+            ev('pan_tool', 'c-error', 'Your action: approve the release', 'Action required · High · ci-pipeline', '01:19', true),
+            ev('info', 'c-primary', 'Nightly backup finished', 'Info · Normal · backup-jobs', '00:41', true),
+            ev('block', 'c-error', 'Disk almost full on nas-01', 'Blocked · Critical · homelab-monitor', '00:36', true),
+            ev('check_circle', 'c-var', 'Deploy to staging done', 'Completed · Low · ci-pipeline', '00:14', false),
+            ev('info', 'c-primary', 'Weekly report is ready', 'Info · Normal · ana-reports', 'Yesterday', false)
+          ];
+          const mk = (name, sub, o) => Object.assign({ name, sub, av: 'sensors', bell: 'on', fill: 'fill', icon: 'notifications_active', own: '', ownText: '', subcls: '' }, o || {});
+          const yours = { own: 'own', ownText: 'Yours' };
+          const off = { bell: 'off', fill: '', icon: 'notifications' };
+          const producers = [
+            mk('ci-pipeline', 'Public · 2 keys · last event 01:19', yours),
+            mk('homelab-monitor', 'Private · 2 people · last event 00:36', yours),
+            mk('ana-reports', 'Ana · Public'),
+            mk('family-calendar', 'Ana · Private, shared with you'),
+            mk('weather-alerts', 'João · Public', off),
+            mk('price-watch', 'João · Public', off)
+          ];
+          const states = [
+            mk('ci-pipeline', 'Public · 2 keys · last event 01:19', yours),
+            mk('garage-door', 'Paused by you · its keys do not work', Object.assign({ av: 'pause_circle' }, yours)),
+            mk('old-sensor', 'Disabled by the host · ask the host', Object.assign({ av: 'block', subcls: 'e' }, yours)),
+            mk('ana-reports', 'Ana · Public · Muted on this device'),
+            mk('family-calendar', 'Ana · Private, shared with you'),
+            mk('weather-alerts', 'João · Disabled', { av: 'pause_circle' }),
+            mk('price-watch', 'João · Public', off)
+          ];
+          const failed = [
+            mk('ci-pipeline', 'Public · 2 keys · last event 01:19', yours),
+            mk('ana-reports', 'Ana · Public'),
+            mk('weather-alerts', 'João · Public', off),
+            mk('price-watch', 'João · Public', off)
+          ];
+          const offline = [
+            mk('ana-reports', 'Ana · Public'),
+            mk('homelab-monitor', 'Public · 2 keys · last event 18:09', yours),
+            mk('ci-pipeline', 'Ana · Private, shared with you')
+          ];
+          return { inbox, producers, states, failed, offline };
+        }
+      }
+    </script>
+  </body>
+</html>
