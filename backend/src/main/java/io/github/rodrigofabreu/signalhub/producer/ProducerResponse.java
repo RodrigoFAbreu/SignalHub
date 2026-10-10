@@ -55,6 +55,12 @@ public record ProducerResponse(
               examples = "3f1c0b8e-5d2a-4c7e-9b61-0a8d4e2f7c13")
           UUID id,
       @Schema(required = true, examples = "2026-09-25T12:00:00.123456Z") Instant createdAt,
+      @Schema(
+              description =
+                  "When the key last authenticated a publish request, to within a minute (it is"
+                      + " recorded at most once a minute); null until it has.",
+              examples = "2026-09-30T08:15:00.123456Z")
+          Instant lastUsedAt,
       @Schema(description = "When the key was revoked; null while it is valid.")
           Instant revokedAt) {}
 }

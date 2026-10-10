@@ -77,6 +77,11 @@ class ClientEntity {
   @Column(name = "last_push_failed_result", insertable = false, updatable = false)
   private String lastPushFailedResult;
 
+  // Written only by ClientRepository's own statement, at most once per LastUsed.INTERVAL, for the
+  // same reason as the push results.
+  @Column(name = "last_active_at", insertable = false, updatable = false)
+  private Instant lastActiveAt;
+
   protected ClientEntity() {}
 
   ClientEntity(UUID id, String name, UUID userId, byte[] keyHash, Instant createdAt) {
@@ -113,6 +118,11 @@ class ClientEntity {
 
   Instant revokedAt() {
     return revokedAt;
+  }
+
+  /** When the client last made an authenticated request, to within a minute; null if never. */
+  Instant lastActiveAt() {
+    return lastActiveAt;
   }
 
   boolean revoked() {

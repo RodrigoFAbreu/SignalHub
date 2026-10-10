@@ -26,6 +26,12 @@ public record ClientResponse(
     @Schema(required = true, examples = "2026-09-25T12:00:00.123456Z") Instant createdAt,
     @Schema(
             description =
+                "When the client last made a request, to within a minute (it is recorded at most"
+                    + " once a minute); null until it has.",
+            examples = "2026-09-30T08:15:00.123456Z")
+        Instant lastActiveAt,
+    @Schema(
+            description =
                 "When the client was revoked; null while it is active. A revoked client cannot"
                     + " authenticate and receives no pushes.")
         Instant revokedAt,

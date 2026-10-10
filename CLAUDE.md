@@ -78,7 +78,9 @@ creates pairing codes at `/api/v1/client/pairings`; whoever
 created a pairing asks whether it was used, and by which device, at
 `/api/v1/admin/pairings/{id}` or `/api/v1/client/pairings/{id}`) with
 per-client push preferences (pause, minimum severity, muted categories and producers) and
-each client's last push results in the management API, each event's delivery
+each client's last push results in the management API, when each client last made a
+request and each producer key last published (to within a minute) and the server's version
+for any client key at `/api/v1/client/server`, each event's delivery
 records per device (`/api/v1/admin/events/{id}/deliveries`), and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging
 provider enabled by a service account key file (every push sent with

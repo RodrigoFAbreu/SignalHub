@@ -2319,6 +2319,32 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   basic getting names only and `403`, unknown IDs), `OpenApiTest`.
   `docs/architecture.md` (Users from a device). Compatible (`feat`)
 
+### R69 - When devices and keys were last used, and the server's version
+
+- **recorded**: a client's `last_active_at` when it authenticates a request,
+  and a producer key's `last_used_at` when it authenticates a publish, in
+  two nullable columns (`V19__add_last_used_times.sql`; existing rows
+  `null`). A time is rewritten only once the recorded one is a minute old
+  (`LastUsed.INTERVAL`), decided from the row authentication already read,
+  so most requests add no statement and ingestion's durability and latency
+  are as before; rejected keys record nothing, revocation keeps the time
+- **served**: `lastActiveAt` on `Client` and `ManagedClient` (so each role
+  sees it on the devices it may already list, and a device on itself),
+  `lastUsedAt` on the keys of the management API's `Producer` and of the
+  caller's `OwnProducer`; `null` until first use
+- **the server's version**: `GET /api/v1/client/server` returns
+  `{"version", "commit"}`, as `/q/info` reports them, to any client key
+- decisions the entry left open: the interval is one minute; a publish the
+  server then refuses (such as an invalid body) still counts as the key's
+  use, as the key authenticated; the version endpoint lives beside
+  `push-config` and is a separate path rather than a field of a client; the
+  admin page keeps ignoring the new fields; nothing logged beyond what exists
+- tests: `LastUsedApiTest` against PostgreSQL (`null` before first use,
+  recorded, throttled to once a minute, a rejected or revoked key, per role,
+  the owner's keys, the version and its `401`), the persistence tests' column
+  lists, `OpenApiTest`. `docs/architecture.md` (When devices and keys were
+  last used), `docs/development.md`. Compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -2902,8 +2928,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 53    | R67 - The third batch of Dependabot updates                                                      | Increment (`build`)                    | Done (see section 3)                                                             |
 | 54    | R68 - People's details for admins in the client API                                              | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 55    | R69 - When devices and keys were last used, and the server's version                             | Increment (`feat`)                     | Next                                                                             |
-| 56    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next, after R69                                                                  |
+| 55    | R69 - When devices and keys were last used, and the server's version                             | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 56    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Next                                                                             |
 | 57    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
 | 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
 | 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Blocked until R65 is merged                                                      |
@@ -5223,7 +5249,7 @@ each user's events and deliveries on the admin page.
 
 ### R64 - Designs for users in the app and on a web page
 
-Status: next, after R69. Added by the maintainer
+Status: next. Added by the maintainer
 (2026-10-10); amended the same day: made in Claude Design, with the
 design skills given fixed roles.
 
@@ -5473,7 +5499,7 @@ a device; anything for non-admins.
 
 ### R69 - When devices and keys were last used, and the server's version
 
-Status: Next. Added by the maintainer (2026-10-10), from the design work
+Status: complete (see section 3). Added by the maintainer (2026-10-10), from the design work
 of R64.
 
 Goal: the approved designs show when each device was last active, when
@@ -5633,10 +5659,10 @@ Dependabot updates), R59 (a read event leaves the unread-only inbox),
 R60 (pushes reach a sleeping phone at once), R61 (users, roles and
 subscriptions), R62 (self-service for users: the API) and R63 (the admin
 page: traffic by user), R67 (the third batch of Dependabot
-updates) and R68 (people's details for admins in the client API) are
-done. **R69 (when devices and keys were last used, and the server's
-version) is next**, while the users' designs are exported; then R64
-(designs for users in the app and on a web page), the human gate G4 (the
+updates), R68 (people's details for admins in the client API) and R69
+(when devices and keys were last used, and the server's version) are
+done. **R64 (designs for users in the app and on a web page) is next**,
+then the human gate G4 (the
 maintainer approves the user designs), R65 and R66. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.

@@ -51,6 +51,21 @@ class ClientRepository implements PanacheRepositoryBase<ClientEntity, UUID> {
         userId);
   }
 
+  /**
+   * Records that the client was active, unless a time at least as recent is already there, so
+   * concurrent requests write once.
+   */
+  void recordActivity(UUID id, Instant at, Instant notAfter) {
+    getEntityManager()
+        .createNativeQuery(
+            "UPDATE clients SET last_active_at = :at"
+                + " WHERE id = :id AND (last_active_at IS NULL OR last_active_at <= :notAfter)")
+        .setParameter("at", at)
+        .setParameter("id", id)
+        .setParameter("notAfter", notAfter)
+        .executeUpdate();
+  }
+
   /** Overwrites the client's last successful push. */
   void recordPushSuccess(UUID id, UUID eventId, Instant at) {
     getEntityManager()
