@@ -1,0 +1,52 @@
+name: CI - Backend image
+
+# The release's build of the backend image (scripts/release/build-image.sh), on
+# each platform it publishes, with a test version, and the same checks the
+# release runs on the images it pushed. This is the only place CI builds the
+# image: the images are saved as an artifact for the jobs that start a stack
+# (the web page and the container tests). Called by ci.yml; also runnable alone
+# from the Actions tab.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    # Native on x86-64 and on ARM64 (such as a Raspberry Pi 5).
+    name: ${{ matrix.arch == 'arm64' && 'Backend image (release build, ARM64)' || 'Backend image (release build)' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      # The release's build, and the development build that `docker compose up
+      # --build` makes from the same layers.
+      - name: Build the image as the release does
+        run: scripts/ci/build-backend-images.sh "$RUNNER_TEMP/backend-images.tar.gz"
+      - name: The image reports the version and commit it was built with
+        run: scripts/release/check-image.sh signalhub-backend:check 0.0.0-ci "$GITHUB_SHA"
+      # Compose builds ./backend; the build above is the same, so only its
+      # definition is checked here.
+      - name: Compose builds the image from the backend folder
+        run: |
+          test "$(docker compose config --format json | jq --raw-output .services.backend.build.context)" = "$PWD/backend"
+          test "$(docker compose config --format json | jq --raw-output .services.backend.image)" = signalhub-backend:local
+        env:
+          SIGNALHUB_DB_PASSWORD: unused
+      - uses: actions/upload-artifact@v7
+        with:
+          name: backend-images-${{ matrix.arch }}
+          path: ${{ runner.temp }}/backend-images.tar.gz
+          # Already compressed.
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error

@@ -2456,6 +2456,32 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   people), the app's widget and controller tests, and the Compose smoke test
   through the proxy. Compatible (`feat`)
 
+### R70 - CI in reusable workflows, container checks as tests, and faster
+
+- **built**: `ci.yml` is a short main workflow that calls one reusable
+  workflow per part (`ci-python.yml`, `ci-backend.yml`, `ci-app.yml`,
+  `ci-image.yml`, `ci-web.yml`, `ci-containers.yml`), each also runnable alone
+  from the Actions tab; every part runs on every pull request, and the
+  release workflow still re-validates the exact commit through `ci.yml`. The
+  `curl` steps of the container jobs are Python tests in `container-tests/`
+  (standard library and `unittest`, linted with `ruff`, one named test per
+  check and a small shared helper), run by the jobs against the stack they
+  start and by hand against a local `docker compose up`. The backend image is
+  built once per architecture by the image part and loaded by the jobs that
+  start a stack, instead of in nine jobs; the Flutter SDK, pub, Gradle, Maven
+  and pip downloads are cached; the app's checks and its Android build run
+  as jobs of their own
+- **decided**: a job of a called workflow is reported as "caller / job", so
+  the required names would all have changed; the `required` job of `ci.yml`
+  reports each of the 14 names the ruleset *Main Protected* already requires
+  and passes only when the part that holds that job passed, so the ruleset is
+  unchanged and every check is still required. The development build that
+  `docker compose up --build` makes comes from the image part's second build
+  of the same Dockerfile (all layers cached), not from a build in every job
+- tests: `container-tests/test_helpers.py` (the helper, in the Python job),
+  and the container tests themselves in the container jobs. Measurements are
+  in the pull request. Compatible (`ci`)
+
 ---
 
 ## 4. Planned roadmap
@@ -3044,7 +3070,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 57    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Passed (2026-10-10, approved without changes)                                    |
 | 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 60    | R70 - CI in reusable workflows, container checks as tests, and faster                            | Increment (`ci`)                       | Next                                                                             |
+| 60    | R70 - CI in reusable workflows, container checks as tests, and faster                            | Increment (`ci`)                       | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -5673,7 +5699,7 @@ activity; anything per event.
 
 ### R70 - CI in reusable workflows, container checks as tests, and faster
 
-Status: next. Added by the maintainer (2026-10-10).
+Status: done (see section 3). Added by the maintainer (2026-10-10).
 
 Goal: CI is organised in parts that can each be run alone, its container
 checks read as named tests instead of long runs of `curl`, and it does
@@ -5869,9 +5895,9 @@ updates), R68 (people's details for admins in the client API) and R69
 (designs for users in the app and on a web page) are done, the
 maintainer approved the designs at G4, and R65 (users in the app) is
 done, and so is R66 (users' web page) with the app's *Sign in a browser*.
-**R70 (CI in reusable workflows, container checks as tests, and
-faster) is next.** A new item is added only by the maintainer, in a
-reviewed pull request; the deferred candidates of section 5 are not
+So is R70 (CI in reusable workflows, container checks as tests, and
+faster). **No item is next.** A new item is added only by the maintainer, in
+a reviewed pull request; the deferred candidates of section 5 are not
 started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.

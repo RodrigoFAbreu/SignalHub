@@ -1,0 +1,35 @@
+name: Set up Flutter
+description: >-
+  Puts the pinned Flutter SDK on the path, cached with the engine artifacts the
+  job downloads, together with the pub packages.
+
+inputs:
+  version:
+    description: The Flutter SDK version, a tag of github.com/flutter/flutter.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # One cache per job: each downloads different engine artifacts, and the
+    # first to finish saves its own.
+    - id: sdk
+      uses: actions/cache@v6
+      with:
+        path: ~/flutter
+        key: flutter-sdk-${{ github.job }}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.version }}
+    - if: steps.sdk.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: git clone --quiet --depth 1 --branch "$VERSION" https://github.com/flutter/flutter.git "$HOME/flutter"
+    - uses: actions/cache@v6
+      with:
+        path: ~/.pub-cache
+        key: pub-${{ runner.os }}-${{ hashFiles('client/pubspec.lock') }}
+        restore-keys: pub-${{ runner.os }}-
+    - shell: bash
+      run: |
+        echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
+        export PATH="$HOME/flutter/bin:$PATH"
+        flutter --disable-analytics && flutter --version

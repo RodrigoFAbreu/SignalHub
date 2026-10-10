@@ -333,7 +333,7 @@ class FlutterVersionTest(unittest.TestCase):
             text = (ROOT / ".github" / "workflows" / workflow).read_text()
             return re.search(r"^  FLUTTER_VERSION: (\S+)", text, re.MULTILINE).group(1)
 
-        self.assertEqual(pin("release.yml"), pin("ci.yml"))
+        self.assertEqual(pin("release.yml"), pin("ci-app.yml"))
 
 
 if __name__ == "__main__":

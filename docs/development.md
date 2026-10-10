@@ -154,16 +154,17 @@ login, is a one-time step for the repository owner: on GitHub, *Packages* →
 `signalhub` → *Package settings* → *Change visibility* → *Public*. The
 release itself logs in to pull, so it works either way.
 
-Pull requests build the image the same way on both platforms (the
-`Backend image (release build)` jobs), with the test version `0.0.0-ci`, and
-run the same checks, without pushing. The `Python (lint + test)` job builds
-the SDK's files with `sdk_files.py` and the test version `0.0.0+ci` (a
-version Python packaging accepts). The `Client (analyze + test + Android
-build)` job builds and checks the app with `app_files.py` and the test
-version `0.0.0-ci` (`versionCode` 1), signed with a throwaway key it makes
-for the run. The upgrade and fresh-install jobs pack
-deployment files naming that image and install from them, as operators do
-with a release's. Any other build of the image, such as
+Pull requests build the image the same way on both platforms (the image
+part of CI, `Backend image (release build)`), with the test version `0.0.0-ci`,
+and run the same checks, without pushing; the jobs that start a stack load that
+build instead of making their own (see
+[Continuous integration](#continuous-integration)). The `Python (lint + test)`
+job builds the SDK's files with `sdk_files.py` and the test version `0.0.0+ci`
+(a version Python packaging accepts). The Android build of the app part builds
+and checks the app with `app_files.py` and the test version `0.0.0-ci`
+(`versionCode` 1), signed with a throwaway key it makes for the run. The upgrade
+and fresh-install jobs pack deployment files naming that image and install from
+them, as operators do with a release's. Any other build of the image, such as
 `docker compose up --build`, has no version and reports itself as a
 development build.
 
@@ -962,7 +963,7 @@ and setting up push with your Firebase project.
 ### Prerequisites
 
 - **Flutter 3.47.5** (stable), the version CI pins in `FLUTTER_VERSION` in
-  `.github/workflows/ci.yml`. It includes Dart.
+  `.github/workflows/ci-app.yml`. It includes Dart.
 - For Android builds: the Android SDK (Android Studio or the command-line
   tools) and JDK 17.
 - For iOS builds: macOS with Xcode.
@@ -1190,6 +1191,82 @@ size and writes `web-tests/.visual/<frame>.png` (not in git). The sample world
 is kept in `.visual/world.json`; `--fresh` makes it again. Times differ from the
 drawings (they show fixed sample times), and the QR codes are real ones.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` is a short main workflow. It runs on every pull
+request, every part of it (no part is skipped by the files a change touches:
+every merge to `main` is a release), and the release workflow calls it again on
+the merged commit. Each part is a reusable workflow of its own, which can also
+be run alone, from the *Actions* tab (*Run workflow*, on a branch) or with
+`gh workflow run <file> --ref <branch>`:
+
+| Part (workflow) | What it checks |
+|---|---|
+| `ci-python.yml` | `ruff`, the release scripts, the device-review script, the Python SDK (also on its oldest Python), the integration examples, the container tests' helpers, and the workflows themselves (*GitHub Actions lint*) |
+| `ci-backend.yml` | `./mvnw verify` in `backend/`: build, tests against real PostgreSQL, format and SpotBugs |
+| `ci-app.yml` | The app: format, analysis and tests; the release's Android build, signed with a throwaway key; the iOS build |
+| `ci-image.yml` | The release's build of the backend image on x86-64 and natively on ARM64, and its checks. The only place CI builds the image |
+| `ci-web.yml` | The users' web page in a browser (`web-tests/`) against the stack |
+| `ci-containers.yml` | The Compose stack on both architectures, the upgrades, the fresh install of [deployment.md](deployment.md#setup) and the end-to-end path of an event, all checked by `container-tests/` |
+
+**Less repeated work.** The image part builds the backend image once per
+architecture, the way the release builds it (`signalhub-backend:check`, version
+`0.0.0-ci`) and the way `docker compose up --build` builds it
+(`signalhub-backend:local`, a development build; the second build reuses every
+layer of the first), and saves both as an artifact. The web page and the
+container jobs load them instead of building (`.github/actions/load-backend-images`,
+which builds them itself when a part runs alone). The Flutter SDK and its pub
+packages are cached (`.github/actions/setup-flutter`), and Gradle's and Maven's
+downloads and pip's are cached by `setup-java` and `setup-python`. Stacks come
+up with readiness checks (`docker compose up --wait`, `wait_until` in the
+tests), never fixed waits.
+
+**Required checks.** The ruleset *Main Protected* requires each check below by
+name. A job of a called workflow is reported as `<caller job> / <job>`, so the
+`required` job of `ci.yml` reports each required name itself, passing only when
+the part that holds its job passed. A part that fails therefore fails the names
+of all its jobs; the failing job itself is listed above them. Adding a job
+whose result must gate merging means adding its name to the matrix of
+`required` and to the ruleset (see [Repository settings](#repository-settings-github)).
+
+### Container tests
+
+The checks that need a running stack are Python tests in `container-tests/`
+(standard library and `unittest` only, linted with `ruff`), one test per check,
+with a small shared helper, `signalhub_stack.py`, for requests, credentials and
+`docker compose`. CI starts a stack and runs them; the same tests run by hand
+against a local `docker compose up`:
+
+| Pattern | Stack it needs | CI job |
+|---|---|---|
+| `test_helpers.py` | none (a throwaway server) | *Python (lint + test)* |
+| `test_compose_*.py` | Compose, with the `proxy` profile (some tests are skipped without it) | *Compose smoke test* |
+| `test_operations_*.py` | the same stack; they stop PostgreSQL, restart the backend and **replace the database from a backup, removing its volume** | *Compose smoke test*, after the others |
+| `test_e2e.py` | FCM push enabled against `scripts/e2e/fake_fcm.py`, see the job | *End-to-end* |
+| `test_install.py` | the fresh install of the deployment files, see the job | *Deployment (fresh install ...)* |
+| `test_upgrade.py` | an earlier release's stack, upgraded in place, see the job | *Backend container (upgrade from ...)* |
+
+Against a stack of your own (never one that holds data you care about: the tests
+create users, producers, devices and events with random names, and the
+`test_operations_*.py` ones empty and replace the database):
+
+```sh
+cp .env.example .env              # set SIGNALHUB_ADMIN_TOKEN, and for the proxy tests:
+printf '%s\n' COMPOSE_PROFILES=proxy SIGNALHUB_DOMAIN=localhost SIGNALHUB_TLS=internal >> .env
+docker compose up --build --wait
+pip install ./sdk/python          # the tests that run the `signalhub` command
+export SIGNALHUB_PROXY_URL=https://localhost   # without it, the proxy tests are skipped
+python -m unittest discover --start-directory container-tests --pattern 'test_compose_*.py' --verbose
+python -m unittest discover --start-directory container-tests --pattern 'test_operations_*.py' --verbose
+```
+
+The tests read their settings from the environment (the admin token defaults to
+the one in `.env`); `container-tests/signalhub_stack.py` lists them. One module
+or test runs from the folder, as in `cd container-tests && python -m unittest
+test_compose_clients -k revoked`. A test of what only CI's stack has (the memory
+limits) is skipped unless the job's variable is set, and the architecture is
+compared with the machine's.
+
 ## Local validation
 
 CI runs:
@@ -1205,12 +1282,13 @@ python -m unittest discover --start-directory scripts/device-review --verbose
 pip install ./sdk/python && signalhub send --help
 python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python --verbose
 python scripts/release/sdk_files.py 0.0.0+ci "$(mktemp -d)"   # the SDK's release files (needs network)
-# Integration examples (need the SDK, curl and jq) and the release's image scripts
-shellcheck examples/*/*.sh scripts/release/*.sh
+# Integration examples (need the SDK, curl and jq) and the scripts that build images
+shellcheck examples/*/*.sh scripts/release/*.sh scripts/ci/*.sh
 python -m unittest discover --start-directory examples/tests --verbose
 # Lints GitHub Actions workflows and the example workflow (needs Docker):
 docker build --quiet --tag actionlint .github/tools/actionlint
 docker run --rm --volume "$PWD:/repo" --workdir /repo actionlint -color .github/workflows/*.yml examples/github-actions/*.yml
+python -m unittest discover --start-directory container-tests --pattern 'test_helpers.py' --verbose   # the container tests' helpers, no stack needed
 
 # Client (in client/, needs Flutter; the iOS build needs macOS)
 flutter pub get --enforce-lockfile
@@ -1234,65 +1312,8 @@ flutter build ios --debug --no-codesign
 # jobs, on x86-64 and natively on ARM64; needs Docker, jq and curl):
 scripts/release/build-image.sh 0.0.0-ci "$(git rev-parse HEAD)" load
 scripts/release/check-image.sh signalhub-backend:check 0.0.0-ci "$(git rev-parse HEAD)"
-# Container smoke test: the "Backend container" jobs in .github/workflows/ci.yml,
-# on x86-64 and natively on ARM64, check that the images match the runner's
-# architecture and start the stack with `docker compose up --build --wait` and a random admin
-# token, the resource limits of architecture.md#resources and the TLS proxy (with Caddy's own CA), checks liveness, readiness, OpenAPI and metrics, that the image built from source reports a development version, registers a producer, checks
-# that publishing without a valid key gets 401, publishes an event with the key
-# and reads it back after restarting the backend, lists it with the admin
-# token (and expects 401 without it), lists it over HTTPS through the proxy
-# and expects 404 there for management, health, metrics and OpenAPI, however
-# the path is spelled, and a redirect from plain HTTP, registers a client that lists the event
-# with its key, marks it read and counts no unread events, sets a push
-# target, expects 409 when deleting it while active, revokes the client and expects 401,
-# deletes it (204, then 404) with the event it read kept read, creates a pairing on the host
-# (and expects 404 for that through the proxy), checks that its URI names the
-# proxy's address, redeems it through the proxy, reads the new client with its
-# key, and expects 401 when redeeming it again, sees on the host that the
-# pairing was used and by which device, has an admin device pair another device
-# and see its own code used through the proxy (403 for another device, 404 for
-# the operator's code), revoke the first and delete it (204, then 404) through
-# the proxy, publishes with the Python command
-# and reads the event back (and expects exit status 1 with an invalid key),
-# restarts the backend with JSON logs and checks that every line is JSON, that
-# the startup summary is logged, and that no secret is, backs up the database,
-# restores it into an empty one and checks that events from before the backup
-# (and only those) are back, the producer key still works and the proxy kept
-# its CA, and that restoring over existing data fails, runs the integration
-# examples as five new producers (the GitHub Actions step twice for one run
-# attempt, as a retry would) and lists their events, one each, revokes the producer
-# key and expects 401, stops PostgreSQL and expects readiness 503, and checks that the image refuses to start without database
-# settings. The "Backend container (upgrade from the latest release)" job starts
-# the latest release (from its deployment files if it has them, otherwise from
-# its tag with its published image if it has one, or built) with a producer, a
-# client and a read event, backs up, upgrades in place to deployment files of
-# the commit under test that name the image CI built for it, as in
-# docs/deployment.md#upgrades, checks that nothing was built, the data, keys,
-# migrations and health, and rolls back by restoring the backup with the
-# release. The "Backend container (upgrade from v0.13.0)" job does the same
-# from v0.13.0, the oldest release upgrades are tested from, skipping every
-# release since. The "End-to-end (producer to push and client inbox)"
-# job starts the stack with FCM push enabled through a throwaway service account
-# key and scripts/e2e/fake_fcm.py (a stand-in for Google's token endpoint and
-# the FCM HTTP v1 API, on the runner), registers a producer and two clients,
-# publishes a low and a high severity event with the Python command, checks
-# that the client whose preferences want only HIGH gets exactly one FCM message
-# with the event's ID, that FCM's UNREGISTERED answer removes the other client's
-# push target, and the delivery metrics, then opens the pushed event with the
-# client key, lists both events in the inbox and marks the pushed one read.
-# The "Deployment (fresh install from docs/deployment.md)" job follows
-# docs/deployment.md#setup on a clean runner, from deployment files (checked
-# against their SHA256SUMS) that name the image CI built for the commit, so
-# nothing is built on the host: .env from the example with mode
-# 600 and generated secrets, the proxy with Caddy's own CA for a name that
-# resolves to the runner, a throwaway FCM key mounted with the permissions of
-# docs/deployment.md#secrets and the resource limits, then checks that no
-# secret is logged, that only the documented ports are published, that other
-# machines get 401 over TLS, that a producer publishes with the Python command
-# and a client reads its inbox through the proxy, that the stack started again
-# without the admin token has no management API while the client keeps reading,
-# and that every service comes back by itself after `systemctl restart docker`,
-# as after a reboot, with the event still there.
+# The container tests (the container jobs of CI) run against a Compose stack you
+# start; see "Container tests" under "Continuous integration".
 ```
 
 Each new component adds its own build, lint, and test commands to CI and to
@@ -1306,7 +1327,7 @@ Commit titles, which go through CI like any other:
 
 | What | Where it is pinned | Dependabot ecosystem |
 |---|---|---|
-| GitHub Actions | `.github/workflows/*.yml` | `github-actions` |
+| GitHub Actions | `.github/workflows/*.yml`, `.github/actions/*/action.yml` | `github-actions` |
 | Backend libraries and Maven plugins | `backend/pom.xml` | `maven` |
 | Backend build and runtime images | `backend/Dockerfile` | `docker` |
 | PostgreSQL and Caddy images | `compose.yaml` | `docker-compose` |
@@ -1327,7 +1348,7 @@ Two versions have to follow others by hand:
   [deployment.md](deployment.md#a-new-postgresql-major-version)), never a routine
   update.
 - **Flutter.** No Dependabot ecosystem updates the Flutter SDK.
-  `FLUTTER_VERSION` in `.github/workflows/ci.yml` and
+  `FLUTTER_VERSION` in `.github/workflows/ci-app.yml` and
   `.github/workflows/release.yml` (a test in `scripts/release` fails while
   they differ) and the version under [Client](#client) are raised together
   by hand, from the stable releases;
@@ -1348,14 +1369,18 @@ repository:
 - Default squash commit message: **Pull request title** (optionally with
   description). Without this, a single-commit PR uses its commit message
   instead of the validated PR title.
-- Protect `main`: require a pull request, and require the status checks
+- Protect `main` (the ruleset *Main Protected*): require a pull request, and
+  require every CI check by name, the 14 that the `required` job of
+  `.github/workflows/ci.yml` reports and `Conventional Commit title`:
   `Python (lint + test)`, `GitHub Actions lint`, `Backend (build + test)`,
-  `Backend container (Compose smoke test)`, `Backend container (Compose
-  smoke test, ARM64)`, `Backend container (upgrade from the latest
-  release)`, `Backend container (upgrade from v0.13.0)`, `End-to-end (producer to push and client inbox)`, `Deployment (fresh
-  install from docs/deployment.md)`, `Client (analyze + test +
-  Android build)`, `Client (iOS build)`, and `Conventional Commit title`.
-  Require branches to be up to date before merging.
+  `Client (analyze + test + Android build)`, `Client (iOS build)`,
+  `Backend image (release build)`, `Backend image (release build, ARM64)`,
+  `Web page (browser tests)`, `Backend container (Compose smoke test)`,
+  `Backend container (Compose smoke test, ARM64)`, `Backend container (upgrade
+  from the latest release)`, `Backend container (upgrade from v0.13.0)`,
+  `End-to-end (producer to push and client inbox)` and `Deployment (fresh
+  install from docs/deployment.md)`. Require branches to be up to date before
+  merging.
 - Actions workflow permissions must allow `contents: write` for the release
   job (it requests this explicitly).
 - The Android release key (decision D6) in four repository secrets

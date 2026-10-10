@@ -200,7 +200,9 @@ owner. Removing it in a later commit is not enough.
 - Prefer the standard library and well-established dependencies. Pin versions
   in CI and in lockfiles.
 - A PR that adds a component (backend, client app, SDK) also adds its build,
-  lint, and test jobs to `.github/workflows/ci.yml`, the local commands to
+  lint, and test jobs to CI (a reusable workflow `.github/workflows/ci-*.yml`
+  called from `ci.yml`, whose `required` job reports each check the ruleset
+  requires), the local commands to
   `docs/development.md`, and the component to `README.md` status.
 - Keep documentation true: if behaviour changes, update the docs in the same PR.
 
@@ -224,7 +226,8 @@ python -m unittest discover --start-directory scripts/release --verbose
 python scripts/release/release.py check-title "feat: my change"   # preview release impact
 python -m unittest discover --start-directory scripts/device-review --verbose   # device-review script (no device needed)
 pip install ./sdk/python && python -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python   # Python SDK/CLI
-shellcheck examples/*/*.sh && python -m unittest discover --start-directory examples/tests   # integration examples (after installing the SDK)
+shellcheck examples/*/*.sh scripts/ci/*.sh && python -m unittest discover --start-directory examples/tests   # integration examples (after installing the SDK)
+python -m unittest discover --start-directory container-tests --pattern 'test_helpers.py'   # container tests' helpers; against a running stack: docs/development.md#container-tests
 (cd backend && ./mvnw verify)      # backend build, tests (needs Docker), format, SpotBugs
 docker compose up --build --wait   # backend + PostgreSQL (after cp .env.example .env)
 (cd client && flutter analyze && flutter test)   # client app

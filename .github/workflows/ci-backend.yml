@@ -1,0 +1,41 @@
+name: CI - Backend
+
+# The backend's build, tests against real PostgreSQL, format and static
+# analysis. Called by ci.yml; also runnable alone from the Actions tab.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (build + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      # Dependabot updates the Compose image only, so a new PostgreSQL version
+      # fails here until the tests' images (Dev Services, Testcontainers) follow.
+      - name: Check that the tests use the PostgreSQL image of Compose
+        run: |
+          expected=$(sed -n 's/^ *image: \(postgres:[^@]*\)@.*/\1/p' ../compose.yaml)
+          test -n "$expected"
+          if grep -rnoE '(image-name=|")postgres:[^"[:space:]]*' src | grep -v -e ":image-name=$expected\$" -e ":\"$expected\$"; then
+            echo "::error::These PostgreSQL images differ from compose.yaml's $expected"
+            exit 1
+          fi
+          grep -q "image-name=$expected\$" src/main/resources/application.properties
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      # Compiles, runs the tests against real PostgreSQL (Dev Services and
+      # Testcontainers use the runner's Docker), checks formatting (Spotless)
+      # and runs static analysis (SpotBugs).
+      - run: ./mvnw --batch-mode --no-transfer-progress verify
