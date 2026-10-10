@@ -1077,6 +1077,11 @@ class AppController extends ChangeNotifier implements ApiGateway {
     if (phase == ConnectionPhase.connected) unawaited(_reload());
   }
 
+  /// Re-reads the inbox and the unread count, after a change elsewhere (a
+  /// subscription, events marked read in a producer's own list) altered what
+  /// they hold.
+  Future<void> reloadInbox() => _reload(includeClient: false);
+
   void _setPhase(ConnectionPhase next) {
     phase = next;
     notifyListeners();

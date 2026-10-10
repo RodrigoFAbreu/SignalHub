@@ -74,20 +74,25 @@ class LabelTag extends StatelessWidget {
         colors.onPrimaryContainer,
       ),
     };
-    return Container(
-      height: 20,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        softWrap: false,
-        style: Theme.of(context).textTheme.labelMedium
-            ?.copyWith(color: foreground),
+    // A tag keeps its size beside a name that gives way: its text grows with
+    // the system's only up to 1.3x, and the tag grows with the text.
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          style: Theme.of(context).textTheme.labelMedium
+              ?.copyWith(color: foreground),
+        ),
       ),
     );
   }

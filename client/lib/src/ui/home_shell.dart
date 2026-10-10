@@ -145,6 +145,9 @@ class _NavigationBar extends StatelessWidget {
     return MediaQuery(
       data: media.copyWith(textScaler: scaler),
       child: NavigationBar(
+        // Tab switches are used constantly: no animation, not even the
+        // indicator's.
+        animationDuration: Duration.zero,
         selectedIndex: selected < 0 ? 0 : selected,
         // Nothing is selected while a missing screen shows.
         indicatorColor: selected < 0 ? Colors.transparent : null,
