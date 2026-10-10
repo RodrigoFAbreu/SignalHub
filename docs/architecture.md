@@ -879,8 +879,8 @@ follow. Producers and subscriptions are open to every role.
 
 | Role | Devices |
 |---|---|
-| `BASIC` | Reads their own devices. Cannot pair, rename, revoke or delete devices, not even their own. |
-| `MOD` | As `BASIC`, plus pairs, renames, revokes and deletes their own devices. A mod cannot revoke their own last active device, so they cannot lock themselves out. |
+| `BASIC` | Reads their own devices. Cannot pair, rename, revoke or delete devices, not even their own. The one exception is their own [browsers](#signing-in-a-browser): every role approves signing a browser in from a device, and renames, revokes and deletes its own browsers. |
+| `MOD` | As `BASIC`, plus pairs, renames, revokes and deletes their own devices. A mod cannot revoke their own last active device (browsers do not count), so they cannot lock themselves out. |
 | `ADMIN` | As `MOD`, plus sees every user's devices, renames, revokes and deletes any device that is not an admin's, creates pairing codes for any user who is not revoked, [invites users](#users-from-a-device) as `BASIC` or `MOD` and sets the role of users who are not admins to `BASIC` or `MOD`. |
 
 **Making a user an admin, or no longer one, is done only with the admin
@@ -987,6 +987,8 @@ notifications. The model is the same for every platform.
 |---|---|
 | `id` | Server-generated canonical ID (UUIDv7). |
 | `name` | Human-readable label chosen by the user, e.g. `Pixel 8`. 1–100 characters, not blank. Need not be unique. The operator can rename a client. |
+| `kind` | `DEVICE`, or `BROWSER` for a browser [signed in](#signing-in-a-browser) from a device of the user. |
+| `expiresAt` | When a browser's sign-in ends, a fixed 30 days after it signed in; `null` for a device, which does not expire. |
 | `user` | The user it belongs to, `{id, name, role}`. Fixed for the client's life. |
 | `admin` | Whether the client is an [admin device](#admin-devices): exactly when its user is an `ADMIN`. |
 | `createdAt` | When it was registered. |
@@ -1073,7 +1075,10 @@ Only renaming has a body. The limits keep a stolen key from taking over:
 
 - **The role is checked first.** A basic user's key gets `403 Not allowed for
   your role` on every change, before the path's client is looked up, so the
-  answer is the same whatever the target and says nothing about it. A
+  answer is the same whatever the target and says nothing about it. The one
+  exception: a basic user (and any other role) may rename, revoke and delete
+  their own [browsers](#signing-in-a-browser), an admin's included (a basic
+  user's request about any other device is still `403`, whatever the target). A
   missing, unknown or revoked key (or one of a revoked user) is the usual
   `401`, and the admin token is not a client key (`401`): the operator has the
   [management API](#client-api). The caller and its user are locked, and
@@ -1407,6 +1412,100 @@ so a user can add a device from the app, away from the host:
   pairings. Without it, `uri` is `null`, and the app builds the same URI from
   the address it reaches the server at, which is where the new device should
   go too.
+
+### Signing in a browser
+
+> Status: implemented (the server and the app's side). The users' web page that
+> uses it follows.
+
+There are no passwords. A browser becomes one of a user's clients by being
+approved from a device the user already has, as WhatsApp Web is. Every role may
+do it. It is a [client](#clients) like a device, with its own key, listed in
+`GET /api/v1/client/devices` with `kind` `BROWSER`, revoked like a device, and
+subject to its user's [role](#roles) in every rule except one: **every role,
+a basic user included, may approve signing a browser in from a device of their
+own, and rename, revoke and delete their own browsers** (a basic user still
+pairs and removes no device). An admin's browser is an admin device, so only
+the operator can change it, with the admin token, except that its own user may
+sign it out.
+
+**The flow.** The page and the device never share a secret the screen does
+not show:
+
+1. The page, with no credential, `POST /api/v1/web/sign-ins`. It gets a `code`
+   to show and type (`K7Q-4MX`), a longer `scanCode` for the QR code and the
+   *Open the app* link (`uri`, `signalhub://signin?server=…&code=shsc1_…`, from
+   `SIGNALHUB_PUBLIC_URL` or, if unset, built by the page from its own address),
+   and a `pollSecret` it keeps in memory and never shows. The browser is named
+   from its `User-Agent` (`Firefox on Linux`, `Safari on iPhone`; `Browser` if
+   unknown). **decided: a label for people, never used to decide anything.**
+2. A device looks the code up (`POST /api/v1/client/web-sign-ins/lookup`, the
+   typed code in any case with or without the dash, or the scan code) and
+   becomes the only device that may approve or cancel that sign-in; the page
+   sees it as `ASKED`. The app asks its user *Sign in this browser?* naming it.
+3. The device approves (`POST .../{id}/approve`) or cancels (`.../cancel`).
+4. The page polls `GET /api/v1/web/sign-ins/{id}` with its poll secret
+   (`PENDING`, `ASKED`, `CANCELLED`, `EXPIRED`). The poll after an approval
+   creates the browser's client for the approving device's user, with a
+   [client key](#client-keys) that exists nowhere but in the `Set-Cookie` of that
+   response, and answers `SIGNED_IN`. The cookie is set once: the same sign-in
+   is `EXPIRED` afterwards. A cancel is noticed by the page's next poll
+   (**decided: polling every second or two; no push channel**).
+5. The user's devices and the admins' get a push, *Browser signed in*,
+   naming the browser and the approving device, so an approval by mistake is
+   noticed (`notice` `browser-signed-in`).
+
+| Method and path | Credential | Result |
+|---|---|---|
+| `POST /api/v1/web/sign-ins` | none | `201` with `{id, pollSecret, code, scanCode, uri, expiresAt, browserName}`. `429` if 200 sign-ins already wait. |
+| `GET /api/v1/web/sign-ins/{id}` | `Bearer <pollSecret>` | `{state, expiresAt}`; the `SIGNED_IN` answer carries the cookie. `401` for an unknown ID or a wrong secret. |
+| `POST /api/v1/client/web-sign-ins/lookup` | client key of a device | `{code}` gives `{id, browserName, expiresAt}`; `404` for a wrong, expired or used code; `429` after too many wrong ones; `403` for a browser. |
+| `POST /api/v1/client/web-sign-ins/{id}/approve`, `.../cancel` | the device that looked it up | `204`; `404` if it did not look it up, or it is no longer live. |
+| `GET /api/v1/web/session` | the cookie | `{csrfToken, client}`: this browser's registration (`kind`, `expiresAt`) and the token for state-changing requests. |
+| `POST /api/v1/web/session/sign-out` | the cookie and the token | `204`: revokes this browser and clears the cookie. Its user's devices and other browsers are untouched. |
+
+**Codes.** The typed code is six characters from an alphabet without the
+look-alikes (`I L O 0 1`), about 30 bits, so it is safe only because it lives
+**three minutes** (the page asks for fresh codes itself, up to five times,
+then says it stopped waiting), only an authenticated device may try it, and
+wrong tries are bounded: **five per device and thirty in all in ten minutes**,
+after which every lookup is `429` whatever the code (so a right guess cannot
+be told from a wrong one). The tries are counted in memory, because SignalHub
+is one service; a restart forgives a few. At most 200 sign-ins wait at once.
+An approved sign-in must be collected within two minutes. Rows are deleted ten
+minutes after they expire. Only SHA-256 of the poll secret, the typed code and
+the scan code is stored (`web_sign_ins`, `V20`), as for keys and pairing codes.
+
+**The session** is the browser client's key in a cookie,
+`__Host-signalhub_session`: `HttpOnly` (no script can read it), `Secure`,
+`SameSite=Strict`, `Path=/`, no `Domain` (the `__Host-` prefix makes a browser
+insist on that), `Max-Age` 30 days. **decided: a fixed 30 days**: the client
+row carries `expires_at` (`V20`) and the server refuses the key after it, so
+the lifetime does not depend on the browser keeping the cookie, and using the
+page never extends it. The session ends by signing out (the sign-out above),
+by revoking the browser from a device, with the admin token or by revoking the
+user, and after 30 days; the next request is `401`. Devices keep keys that
+never expire, as before.
+
+The cookie authenticates the whole client API, so a page does everything a
+device of its user's role may, through the same endpoints and rules; it is read
+only when the request has no `Authorization` header (a bearer key wins), only
+if the client is a browser (a device's key in the cookie is `401`), and never
+as the admin token, so the [admin page](#the-admin-page) and its token are as
+private as before. Only a device can approve a sign-in: a browser's
+lookup is `403`, so a hijacked page cannot mint more sessions, and a browser is
+not counted as one of a mod's devices for the rule that keeps them from
+revoking their last one.
+
+**Cross-site requests.** `SameSite=Strict` already keeps other sites'
+requests from carrying the cookie. As well, every state-changing request
+(`POST`, `PUT`, `PATCH`, `DELETE`) made with the cookie must send
+`X-SignalHub-CSRF` with the token `GET /api/v1/web/session` gives (derived
+from the session key, so there is nothing to store, and readable only by a
+script of the page, because no other origin may read a response), and if it has
+an `Origin` it must be the request's own host. Otherwise it is `403`, after the
+`401` check. A request with a bearer key has no cookie to forge and needs
+neither. There is no CORS, so no other origin reads any response.
 
 ### Traffic by user
 

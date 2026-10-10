@@ -47,7 +47,26 @@ class ClientPersistenceTest {
     columns.put("user_id", "uuid NO");
     // Added by V19: empty until the client's first request.
     columns.put("last_active_at", "timestamp with time zone YES");
+    // Added by V20: a device or a signed-in browser, and when a browser's sign-in ends.
+    columns.put("kind", "text NO");
+    columns.put("expires_at", "timestamp with time zone YES");
     assertEquals(columns, columnsOf("clients"));
+  }
+
+  @Test
+  void migrationCreatesTheWebSignInsTable() throws SQLException {
+    var columns = new LinkedHashMap<String, String>();
+    columns.put("id", "uuid NO");
+    columns.put("poll_hash", "bytea NO");
+    columns.put("code_hash", "bytea NO");
+    columns.put("scan_hash", "bytea NO");
+    columns.put("browser_name", "text NO");
+    columns.put("created_at", "timestamp with time zone NO");
+    columns.put("expires_at", "timestamp with time zone NO");
+    columns.put("status", "text NO");
+    columns.put("asked_by", "uuid YES");
+    columns.put("user_id", "uuid YES");
+    assertEquals(columns, columnsOf("web_sign_ins"));
   }
 
   @Test

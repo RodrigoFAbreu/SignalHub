@@ -26,6 +26,12 @@ public record ManagedClientResponse(
             description =
                 "Whether the client is an admin device: exactly when its user is an ADMIN.")
         boolean admin,
+    @Schema(
+            required = true,
+            description =
+                "DEVICE for an app installation or script; BROWSER for a browser signed in from a"
+                    + " device of the user, which is listed and revoked like a device.")
+        ClientKind kind,
     @Schema(required = true, description = "The user the client belongs to, with their role.")
         UserRef user,
     @Schema(required = true, examples = "2026-09-25T12:00:00.123456Z") Instant createdAt,
@@ -35,6 +41,12 @@ public record ManagedClientResponse(
                     + " once a minute); null until it has.",
             examples = "2026-09-30T08:15:00.123456Z")
         Instant lastActiveAt,
+    @Schema(
+            description =
+                "When a browser's sign-in ends (a fixed 30 days after it signed in); null for a"
+                    + " device, which does not expire.",
+            examples = "2026-10-30T08:15:00.123456Z")
+        Instant expiresAt,
     @Schema(
             description =
                 "When the client was revoked; null while it is active. A revoked client cannot"
@@ -52,9 +64,11 @@ public record ManagedClientResponse(
         client.id(),
         client.name(),
         client.admin(),
+        client.kind(),
         client.user(),
         client.createdAt(),
         client.lastActiveAt(),
+        client.expiresAt(),
         client.revokedAt(),
         client.pushTarget(),
         client.pushPreferences(),

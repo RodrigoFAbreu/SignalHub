@@ -12,6 +12,7 @@ import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
@@ -63,18 +64,26 @@ public class ClientService {
       LOG.debugf("Rejected client credential: client %s is revoked", clientId.get());
       return Optional.empty();
     }
+    var at = now();
+    if (client.get().expired(at)) {
+      LOG.debugf("Rejected client credential: the sign-in of browser %s has ended", clientId.get());
+      return Optional.empty();
+    }
     var user = users.find(client.get().userId()).filter(u -> users.isActive(u.id()));
     if (user.isEmpty()) {
       LOG.debugf("Rejected client credential: the user of client %s is revoked", clientId.get());
       return Optional.empty();
     }
-    var at = now();
     if (LastUsed.due(client.get().lastActiveAt(), at)) {
       clients.recordActivity(clientId.get(), at, at.minus(LastUsed.INTERVAL));
     }
     return Optional.of(
         new ClientIdentity(
-            client.get().id(), client.get().name(), user.get().id(), user.get().role()));
+            client.get().id(),
+            client.get().name(),
+            client.get().kind(),
+            user.get().id(),
+            user.get().role()));
   }
 
   /**
@@ -83,6 +92,15 @@ public class ClientService {
    */
   @Transactional
   Optional<IssuedClientKey> create(UUID userId, String name) {
+    return create(userId, name, ClientKind.DEVICE, null);
+  }
+
+  /**
+   * {@link #create(UUID, String)} for a client of this kind; a browser's sign-in ends at {@code
+   * expiresAt}.
+   */
+  @Transactional
+  Optional<IssuedClientKey> create(UUID userId, String name, ClientKind kind, Instant expiresAt) {
     var user = users.lockActive(userId);
     if (user.isEmpty()) {
       return Optional.empty();
@@ -91,9 +109,9 @@ public class ClientService {
     // generator Hibernate uses for the other tables.
     var id = UuidVersion7Strategy.INSTANCE.generateUuid(null);
     var key = ClientKeys.generate(id);
-    var client = new ClientEntity(id, name, userId, ApiKeys.hash(key), now());
+    var client = new ClientEntity(id, name, kind, userId, ApiKeys.hash(key), now(), expiresAt);
     clients.persist(client);
-    LOG.infof("Registered client %s for user %s", id, userId);
+    LOG.infof("Registered %s %s for user %s", kind.name().toLowerCase(Locale.ROOT), id, userId);
     return Optional.of(new IssuedClientKey(toResponse(client, user.get()), key));
   }
 
@@ -245,7 +263,8 @@ public class ClientService {
             return done(client, false);
           }
           if (caller.user().role() == Role.MOD
-              && clients.countActive(caller.client().userId()) <= 1) {
+              && client.kind() == ClientKind.DEVICE
+              && clients.countActiveDevices(caller.client().userId()) <= 1) {
             return new DeviceChange.Refused(Refusal.LAST_DEVICE);
           }
           client.revoke(now());
@@ -313,10 +332,22 @@ public class ClientService {
    * unknown to them), an admin any device but those of admins. Null if it does.
    */
   private Refusal scopeRefusal(Caller caller, ClientEntity target) {
+    if (ownBrowser(caller.client(), target)) {
+      return null;
+    }
     if (caller.user().role() == Role.ADMIN) {
       return userOf(target).admin() ? Refusal.CLIENT_IS_ADMIN : null;
     }
     return target.userId().equals(caller.client().userId()) ? null : Refusal.UNKNOWN_CLIENT;
+  }
+
+  /**
+   * Whether the target is a browser signed in for the caller's own user. Every role may rename,
+   * revoke and delete its own browsers, a basic user and an admin included: a browser is not a
+   * device the user pairs, and signing it out must not need anyone's help.
+   */
+  private static boolean ownBrowser(ClientEntity caller, ClientEntity target) {
+    return target.kind() == ClientKind.BROWSER && target.userId().equals(caller.userId());
   }
 
   /** The device making a change, with its user as the role check read them. */
@@ -355,10 +386,15 @@ public class ClientService {
     if (caller.revoked()) {
       return refused.apply(Refusal.CALLER_REVOKED);
     }
-    if (user.get().role() == Role.BASIC) {
-      return refused.apply(Refusal.NOT_ALLOWED);
-    }
     var asked = new Caller(caller, user.get());
+    if (user.get().role() == Role.BASIC) {
+      // A basic user's own browsers are the only thing they may change, and anything else is
+      // refused whatever the target, so the answer says nothing about it.
+      return target
+          .filter(client -> ownBrowser(caller, client))
+          .map(client -> change.apply(asked, client))
+          .orElseGet(() -> refused.apply(Refusal.NOT_ALLOWED));
+    }
     return target
         .map(client -> change.apply(asked, client))
         .orElseGet(() -> refused.apply(Refusal.UNKNOWN_CLIENT));
@@ -540,9 +576,11 @@ public class ClientService {
         client.id(),
         client.name(),
         user.admin(),
+        client.kind(),
         user,
         client.createdAt(),
         client.lastActiveAt(),
+        client.expiresAt(),
         client.revokedAt(),
         pushTarget,
         client.pushPreferences());

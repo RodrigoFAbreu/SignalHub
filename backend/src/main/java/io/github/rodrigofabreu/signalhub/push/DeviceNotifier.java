@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.push;
 
+import io.github.rodrigofabreu.signalhub.client.BrowserSignedIn;
 import io.github.rodrigofabreu.signalhub.client.ClientChangedByDevice;
 import io.github.rodrigofabreu.signalhub.client.ClientPaired;
 import io.github.rodrigofabreu.signalhub.client.ClientService;
@@ -69,6 +70,37 @@ public class DeviceNotifier {
         () -> messageFor(changed),
         null,
         changed.userId());
+  }
+
+  /**
+   * Queues the notice and returns at once. Never throws. Every device of the user and of the admins
+   * is told, the approving device included: a sign-in approved by mistake should be noticed.
+   */
+  void onBrowserSignedIn(@Observes BrowserSignedIn signedIn) {
+    queue(
+        "browser sign-in notice",
+        signedIn.clientId(),
+        () -> messageFor(signedIn),
+        null,
+        signedIn.userId());
+  }
+
+  static PushMessage messageFor(BrowserSignedIn signedIn) {
+    return new PushMessage(
+        "Browser signed in",
+        "\""
+            + signedIn.name()
+            + "\" was signed in from \""
+            + signedIn.byName()
+            + "\" and can read your SignalHub events for 30 days. If this was not you, revoke it"
+            + " in Devices.",
+        Map.of(
+            "notice",
+            "browser-signed-in",
+            "clientId",
+            signedIn.clientId().toString(),
+            "byClientId",
+            signedIn.byClientId().toString()));
   }
 
   static PushMessage messageFor(ClientPaired paired) {

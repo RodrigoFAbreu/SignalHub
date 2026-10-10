@@ -308,7 +308,14 @@ class OpenApiTest {
         .body(
             SCHEMAS + ".ManagedClient.required",
             containsInAnyOrder(
-                "id", "name", "admin", "user", "createdAt", "pushPreferences", "pushStatus"))
+                "id",
+                "name",
+                "admin",
+                "kind",
+                "user",
+                "createdAt",
+                "pushPreferences",
+                "pushStatus"))
         .body(
             SCHEMAS + ".ManagedClient.properties.pushStatus.$ref",
             equalTo("#/components/schemas/PushStatus"))

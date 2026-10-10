@@ -26,16 +26,26 @@ class OwnerAuthenticationFilter implements ContainerRequestFilter {
   private final ClientService clients;
   private final AdminToken adminToken;
   private final AuthenticatedClient authenticated;
+  private final WebSession session;
 
   OwnerAuthenticationFilter(
-      ClientService clients, AdminToken adminToken, AuthenticatedClient authenticated) {
+      ClientService clients,
+      AdminToken adminToken,
+      AuthenticatedClient authenticated,
+      WebSession session) {
     this.clients = clients;
     this.adminToken = adminToken;
     this.authenticated = authenticated;
+    this.session = session;
   }
 
   @Override
   public void filter(ContainerRequestContext request) {
+    if (request.getHeaderString(HttpHeaders.AUTHORIZATION) == null) {
+      // Only a signed-in browser's cookie; the admin token is never accepted that way.
+      session.authenticate(request, authenticated);
+      return;
+    }
     var presented = BearerToken.from(request.getHeaderString(HttpHeaders.AUTHORIZATION));
     if (presented.isEmpty()) {
       LOG.debug("Rejected owner credential: no bearer token");

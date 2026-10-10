@@ -582,6 +582,78 @@ jobs:
               "https://localhost/api/v1/client/devices/$paired_id")
             test "$status" = "$expected" || { echo "expected $expected, got $status"; exit 1; }
           done
+      - name: A browser signs in through the proxy with a code a device approves, reads with its cookie, and signs out
+        run: |
+          proxy() {
+            curl --silent --cacert "$RUNNER_TEMP/proxy-ca.crt" "$@"
+          }
+          device_key=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" --header 'Content-Type: application/json' \
+            --data '{"name": "ci-signin-phone"}' \
+            http://localhost:8080/api/v1/admin/clients | jq --raw-output .clientKey)
+          echo "::add-mask::$device_key"
+          started=$(proxy --fail --show-error --request POST \
+            --header 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0' \
+            https://localhost/api/v1/web/sign-ins)
+          poll_secret=$(jq --raw-output .pollSecret <<<"$started")
+          echo "::add-mask::$poll_secret"
+          code=$(jq --raw-output .code <<<"$started")
+          echo "::add-mask::$code"
+          sign_in=$(jq --raw-output .id <<<"$started")
+          # The link the page shows and the app opens names the proxy's address.
+          jq --exit-status '.browserName == "Firefox on Linux"
+              and (.uri | startswith("signalhub://signin?server=https%3A%2F%2Flocalhost&code=shsc1_"))' \
+            <<<"$started" > /dev/null
+          poll() {
+            proxy --header "Authorization: Bearer $poll_secret" "$@" \
+              "https://localhost/api/v1/web/sign-ins/$sign_in"
+          }
+          poll --fail --show-error | jq --exit-status '.state == "PENDING"'
+          # A device (any role) looks the code up and approves it, through the proxy.
+          approver() {
+            proxy --header "Authorization: Bearer $device_key" "$@"
+          }
+          asked=$(approver --fail --show-error --request POST --header 'Content-Type: application/json' \
+            --data "{\"code\": \"$code\"}" https://localhost/api/v1/client/web-sign-ins/lookup)
+          jq --exit-status --arg id "$sign_in" '.id == $id and .browserName == "Firefox on Linux"' \
+            <<<"$asked" > /dev/null
+          approver --fail --show-error --request POST \
+            "https://localhost/api/v1/client/web-sign-ins/$sign_in/approve"
+          # The page's next poll signs the browser in: the cookie is HttpOnly, Secure, SameSite=Strict.
+          poll --fail --show-error --dump-header "$RUNNER_TEMP/sign-in-headers" \
+            | jq --exit-status '.state == "SIGNED_IN"'
+          grep --ignore-case --quiet \
+            '^set-cookie: __Host-signalhub_session=shck1_[^;]*; Max-Age=2592000; Path=/; Secure; HttpOnly; SameSite=Strict' \
+            "$RUNNER_TEMP/sign-in-headers"
+          cookie=$(grep --ignore-case '^set-cookie:' "$RUNNER_TEMP/sign-in-headers" \
+            | sed --regexp-extended 's/^[^:]+: ([^;]+);.*/\1/')
+          echo "::add-mask::${cookie#*=}"
+          session=$(proxy --fail --show-error --header "Cookie: $cookie" https://localhost/api/v1/web/session)
+          csrf=$(jq --raw-output .csrfToken <<<"$session")
+          echo "::add-mask::$csrf"
+          jq --exit-status '.client.kind == "BROWSER" and .client.expiresAt != null' \
+            <<<"$session" > /dev/null
+          # The cookie reads the client API like the device does.
+          proxy --fail --show-error --header "Cookie: $cookie" https://localhost/api/v1/client \
+            | jq --exit-status '.kind == "BROWSER"'
+          # The code works once, and the admin page and the management API never answer a browser.
+          poll --fail --show-error | jq --exit-status '.state == "EXPIRED"'
+          status=$(proxy --output /dev/null --write-out '%{http_code}' --header "Cookie: $cookie" \
+            https://localhost/api/v1/admin/clients)
+          test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
+          # Signing out needs the token the page reads from its session, not the cookie alone.
+          status=$(proxy --output /dev/null --write-out '%{http_code}' --request POST \
+            --header "Cookie: $cookie" https://localhost/api/v1/web/session/sign-out)
+          test "$status" = 403 || { echo "expected 403, got $status"; exit 1; }
+          status=$(proxy --output /dev/null --write-out '%{http_code}' --request POST \
+            --header "Cookie: $cookie" --header "X-SignalHub-CSRF: $csrf" \
+            https://localhost/api/v1/web/session/sign-out)
+          test "$status" = 204 || { echo "expected 204, got $status"; exit 1; }
+          status=$(proxy --output /dev/null --write-out '%{http_code}' --header "Cookie: $cookie" \
+            https://localhost/api/v1/web/session)
+          test "$status" = 401 || { echo "expected 401, got $status"; exit 1; }
+          # The device that approved it is untouched.
+          approver --fail --show-error https://localhost/api/v1/client | jq --exit-status '.kind == "DEVICE"'
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
