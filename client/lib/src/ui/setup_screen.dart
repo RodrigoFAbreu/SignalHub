@@ -167,6 +167,7 @@ class _SetupScreenState extends State<SetupScreen> {
           icon: Icons.link_off,
           message: noLongerConnectedMessage,
           margin: EdgeInsets.zero,
+          iconAtTop: true,
         ),
         const SizedBox(height: 16),
       ],
@@ -176,6 +177,7 @@ class _SetupScreenState extends State<SetupScreen> {
           message: failure.message,
           error: true,
           margin: EdgeInsets.zero,
+          iconAtTop: true,
         ),
         const SizedBox(height: 16),
       ] else if (_cameraOff) ...[
@@ -185,6 +187,7 @@ class _SetupScreenState extends State<SetupScreen> {
               "SignalHub can't use the camera, so it can't scan. Paste the "
               "link instead, or allow the camera in your phone's settings.",
           margin: EdgeInsets.zero,
+          iconAtTop: true,
         ),
         const SizedBox(height: 16),
       ],

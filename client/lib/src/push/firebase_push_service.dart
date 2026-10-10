@@ -93,12 +93,12 @@ class FirebasePushService implements PushService {
   Future<void> deleteToken() => _messaging.deleteToken();
 
   Future<void> _listen() async {
-    FirebaseMessaging.onMessage.listen((m) => _notices.add(_notice(m, false)));
+    FirebaseMessaging.onMessage.listen((m) => _notices.add(noticeOf(m, false)));
     FirebaseMessaging.onMessageOpenedApp.listen(
-      (m) => _notices.add(_notice(m, true)),
+      (m) => _notices.add(noticeOf(m, true)),
     );
     final initial = await _messaging.getInitialMessage();
-    if (initial != null) _notices.add(_notice(initial, true));
+    if (initial != null) _notices.add(noticeOf(initial, true));
   }
 
   /// FCM issues no token on iOS until APNs has given the app its device
@@ -111,7 +111,10 @@ class FirebasePushService implements PushService {
     return false;
   }
 
-  static PushNotice _notice(RemoteMessage message, bool opened) => PushNotice(
+  /// The provider-neutral notice of a message: an event's push has its ID, a
+  /// notice about a device has `notice` in its data.
+  @visibleForTesting
+  static PushNotice noticeOf(RemoteMessage message, bool opened) => PushNotice(
     title: message.notification?.title ?? 'SignalHub',
     body: message.notification?.body,
     eventId: message.data['eventId'] as String?,

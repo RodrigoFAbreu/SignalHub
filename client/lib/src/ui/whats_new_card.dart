@@ -15,7 +15,7 @@ class WhatsNewCard extends StatelessWidget {
   /// What changed, in order; People is for an admin only.
   static List<Fact> facts({required bool admin}) => [
     const Fact(
-      Icons.dock,
+      Icons.call_to_action_outlined,
       'A bottom bar.',
       ' Inbox, Producers and Settings are one tap away.',
     ),

@@ -87,7 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // sees, or else the ones an event of the inbox came from.
         final names = {
           for (final id in preferences?.mutedProducerIds ?? const <String>[])
-            if (_controller.producerName(id) case final name?) id: name,
+            id: ?_controller.producerName(id),
         };
         // Pushes are paused: what shapes them is kept, and can be changed.
         final paused = preferences != null && !preferences.enabled;
