@@ -3526,7 +3526,9 @@ G1 → G2 → R19 v1.0.0
   maintainer chose to keep running every part on every pull request
   (rather than skipping parts by changed paths) and to turn the `curl`
   steps into Python tests (rather than shell helpers or a new HTTP
-  testing tool).
+  testing tool), and asked that CI be made genuinely faster, not only
+  split further; a new testing tool is allowed only for a significant
+  improvement with a very good reason.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -5695,7 +5697,11 @@ Scope:
   test per check and a small shared helper for requests, credentials and
   expected statuses. The workflows start the stack and run the tests; the
   same tests run by hand against a local `docker compose up`. Every check
-  of today is kept: the PR maps each old step to its test
+  of today is kept: the PR maps each old step to its test. A dedicated
+  testing tool may replace plain Python only for a significant
+  improvement and a very good reason, both shown in the PR (for example a
+  measured gain in clarity or speed that the standard library cannot
+  give); it is then pinned like every other tool
 - **efficiency, measured**: record each job's duration and a pull
   request run's wall time and total runner minutes before and after, and
   remove repeated work rather than only splitting jobs further: for
@@ -5714,8 +5720,9 @@ Scope:
 Compatible (`ci`, patch): nothing a user, producer or operator sees.
 
 Non-goals: dropping or weakening a check, a required check or the
-release's re-validation; skipping parts by changed paths; a new HTTP
-testing tool or framework; changing what a release publishes.
+release's re-validation; skipping parts by changed paths; a new testing
+tool without a significant, shown improvement; changing what a release
+publishes.
 
 Exit criteria: a pull request runs every part green with every check of
 before (the mapping in the PR); each part runs alone from the Actions
