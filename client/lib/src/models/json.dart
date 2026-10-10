@@ -13,6 +13,12 @@ extension JsonObject on Map<String, Object?> {
   Map<String, Object?>? optionalObject(String key) =>
       this[key] == null ? null : object(key);
 
+  /// An object that may be absent, read with [read].
+  T? optionalObjectAs<T>(String key, T Function(Map<String, Object?>) read) =>
+      this[key] == null ? null : read(object(key));
+
+  int? optionalInteger(String key) => _optional<int>(key);
+
   List<Object?> list(String key) => _required<List<Object?>>(key);
 
   int integer(String key) => _required<int>(key);

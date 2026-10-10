@@ -5,13 +5,19 @@ import 'package:flutter/foundation.dart';
 import 'alert/alert_controller.dart';
 import 'alert/alert_platform.dart';
 import 'api/signalhub_api.dart';
+import 'api_gateway.dart';
 import 'build_identity.dart';
 import 'connection/pairing_uri.dart';
 import 'connection/server_credentials.dart';
+import 'features/devices_controller.dart';
+import 'features/own_producers_controller.dart';
+import 'features/people_controller.dart';
+import 'features/producers_controller.dart';
 import 'models/client_registration.dart';
 import 'models/event.dart';
 import 'models/inbox_filter.dart';
 import 'models/push_config.dart';
+import 'models/users.dart';
 import 'push/push_registration.dart';
 import 'push/push_service.dart';
 import 'settings/settings_groups.dart';
@@ -27,6 +33,10 @@ enum ConnectionPhase {
   connected,
 }
 
+/// The top-level screens the bottom bar switches between. People is an
+/// admin's tab.
+enum HomeTab { inbox, producers, people, settings }
+
 typedef ApiFactory = SignalHubApi Function(ServerCredentials credentials);
 
 /// Redeems a pairing code at a server ([SignalHubApi.redeemPairing]).
@@ -41,7 +51,7 @@ typedef ServedPushStarter = Future<PushService?> Function(PushConfig served);
 
 /// The app's state: the server connection, this installation's registration
 /// and push status, and the inbox. The UI only renders it.
-class AppController extends ChangeNotifier {
+class AppController extends ChangeNotifier implements ApiGateway {
   /// [push] is the push service the build set up with its own options.
   /// Without one, [startServedPush] sets push up with the options the server
   /// serves; the build's own options take precedence. [alertPlatform] plays
@@ -225,6 +235,103 @@ class AppController extends ChangeNotifier {
     return pairing.uri ?? PairingUri.format(credentials.baseUrl, pairing.code);
   }
 
+  @override
+  UserRole get role => registration?.role ?? UserRole.basic;
+
+  @override
+  String? get userId => registration?.user?.id;
+
+  @override
+  String? get userName => registration?.user?.name;
+
+  /// The tab of the bottom bar that is showing. Kept here so a screen can send
+  /// the person to another tab (the welcome's _Find producers_).
+  HomeTab tab = HomeTab.inbox;
+
+  /// The tabs the bottom bar offers this role, in order.
+  List<HomeTab> get tabs => [
+    HomeTab.inbox,
+    HomeTab.producers,
+    if (role.isAdmin) HomeTab.people,
+    HomeTab.settings,
+  ];
+
+  void selectTab(HomeTab next) {
+    if (tab == next) return;
+    tab = next;
+    notifyListeners();
+  }
+
+  /// The producers this user sees, and subscribing to them.
+  late ProducersController producers = ProducersController(this);
+
+  /// The producers this user owns, their keys and who may see them.
+  late OwnProducersController ownProducers = OwnProducersController(this);
+
+  /// The people on the server; for an admin, their roles and devices.
+  late PeopleController people = PeopleController(this);
+
+  /// The devices this role may list and manage, and connecting new ones.
+  late DevicesController deviceList = DevicesController(this);
+
+  /// How this user's role changed under them since the app last said so; `null`
+  /// when nothing is to be said. The app learns of a change when a request is
+  /// refused or when it reads the registration again, never by push.
+  ({UserRole from, UserRole to})? _roleChange;
+
+  /// The role change to tell the person about, once.
+  ({UserRole from, UserRole to})? takeRoleChange() {
+    final change = _roleChange;
+    _roleChange = null;
+    return change;
+  }
+
+  /// Whether a role change is waiting to be said.
+  bool get hasRoleChange => _roleChange != null;
+
+  /// Keeps [next] as this installation's registration, and notes a change of
+  /// the user's role since the one kept before.
+  void _setRegistration(ClientRegistration next) {
+    final before = registration?.role;
+    registration = next;
+    if (before != null && before != next.role) {
+      _roleChange = (from: before, to: next.role);
+    }
+  }
+
+  /// Reads the registration again, so a role the host or an admin changed is
+  /// noticed; a failure leaves what is known.
+  Future<void> rereadRegistration() async {
+    final api = _api;
+    if (api == null) return;
+    try {
+      _setRegistration(await api.getClient());
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return;
+    } on ApiException catch (e) {
+      debugPrint('Registration not re-read: ${e.message}');
+    }
+    notifyListeners();
+  }
+
+  @override
+  Future<T> call<T>(Future<T> Function(SignalHubApi api) call) async {
+    final api = _api;
+    if (api == null) throw const SignedOutException();
+    try {
+      return await call(api);
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      throw const SignedOutException();
+    } on ApiException catch (e) {
+      // A role that no longer allows it: read it again, so the screens
+      // follow the new role.
+      if (e.statusCode == 403) await rereadRegistration();
+      rethrow;
+    }
+  }
+
   /// Whether the server has events older than [events].
   bool get hasMore => _nextCursor != null;
 
@@ -338,6 +445,7 @@ class AppController extends ChangeNotifier {
     ClientRegistration client,
   ) async {
     registration = client;
+    _roleChange = null;
     await _store.save(accepted);
     _open(accepted);
     error = null;
@@ -358,7 +466,7 @@ class AppController extends ChangeNotifier {
     final api = _api;
     if (api == null) return false;
     try {
-      if (includeClient) registration = await api.getClient();
+      if (includeClient) _setRegistration(await api.getClient());
       final generation = ++_inboxGeneration;
       final filter = this.filter;
       final page = await api.listEvents(limit: pageSize, filter: filter);
@@ -583,7 +691,7 @@ class AppController extends ChangeNotifier {
     savingPushPreferences = true;
     notifyListeners();
     try {
-      registration = await api.setPushPreferences(preferences);
+      _setRegistration(await api.setPushPreferences(preferences));
     } on UnauthorizedException {
       await _forgetRevokedKey();
       return null;
@@ -631,11 +739,6 @@ class AppController extends ChangeNotifier {
     }
     notifyListeners();
   }
-
-  /// Makes the device with [id] an admin device. Returns an error message,
-  /// or `null` on success.
-  Future<String?> makeDeviceAdmin(String id) =>
-      _changeDevice(id, (api) => api.makeDeviceAdmin(id));
 
   /// Revokes the device with [id], which must not be an admin. Returns an
   /// error message, or `null` on success.
@@ -818,13 +921,7 @@ class AppController extends ChangeNotifier {
     lostAdminRights = true;
     devices = null;
     devicesError = null;
-    try {
-      registration = await api.getClient();
-    } on UnauthorizedException {
-      await _forgetRevokedKey();
-    } on ApiException catch (e) {
-      debugPrint('Registration not re-read: ${e.message}');
-    }
+    await rereadRegistration();
   }
 
   static List<ManagedDevice> _activeFirst(List<ManagedDevice> devices) => [
@@ -848,6 +945,7 @@ class AppController extends ChangeNotifier {
   void _open(ServerCredentials saved) {
     credentials = saved;
     _api = _apiFactory(saved);
+    _resetFeatures();
     final push = _push;
     if (push != null) _pushRegistration = PushRegistration(push, _api!);
   }
@@ -943,10 +1041,24 @@ class AppController extends ChangeNotifier {
     _pairingUnsupported = false;
     _pairingStatusUnknown = false;
     _eventToOpen = null;
+    _roleChange = null;
+    tab = HomeTab.inbox;
+    _resetFeatures();
     pushStatus = _initialPushStatus;
     error = reason;
     serverUnreachable = false;
     _setPhase(ConnectionPhase.disconnected);
+  }
+
+  void _resetFeatures() {
+    producers.dispose();
+    ownProducers.dispose();
+    people.dispose();
+    deviceList.dispose();
+    producers = ProducersController(this);
+    ownProducers = OwnProducersController(this);
+    people = PeopleController(this);
+    deviceList = DevicesController(this);
   }
 
   void _onNotice(PushNotice notice) {
@@ -975,6 +1087,10 @@ class AppController extends ChangeNotifier {
     unawaited(_notices?.cancel());
     unawaited(_pushRegistration?.dispose());
     alert?.dispose();
+    producers.dispose();
+    ownProducers.dispose();
+    people.dispose();
+    deviceList.dispose();
     super.dispose();
   }
 }

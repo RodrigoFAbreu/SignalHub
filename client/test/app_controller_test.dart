@@ -1304,19 +1304,6 @@ void main() {
       expect(app.lostAdminRights, isFalse);
     });
 
-    test('makes a device an admin', () async {
-      final app = controller();
-      await app.connect(serverUrl, clientKey);
-      await app.loadDevices();
-
-      final error = await app.makeDeviceAdmin(tablet);
-
-      expect(error, isNull);
-      expect(backend.otherClients.first['admin'], isTrue);
-      expect(app.devices!.firstWhere((d) => d.id == tablet).admin, isTrue);
-      expect(app.changingDeviceId, isNull);
-    });
-
     test('revokes a device, which moves after the active ones', () async {
       final app = controller();
       await app.connect(serverUrl, clientKey);
@@ -1377,10 +1364,10 @@ void main() {
       await app.loadDevices();
       backend.admin = false;
 
-      final error = await app.makeDeviceAdmin(tablet);
+      final error = await app.revokeDevice(tablet);
 
       expect(error, AppController.notAdminMessage);
-      expect(backend.otherClients.first['admin'], isFalse);
+      expect(backend.otherClients.first['revokedAt'], isNull);
       expect(app.lostAdminRights, isTrue);
       expect(app.devices, isNull);
       expect(app.canManageDevices, isFalse);

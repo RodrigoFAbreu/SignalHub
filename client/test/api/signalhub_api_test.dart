@@ -123,7 +123,7 @@ void main() {
     expect(backend.pushTarget, isNull);
   });
 
-  test('an admin device lists devices, makes admins and revokes', () async {
+  test('an admin device lists devices, renames and revokes', () async {
     backend
       ..admin = true
       ..addClient('c-2', 'Tablet')
@@ -138,11 +138,22 @@ void main() {
     expect(devices.first.admin, isTrue);
     expect(backend.requests.last.url.path, '/api/v1/client/devices');
 
-    final admin = await api.makeDeviceAdmin('c-2');
-    expect(admin.admin, isTrue);
-    expect(backend.requests.last.method, 'POST');
-    expect(backend.requests.last.url.path, '/api/v1/client/devices/c-2/admin');
-    expect(backend.requests.last.body, isEmpty);
+    // Renaming is answered by the handler a test adds: the fake has none.
+    backend.handlers.add((request, path) {
+      if (request.method != 'PATCH' || path != '/api/v1/client/devices/c-2') {
+        return null;
+      }
+      final name = (jsonDecode(request.body) as Map<String, Object?>)['name'];
+      return http.Response(
+        jsonEncode({...backend.otherClients.first, 'name': name}),
+        200,
+      );
+    });
+    final renamed = await api.renameDevice('c-2', 'Kitchen tablet');
+    expect(renamed.name, 'Kitchen tablet');
+    expect(backend.requests.last.method, 'PATCH');
+    expect(backend.requests.last.url.path, '/api/v1/client/devices/c-2');
+    expect(jsonDecode(backend.requests.last.body), {'name': 'Kitchen tablet'});
 
     final revoked = await api.revokeDevice('c-3');
     expect(revoked.isRevoked, isTrue);

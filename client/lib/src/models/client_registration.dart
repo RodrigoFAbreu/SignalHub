@@ -1,4 +1,5 @@
 import 'json.dart';
+import 'users.dart';
 
 /// Where pushes for this client go, as the backend reports it. The token is
 /// write-only in the API, so only the provider name comes back.
@@ -71,6 +72,8 @@ class ClientRegistration {
     required this.name,
     required this.createdAt,
     this.admin = false,
+    this.user,
+    this.lastActiveAt,
     this.revokedAt,
     this.pushTarget,
     this.pushPreferences,
@@ -85,6 +88,8 @@ class ClientRegistration {
       createdAt: json.timestamp('createdAt'),
       // Absent from a server released before admin devices existed.
       admin: json.optionalBoolean('admin') ?? false,
+      user: json.optionalObjectAs('user', UserRef.fromJson),
+      lastActiveAt: json.optionalTimestamp('lastActiveAt'),
       revokedAt: json.optionalTimestamp('revokedAt'),
       pushTarget: pushTarget == null
           ? null
@@ -99,27 +104,43 @@ class ClientRegistration {
   final String name;
   final DateTime createdAt;
 
-  /// Whether this installation is one of the owner's admin devices, which
-  /// may manage the others.
+  /// Whether this installation is an admin device: exactly when its user is
+  /// an admin.
   final bool admin;
+
+  /// The user this installation belongs to, with their role; `null` from a
+  /// server released before users.
+  final UserRef? user;
+
+  /// When this installation last made a request, to within a minute; `null`
+  /// from a server that does not say.
+  final DateTime? lastActiveAt;
 
   final DateTime? revokedAt;
   final PushTargetInfo? pushTarget;
 
   /// `null` from a server released before push preferences existed.
   final PushPreferences? pushPreferences;
+
+  /// What this installation's user may do. A server released before users
+  /// says only whether the device is an admin's.
+  UserRole get role => user?.role ?? (admin ? UserRole.admin : UserRole.basic);
 }
 
-/// One of the owner's clients, as an admin device lists them
-/// (`GET /api/v1/client/devices`). The listing also has each client's push
-/// target and results, which the app does not show.
+/// A client as a device lists it (`GET /api/v1/client/devices`): an
+/// admin's key gets every client, anyone else's their own user's. The
+/// listing also has each client's push target and results, which the app
+/// does not show.
 class ManagedDevice {
   const ManagedDevice({
     required this.id,
     required this.name,
     required this.admin,
     required this.createdAt,
+    this.user,
+    this.lastActiveAt,
     this.revokedAt,
+    this.isBrowser = false,
   });
 
   factory ManagedDevice.fromJson(Map<String, Object?> json) => ManagedDevice(
@@ -127,20 +148,48 @@ class ManagedDevice {
     name: json.string('name'),
     admin: json.boolean('admin'),
     createdAt: json.timestamp('createdAt'),
+    user: json.optionalObjectAs('user', UserRef.fromJson),
+    lastActiveAt: json.optionalTimestamp('lastActiveAt'),
     revokedAt: json.optionalTimestamp('revokedAt'),
   );
 
   final String id;
   final String name;
+
+  /// Whether it is an admin device, which no device can change.
   final bool admin;
   final DateTime createdAt;
+
+  /// Who it belongs to; `null` from a server released before users.
+  final UserRef? user;
+
+  /// When it last made a request, to within a minute; `null` until it has
+  /// (and from a server that does not say).
+  final DateTime? lastActiveAt;
   final DateTime? revokedAt;
 
+  /// Whether it is a browser signed in to a web page. The server does not say
+  /// so yet (R66 gives it a way to), so no device read from it is one; the
+  /// row is drawn for when it does.
+  final bool isBrowser;
+
   bool get isRevoked => revokedAt != null;
+
+  ManagedDevice withName(String name) => ManagedDevice(
+    id: id,
+    name: name,
+    admin: admin,
+    createdAt: createdAt,
+    user: user,
+    lastActiveAt: lastActiveAt,
+    revokedAt: revokedAt,
+    isBrowser: isBrowser,
+  );
 }
 
-/// A one-time pairing code this admin device created for a new device (the
-/// backend's `Pairing`). The new device is never an admin.
+/// A one-time pairing code this device created for a new device (the
+/// backend's `Pairing`). The new device belongs to [user] and is an admin
+/// device exactly when that user is an admin.
 class DevicePairing {
   const DevicePairing({
     required this.name,
@@ -148,9 +197,11 @@ class DevicePairing {
     required this.expiresAt,
     this.id,
     this.uri,
+    this.user,
   });
 
   factory DevicePairing.fromJson(Map<String, Object?> json) => DevicePairing(
+    user: json.optionalObjectAs('user', UserRef.fromJson),
     // Absent from a server released before it could say whether a code was
     // used.
     id: json.optionalString('id'),
@@ -166,6 +217,10 @@ class DevicePairing {
 
   /// The name the new device gets.
   final String name;
+
+  /// The user the new device belongs to; `null` from a server that does not
+  /// say.
+  final UserRef? user;
 
   /// A one-time bearer credential. Never logged.
   final String code;

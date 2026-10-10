@@ -108,7 +108,6 @@ class _DevicesSection extends StatelessWidget {
               device: device,
               isThisDevice: device.id == controller.registration?.id,
               busy: controller.changingDeviceId != null,
-              makeAdmin: () => _makeAdmin(context, device),
               revoke: () => _revoke(context, device),
               delete: controller.canDeleteDevices
                   ? () => _delete(context, device)
@@ -141,20 +140,6 @@ class _DevicesSection extends StatelessWidget {
     // any, is listed. Rights lost meanwhile stay explained instead.
     controller.clearPairing();
     if (controller.canManageDevices) await controller.loadDevices();
-  }
-
-  Future<void> _makeAdmin(BuildContext context, ManagedDevice device) async {
-    final confirmed = await _confirm(
-      context,
-      title: 'Make "${device.name}" an admin device?',
-      message:
-          'It will be able to manage your devices, as this one does. Only '
-          'the operator can take admin rights away, on the admin page.',
-      action: 'Make an admin',
-    );
-    if (confirmed && context.mounted) {
-      await _show(context, controller.makeDeviceAdmin(device.id));
-    }
   }
 
   Future<void> _revoke(BuildContext context, ManagedDevice device) async {
@@ -228,7 +213,6 @@ class _DeviceTile extends StatelessWidget {
     required this.device,
     required this.isThisDevice,
     required this.busy,
-    required this.makeAdmin,
     required this.revoke,
     required this.delete,
   });
@@ -236,7 +220,6 @@ class _DeviceTile extends StatelessWidget {
   final ManagedDevice device;
   final bool isThisDevice;
   final bool busy;
-  final VoidCallback makeAdmin;
   final VoidCallback revoke;
 
   /// `null` when the server cannot delete devices.
@@ -252,11 +235,6 @@ class _DeviceTile extends StatelessWidget {
     final delete = this.delete;
     final actions = <PopupMenuEntry<VoidCallback>>[
       if (!device.admin && !device.isRevoked) ...[
-        PopupMenuItem(
-          key: const Key('makeAdmin'),
-          value: makeAdmin,
-          child: const Text('Make an admin'),
-        ),
         PopupMenuItem(
           key: const Key('revoke'),
           value: revoke,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_controller.dart';
-import 'ui/inbox_screen.dart';
+import 'ui/home_shell.dart';
 import 'ui/link_opener.dart';
 import 'ui/pairing_scanner_screen.dart';
 import 'ui/setup_screen.dart';
@@ -46,11 +46,9 @@ class _SignalHubAppState extends State<SignalHubApp> {
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'SignalHub',
-    theme: ThemeData(colorSchemeSeed: Colors.indigo),
-    darkTheme: ThemeData(
-      colorSchemeSeed: Colors.indigo,
-      brightness: Brightness.dark,
-    ),
+    debugShowCheckedModeBanner: false,
+    theme: _theme(Brightness.light),
+    darkTheme: _theme(Brightness.dark),
     home: ListenableBuilder(
       listenable: controller,
       builder: (context, _) => switch (controller.phase) {
@@ -61,7 +59,7 @@ class _SignalHubAppState extends State<SignalHubApp> {
           controller: controller,
           scan: widget.scanner,
         ),
-        ConnectionPhase.connected => InboxScreen(
+        ConnectionPhase.connected => HomeShell(
           controller: controller,
           openLink: widget.linkOpener,
         ),
@@ -69,3 +67,17 @@ class _SignalHubAppState extends State<SignalHubApp> {
     ),
   );
 }
+
+/// The app's Material 3 theme, from the indigo seed in both modes. Beyond the
+/// seed, the drawings set a 64 dp app bar and a floating snackbar with a 4 dp
+/// corner that rests 8 dp above the bottom bar.
+ThemeData _theme(Brightness brightness) => ThemeData(
+  colorSchemeSeed: Colors.indigo,
+  brightness: brightness,
+  appBarTheme: const AppBarTheme(toolbarHeight: 64),
+  snackBarTheme: SnackBarThemeData(
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+    insetPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+  ),
+);

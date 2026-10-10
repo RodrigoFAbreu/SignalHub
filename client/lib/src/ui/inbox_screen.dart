@@ -9,7 +9,6 @@ import 'event_screen.dart';
 import 'event_style.dart';
 import 'inbox_filter_sheet.dart';
 import 'link_opener.dart';
-import 'settings_screen.dart';
 
 /// The connected app: every event, newest first, read page by page from
 /// `GET /api/v1/events`, with unread events marked and counted, optionally
@@ -111,24 +110,11 @@ class _InboxScreenState extends State<InboxScreen> {
   AppBar _appBar() {
     final unread = _controller.unreadCount ?? 0;
     return AppBar(
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('SignalHub'),
-          if (unread > 0) ...[
-            const SizedBox(width: 8),
-            Badge.count(
-              key: const Key('unreadCount'),
-              count: unread,
-              maxCount: 999,
-            ),
-          ],
-        ],
-      ),
+      title: const Text('SignalHub'),
       actions: [
         IconButton(
           key: const Key('filter'),
-          tooltip: 'Filter',
+          tooltip: 'Filter events',
           isSelected: _controller.filter.isActive,
           icon: const Icon(Icons.filter_list),
           selectedIcon: const Icon(Icons.filter_alt),
@@ -144,16 +130,6 @@ class _InboxScreenState extends State<InboxScreen> {
                   _controller.canMarkAllRead
               ? _markAllRead
               : null,
-        ),
-        IconButton(
-          key: const Key('settings'),
-          tooltip: 'Settings',
-          icon: const Icon(Icons.settings_outlined),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => SettingsScreen(controller: _controller),
-            ),
-          ),
         ),
       ],
     );

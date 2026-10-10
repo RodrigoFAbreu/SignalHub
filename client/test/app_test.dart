@@ -56,7 +56,11 @@ void main() {
     await tester.runAsync(controller.start);
     await tester.pump();
     // Manual setup comes after pairing, below the fold.
-    await tester.ensureVisible(find.byKey(const Key('connect')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('connect')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(find.byKey(const Key('serverUrl')), serverUrl);
     await tester.enterText(find.byKey(const Key('clientKey')), key);
     await tester.tap(find.byKey(const Key('connect')));
@@ -195,7 +199,7 @@ void main() {
   });
 
   Future<void> openSettings(WidgetTester tester) async {
-    await tester.tap(find.byKey(const Key('settings')));
+    await tester.tap(find.byKey(const Key('tab-settings')));
     await tester.pumpAndSettle();
   }
 
@@ -798,7 +802,7 @@ void main() {
     expect(find.text('Disconnect this device?'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
     await settle(tester);
-    expect(find.text('Settings'), findsOneWidget);
+    expect(find.byKey(const Key('disconnect')), findsOneWidget);
     expect(backend.pushTarget, isNotNull);
 
     await tester.tap(find.byKey(const Key('disconnect')));
@@ -806,8 +810,8 @@ void main() {
     await tester.tap(find.byKey(const Key('confirm')));
     await settle(tester);
 
-    expect(find.byKey(const Key('connect')), findsOneWidget);
-    expect(find.text('Settings'), findsNothing);
+    expect(find.byKey(const Key('scanPairing')), findsOneWidget);
+    expect(find.byKey(const Key('tab-settings')), findsNothing);
     expect(backend.pushTarget, isNull);
   });
 
@@ -1565,16 +1569,16 @@ void main() {
       addTearDown(tester.view.reset);
     }
 
-    testWidgets('the gear icon opens Settings with every group folded', (
+    testWidgets('the Settings tab opens Settings with every group folded', (
       tester,
     ) async {
       await connect(tester);
 
-      expect(find.byType(PopupMenuButton<void>), findsNothing);
-      expect(find.byTooltip('Settings'), findsOneWidget);
+      // No gear in the inbox: Settings is a tab of the bottom bar.
+      expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
       await openSettings(tester);
 
-      expect(find.text('Settings'), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Settings'), findsOneWidget);
       expect(find.byKey(const Key('pushEnabled')), findsOneWidget);
       for (final title in ['Push filters', 'Alert', 'This device']) {
         expect(find.text(title), findsOneWidget);
@@ -1774,7 +1778,7 @@ void main() {
       await toggleGroup(tester, SettingsGroup.pushFilters);
       expect(openGroups.saved, {SettingsGroup.alert, SettingsGroup.device});
 
-      await tester.pageBack();
+      await tester.tap(find.byKey(const Key('tab-inbox')));
       await tester.pumpAndSettle();
       await openSettings(tester);
 
@@ -1980,7 +1984,7 @@ void main() {
       await openActions(tester, 'c-phone');
       expect(find.byKey(const Key('delete')), findsOneWidget);
       expect(find.byKey(const Key('revoke')), findsNothing);
-      expect(find.byKey(const Key('makeAdmin')), findsNothing);
+      expect(find.byKey(const Key('revoke')), findsNothing);
     });
 
     testWidgets('deletes a revoked device after a confirmation', (
@@ -2082,19 +2086,6 @@ void main() {
       expect(find.byKey(const Key('revoke')), findsNothing);
     });
 
-    testWidgets('makes a device an admin after a confirmation', (tester) async {
-      await openDevices(tester);
-
-      await choose(tester, tablet, 'makeAdmin');
-      expect(find.text('Make "Tablet" an admin device?'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('confirm')));
-      await settle(tester);
-
-      expect(backend.otherClients.first['admin'], isTrue);
-      expect(inDevice(tablet, find.text('Admin device')), findsOneWidget);
-      expect(find.byKey(const Key('deviceActions-$tablet')), findsNothing);
-    });
-
     testWidgets('a refused change says why', (tester) async {
       await openDevices(tester);
       backend.otherClients.first['admin'] = true;
@@ -2114,11 +2105,11 @@ void main() {
       await openDevices(tester);
       backend.admin = false;
 
-      await choose(tester, tablet, 'makeAdmin');
+      await choose(tester, tablet, 'revoke');
       await tester.tap(find.byKey(const Key('confirm')));
       await settle(tester);
 
-      expect(backend.otherClients.first['admin'], isFalse);
+      expect(backend.otherClients.first['revokedAt'], isNull);
       expect(
         find.descendant(
           of: find.byKey(const Key('notAdmin')),
