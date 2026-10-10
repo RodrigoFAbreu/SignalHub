@@ -178,7 +178,7 @@ export function segmented({ options, value, onChange, label: name, className = "
         "aria-label": option.name ?? option.label,
         tabindex: selected || (!options.some((o) => o.value === value) && option === options[0]) ? "0" : "-1",
       },
-      selected && option.glyph ? icon(option.glyph, "ms18") : null,
+      (selected || option.alwaysGlyph) && option.glyph ? icon(option.glyph, "ms18") : null,
       el("span", { text: option.label }),
     );
     node.addEventListener("click", () => {

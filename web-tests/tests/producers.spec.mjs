@@ -34,7 +34,7 @@ test("creating a producer shows its key once, in a dialog, and the producer open
   await dialog.getByRole("button", { name: "Done" }).click();
 
   await expect(page).toHaveURL(/#producers\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole("heading", { name, level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name, level: 2, exact: true })).toBeVisible();
   await expect(page.getByText("Only you")).toBeVisible();
   // The key is never shown again: only its prefix is.
   await expect(page.locator(".keyrow .mono")).toContainText("shpk1_");
@@ -124,7 +124,7 @@ test("an owner renames, changes who can see it, adds and removes people, and man
   await page.getByLabel("Name").fill(name);
   await page.getByRole("button", { name: "Create" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Copy and close" }).click();
-  await expect(page.getByRole("heading", { name, level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name, level: 2, exact: true })).toBeVisible();
 
   // Rename: a taken name is refused in the dialog, a free one is kept.
   const other = await createProducer(friend, unique("other"), "PUBLIC");
@@ -136,7 +136,7 @@ test("an owner renames, changes who can see it, adds and removes people, and man
   const renamed = `${name}-2`;
   await rename.getByLabel("Name").fill(renamed);
   await rename.getByRole("button", { name: "Rename" }).click();
-  await expect(page.getByRole("heading", { name: renamed, level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: renamed, level: 2, exact: true })).toBeVisible();
 
   // Who can see it: Private to start; add a person, then make it public and private again.
   await expect(page.getByRole("radio", { name: "Private" })).toBeChecked();

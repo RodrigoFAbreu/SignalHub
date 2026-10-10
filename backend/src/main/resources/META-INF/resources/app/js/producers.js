@@ -450,8 +450,8 @@ export function mountProducers(container, route, { wide }) {
         label: "Who can see it",
         value: p.visibility,
         options: [
-          { value: "PRIVATE", label: "Private", glyph: "lock" },
-          { value: "PUBLIC", label: "Public", glyph: "public" },
+          { value: "PRIVATE", label: "Private", glyph: "lock", alwaysGlyph: true },
+          { value: "PUBLIC", label: "Public", glyph: "public", alwaysGlyph: true },
         ],
         onChange: (value) => setVisibility(p, value),
         className: writable ? "" : "dis-all",
@@ -697,7 +697,7 @@ export function mountProducers(container, route, { wide }) {
     const paintVisibility = () => {
       replace(
         visibilityHost,
-        segmented({ label: "Who can see it", value: visibility, options: [{ value: "PRIVATE", label: "Private", glyph: "lock" }, { value: "PUBLIC", label: "Public", glyph: "public" }], onChange: (value) => { visibility = value; paintVisibility(); } }),
+        segmented({ label: "Who can see it", value: visibility, options: [{ value: "PRIVATE", label: "Private", glyph: "lock", alwaysGlyph: true }, { value: "PUBLIC", label: "Public", glyph: "public", alwaysGlyph: true }], onChange: (value) => { visibility = value; paintVisibility(); } }),
         el("div", { class: "hint", text: "Only you, and people you add later. Anyone on this server can find and subscribe to a public producer." }),
       );
     };

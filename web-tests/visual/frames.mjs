@@ -152,18 +152,10 @@ export const frames = [
     option: "6e",
     index: 3,
     setup: async (page) => {
-      // Five refreshes with nobody approving: the page's clock is run forward.
-      await page.clock.install();
-      await mockSignIn(page, { lifetimeMs: 180_000 });
+      // Five refreshes with nobody approving: each code lives under a second.
+      await mockSignIn(page, { lifetimeMs: 300 });
       await page.goto(url());
-      await page.waitForSelector(".qr");
-      for (let i = 0; i < 6; i += 1) {
-        await page.clock.runFor(181_000);
-        await page.waitForTimeout(200);
-        await page.clock.runFor(1_000);
-        await page.waitForTimeout(200);
-      }
-      await page.waitForSelector("text=Still waiting for your phone", { timeout: 5000 });
+      await page.waitForSelector("text=Still waiting for your phone", { timeout: 20000 });
     },
   },
   {
@@ -173,13 +165,14 @@ export const frames = [
     index: 4,
     setup: async (page, world, context) => {
       await mockSignIn(page);
-      await mockSession(page);
       await page.goto(url());
-      await page.waitForSelector(".qr");
+      await page.waitForSelector(".card");
+      // From now on this browser has a session (another tab signed it in).
+      await mockSession(page);
       const other = await context.newPage();
       await other.goto(url("#inbox"));
-      await other.evaluate(() => new BroadcastChannel("signalhub-session").postMessage({ type: "signed-in" }));
-      await page.waitForSelector("text=You're already signed in");
+      await other.evaluate(() => { window.__channel = new BroadcastChannel("signalhub-session"); window.__channel.postMessage({ type: "signed-in" }); });
+      await page.bringToFront(); await page.waitForSelector("text=already signed in");
     },
   },
   { id: "6f-1", file: SIGN_IN, option: "6f", index: 0, setup: async (page) => { await endedWhileUsing(page, { expired: true }); await page.waitForSelector(".banner"); } },
@@ -224,12 +217,13 @@ export const frames = [
       await mockSession(page);
       await page.route("**/api/v1/events**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [], nextCursor: null }) }));
       await page.route("**/api/v1/events/unread-count", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ unread: 0 }) }));
+      await page.route("**/api/v1/client/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) }));
       await page.goto(url("#inbox"));
       await page.waitForSelector("nav.rail");
       const other = await context.newPage();
       await other.goto(url("#inbox"));
-      await other.evaluate(() => new BroadcastChannel("signalhub-session").postMessage({ type: "signed-out" }));
-      await page.waitForSelector("text=You signed out in another tab.");
+      await other.evaluate(() => { window.__channel = new BroadcastChannel("signalhub-session"); window.__channel.postMessage({ type: "signed-out" }); });
+      await page.bringToFront(); await page.waitForSelector("text=You signed out in another tab.");
     },
   },
 
@@ -345,7 +339,7 @@ export const frames = [
     setup: async (page) => {
       await open(page, "#people", ".prow");
       await page.getByRole("button", { name: "Invite" }).click();
-      await page.getByLabel("Their name").fill("Marta B");
+      await page.getByLabel("Their name").fill(`Marta B${Date.now() % 10000}`);
       await page.getByRole("button", { name: "Make invitation" }).click();
       await page.waitForSelector(".linkbox");
     },
@@ -359,7 +353,7 @@ export const frames = [
     contextOptions: { permissions: ["clipboard-read", "clipboard-write"] },
     setup: async (page) => {
       await open(page, "#producers/new", "form");
-      await page.getByLabel("Name").fill("homelab-monitor-b");
+      await page.getByLabel("Name").fill(`homelab-monitor-${Date.now() % 100000}`);
       await page.getByRole("button", { name: "Create" }).click();
       await page.waitForSelector(".keybox");
       await page.getByRole("button", { name: "Copy", exact: true }).click();
