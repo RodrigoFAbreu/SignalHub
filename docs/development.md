@@ -249,7 +249,7 @@ management API, the listing, and their admin-token guard), `ProducerPersistenceT
 hashes are stored), `ProducerMigrationTest` (upgrading a database that holds
 events from before authentication), and unit tests for the key format, bearer
 parsing and admin token (`ApiKeysTest`, `BearerTokenTest`, `AdminTokenTest`).
-Clients are covered by `ClientApiTest` (registration, revocation, client keys
+Users and subscriptions are covered by `UserAdminApiTest` (inviting, roles, revoking, subscribing), `ProducerVisibilityApiTest` (owners, visibility, allow-lists), `EventVisibilityApiTest` (an event reaches only subscribed users, in the inbox, the unread count, by ID and by push; per-user read state), `DeviceApiTest`, `DevicePairingApiTest` and `ClientDeletionApiTest` (what each role may do with devices) and `UsersMigrationTest` (upgrading a single-owner database). Clients are covered by `ClientApiTest` (registration, revocation, client keys
 reading the listing, and push targets), `PushPreferencesApiTest` (setting,
 replacing and validating push preferences), `ClientPersistenceTest` (hashes
 only, and the schema's push-target and push-preference constraints),
@@ -387,12 +387,13 @@ doubt.
 | `/api/v1/events` | `GET`: list events, newest first, with a client key or the admin token. See [Events API](#events-api). |
 | `/api/v1/events/{id}` | `GET`: read an event by its ID, with a client key or the admin token. |
 | `/api/v1/admin/producers/...` | Producer management, with the admin token, and `POST /{id}/events`: a test event sent as the producer. See [Producers and API keys](#producers-and-api-keys). |
+| `/api/v1/admin/users/...` | User management, with the admin token: invite, rename, set the role, revoke, subscribe. See [Users](#users). |
 | `/api/v1/admin/clients/...` | Client management, with the admin token. See [Clients](#clients). |
 | `/api/v1/admin/events/...` | With the admin token: `GET /{id}/deliveries` how the event's push went to each device (see [Delivery records](architecture.md#delivery-records)); deleting events: `DELETE /{id}` one event; `POST /delete` a selection, a producer's events or events older than a time, with a dry run. See [Events API](#events-api). |
 | `/api/v1/admin/status` | `GET`: whether push is configured, the push backlog, retries given up and the retention period, with the admin token; the admin page's Status section. See [Service status](architecture.md#service-status). |
 | `/api/v1/admin/pairings` | `POST`: create a pairing code for a new device, with the admin token; `GET /{id}`: whether it was used, and by which device. See [Pairing a device](#pairing-a-device). |
 | `/api/v1/pairing` | `POST`: a device redeems a pairing code and gets its client key; the owner's other devices get a push. See [Pairing a device](#pairing-a-device). |
-| `/admin/` | The admin page, in sections (`#devices`, `#producers`, `#events`, `#status`): with the admin token, lists every device to rename it, make it an admin or not, or revoke it, and to delete it once revoked, and creates a pairing code shown as a QR code to scan, copy or download; lists every producer with its keys and its last event, creates producers, issues and revokes keys, and disables and enables producers; lists events a page at a time with the inbox's filters and opens one (`#events/<id>`) to read it, see how its push went to each device and mark it read or unread, sends a test event as an enabled producer and links to it, and deletes one, the events ticked on a page, or every event of a producer or received before a day, after a confirmation stating their count; and shows whether SignalHub is working (release, health, push, backlog, failed pushes, retention, latest event). Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
+| `/admin/` | The admin page, in sections (`#devices`, `#users`, `#producers`, `#events`, `#status`): with the admin token, lists every device with its user to rename it or revoke it, and to delete it once revoked, and creates a pairing code for a user shown as a QR code to scan, copy or download; lists every user with their role, devices, producers and subscriptions, invites users, renames them, sets their role (admin included: only here), subscribes them and revokes them; lists every producer with its owner, who sees it, its keys and its last event, creates producers for a user, edits who sees them, issues and revokes keys, and disables and enables producers; lists events a page at a time with the inbox's filters and opens one (`#events/<id>`) to read it, see how its push went to each device and mark it read or unread, sends a test event as an enabled producer and links to it, and deletes one, the events ticked on a page, or every event of a producer or received before a day, after a confirmation stating their count; and shows whether SignalHub is working (release, health, push, backlog, failed pushes, retention, latest event). Not forwarded by the proxy. `/connect/`, its earlier name, is gone (`404`). See [Clients](#clients) and [Pairing a device](#pairing-a-device). |
 | `/api/v1/client/...` | A client's own registration and push target, with its client key. See [Clients](#clients). |
 | `/q/health/live` | Liveness: 200 while the process runs. No dependency checks. |
 | `/q/health/ready` | Readiness: 200 when PostgreSQL is reachable, 503 otherwise. |
@@ -471,15 +472,17 @@ curl -s "$API/$PRODUCER/events" -H "$H" -H 'Content-Type: application/json' \
 
 ### Clients
 
-Clients (the owner's app installations) and their keys are described in
+Clients (app installations of a user) and their keys are described in
 [architecture.md](architecture.md#clients). Register one with the admin
-token; the response contains its client key, **shown only this once**:
+token, for a user (see [Users](#users); without `userId` it is the owner's, the
+oldest admin who is not revoked); the response contains its client key, **shown
+only this once**:
 
 ```sh
 curl -s http://localhost:8080/api/v1/admin/clients \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"name": "Pixel 8"}'   # or {"name": "Pixel 8", "admin": true} for an admin device
+  -d '{"name": "Pixel 8"}'   # or {"name": "Pixel 8", "userId": "<a user's ID>"}
 ```
 
 ```json
@@ -487,7 +490,8 @@ curl -s http://localhost:8080/api/v1/admin/clients \
   "client": {
     "id": "01a0da2c-1f3e-7a51-8d0c-6b1f2e3d4c5b",
     "name": "Pixel 8",
-    "admin": false,
+    "admin": true,
+    "user": {"id": "01a0da2b-0000-7000-8000-000000000001", "name": "Owner", "role": "ADMIN"},
     "createdAt": "2026-09-25T18:02:11.108811Z",
     "revokedAt": null,
     "pushTarget": null,
@@ -521,8 +525,7 @@ curl -s -X PUT http://localhost:8080/api/v1/client/push-preferences -H "$C" \
   -H 'Content-Type: application/json' -d '{}'   # back to pushing every event
 ```
 
-The operator lists, inspects, renames, makes admin (or not), revokes and
-deletes clients, paired ones included (`$CLIENT` is the ID above). The
+The operator lists, inspects, renames, revokes and deletes clients, paired ones included (`$CLIENT` is the ID above). The
 [admin page](architecture.md#the-admin-page) at `http://localhost:8080/admin/`
 does all of it in a browser; from a terminal:
 
@@ -533,8 +536,6 @@ API=http://localhost:8080/api/v1/admin/clients
 curl -s "$API" -H "$H"                          # all clients ({"items": [...]})
 curl -s "$API/$CLIENT" -H "$H"                  # one client
 curl -s -X PATCH "$API/$CLIENT" -H "$H" -H "$J" -d '{"name": "Anna'"'"'s phone"}'   # rename it
-curl -s -X PATCH "$API/$CLIENT" -H "$H" -H "$J" -d '{"admin": true}'   # make it an admin device
-curl -s -X PATCH "$API/$CLIENT" -H "$H" -H "$J" -d '{"admin": false}'  # take admin rights away
 curl -s -X POST "$API/$CLIENT/revoke" -H "$H"   # revoke it and drop its push target
 curl -s -X DELETE "$API/$CLIENT" -H "$H" -w '%{http_code}\n'   # delete it once revoked: 204
 ```
@@ -544,26 +545,53 @@ deleted, and an active one cannot be deleted (`409`). Events stay. See
 [Admin devices](architecture.md#admin-devices) and
 [Deleting a revoked client](architecture.md#deleting-a-revoked-client).
 
-An admin device does part of this with its own client key, through the
-proxy too ($ADMIN_KEY is an admin device's key); any other client key gets
-`403`, and nothing can be done to an active admin (`409` on revoke; see
-[Device management from an admin device](architecture.md#device-management-from-an-admin-device)):
+A device does part of this with its own client key, through the proxy too,
+as its user's role allows ($ADMIN_KEY is an admin device's key): a basic user's
+key gets `403`, a mod manages their own devices, an admin those of users who
+are not admins, and nothing can be done to an admin's device (`409` on revoke;
+see [Device management from a
+device](architecture.md#device-management-from-a-device)):
 
 ```sh
 D=http://localhost:8080/api/v1/client/devices
-curl -s "$D" -H "Authorization: Bearer $ADMIN_KEY"                           # every device
-curl -s -X POST "$D/$CLIENT/admin" -H "Authorization: Bearer $ADMIN_KEY"     # make it an admin
-curl -s -X POST "$D/$CLIENT/revoke" -H "Authorization: Bearer $ADMIN_KEY"    # revoke a non-admin
+curl -s "$D" -H "Authorization: Bearer $ADMIN_KEY"                           # every device (an admin's view)
+curl -s -X POST "$D/$CLIENT/revoke" -H "Authorization: Bearer $ADMIN_KEY"    # revoke one
 curl -s -X DELETE "$D/$CLIENT" -H "Authorization: Bearer $ADMIN_KEY"         # delete a revoked one
 ```
 
-It also creates pairing codes, never for an admin device (see
-[Pairing from an admin device](architecture.md#pairing-from-an-admin-device)):
+It also creates pairing codes, for its own user, or for another if it is an
+admin (see [Pairing from a
+device](architecture.md#pairing-from-a-device)):
 
 ```sh
 curl -s http://localhost:8080/api/v1/client/pairings \
   -H "Authorization: Bearer $ADMIN_KEY" -H 'Content-Type: application/json' \
-  -d '{"name": "Tablet"}' | jq -r .uri
+  -d '{"name": "Tablet"}' | jq -r .uri   # add "userId" to pair for another user
+```
+
+#### Users
+
+Users, their roles, producers' visibility and subscriptions are in
+[architecture.md](architecture.md#users-roles-and-subscriptions). The
+[admin page](architecture.md#the-admin-page)'s *Users* section does all of it
+in a browser; from a terminal, with the admin token:
+
+```sh
+H="Authorization: Bearer $ADMIN_TOKEN"
+J='Content-Type: application/json'
+U=http://localhost:8080/api/v1/admin/users
+curl -s "$U" -H "$H" | jq '.items[] | {id, name, role}'              # the users, "Owner" first
+USER=$(curl -s "$U" -H "$H" -H "$J" -d '{"name": "Anna", "role": "BASIC"}' | jq -r .id)   # invite
+curl -s -X PATCH "$U/$USER" -H "$H" -H "$J" -d '{"role": "MOD"}'     # set the role (ADMIN too: only here)
+curl -s http://localhost:8080/api/v1/admin/pairings -H "$H" -H "$J" \
+  -d "{\"name\": \"Anna's phone\", \"userId\": \"$USER\"}" | jq -r .uri   # her pairing code
+# a private producer of hers, and a public one the others may subscribe to
+curl -s http://localhost:8080/api/v1/admin/producers -H "$H" -H "$J" \
+  -d "{\"name\": \"annas-script\", \"ownerId\": \"$USER\"}"
+curl -s -X PATCH http://localhost:8080/api/v1/admin/producers/$PRODUCER -H "$H" -H "$J" \
+  -d '{"visibility": "PUBLIC"}'
+curl -s -X PUT "$U/$USER/subscriptions/$PRODUCER" -H "$H"            # subscribe her to it
+curl -s -X POST "$U/$USER/revoke" -H "$H"                            # remove her: devices revoked, producers disabled
 ```
 
 Both reads show each client's latest push results in `pushStatus` (see
@@ -595,8 +623,8 @@ one-time pairing code, valid for 10 minutes, and the device registers itself
 with it (see [Pairing](architecture.md#pairing)). The
 [admin page](architecture.md#the-admin-page) at
 `http://localhost:8080/admin/` does it in a browser: enter the admin token,
-then under **Connect a device** a device name (and whether it is an admin
-device), and it shows the QR code with a countdown, and copies it as an
+then under **Connect a device** a device name and the user it is for (an admin
+user's device is an admin device), and it shows the QR code with a countdown, and copies it as an
 image or a link, or downloads it. Once a device has used the code, the page
 says which device connected, hides the code and is ready for the next one.
 From a terminal:
@@ -605,14 +633,15 @@ From a terminal:
 curl -s http://localhost:8080/api/v1/admin/pairings \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"name": "Pixel 8"}'   # add "admin": true to pair an admin device
+  -d '{"name": "Pixel 8"}'   # add "userId" to pair for a user other than the owner
 ```
 
 ```json
 {
   "id": "01997d5e-8a3c-7b1e-9f2a-4c6d8e0f1a2b",
   "name": "Pixel 8",
-  "admin": false,
+  "admin": true,
+  "user": {"id": "01a0da2b-0000-7000-8000-000000000001", "name": "Owner", "role": "ADMIN"},
   "code": "shpc1_<secret>",
   "expiresAt": "2026-09-27T10:12:00.123456Z",
   "uri": "signalhub://pair?server=https%3A%2F%2Fsignalhub.example.com&code=shpc1_<secret>"
@@ -639,12 +668,12 @@ curl -s -X POST https://signalhub.example.com/api/v1/pairing \
 ```
 
 A used, expired or unknown code gets `401`. Once a code is redeemed, every
-other client with a push target that has not paused pushes gets the
-[pairing notice](architecture.md#pairing-notice), "New device paired".
+other client of the user and of the admins with a push target that has not
+paused pushes gets the [pairing notice](architecture.md#pairing-notice), "New device paired".
 
 Whether the code was used, and by which device, is asked with the pairing's
 `id` (see [Whether a code was used](architecture.md#whether-a-code-was-used));
-an admin device asks about its own codes the same way at
+a mod's or an admin's device asks about its own codes the same way at
 `/api/v1/client/pairings/$PAIRING_ID` with its key:
 
 ```sh

@@ -38,6 +38,7 @@ class EventDeliveriesMigrationTest {
 
   @Test
   void existingEventsHaveNoRecordsAndRecordsGoWithTheirEventOrClient() throws SQLException {
+    // Up to V16 only: V17 gives every client a user, which these inserts do not know about.
     migrate(MigrationVersion.fromVersion("15"));
     try (var connection = connect()) {
       execute(
@@ -57,7 +58,7 @@ class EventDeliveriesMigrationTest {
               + "', 'phone', sha256('c'), now())");
     }
 
-    migrate(MigrationVersion.LATEST);
+    migrate(MigrationVersion.fromVersion("16"));
 
     try (var connection = connect()) {
       assertEquals(0, count(connection, "SELECT count(*) FROM event_deliveries"));

@@ -2,6 +2,9 @@ package io.github.rodrigofabreu.signalhub.client;
 
 import io.github.rodrigofabreu.signalhub.producer.ApiKeys;
 import io.github.rodrigofabreu.signalhub.push.DeliveryResult;
+import io.github.rodrigofabreu.signalhub.user.Role;
+import io.github.rodrigofabreu.signalhub.user.UserDirectory;
+import io.github.rodrigofabreu.signalhub.user.UserRef;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
@@ -10,7 +13,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.hibernate.id.uuid.UuidVersion7Strategy;
 import org.jboss.logging.Logger;
 
@@ -28,9 +33,11 @@ public class ClientService {
   private static final byte[] NO_HASH = new byte[ApiKeys.HASH_BYTES];
 
   private final ClientRepository clients;
+  private final UserDirectory users;
 
-  ClientService(ClientRepository clients) {
+  ClientService(ClientRepository clients, UserDirectory users) {
     this.clients = clients;
+    this.users = users;
   }
 
   /**
@@ -55,22 +62,34 @@ public class ClientService {
       LOG.debugf("Rejected client credential: client %s is revoked", clientId.get());
       return Optional.empty();
     }
-    return Optional.of(new ClientIdentity(client.get().id(), client.get().name()));
+    var user = users.find(client.get().userId()).filter(u -> users.isActive(u.id()));
+    if (user.isEmpty()) {
+      LOG.debugf("Rejected client credential: the user of client %s is revoked", clientId.get());
+      return Optional.empty();
+    }
+    return Optional.of(
+        new ClientIdentity(
+            client.get().id(), client.get().name(), user.get().id(), user.get().role()));
   }
 
   /**
-   * Registers a client, an admin device or not, and issues its key, which is returned only here.
+   * Registers a client for the user and issues its key, which is returned only here. Empty if the
+   * user does not exist or is revoked. Locks the user, so a user being revoked gets no new device.
    */
   @Transactional
-  IssuedClientKey create(String name, boolean admin) {
+  Optional<IssuedClientKey> create(UUID userId, String name) {
+    var user = users.lockActive(userId);
+    if (user.isEmpty()) {
+      return Optional.empty();
+    }
     // The ID is part of the key, so it is generated here rather than on persist; same UUIDv7
     // generator Hibernate uses for the other tables.
     var id = UuidVersion7Strategy.INSTANCE.generateUuid(null);
     var key = ClientKeys.generate(id);
-    var client = new ClientEntity(id, name, admin, ApiKeys.hash(key), now());
+    var client = new ClientEntity(id, name, userId, ApiKeys.hash(key), now());
     clients.persist(client);
-    LOG.infof("Registered client %s%s", id, admin ? " as an admin device" : "");
-    return new IssuedClientKey(toResponse(client), key);
+    LOG.infof("Registered client %s for user %s", id, userId);
+    return Optional.of(new IssuedClientKey(toResponse(client, user.get()), key));
   }
 
   /** The client and its latest push results. */
@@ -78,15 +97,25 @@ public class ClientService {
   Optional<ManagedClientResponse> get(UUID id) {
     return clients
         .findByIdOptional(id)
-        .map(client -> toManagedResponse(client, clients.pendingRetries(id)));
+        .map(client -> toManagedResponse(client, clients.pendingRetries(id), userOf(client)));
   }
 
   /** All clients, oldest first, and their latest push results. */
   @Transactional
   List<ManagedClientResponse> list() {
+    return list(clients.listAll(Sort.by("createdAt").and("id")));
+  }
+
+  private List<ManagedClientResponse> list(List<ClientEntity> found) {
     var pendingRetries = clients.pendingRetries();
-    return clients.listAll(Sort.by("createdAt").and("id")).stream()
-        .map(client -> toManagedResponse(client, pendingRetries.getOrDefault(client.id(), 0L)))
+    var owners = users.find(found.stream().map(ClientEntity::userId).collect(Collectors.toSet()));
+    return found.stream()
+        .map(
+            client ->
+                toManagedResponse(
+                    client,
+                    pendingRetries.getOrDefault(client.id(), 0L),
+                    owners.get(client.userId())))
         .toList();
   }
 
@@ -99,8 +128,15 @@ public class ClientService {
             client -> {
               client.revoke(now());
               LOG.infof("Revoked client %s", id);
-              return toResponse(client);
+              return toResponse(client, userOf(client));
             });
+  }
+
+  /** Revokes every client of the user; the user is being revoked. Their push targets go too. */
+  @Transactional
+  public void revokeAllOf(UUID userId) {
+    clients.revokeAllOf(userId, now());
+    LOG.infof("Revoked every client of user %s", userId);
   }
 
   /**
@@ -130,9 +166,10 @@ public class ClientService {
   }
 
   /**
-   * Renames the client and grants or takes away its admin rights; a null leaves that field as it
-   * is. Empty if no client has this ID. A revoked client never changes: it is not a device of the
-   * owner's any more.
+   * Renames the client; a null name leaves it as it is. Empty if no client has this ID. A revoked
+   * client never changes: it is not a device of anyone's any more. {@code admin}, if given, must be
+   * what the client is already, as roles are set per user: a different value changes nothing and is
+   * refused.
    */
   @Transactional
   Optional<Update> update(UUID id, String name, Boolean admin) {
@@ -143,16 +180,16 @@ public class ClientService {
               if (client.revoked()) {
                 return new Update.Revoked();
               }
+              var user = userOf(client);
+              if (admin != null && admin != user.admin()) {
+                return new Update.RolesArePerUser();
+              }
               if (name != null && !name.equals(client.name())) {
                 client.rename(name);
                 LOG.infof("Renamed client %s", id);
               }
-              if (admin != null && admin != client.admin()) {
-                client.setAdmin(admin);
-                LOG.infof(
-                    "Client %s %s", id, admin ? "is now an admin device" : "is no longer an admin");
-              }
-              return new Update.Updated(toManagedResponse(client, clients.pendingRetries(id)));
+              return new Update.Updated(
+                  toManagedResponse(client, clients.pendingRetries(id), user));
             });
   }
 
@@ -161,11 +198,14 @@ public class ClientService {
     record Updated(ManagedClientResponse client) implements Update {}
 
     record Revoked() implements Update {}
+
+    /** The request asked for an admin flag the client's user does not have. */
+    record RolesArePerUser() implements Update {}
   }
 
   /**
-   * Every client, as {@link #list()}, if the caller is an active admin device; otherwise why not.
-   * Nothing changes, so the caller is not locked.
+   * The devices a device may see, if it is active: every device when its user is an admin, else its
+   * user's own. Nothing changes, so the caller is not locked.
    */
   @Transactional
   DeviceList listFor(UUID callerId) {
@@ -173,50 +213,35 @@ public class ClientService {
     if (caller.revoked()) {
       return new DeviceList.Refused(Refusal.CALLER_REVOKED);
     }
-    if (!caller.admin()) {
-      return new DeviceList.Refused(Refusal.NOT_AN_ADMIN);
+    if (userOf(caller).admin()) {
+      return new DeviceList.Listed(new ClientList(list()));
     }
-    return new DeviceList.Listed(new ClientList(list()));
+    var own = clients.list("userId", Sort.by("createdAt").and("id"), caller.userId());
+    return new DeviceList.Listed(new ClientList(list(own)));
   }
 
   /**
-   * An admin device makes another device an admin. Making an admin an admin changes nothing; a
-   * revoked device cannot be made one.
-   */
-  @Transactional
-  DeviceChange makeAdminBy(UUID callerId, UUID id) {
-    return changeBy(
-        callerId,
-        id,
-        client -> {
-          if (client.revoked()) {
-            return new DeviceChange.Refused(Refusal.CLIENT_REVOKED);
-          }
-          if (client.admin()) {
-            return done(client, false);
-          }
-          client.setAdmin(true);
-          LOG.infof("Client %s made client %s an admin device", callerId, id);
-          return done(client, true);
-        },
-        DeviceChange.Refused::new);
-  }
-
-  /**
-   * An admin device revokes a device that is not an admin. Revoking a revoked device changes
-   * nothing; an admin, the caller included, can be revoked only with the admin token.
+   * A device revokes a device, as its user's role allows. A mod revokes their own devices, but not
+   * their last active one, so they cannot lock themselves out; an admin revokes the devices of
+   * users who are not admins; a basic user revokes none. Revoking a revoked device changes nothing.
+   * The devices of admins are revoked only with the admin token.
    */
   @Transactional
   DeviceChange revokeBy(UUID callerId, UUID id) {
     return changeBy(
         callerId,
         id,
-        client -> {
+        (caller, client) -> {
+          var refusal = scopeRefusal(caller, client);
+          if (refusal != null) {
+            return new DeviceChange.Refused(refusal);
+          }
           if (client.revoked()) {
             return done(client, false);
           }
-          if (client.admin()) {
-            return new DeviceChange.Refused(Refusal.CLIENT_IS_ADMIN);
+          if (caller.user().role() == Role.MOD
+              && clients.countActive(caller.client().userId()) <= 1) {
+            return new DeviceChange.Refused(Refusal.LAST_DEVICE);
           }
           client.revoke(now());
           LOG.infof("Client %s revoked client %s", callerId, id);
@@ -226,15 +251,20 @@ public class ClientService {
   }
 
   /**
-   * An admin device deletes a revoked device, an admin or not: a revoked admin can no longer act.
-   * Empty once deleted; an active device, the caller included, must be revoked first.
+   * A device deletes a revoked device, as its user's role allows: a mod their own, an admin those
+   * of users who are not admins. Empty once deleted; an active device, the caller included, must be
+   * revoked first.
    */
   @Transactional
   Optional<Refusal> deleteBy(UUID callerId, UUID id) {
     return changeBy(
         callerId,
         id,
-        client -> {
+        (caller, client) -> {
+          var refusal = scopeRefusal(caller, client);
+          if (refusal != null) {
+            return Optional.of(refusal);
+          }
           if (!client.revoked()) {
             return Optional.of(Refusal.CLIENT_NOT_REVOKED);
           }
@@ -246,13 +276,37 @@ public class ClientService {
   }
 
   /**
-   * Checks that the caller is an active admin device before looking at the target, so a client that
-   * is not one learns nothing about the others. Locks both rows, in a fixed order so two admin
-   * devices acting on each other cannot deadlock, and holds the caller's lock so an operator
-   * revoking it or taking its rights away meanwhile is applied before this change or after it.
+   * Whether the caller's role reaches the target device: a mod only their own devices (any other is
+   * unknown to them), an admin any device but those of admins. Null if it does.
+   */
+  private Refusal scopeRefusal(Caller caller, ClientEntity target) {
+    if (caller.user().role() == Role.ADMIN) {
+      return userOf(target).admin() ? Refusal.CLIENT_IS_ADMIN : null;
+    }
+    return target.userId().equals(caller.client().userId()) ? null : Refusal.UNKNOWN_CLIENT;
+  }
+
+  /** The device making a change, with its user as the role check read them. */
+  record Caller(ClientEntity client, UserRef user) {}
+
+  /**
+   * Checks that the caller is an active device whose role allows device management before looking
+   * at the target, so a basic user learns nothing about the others. Locks the caller's user first,
+   * as revoking a user and redeeming a pairing do, then both clients in a fixed order so two
+   * devices acting on each other cannot deadlock; holding the user's lock also serialises a user's
+   * own changes, so two of a mod's devices cannot revoke each other. An operator revoking the
+   * caller or its user meanwhile is applied before this change or after it.
    */
   private <T> T changeBy(
-      UUID callerId, UUID id, Function<ClientEntity, T> change, Function<Refusal, T> refused) {
+      UUID callerId,
+      UUID id,
+      BiFunction<Caller, ClientEntity, T> change,
+      Function<Refusal, T> refused) {
+    var unlocked = clients.findByIdOptional(callerId).orElseThrow();
+    var user = users.lockActive(unlocked.userId());
+    if (user.isEmpty()) {
+      return refused.apply(Refusal.CALLER_REVOKED);
+    }
     ClientEntity caller;
     Optional<ClientEntity> target;
     if (callerId.equals(id)) {
@@ -268,28 +322,35 @@ public class ClientService {
     if (caller.revoked()) {
       return refused.apply(Refusal.CALLER_REVOKED);
     }
-    if (!caller.admin()) {
-      return refused.apply(Refusal.NOT_AN_ADMIN);
+    if (user.get().role() == Role.BASIC) {
+      return refused.apply(Refusal.NOT_ALLOWED);
     }
-    return target.map(change).orElseGet(() -> refused.apply(Refusal.UNKNOWN_CLIENT));
+    var asked = new Caller(caller, user.get());
+    return target
+        .map(client -> change.apply(asked, client))
+        .orElseGet(() -> refused.apply(Refusal.UNKNOWN_CLIENT));
   }
 
   private DeviceChange done(ClientEntity client, boolean changed) {
     return new DeviceChange.Done(
-        toManagedResponse(client, clients.pendingRetries(client.id())), changed);
+        toManagedResponse(client, clients.pendingRetries(client.id()), userOf(client)), changed);
   }
 
-  /** Why a device's request to manage the others was refused. */
+  /** Why a device's request to manage devices was refused. */
   enum Refusal {
-    /** The caller was revoked after it authenticated. */
+    /** The caller, or its user, was revoked after it authenticated. */
     CALLER_REVOKED,
-    NOT_AN_ADMIN,
+    /** The caller's role does not allow it. */
+    NOT_ALLOWED,
     UNKNOWN_CLIENT,
-    CLIENT_REVOKED,
     CLIENT_IS_ADMIN,
     CLIENT_NOT_REVOKED,
+    /** The caller is a mod and the device is their last active one. */
+    LAST_DEVICE,
     /** No pairing with this ID that the caller created. */
-    UNKNOWN_PAIRING
+    UNKNOWN_PAIRING,
+    UNKNOWN_USER,
+    USER_REVOKED
   }
 
   /** What {@link #listFor} found. */
@@ -319,7 +380,7 @@ public class ClientService {
               clients.releasePushTarget(provider, token, id);
               client.setPushTarget(provider, token, now());
               LOG.infof("Client %s set its push target (provider %s)", id, provider);
-              return toResponse(client);
+              return toResponse(client, userOf(client));
             });
   }
 
@@ -331,7 +392,7 @@ public class ClientService {
             client -> {
               client.clearPushTarget();
               LOG.infof("Client %s removed its push target", id);
-              return toResponse(client);
+              return toResponse(client, userOf(client));
             });
   }
 
@@ -343,7 +404,7 @@ public class ClientService {
             client -> {
               client.setPushPreferences(preferences);
               LOG.infof("Client %s set its push preferences: %s", id, preferences);
-              return toResponse(client);
+              return toResponse(client, userOf(client));
             });
   }
 
@@ -359,18 +420,18 @@ public class ClientService {
   /** The clients that have a push target (so are not revoked), oldest first. */
   @Transactional
   public List<PushRecipient> pushRecipients() {
-    return clients.list("pushProvider is not null", Sort.by("createdAt").and("id")).stream()
-        .map(client -> new PushRecipient(client.id(), client.pushPreferences()))
-        .toList();
+    var found = clients.list("pushProvider is not null", Sort.by("createdAt").and("id"));
+    var owners = users.find(found.stream().map(ClientEntity::userId).collect(Collectors.toSet()));
+    return found.stream().map(client -> recipient(client, owners.get(client.userId()))).toList();
   }
 
-  /** The IDs of the clients that are not revoked but have no push target, oldest first. */
+  /** The clients that are not revoked but have no push target, oldest first. */
   @Transactional
-  public List<UUID> withoutPushTarget() {
+  public List<ClientOwner> withoutPushTarget() {
     return clients
         .list("revokedAt is null and pushProvider is null", Sort.by("createdAt").and("id"))
         .stream()
-        .map(ClientEntity::id)
+        .map(client -> new ClientOwner(client.id(), client.userId()))
         .toList();
   }
 
@@ -380,7 +441,11 @@ public class ClientService {
     return clients
         .findByIdOptional(id)
         .filter(client -> !client.revoked() && client.pushProvider() != null)
-        .map(client -> new PushRecipient(client.id(), client.pushPreferences()));
+        .map(client -> recipient(client, userOf(client)));
+  }
+
+  private static PushRecipient recipient(ClientEntity client, UserRef user) {
+    return new PushRecipient(client.id(), user.id(), user.admin(), client.pushPreferences());
   }
 
   /**
@@ -422,10 +487,16 @@ public class ClientService {
 
   @Transactional
   ClientResponse get(ClientIdentity client) {
-    return toResponse(clients.findById(client.id()));
+    var found = clients.findById(client.id());
+    return toResponse(found, userOf(found));
   }
 
-  private static ClientResponse toResponse(ClientEntity client) {
+  private UserRef userOf(ClientEntity client) {
+    // The foreign key guarantees the user exists.
+    return users.find(client.userId()).orElseThrow();
+  }
+
+  private static ClientResponse toResponse(ClientEntity client, UserRef user) {
     var pushTarget =
         client.pushProvider() == null
             ? null
@@ -433,16 +504,18 @@ public class ClientService {
     return new ClientResponse(
         client.id(),
         client.name(),
-        client.admin(),
+        user.admin(),
+        user,
         client.createdAt(),
         client.revokedAt(),
         pushTarget,
         client.pushPreferences());
   }
 
-  private static ManagedClientResponse toManagedResponse(ClientEntity client, long pendingRetries) {
+  private static ManagedClientResponse toManagedResponse(
+      ClientEntity client, long pendingRetries, UserRef user) {
     return ManagedClientResponse.of(
-        toResponse(client),
+        toResponse(client, user),
         new PushStatus(client.lastPushSuccess(), client.lastPushFailure(), pendingRetries));
   }
 

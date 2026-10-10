@@ -1,9 +1,12 @@
 "use strict";
 
 // The admin page (docs/architecture.md#the-admin-page), in sections kept in the address's fragment:
-// Devices lists every client with the management API, changes them, deletes revoked ones, and
-// creates pairings shown as a QR code until they are used or expire; Producers lists every producer,
-// creates them, issues and revokes their keys, and disables and enables them; Events lists events a
+// Devices lists every client with its user, changes them, deletes revoked ones, and creates
+// pairings for a user shown as a QR code until they are used or expire; Users lists every user with
+// their devices, producers and subscriptions, invites them, renames them, sets their role (admin
+// included, which only this page does), subscribes them to producers and revokes them; Producers
+// lists every producer with its owner and who sees it, creates them for a user, edits their
+// visibility and allow-list, issues and revokes their keys, and disables and enables them; Events lists events a
 // page at a time, filtered, and opens one (#events/<id>) to read it, see how its push went to each
 // device and mark it read or unread, deletes one, a selection, or a producer's or older events,
 // after a confirmation with their count, and sends a test event as a producer, linked once sent;
@@ -16,13 +19,14 @@
   const CLIENTS = "/api/v1/admin/clients";
   const PAIRINGS = "/api/v1/admin/pairings";
   const PRODUCERS = "/api/v1/admin/producers";
+  const USERS = "/api/v1/admin/users";
   const EVENTS = "/api/v1/events";
   const ADMIN_EVENTS = "/api/v1/admin/events";
   const DELETE_EVENTS = "/api/v1/admin/events/delete";
   const STATUS = "/api/v1/admin/status";
   const INFO = "/q/info";
   const HEALTH = "/q/health";
-  const SECTIONS = ["devices", "producers", "events", "status"];
+  const SECTIONS = ["devices", "users", "producers", "events", "status"];
   const EVENT_PAGE = 25;
   // The listing's filters, by the field that sets each; the same as the app's inbox.
   const EVENT_FILTERS = {
@@ -55,6 +59,7 @@
     TRANSIENT_FAILURE: "Temporary failure",
     PERMANENT_FAILURE: "Failed",
   };
+  const ROLES = { BASIC: "Basic", MOD: "Mod", ADMIN: "Admin" };
   // An enabled producer with no event for this long is marked quiet, so one that stopped stands out.
   const QUIET_DAYS = 7;
   const DAY_S = 24 * 60 * 60;
@@ -74,6 +79,8 @@
   let eventPages = [null];
   let nextEventCursor = null;
   let shownEvent = null;
+  // The users as the last section that needed them read them; the choices of owner and user.
+  let users = [];
   // The IDs of the events ticked on the page shown; a page read again starts with none.
   let selected = new Set();
 
@@ -98,6 +105,7 @@
   });
 
   $("refresh").addEventListener("click", () => refresh());
+  $("refresh-users").addEventListener("click", () => refreshUsers());
   $("refresh-producers").addEventListener("click", () => refreshProducers());
   $("refresh-events").addEventListener("click", () => refreshEvents());
   $("refresh-status").addEventListener("click", () => refreshStatus());
@@ -138,7 +146,7 @@
     try {
       const pairing = await call("POST", PAIRINGS, {
         name: $("name").value.trim(),
-        admin: $("pair-admin").checked,
+        userId: $("pair-user").value,
       });
       // The app pairs only from a link, and the link needs the server's public address.
       if (!pairing.uri) {
@@ -154,12 +162,28 @@
     event.preventDefault();
     showError("create-producer-error", null);
     try {
-      const issued = await call("POST", PRODUCERS, { name: $("producer-name").value.trim() });
+      const issued = await call("POST", PRODUCERS, {
+        name: $("producer-name").value.trim(),
+        ownerId: $("producer-owner").value,
+        visibility: $("producer-visibility").value,
+      });
       $("create-producer").reset();
       showKey(issued);
       await refreshProducers();
     } catch (e) {
       showError("create-producer-error", e.message);
+    }
+  });
+
+  $("invite").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    showError("invite-error", null);
+    try {
+      await call("POST", USERS, { name: $("invite-name").value.trim(), role: $("invite-role").value });
+      $("invite").reset();
+      await refreshUsers();
+    } catch (e) {
+      showError("invite-error", e.message);
     }
   });
 
@@ -221,6 +245,7 @@
     }
     if (name === "events") return showEvents(eventId);
     if (name === "status") return refreshStatus();
+    if (name === "users") return refreshUsers();
     return name === "producers" ? refreshProducers() : refresh();
   }
 
@@ -230,6 +255,8 @@
     showError("devices-error", null);
     try {
       render((await call("GET", CLIENTS)).items);
+      await loadUsers();
+      fillUserChoice($("pair-user"), (user) => !user.revokedAt);
     } catch (e) {
       showError("devices-error", e.message);
     }
@@ -260,12 +287,13 @@
   function device(client) {
     const item = element("li", client.revokedAt ? "device revoked" : "device");
     const title = element("h3", null, client.name);
-    if (client.admin) title.append(" ", element("span", "badge", "Admin"));
+    if (client.admin) title.append(" ", element("span", "badge", "Admin device"));
     if (client.revokedAt) title.append(" ", element("span", "badge muted", "Revoked"));
     item.append(title);
 
     const facts = element("dl");
     const fact = (name, value) => facts.append(element("dt", null, name), element("dd", null, value));
+    fact("User", `${client.user.name} (${ROLES[client.user.role] || client.user.role})`);
     fact("Created", time(client.createdAt));
     if (client.revokedAt) fact("Revoked", time(client.revokedAt));
     fact(
@@ -294,9 +322,6 @@
     } else {
       actions.append(
         button("Rename", () => rename(client)),
-        button(client.admin ? "Take admin rights away" : "Make admin", () =>
-          change(() => update(client, { admin: !client.admin })),
-        ),
         button("Revoke", () => revoke(client), "danger"),
       );
     }
@@ -355,11 +380,165 @@
     return node;
   }
 
+  // --- Users -----------------------------------------------------------------------------------
+
+  async function loadUsers() {
+    users = (await call("GET", USERS)).items;
+  }
+
+  // Offers the users the filter keeps, keeping the one chosen, else the first.
+  function fillUserChoice(select, keep) {
+    const chosen = select.value;
+    const offered = users.filter(keep);
+    select.replaceChildren(...offered.map((u) => new Option(`${u.name} (${ROLES[u.role]})`, u.id)));
+    if (offered.some((u) => u.id === chosen)) select.value = chosen;
+  }
+
+  async function refreshUsers() {
+    showError("users-error", null);
+    try {
+      await loadUsers();
+      const producers = (await call("GET", PRODUCERS)).items;
+      renderUsers(users, producers);
+    } catch (e) {
+      showError("users-error", e.message);
+    }
+  }
+
+  // Shows the list as the server has it afterwards, whether the change worked or not.
+  async function changeUser(action) {
+    let failure = null;
+    try {
+      await action();
+    } catch (e) {
+      failure = e.message;
+    }
+    await refreshUsers();
+    if (failure) showError("users-error", failure);
+  }
+
+  function renderUsers(all, producers) {
+    const list = $("user-list");
+    // Active users first, in the order they were invited.
+    const sorted = [...all].sort((a, b) => (a.revokedAt ? 1 : 0) - (b.revokedAt ? 1 : 0));
+    list.replaceChildren(...sorted.map((user) => userCard(user, producers)));
+    if (sorted.length === 0) list.append(element("li", "empty", "No users."));
+  }
+
+  function userCard(user, producers) {
+    const item = element("li", user.revokedAt ? "device revoked" : "device");
+    const title = element("h3", null, user.name);
+    title.append(" ", element("span", user.role === "ADMIN" ? "badge" : "badge muted", ROLES[user.role]));
+    if (user.revokedAt) title.append(" ", element("span", "badge muted", "Revoked"));
+    item.append(title);
+
+    const facts = element("dl");
+    const fact = (name, value) => facts.append(element("dt", null, name), element("dd", null, value));
+    const names = (list) => (list.length === 0 ? "None" : list.map((x) => x.name).join(", "));
+    fact(
+      "Devices",
+      names(user.devices.filter((d) => !d.revokedAt)) +
+        (user.devices.some((d) => d.revokedAt) ? ` (${user.devices.filter((d) => d.revokedAt).length} revoked)` : ""),
+    );
+    fact("Producers", names(user.producers));
+    fact("Subscriptions", names(user.subscriptions));
+    fact("Invited", time(user.createdAt));
+    if (user.revokedAt) fact("Revoked", time(user.revokedAt));
+    fact("ID", user.id);
+    item.append(facts);
+
+    if (user.revokedAt) return item;
+
+    // A producer the user sees, and is not subscribed to yet, can be subscribed to here.
+    const subscribed = new Set(user.subscriptions.map((s) => s.id));
+    const open = producers.filter(
+      (p) =>
+        !subscribed.has(p.id) &&
+        (p.visibility === "PUBLIC" || p.owner.id === user.id || p.allowedUsers.some((a) => a.id === user.id)),
+    );
+    const actions = element("div", "actions");
+    actions.append(
+      button("Connect a device", () => connectDevice(user)),
+      button("Rename", () => renameUser(user)),
+    );
+    const role = element("select");
+    role.setAttribute("aria-label", `Role of "${user.name}"`);
+    for (const [value, text] of Object.entries(ROLES)) role.append(new Option(text, value));
+    role.value = user.role;
+    actions.append(role, button("Set role", () => setRole(user, role.value)));
+    actions.append(button("Revoke", () => revokeUser(user), "danger"));
+    item.append(actions);
+
+    const subscriptions = element("div", "actions");
+    for (const s of user.subscriptions) {
+      subscriptions.append(
+        button(`Unsubscribe from ${s.name}`, () =>
+          changeUser(() => call("DELETE", `${USERS}/${user.id}/subscriptions/${s.id}`)),
+        ),
+      );
+    }
+    if (open.length > 0) {
+      const choice = element("select");
+      choice.setAttribute("aria-label", `Producer to subscribe "${user.name}" to`);
+      choice.append(...open.map((p) => new Option(p.name, p.id)));
+      subscriptions.append(
+        choice,
+        button("Subscribe", () =>
+          changeUser(() => call("PUT", `${USERS}/${user.id}/subscriptions/${choice.value}`)),
+        ),
+      );
+    }
+    item.append(subscriptions);
+    return item;
+  }
+
+  function renameUser(user) {
+    const name = prompt(`New name for "${user.name}":`, user.name);
+    if (name === null || name.trim() === "" || name.trim() === user.name) return;
+    changeUser(() => call("PATCH", `${USERS}/${user.id}`, { name: name.trim() }));
+  }
+
+  function setRole(user, role) {
+    if (role === user.role) return;
+    const question =
+      role === "ADMIN"
+        ? `Make "${user.name}" an admin? All their devices become admin devices, and they can manage every device that is not an admin's.`
+        : user.role === "ADMIN"
+          ? `Take admin rights away from "${user.name}"? Their devices stop being admin devices.`
+          : `Make "${user.name}" ${ROLES[role]}?`;
+    if (!confirm(question)) return;
+    changeUser(() => call("PATCH", `${USERS}/${user.id}`, { role }));
+  }
+
+  function revokeUser(user) {
+    const question = `Revoke "${user.name}"? All their devices are revoked and their producers disabled, at once and for good. Their events stay.`;
+    if (!confirm(question)) return;
+    changeUser(() => call("POST", `${USERS}/${user.id}/revoke`));
+  }
+
+  // A pairing code for a new device of the user, shown in Devices.
+  async function connectDevice(user) {
+    const name = prompt(`Name of the new device of "${user.name}":`, "New device");
+    if (name === null || name.trim() === "") return;
+    try {
+      const pairing = await call("POST", PAIRINGS, { name: name.trim(), userId: user.id });
+      if (!pairing.uri) {
+        throw new Error("No pairing link: set SIGNALHUB_PUBLIC_URL on the server to its public address.");
+      }
+      location.hash = "#devices";
+      show(pairing);
+    } catch (e) {
+      showError("users-error", e.message);
+    }
+  }
+
   // --- Producers -------------------------------------------------------------------------------
 
   async function refreshProducers() {
     showError("producers-error", null);
     try {
+      await loadUsers();
+      fillUserChoice($("producer-owner"), (user) => !user.revokedAt);
       renderProducers((await call("GET", PRODUCERS)).items);
     } catch (e) {
       showError("producers-error", e.message);
@@ -400,6 +579,8 @@
     const facts = element("dl");
     const fact = (name, value) => facts.append(element("dt", null, name), element("dd", null, value));
     // Only events still stored count: retention may have deleted older ones.
+    fact("Owner", p.owner.name);
+    fact("Who sees it", p.visibility === "PUBLIC" ? "Every user" : "Its owner and the users allowed on it");
     fact("Last event", p.lastEventAt ? `${time(p.lastEventAt)} (${ago(p.lastEventAt)})` : "None stored");
     fact("Created", time(p.createdAt));
     if (p.disabledAt) fact("Disabled", time(p.disabledAt));
@@ -416,15 +597,62 @@
     if (sorted.length === 0) keys.append(element("li", "empty", "No keys."));
     item.append(keys);
 
+    item.append(element("h4", null, "Allowed users"));
+    item.append(allowList(p));
+
     const actions = element("div", "actions");
     actions.append(
       button("Issue a key", () => issueKey(p)),
+      button(p.visibility === "PUBLIC" ? "Make private" : "Make public", () => toggleVisibility(p)),
       p.disabledAt
         ? button("Enable", () => changeProducer(() => call("POST", `${PRODUCERS}/${p.id}/enable`)))
         : button("Disable", () => disable(p), "danger"),
     );
     item.append(actions);
     return item;
+  }
+
+  // Who is allowed on a private producer besides its owner; kept, without effect, while it is public.
+  function allowList(p) {
+    const box = element("div");
+    const list = element("ul", "keys");
+    for (const user of p.allowedUsers) {
+      const line = element("li", "key");
+      line.append(element("span", null, user.name));
+      const rest = p.allowedUsers.filter((u) => u.id !== user.id).map((u) => u.id);
+      line.append(button("Remove", () => setAllowed(p, rest), "danger"));
+      list.append(line);
+    }
+    if (p.allowedUsers.length === 0) list.append(element("li", "empty", "No one besides its owner."));
+    box.append(list);
+    const addable = users.filter(
+      (u) => !u.revokedAt && u.id !== p.owner.id && !p.allowedUsers.some((a) => a.id === u.id),
+    );
+    if (addable.length > 0) {
+      const choice = element("select");
+      choice.setAttribute("aria-label", `Allow a user on "${p.name}"`);
+      choice.append(...addable.map((u) => new Option(u.name, u.id)));
+      const add = button("Allow", () => setAllowed(p, [...p.allowedUsers.map((a) => a.id), choice.value]));
+      const actions = element("div", "actions");
+      actions.append(choice, add);
+      box.append(actions);
+    }
+    return box;
+  }
+
+  function setAllowed(p, allowedUserIds) {
+    changeProducer(() => call("PATCH", `${PRODUCERS}/${p.id}`, { allowedUserIds }));
+  }
+
+  function toggleVisibility(p) {
+    const toPublic = p.visibility !== "PUBLIC";
+    const question = toPublic
+      ? `Make "${p.name}" public? Every user may then see it and subscribe.`
+      : `Make "${p.name}" private? Subscribers who are neither its owner nor allowed stop receiving it.`;
+    if (!confirm(question)) return;
+    changeProducer(() =>
+      call("PATCH", `${PRODUCERS}/${p.id}`, { visibility: toPublic ? "PUBLIC" : "PRIVATE" }),
+    );
   }
 
   function apiKey(p, key) {
@@ -961,6 +1189,7 @@
   function show(pairing) {
     current = pairing;
     $("pairing-name").textContent = pairing.name;
+    $("pairing-user").textContent = `For ${pairing.user.name} (${ROLES[pairing.user.role] || pairing.user.role}).`;
     $("pairing-admin").hidden = !pairing.admin;
     $("status").textContent = "";
     $("qr-box").classList.remove("expired");

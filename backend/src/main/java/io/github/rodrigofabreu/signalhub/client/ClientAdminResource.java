@@ -29,16 +29,16 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 /**
- * Client management for the operator: register clients, issuing their keys, rename them, grant or
- * take away admin rights, revoke them, and delete revoked ones. Requires the admin token, and does
- * not exist unless one is configured.
+ * Client management for the operator: register clients for users, issuing their keys, rename them,
+ * revoke them, and delete revoked ones. Requires the admin token, and does not exist unless one is
+ * configured.
  */
 @Path("/api/v1/admin/clients")
 @Tag(
     name = "Client management",
     description =
-        "Register the owner's client installations, rename them, make them admin devices,"
-            + " revoke them and delete revoked ones. Requires the admin token"
+        "Register users' client installations, rename them, revoke them and delete revoked"
+            + " ones. Requires the admin token"
             + " (SIGNALHUB_ADMIN_TOKEN); every path answers 404 when none is configured.")
 @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
 @APIResponse(
@@ -50,9 +50,11 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 public class ClientAdminResource {
 
   private final ClientService clients;
+  private final OperatorUsers operatorUsers;
 
-  ClientAdminResource(ClientService clients) {
+  ClientAdminResource(ClientService clients, OperatorUsers operatorUsers) {
     this.clients = clients;
+    this.operatorUsers = operatorUsers;
   }
 
   @POST
@@ -60,8 +62,10 @@ public class ClientAdminResource {
   @Operation(
       summary = "Register a client",
       description =
-          "Creates the client and its key, which is shown only once. Give the key to the client"
-              + " installation; it authenticates as the client from then on.")
+          "Creates the client, a device of the given user (the oldest admin who is not revoked"
+              + " when none is given), and its key, which is shown only once. Give the key to the"
+              + " client installation; it authenticates as the client from then on. The client"
+              + " is an admin device exactly when its user is an ADMIN.")
   @APIResponse(
       responseCode = "201",
       description = "Client created. The Location header points to it.",
@@ -70,8 +74,22 @@ public class ClientAdminResource {
       responseCode = "400",
       description = "The body is malformed or fails validation.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No user has the given ID.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "409",
+      description =
+          "The user is revoked, none is given and no admin is available, or an admin device was"
+              + " asked for a user who is not an admin.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
   public Response create(@NotNull @Valid CreateClientRequest request) {
-    var issued = clients.create(request.name(), request.adminRequested());
+    var user = operatorUsers.target(request.userId(), request.adminRequested());
+    var issued =
+        clients
+            .create(user.id(), request.name())
+            .orElseThrow(() -> OperatorUsers.conflict("User is revoked"));
     var location = UriBuilder.fromResource(ClientAdminResource.class).path("{id}");
     return Response.created(location.build(issued.client().id())).entity(issued).build();
   }
@@ -104,9 +122,10 @@ public class ClientAdminResource {
   @Path("/{id}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(
-      summary = "Rename a client or change its admin rights",
+      summary = "Rename a client",
       description =
-          "Changes the fields given: the client's name, whether it is an admin device, or both."
+          "Changes the client's name. Whether it is an admin device follows its user's role and"
+              + " cannot be changed here: an admin flag other than the current one is refused."
               + " A revoked client cannot be changed.")
   @APIResponse(
       responseCode = "200",
@@ -119,7 +138,9 @@ public class ClientAdminResource {
   @APIResponse(responseCode = "404", description = "No client has this ID.")
   @APIResponse(
       responseCode = "409",
-      description = "The client is revoked.",
+      description =
+          "The client is revoked, or the request asks to change its admin flag, which is set"
+              + " per user.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public ManagedClientResponse update(
       @PathParam("id") UUID id, @NotNull @Valid UpdateClientRequest request) {
@@ -130,7 +151,7 @@ public class ClientAdminResource {
                   new ApiError(
                       "Invalid request",
                       400,
-                      List.of(new ApiError.Violation("", "must give name, admin or both"))))
+                      List.of(new ApiError.Violation("", "must give a name"))))
               .build());
     }
     return switch (clients
@@ -138,10 +159,9 @@ public class ClientAdminResource {
         .orElseThrow(ClientAdminResource::notFound)) {
       case ClientService.Update.Updated updated -> updated.client();
       case ClientService.Update.Revoked revoked ->
-          throw new ClientErrorException(
-              Response.status(Response.Status.CONFLICT)
-                  .entity(new ApiError("Client is revoked", 409, List.of()))
-                  .build());
+          throw OperatorUsers.conflict("Client is revoked");
+      case ClientService.Update.RolesArePerUser perUser ->
+          throw OperatorUsers.conflict(OperatorUsers.ROLES_ARE_PER_USER);
     };
   }
 

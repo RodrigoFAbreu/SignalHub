@@ -47,7 +47,8 @@ class ClientAdminMigrationTest {
               + " minutes')");
     }
 
-    migrate(MigrationVersion.LATEST);
+    // V13 and V14 are what this test is about; V17 replaces the flag it adds.
+    migrate(MigrationVersion.fromVersion("16"));
 
     try (var connection = connect()) {
       assertEquals(2, count(connection, "SELECT count(*) FROM clients WHERE NOT admin"));

@@ -3,6 +3,7 @@ package io.github.rodrigofabreu.signalhub.client;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 /** Body of {@code POST /api/v1/admin/clients} and {@code POST /api/v1/admin/pairings}. */
@@ -19,8 +20,16 @@ public record CreateClientRequest(
         String name,
     @Schema(
             description =
-                "Whether the client is one of the owner's admin devices. Optional; false when"
-                    + " omitted or null.")
+                "The user the client belongs to. Optional; the oldest admin who is not revoked"
+                    + " when omitted or null. Roles are set per user: the client is an admin"
+                    + " device exactly when its user is an ADMIN.",
+            examples = "01997d5e-8a3c-7b1e-9f2a-4c6d8e0f1a2b")
+        UUID userId,
+    @Schema(
+            description =
+                "Deprecated, kept so that requests that sent it still work. Whether the client is"
+                    + " an admin device cannot be chosen: true is refused (409) unless the"
+                    + " client's user is an admin; false or null changes nothing.")
         Boolean admin) {
 
   boolean adminRequested() {

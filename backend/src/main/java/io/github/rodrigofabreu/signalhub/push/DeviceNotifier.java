@@ -19,12 +19,13 @@ import java.util.function.Supplier;
 import org.jboss.logging.Logger;
 
 /**
- * Tells the owner's devices when a new device pairs (naming the admin device that created its code,
- * if one did), or when an admin device makes another device an admin or revokes one, so a pairing
- * code that leaked or an admin key that was stolen is noticed at once. Every client with a push
- * target and pushes not paused gets it, except a device that just paired. It is a notice, not an
- * event: nothing is stored, nothing appears in the inbox, and it is sent once, without retries; the
- * log keeps the record ("Redeemed pairing ... as client ...", "Client ... revoked client ...").
+ * Tells the devices of a user, and of the admins, when a new device of that user pairs (naming the
+ * device that created its code, if one did), or when a device revokes another, so a pairing code
+ * that leaked or a key that was stolen is noticed at once. Every such client with a push target and
+ * pushes not paused gets it, except a device that just paired; other users' devices get nothing. It
+ * is a notice, not an event: nothing is stored, nothing appears in the inbox, and it is sent once,
+ * without retries; the log keeps the record ("Redeemed pairing ... as client ...", "Client ...
+ * revoked client ...").
  */
 @ApplicationScoped
 public class DeviceNotifier {
@@ -48,16 +49,26 @@ public class DeviceNotifier {
    * just paired is waiting for its key. Never throws, so a notice can never fail a pairing.
    */
   void onPaired(@Observes ClientPaired paired) {
-    queue("pairing notice", paired.clientId(), () -> messageFor(paired), paired.clientId());
+    queue(
+        "pairing notice",
+        paired.clientId(),
+        () -> messageFor(paired),
+        paired.clientId(),
+        paired.userId());
   }
 
   /**
    * Queues the notice and returns at once. Never throws, so a notice can never fail the change.
-   * Every device is told, the one that made the change included: its key may be in someone else's
-   * hands.
+   * Every device of the affected user and of the admins is told, the one that made the change
+   * included: its key may be in someone else's hands.
    */
   void onChangedByDevice(@Observes ClientChangedByDevice changed) {
-    queue("device-change notice", changed.clientId(), () -> messageFor(changed), null);
+    queue(
+        "device-change notice",
+        changed.clientId(),
+        () -> messageFor(changed),
+        null,
+        changed.userId());
   }
 
   static PushMessage messageFor(ClientPaired paired) {
@@ -96,14 +107,6 @@ public class DeviceNotifier {
     var client = "\"" + changed.name() + "\"";
     // Recovering from a stolen admin key needs the admin token, so the notice points there.
     return switch (changed.change()) {
-      case MADE_ADMIN ->
-          new PushMessage(
-              "Device made an admin",
-              by
-                  + " made "
-                  + client
-                  + " an admin device. If this was not you, revoke both on the admin page.",
-              data("client-made-admin", changed));
       case REVOKED ->
           new PushMessage(
               "Device revoked",
@@ -127,20 +130,26 @@ public class DeviceNotifier {
         changed.byClientId().toString());
   }
 
-  private void queue(String what, UUID clientId, Supplier<PushMessage> message, UUID skipped) {
+  private void queue(
+      String what, UUID clientId, Supplier<PushMessage> message, UUID skipped, UUID userId) {
     try {
-      last = sender.submit(() -> send(what, clientId, message, skipped));
+      last = sender.submit(() -> send(what, clientId, message, skipped, userId));
     } catch (RuntimeException e) {
       LOG.warnf("Could not queue the %s for client %s: %s", what, clientId, e.getClass().getName());
     }
   }
 
-  private void send(String what, UUID clientId, Supplier<PushMessage> notice, UUID skipped) {
+  private void send(
+      String what, UUID clientId, Supplier<PushMessage> notice, UUID skipped, UUID userId) {
     try {
       var message = notice.get();
       var results = new EnumMap<DeliveryResult, Integer>(DeliveryResult.class);
       for (var recipient : clients.pushRecipients()) {
-        if (!recipient.clientId().equals(skipped) && recipient.preferences().enabled()) {
+        // Only the user whose device it is and the admins: another user's devices learn nothing.
+        var concerned = recipient.userId().equals(userId) || recipient.userIsAdmin();
+        if (concerned
+            && !recipient.clientId().equals(skipped)
+            && recipient.preferences().enabled()) {
           results.merge(delivery.deliver(recipient.clientId(), message).result(), 1, Integer::sum);
         }
       }

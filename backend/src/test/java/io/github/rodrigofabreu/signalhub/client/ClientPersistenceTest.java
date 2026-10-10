@@ -43,8 +43,8 @@ class ClientPersistenceTest {
     columns.put("last_push_failed_at", "timestamp with time zone YES");
     columns.put("last_push_failed_event_id", "uuid YES");
     columns.put("last_push_failed_result", "text YES");
-    // Added by V13: false for every client that existed before.
-    columns.put("admin", "boolean NO");
+    // Added by V17: the user the client belongs to; the admin flag V13 added is gone.
+    columns.put("user_id", "uuid NO");
     assertEquals(columns, columnsOf("clients"));
   }
 
@@ -56,13 +56,13 @@ class ClientPersistenceTest {
     columns.put("client_name", "text NO");
     columns.put("created_at", "timestamp with time zone NO");
     columns.put("expires_at", "timestamp with time zone NO");
-    // Added by V13.
-    columns.put("admin", "boolean NO");
     // Added by V14: empty for pairings created with the admin token.
     columns.put("created_by", "uuid YES");
     // Added by V15: empty until the code is redeemed.
     columns.put("redeemed_at", "timestamp with time zone YES");
     columns.put("redeemed_by", "uuid YES");
+    // Added by V17: the user whose device the code registers.
+    columns.put("user_id", "uuid NO");
     assertEquals(columns, columnsOf("pairings"));
   }
 
@@ -76,9 +76,9 @@ class ClientPersistenceTest {
                   var statement =
                       connection.prepareStatement(
                           "INSERT INTO pairings (id, code_hash, client_name, created_at,"
-                              + " expires_at, created_by) VALUES (gen_random_uuid(),"
+                              + " expires_at, user_id, created_by) VALUES (gen_random_uuid(),"
                               + " sha256('by'::bytea), 'x', now(), now() + interval '1 minute',"
-                              + " gen_random_uuid())")) {
+                              + " (SELECT id FROM users ORDER BY created_at LIMIT 1), gen_random_uuid())")) {
                 statement.executeUpdate();
               }
             });
@@ -88,24 +88,28 @@ class ClientPersistenceTest {
 
   @Test
   void aPairingExpiresAfterItIsCreated() {
-    assertRejected("INSERT INTO pairings VALUES (?, sha256('code'::bytea), 'x', now(), now())");
     assertRejected(
-        "INSERT INTO pairings VALUES (?, 'short'::bytea, 'x', now(),"
-            + " now() + interval '1 minute')");
+        "INSERT INTO pairings (id, code_hash, client_name, created_at, expires_at, user_id)"
+            + " VALUES (?, sha256('code'::bytea), 'x', now(), now(), (SELECT id FROM users ORDER BY created_at LIMIT 1))");
+    assertRejected(
+        "INSERT INTO pairings (id, code_hash, client_name, created_at, expires_at, user_id)"
+            + " VALUES (?, 'short'::bytea, 'x', now(), now() + interval '1 minute', (SELECT id FROM users ORDER BY created_at LIMIT 1))");
   }
 
   @Test
   void aRedeemedPairingNamesWhenAndAsWhichClient() {
     // Checked before the foreign key: without redeemed_by, or without redeemed_at.
     assertRejected(
-        "INSERT INTO pairings (id, code_hash, client_name, created_at, expires_at, redeemed_at)"
-            + " VALUES (?, sha256('once'::bytea), 'x', now(), now() + interval '1 minute', now())");
+        "INSERT INTO pairings (id, code_hash, client_name, created_at, expires_at, redeemed_at,"
+            + " user_id) VALUES (?, sha256('once'::bytea), 'x', now(), now() + interval '1"
+            + " minute', now(), (SELECT id FROM users ORDER BY created_at LIMIT 1))");
     var client = TestClients.register("persist-redeemed-pairing");
     assertRejected(
-        "INSERT INTO pairings (id, code_hash, client_name, created_at, expires_at, redeemed_by)"
-            + " VALUES (?, sha256('once'::bytea), 'x', now(), now() + interval '1 minute', '"
+        "INSERT INTO pairings (id, code_hash, client_name, created_at, expires_at, redeemed_by,"
+            + " user_id) VALUES (?, sha256('once'::bytea), 'x', now(), now() + interval '1"
+            + " minute', '"
             + client.id()
-            + "')");
+            + "', (SELECT id FROM users ORDER BY created_at LIMIT 1))");
   }
 
   @Test
@@ -128,27 +132,27 @@ class ClientPersistenceTest {
   @Test
   void aPushTargetIsAllOrNothing() {
     assertRejected(
-        "INSERT INTO clients (id, name, key_hash, created_at, push_provider)"
-            + " VALUES (?, 'x', decode(repeat('00', 32), 'hex'), now(), 'fcm')");
+        "INSERT INTO clients (id, user_id, name, key_hash, created_at, push_provider)"
+            + " VALUES (?, (SELECT id FROM users ORDER BY created_at LIMIT 1), 'x', decode(repeat('00', 32), 'hex'), now(), 'fcm')");
     assertRejected(
-        "INSERT INTO clients (id, name, key_hash, created_at, push_provider, push_token)"
-            + " VALUES (?, 'x', decode(repeat('00', 32), 'hex'), now(), 'fcm', 't')");
+        "INSERT INTO clients (id, user_id, name, key_hash, created_at, push_provider, push_token)"
+            + " VALUES (?, (SELECT id FROM users ORDER BY created_at LIMIT 1), 'x', decode(repeat('00', 32), 'hex'), now(), 'fcm', 't')");
   }
 
   @Test
   void aRevokedClientHasNoPushTarget() {
     assertRejected(
         "INSERT INTO clients"
-            + " (id, name, key_hash, created_at, revoked_at, push_provider, push_token,"
+            + " (id, user_id, name, key_hash, created_at, revoked_at, push_provider, push_token,"
             + " push_updated_at)"
-            + " VALUES (?, 'x', decode(repeat('00', 32), 'hex'), now(), now(), 'fcm', 't', now())");
+            + " VALUES (?, (SELECT id FROM users ORDER BY created_at LIMIT 1), 'x', decode(repeat('00', 32), 'hex'), now(), now(), 'fcm', 't', now())");
   }
 
   @Test
   void pushPreferencesHoldOnlyKnownValues() {
     var insert =
-        "INSERT INTO clients (id, name, key_hash, created_at, %s)"
-            + " VALUES (?, 'x', decode(repeat('00', 32), 'hex'), now(), %s)";
+        "INSERT INTO clients (id, user_id, name, key_hash, created_at, %s)"
+            + " VALUES (?, (SELECT id FROM users ORDER BY created_at LIMIT 1), 'x', decode(repeat('00', 32), 'hex'), now(), %s)";
     assertRejected(insert.formatted("push_minimum_severity", "'URGENT'"));
     assertRejected(insert.formatted("push_muted_categories", "ARRAY['NEWS']"));
     assertRejected(insert.formatted("push_muted_categories", "ARRAY[NULL]::text[]"));
@@ -162,8 +166,8 @@ class ClientPersistenceTest {
   @Test
   void pushResultsAreCompleteAndKnown() {
     var insert =
-        "INSERT INTO clients (id, name, key_hash, created_at, %s)"
-            + " VALUES (?, 'x', decode(repeat('00', 32), 'hex'), now(), %s)";
+        "INSERT INTO clients (id, user_id, name, key_hash, created_at, %s)"
+            + " VALUES (?, (SELECT id FROM users ORDER BY created_at LIMIT 1), 'x', decode(repeat('00', 32), 'hex'), now(), %s)";
     assertRejected(insert.formatted("last_push_succeeded_at", "now()"));
     assertRejected(insert.formatted("last_push_succeeded_event_id", "gen_random_uuid()"));
     assertRejected(
@@ -179,8 +183,8 @@ class ClientPersistenceTest {
   @Test
   void keyHashesAre32Bytes() {
     assertRejected(
-        "INSERT INTO clients (id, name, key_hash, created_at)"
-            + " VALUES (?, 'x', decode('00', 'hex'), now())");
+        "INSERT INTO clients (id, user_id, name, key_hash, created_at)"
+            + " VALUES (?, (SELECT id FROM users ORDER BY created_at LIMIT 1), 'x', decode('00', 'hex'), now())");
   }
 
   private void assertRejected(String insert) {

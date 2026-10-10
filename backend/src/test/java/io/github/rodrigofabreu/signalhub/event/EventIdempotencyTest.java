@@ -5,7 +5,7 @@ import static io.github.rodrigofabreu.signalhub.event.EventApiTest.FULL_EVENT;
 import static io.github.rodrigofabreu.signalhub.event.EventApiTest.MINIMAL_EVENT;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -72,10 +72,11 @@ class EventIdempotencyTest {
         .then()
         .statusCode(200);
 
+    // A producer never learns whether, or by whom, its events were read.
     post(producer, "read-later", MINIMAL_EVENT)
         .statusCode(200)
         .body("id", equalTo(id))
-        .body("readAt", notNullValue());
+        .body("readAt", nullValue());
   }
 
   @Test

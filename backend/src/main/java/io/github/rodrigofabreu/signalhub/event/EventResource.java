@@ -1,6 +1,8 @@
 package io.github.rodrigofabreu.signalhub.event;
 
 import io.github.rodrigofabreu.signalhub.api.ApiError;
+import io.github.rodrigofabreu.signalhub.client.AuthenticatedClient;
+import io.github.rodrigofabreu.signalhub.client.ClientIdentity;
 import io.github.rodrigofabreu.signalhub.client.ClientResource;
 import io.github.rodrigofabreu.signalhub.client.OwnerAuthenticated;
 import io.github.rodrigofabreu.signalhub.producer.AuthenticatedProducer;
@@ -27,6 +29,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -66,11 +69,17 @@ public class EventResource {
 
   private final EventService events;
   private final AuthenticatedProducer producer;
+  private final AuthenticatedClient client;
   private final Counter published;
 
-  EventResource(EventService events, AuthenticatedProducer producer, MeterRegistry registry) {
+  EventResource(
+      EventService events,
+      AuthenticatedProducer producer,
+      AuthenticatedClient client,
+      MeterRegistry registry) {
     this.events = events;
     this.producer = producer;
+    this.client = client;
     // Untagged: producer names are the owner's data, and categories or severities are in the
     // inbox already.
     this.published =
@@ -186,12 +195,14 @@ public class EventResource {
   @Operation(
       summary = "List events, newest first",
       description =
-          "The event inbox: events ordered by createdAt, newest first (ties broken by id), one"
+          "The event inbox: the events of the producers the caller's user is subscribed to,"
+              + " ordered by createdAt, newest first (ties broken by id), one"
               + " page at a time. Filters combine with AND; repeating a filter parameter matches"
               + " any of its values. To read the next page, repeat the request with the same"
               + " filters and cursor set to the previous page's nextCursor. Events published"
               + " after the first page never shift or repeat entries on later pages; they appear"
-              + " when the listing is started again. Requires a client key or the admin token.")
+              + " when the listing is started again. Requires a client key, which lists its user's"
+              + " events, or the admin token, which lists every event.")
   @APIResponse(
       responseCode = "200",
       description = "A page of events.",
@@ -264,7 +275,8 @@ public class EventResource {
           String limit) {
     return events.list(
         EventQuery.parse(
-            producerIds, categories, severities, read, createdFrom, createdBefore, cursor, limit));
+            producerIds, categories, severities, read, createdFrom, createdBefore, cursor, limit),
+        user());
   }
 
   @GET
@@ -274,7 +286,10 @@ public class EventResource {
   @SecurityRequirement(name = ProducerAdminResource.SECURITY_SCHEME)
   @Operation(
       summary = "Get an event by its canonical ID",
-      description = "Requires a client key or the admin token.")
+      description =
+          "Requires a client key or the admin token. A client key reads only events of the"
+              + " producers its user is subscribed to; any other event is 404, as if it did not"
+              + " exist. The admin token reads every event.")
   @APIResponse(
       responseCode = "200",
       description = "The event.",
@@ -285,11 +300,11 @@ public class EventResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "404",
-      description = "No event has this ID.",
+      description = "No event has this ID, or the caller's user does not receive it.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public EventResponse get(
       @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
-    return events.find(id).orElseThrow(EventResource::eventNotFound);
+    return events.find(id, user()).orElseThrow(EventResource::eventNotFound);
   }
 
   @GET
@@ -300,8 +315,9 @@ public class EventResource {
   @Operation(
       summary = "Count unread events",
       description =
-          "How many events the owner has not marked read. Requires a client key or the admin"
-              + " token.")
+          "How many of the events the caller's user receives they have not marked read. The admin"
+              + " token counts every event it has not marked read. Requires a client key or the"
+              + " admin token.")
   @APIResponse(
       responseCode = "200",
       description = "The unread count.",
@@ -311,7 +327,7 @@ public class EventResource {
       description = "Missing or invalid client key or admin token.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public UnreadCount unreadCount() {
-    return events.countUnread();
+    return events.countUnread(user());
   }
 
   @PUT
@@ -322,8 +338,9 @@ public class EventResource {
   @Operation(
       summary = "Mark an event read",
       description =
-          "Marks the event read for all of the owner's clients. Idempotent: marking a read event"
-              + " again keeps its readAt. Requires a client key or the admin token.")
+          "Marks the event read for all of the caller's user's devices, and no one else's."
+              + " Idempotent: marking a read event again keeps its readAt. Requires a client key"
+              + " or the admin token (the operator's own read state).")
   @APIResponse(
       responseCode = "200",
       description = "The event, now read.",
@@ -334,11 +351,11 @@ public class EventResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "404",
-      description = "No event has this ID.",
+      description = "No event has this ID, or the caller's user does not receive it.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public EventResponse markRead(
       @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
-    return events.markRead(id).orElseThrow(EventResource::eventNotFound);
+    return events.markRead(id, user()).orElseThrow(EventResource::eventNotFound);
   }
 
   @DELETE
@@ -349,8 +366,8 @@ public class EventResource {
   @Operation(
       summary = "Mark an event unread",
       description =
-          "Marks the event unread again for all of the owner's clients. Idempotent. Requires a"
-              + " client key or the admin token.")
+          "Marks the event unread again for all of the caller's user's devices. Idempotent."
+              + " Requires a client key or the admin token (the operator's own read state).")
   @APIResponse(
       responseCode = "200",
       description = "The event, now unread.",
@@ -361,11 +378,11 @@ public class EventResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "404",
-      description = "No event has this ID.",
+      description = "No event has this ID, or the caller's user does not receive it.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public EventResponse markUnread(
       @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id) {
-    return events.markUnread(id).orElseThrow(EventResource::eventNotFound);
+    return events.markUnread(id, user()).orElseThrow(EventResource::eventNotFound);
   }
 
   @POST
@@ -376,8 +393,8 @@ public class EventResource {
   @Operation(
       summary = "Mark events read up to one",
       description =
-          "Marks read every unread event at or before the given event in listing order (the"
-              + " given event and everything older). Events stored after it stay unread, so"
+          "Marks read every unread event the caller's user receives at or before the given event"
+              + " in listing order (the given event and everything older). Events stored after it stay unread, so"
               + " passing the newest event a client shows never marks events it has not shown."
               + " Requires a client key or the admin token.")
   @APIResponse(
@@ -394,10 +411,18 @@ public class EventResource {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(
       responseCode = "404",
-      description = "No event has the ID given as through.",
+      description =
+          "No event has the ID given as through, or the caller's user does not receive it.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   public MarkReadResult markReadThrough(@NotNull @Valid MarkReadRequest request) {
-    return events.markReadThrough(request.through()).orElseThrow(EventResource::eventNotFound);
+    return events
+        .markReadThrough(request.through(), user())
+        .orElseThrow(EventResource::eventNotFound);
+  }
+
+  /** The user whose events are read; empty for the operator, who reads them all. */
+  private Optional<UUID> user() {
+    return client.current().map(ClientIdentity::userId);
   }
 
   private static NotFoundException eventNotFound() {

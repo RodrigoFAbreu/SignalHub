@@ -305,7 +305,8 @@ class OpenApiTest {
         .statusCode(200)
         .body(
             SCHEMAS + ".ManagedClient.required",
-            containsInAnyOrder("id", "name", "admin", "createdAt", "pushPreferences", "pushStatus"))
+            containsInAnyOrder(
+                "id", "name", "admin", "user", "createdAt", "pushPreferences", "pushStatus"))
         .body(
             SCHEMAS + ".ManagedClient.properties.pushStatus.$ref",
             equalTo("#/components/schemas/PushStatus"))
@@ -352,7 +353,7 @@ class OpenApiTest {
   }
 
   @Test
-  void describesDeviceManagementFromAnAdminDevice() {
+  void describesDeviceManagementFromADevice() {
     var devices = "paths.'/api/v1/client/devices'.get";
     var makeAdmin = "paths.'/api/v1/client/devices/{id}/admin'.post";
     var revoke = "paths.'/api/v1/client/devices/{id}/revoke'.post";
@@ -371,10 +372,8 @@ class OpenApiTest {
         .body(devices + ".responses", hasKey("401"))
         .body(devices + ".responses", hasKey("403"))
         .body(makeAdmin + ".security", equalTo(clientKey))
-        .body(
-            makeAdmin + ".responses.'200'.content.'application/json'.schema.$ref",
-            equalTo("#/components/schemas/ManagedClient"))
-        .body(makeAdmin + ".responses.keySet()", hasItems("200", "401", "403", "404", "409"))
+        // Kept so that an older app gets a clear refusal; roles are set per user.
+        .body(makeAdmin + ".responses.keySet()", hasItems("401", "409"))
         .body(makeAdmin, not(hasKey("requestBody")))
         .body(revoke + ".security", equalTo(clientKey))
         .body(
@@ -552,7 +551,7 @@ class OpenApiTest {
             equalTo("#/components/schemas/Pairing"))
         .body(
             SCHEMAS + ".Pairing.required",
-            containsInAnyOrder("id", "name", "admin", "code", "expiresAt"))
+            containsInAnyOrder("id", "name", "admin", "user", "code", "expiresAt"))
         .body(SCHEMAS + ".Pairing.properties", hasKey("uri"))
         .body(
             "paths.'/api/v1/admin/pairings/{id}'.get.security",
@@ -606,6 +605,7 @@ class OpenApiTest {
             create + ".responses.'201'.content.'application/json'.schema.$ref",
             equalTo("#/components/schemas/Pairing"))
         .body(create + ".responses.keySet()", hasItems("201", "400", "401", "403"))
+        .body(SCHEMAS + ".CreateDevicePairingRequest.properties", hasKey("userId"))
         .body(status + ".security", equalTo(List.of(Map.of("clientKey", List.of()))))
         .body(status + ".tags", equalTo(List.of("Device management")))
         .body(
@@ -613,7 +613,30 @@ class OpenApiTest {
             equalTo("#/components/schemas/PairingStatus"))
         .body(status + ".responses.keySet()", hasItems("200", "401", "403", "404"))
         .body(SCHEMAS + ".CreateDevicePairingRequest.required", equalTo(List.of("name")))
-        // An admin device pairs only devices that are not admins.
+        // Roles are set per user: a device cannot say whether the new one is an admin device.
         .body(SCHEMAS + ".CreateDevicePairingRequest.properties", not(hasKey("admin")));
+  }
+
+  @Test
+  void describesUsersAndVisibilityInTheManagementApi() {
+    var admin = List.of(Map.of("adminToken", List.of()));
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body("paths.'/api/v1/admin/users'.post.security", equalTo(admin))
+        .body("paths.'/api/v1/admin/users'.get.security", equalTo(admin))
+        .body("paths.'/api/v1/admin/users/{id}'.patch.security", equalTo(admin))
+        .body("paths.'/api/v1/admin/users/{id}/revoke'.post.security", equalTo(admin))
+        .body("paths.'/api/v1/admin/users/{id}/subscriptions/{producerId}'", hasKey("put"))
+        .body("paths.'/api/v1/admin/producers/{id}'", hasKey("patch"))
+        .body(SCHEMAS + ".User.required", hasItem("role"))
+        .body(SCHEMAS + ".UserRef.properties.role.$ref", equalTo("#/components/schemas/Role"))
+        .body(SCHEMAS + ".Role.enum", containsInAnyOrder("BASIC", "MOD", "ADMIN"))
+        .body(SCHEMAS + ".Producer.required", hasItems("owner", "visibility", "allowedUsers"))
+        .body(SCHEMAS + ".Visibility.enum", containsInAnyOrder("PUBLIC", "PRIVATE"))
+        .body(SCHEMAS + ".CreateClientRequest.properties", hasKey("userId"));
   }
 }
