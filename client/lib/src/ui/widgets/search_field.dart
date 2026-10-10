@@ -8,6 +8,7 @@ class AppSearchField extends StatelessWidget {
     required this.controller,
     required this.hint,
     required this.onChanged,
+    this.bottomPadding = 8,
   });
 
   final TextEditingController controller;
@@ -16,19 +17,33 @@ class AppSearchField extends StatelessWidget {
   final String hint;
   final ValueChanged<String> onChanged;
 
+  /// Space under the field; a strip whose own hit areas are 48 dp high
+  /// (filter chips) asks for none.
+  final double bottomPadding;
+
+  /// 56 dp, and taller as the text grows past its size: 72 dp at 200 %.
+  static double _height(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    return scale <= 1 ? 56 : 56 + (scale - 1) * 16;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: EdgeInsets.fromLTRB(16, 4, 16, bottomPadding),
       child: SizedBox(
-        height: 56,
+        height: _height(context),
         child: ListenableBuilder(
           listenable: controller,
           builder: (context, _) => TextField(
             controller: controller,
             onChanged: onChanged,
             textInputAction: TextInputAction.search,
+            expands: true,
+            maxLines: null,
+            minLines: null,
+            textAlignVertical: TextAlignVertical.center,
             decoration: InputDecoration(
               hintText: hint,
               filled: true,
