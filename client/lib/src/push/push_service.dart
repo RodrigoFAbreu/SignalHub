@@ -1,15 +1,18 @@
-/// A push notification about an event, independent of the push provider.
+/// A push notification, independent of the push provider: about an event, or
+/// a notice about a device.
 ///
-/// The backend's push carries the event's title and message, and data with
-/// `eventId`, `category` and `severity` (docs/architecture.md, "Push
-/// dispatch"). A push is a signal to look; the event itself is read from the
-/// API.
+/// The backend's push about an event carries its title and message, and data
+/// with `eventId`, `category` and `severity` (docs/architecture.md, "Push
+/// dispatch"). A device notice (a device paired or was revoked) has the data
+/// `notice` instead, and no event. A push is a signal to look; the event
+/// itself is read from the API.
 class PushNotice {
   const PushNotice({
     required this.title,
     this.body,
     this.eventId,
     this.opened = false,
+    this.data = const {},
   });
 
   final String title;
@@ -18,6 +21,14 @@ class PushNotice {
   /// The event the push is about, or `null` for a push that is not about an
   /// event.
   final String? eventId;
+
+  /// The push's data as the provider delivered it.
+  final Map<String, String> data;
+
+  /// What kind of device notice this is (`client-paired`, `client-revoked`,
+  /// …), or `null` for a push about an event. A notice is not an event: it
+  /// has no row in the inbox, and opening it shows the devices.
+  String? get notice => data['notice'];
 
   /// Whether the owner opened the app by tapping the notification, rather
   /// than receiving it while the app was in the foreground.

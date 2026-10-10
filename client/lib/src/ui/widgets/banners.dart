@@ -16,6 +16,7 @@ class AppBanner extends StatelessWidget {
     this.error = false,
     this.actionLabel,
     this.onAction,
+    this.margin = const EdgeInsets.fromLTRB(16, 8, 16, 0),
   });
 
   final IconData icon;
@@ -23,6 +24,10 @@ class AppBanner extends StatelessWidget {
   final bool error;
   final String? actionLabel;
   final VoidCallback? onAction;
+
+  /// Space around it: 16 dp at the sides under an app bar, none where a
+  /// screen already pads its content.
+  final EdgeInsetsGeometry margin;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +37,7 @@ class AppBanner extends StatelessWidget {
         : colors.surfaceContainerHigh;
     final foreground = error ? colors.onErrorContainer : colors.onSurface;
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      margin: margin,
       constraints: const BoxConstraints(minHeight: 56),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(

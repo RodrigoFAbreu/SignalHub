@@ -87,7 +87,10 @@ class _HomeShellState extends State<HomeShell> {
             // A tab this role no longer has (People, after a demotion) shows
             // what a missing screen shows, under a bar that already has the
             // new role's tabs.
-            if (index < 0) const RoleLacksScreen(),
+            if (index < 0)
+              RoleLacksScreen(
+                onBack: () => _controller.selectTab(HomeTab.inbox),
+              ),
           ],
         ),
         bottomNavigationBar: _NavigationBar(

@@ -4,18 +4,26 @@ import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
 import '../models/event.dart';
+import '../onboarding/onboarding_store.dart';
 import '../push/push_registration.dart';
+import 'devices_screen.dart';
 import 'event_screen.dart';
 import 'event_style.dart';
 import 'inbox_filter_sheet.dart';
 import 'link_opener.dart';
+import 'whats_new_card.dart';
+import 'widgets/banners.dart';
+import 'widgets/empty_state.dart';
+import 'widgets/skeleton.dart';
+import 'widgets/snack.dart';
 
 /// The connected app: every event, newest first, read page by page from
 /// `GET /api/v1/events`, with unread events marked and counted, optionally
 /// filtered by read state, producer, category and severity. Tapping an
 /// event, or a notification about it, opens its details and marks it read;
 /// an event's link is opened from there, never straight from the inbox or
-/// the notification.
+/// the notification. A notice about a device is not an event: tapping one
+/// opens the devices.
 class InboxScreen extends StatefulWidget {
   const InboxScreen({
     super.key,
@@ -39,9 +47,11 @@ class _InboxScreenState extends State<InboxScreen> {
   void initState() {
     super.initState();
     _controller.addListener(_openTappedNotification);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _openTappedNotification(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openTappedNotification();
+      // Which producers are subscribed to says what an empty inbox is.
+      unawaited(_controller.producers.load());
+    });
   }
 
   @override
@@ -54,6 +64,13 @@ class _InboxScreenState extends State<InboxScreen> {
     if (!mounted) return;
     final id = _controller.takeEventToOpen();
     if (id != null) _open(id);
+    if (_controller.takeDeviceNoticeToOpen()) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => DevicesScreen(controller: _controller),
+        ),
+      );
+    }
   }
 
   void _open(String id, [Event? event]) {
@@ -72,13 +89,12 @@ class _InboxScreenState extends State<InboxScreen> {
 
   Future<void> _markAllRead() async {
     final error = await _controller.markAllRead();
-    if (error != null && mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error)));
-    }
+    if (error != null && mounted) showAppSnackBar(context, error);
   }
 
   void _editFilter() {
+    // The producers to choose from are the ones this user subscribes to.
+    unawaited(_controller.producers.load());
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -89,7 +105,7 @@ class _InboxScreenState extends State<InboxScreen> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _controller,
+    listenable: Listenable.merge([_controller, _controller.producers]),
     builder: (context, _) => Scaffold(
       appBar: _appBar(),
       body: Column(
@@ -120,30 +136,49 @@ class _InboxScreenState extends State<InboxScreen> {
           selectedIcon: const Icon(Icons.filter_alt),
           onPressed: _editFilter,
         ),
-        IconButton(
-          key: const Key('markAllRead'),
-          tooltip: 'Mark all as read',
-          icon: const Icon(Icons.done_all),
-          onPressed:
-              unread > 0 &&
-                  _controller.events.isNotEmpty &&
-                  _controller.canMarkAllRead
-              ? _markAllRead
-              : null,
-        ),
+        // Nothing to mark while there are no events, and no change is made
+        // while the server cannot be reached.
+        if (_controller.events.isNotEmpty)
+          IconButton(
+            key: const Key('markAllRead'),
+            tooltip: 'Mark all as read',
+            icon: const Icon(Icons.done_all),
+            onPressed:
+                unread > 0 &&
+                    _controller.canMarkAllRead &&
+                    !_controller.serverUnreachable
+                ? _markAllRead
+                : null,
+          ),
       ],
     );
   }
 
-  Widget _list(BuildContext context) {
+  /// The top of the list: what changed once, and what is wrong with reading
+  /// it. A refresh that failed leaves the older list under a neutral banner
+  /// with its time.
+  List<Widget> _banners() {
     final controller = _controller;
-    final banners = [
-      if (controller.error case final error?)
-        _Banner(
-          icon: Icons.error_outline,
-          text: error,
-          detail: 'Pull down to retry.',
-        ),
+    final loadedAt = controller.inboxLoadedAt;
+    final time = loadedAt == null ? '' : formatClock(loadedAt);
+    return [
+      if (controller.onboarding == OnboardingStep.whatsNew)
+        WhatsNewCard(controller: controller),
+      if (controller.inboxLoaded && controller.error != null)
+        if (controller.serverUnreachable)
+          AppBanner(
+            icon: Icons.cloud_off,
+            message:
+                "You're offline. This is the list from $time. Changes are "
+                "paused until you're back.",
+          )
+        else
+          AppBanner(
+            icon: Icons.history,
+            message: "Couldn't refresh. This is the list from $time.",
+            actionLabel: 'Try again',
+            onAction: controller.refresh,
+          ),
       // An unreachable server is the one thing to fix; push waits for it.
       if (!controller.serverUnreachable)
         if (controller.pushStatus
@@ -151,39 +186,91 @@ class _InboxScreenState extends State<InboxScreen> {
                 PushStatus.failed ||
                 PushStatus.unsupported ||
                 PushStatus.restartRequired)
-          _Banner(
+          AppBanner(
             icon: Icons.notifications_off_outlined,
-            text: controller.pushStatus.description,
+            message: controller.pushStatus.description,
           ),
     ];
+  }
+
+  Widget _list(BuildContext context) {
+    final controller = _controller;
     final events = controller.events;
+    final banners = _banners();
     final Widget? placeholder = switch ((controller.inboxLoaded, events)) {
-      (false, _) when controller.error == null => const Padding(
-        padding: EdgeInsets.all(32),
-        child: Center(child: CircularProgressIndicator()),
+      (false, _) when controller.error == null => const SkeletonRows(
+        count: 6,
+        circleLeading: false,
+      ),
+      (false, _) => EmptyState(
+        icon: Icons.cloud_off,
+        title: "Couldn't load events",
+        body: controller.serverUnreachable
+            ? 'Check your connection and try again.'
+            : 'SignalHub had a problem. Try again in a moment.',
+        actionLabel: 'Try again',
+        actionIcon: Icons.refresh,
+        onAction: controller.refresh,
       ),
       // An older server may answer a page with only read events for the
       // unread-only view: the footer reads on.
-      (true, []) when !controller.hasMore => _Placeholder(
-        controller.filter.isActive
-            ? 'No events match these filters'
-            : 'No events yet',
-      ),
+      (true, []) when !controller.hasMore => _emptyInbox(),
       _ => null,
     };
-    return ListView.builder(
+    return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: banners.length + (placeholder == null ? events.length + 1 : 1),
-      itemBuilder: (context, index) {
-        if (index < banners.length) return banners[index];
-        if (placeholder != null) return placeholder;
-        final i = index - banners.length;
-        if (i < events.length) {
-          final event = events[i];
-          return EventTile(event, onTap: () => _open(event.id, event));
-        }
-        return _footer();
-      },
+      slivers: [
+        if (banners.isNotEmpty)
+          SliverToBoxAdapter(child: Column(children: banners)),
+        if (placeholder == null)
+          SliverList.builder(
+            itemCount: events.length + 1,
+            itemBuilder: (context, i) {
+              if (i < events.length) {
+                final event = events[i];
+                return EventTile(event, onTap: () => _open(event.id, event));
+              }
+              return _footer();
+            },
+          )
+        else if (placeholder is SkeletonRows)
+          SliverToBoxAdapter(child: placeholder)
+        else
+          SliverFillRemaining(hasScrollBody: false, child: placeholder),
+      ],
+    );
+  }
+
+  /// Nothing in the inbox: a filter that matches nothing, nothing subscribed
+  /// to (which is the one thing that fills it), or subscriptions that have
+  /// sent nothing yet.
+  Widget _emptyInbox() {
+    final controller = _controller;
+    if (controller.filter.isActive) {
+      return EmptyState(
+        icon: Icons.filter_list_off,
+        title: 'No events match these filters',
+        actionLabel: 'Clear filters',
+        onAction: controller.clearFilter,
+      );
+    }
+    final producers = controller.producers;
+    final nothingSubscribed =
+        producers.list.hasValue && producers.subscribed.isEmpty;
+    if (!nothingSubscribed) {
+      return const EmptyState(
+        icon: Icons.inbox_outlined,
+        title: 'Nothing new from your producers',
+        body: 'New events from the producers you subscribe to show up here.',
+      );
+    }
+    return EmptyState(
+      icon: Icons.inbox_outlined,
+      title: 'No events yet',
+      body: 'Events show up here once you subscribe to a producer.',
+      actionLabel: 'Find producers',
+      actionIcon: Icons.sensors,
+      onAction: () => controller.selectTab(HomeTab.producers),
     );
   }
 
@@ -278,34 +365,4 @@ class EventTile extends StatelessWidget {
       onTap: onTap,
     );
   }
-}
-
-class _Banner extends StatelessWidget {
-  const _Banner({required this.icon, required this.text, this.detail});
-
-  final IconData icon;
-  final String text;
-  final String? detail;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-    child: ListTile(
-      leading: Icon(icon),
-      title: Text(text),
-      subtitle: detail == null ? null : Text(detail!),
-    ),
-  );
-}
-
-class _Placeholder extends StatelessWidget {
-  const _Placeholder(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(32),
-    child: Center(child: Text(text)),
-  );
 }

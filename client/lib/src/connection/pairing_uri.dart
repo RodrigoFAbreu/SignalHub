@@ -35,8 +35,15 @@ class PairingUri {
   static const codePrefix = 'shpc1_';
 
   static const invalid =
-      'This is not a SignalHub pairing code. '
-      'It is a link that starts with signalhub://pair';
+      "That isn't a SignalHub invitation. Scan the code the person who "
+      'invited you shared.';
+
+  /// Whether [text] is the code a web page shows to sign a browser in, which
+  /// is for Settings › Sign in a browser, not for setting a device up.
+  static bool isWebSignIn(String text) {
+    final uri = Uri.tryParse(text.trim());
+    return uri != null && uri.isScheme('signalhub') && uri.host == 'signin';
+  }
 
   /// The server address without a trailing slash.
   final String serverUrl;

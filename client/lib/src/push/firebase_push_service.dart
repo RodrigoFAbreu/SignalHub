@@ -116,6 +116,10 @@ class FirebasePushService implements PushService {
     body: message.notification?.body,
     eventId: message.data['eventId'] as String?,
     opened: opened,
+    data: {
+      for (final MapEntry(:key, :value) in message.data.entries)
+        if (value is String) key: value,
+    },
   );
 }
 

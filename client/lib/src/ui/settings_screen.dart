@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
 import '../models/client_registration.dart';
+import '../models/event.dart';
 import '../settings/settings_groups.dart';
+import 'about_server_screen.dart';
 import 'alert_section.dart';
 import 'devices_screen.dart';
 import 'push_filters.dart';
+import 'widgets/snack.dart';
 
-/// Every setting of the app, opened from the inbox's gear icon: the _Push
-/// notifications_ switch, then folding groups that show a summary of their
-/// values while folded, and on an admin device a row that opens the
-/// owner's devices. Push preferences are saved on the server, the alert and
-/// the open groups on the device; each change is saved at once.
+/// Every setting of the app, a tab of the bottom bar: the _Push
+/// notifications_ switch, then, in one order for every role, _Push filters_
+/// and _Alert_ (folding groups that show a summary of their values while
+/// folded), _Devices_ and _About this server_ (rows that open a screen) and
+/// _This device_. Push preferences are saved on the server, the alert and the
+/// open groups on the device; each change is saved at once.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.controller});
 
@@ -34,11 +38,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _lifecycle = AppLifecycleListener(
       onResume: () => _controller.alert?.refreshDoNotDisturbAccess(),
     );
-    // For the Devices row's summary. Not while building: reading them
-    // notifies the controller's listeners.
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _controller.loadDevices(),
-    );
+    // For the Devices row's summary and the producers Push filters lists.
+    // Not while building: reading them notifies the listeners.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadLists());
   }
 
   @override
@@ -47,28 +49,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
+  Future<void> _loadLists() => Future.wait([
+    _controller.deviceList.load(),
+    _controller.producers.load(),
+  ]);
+
   Future<void> _refresh() async {
     await _controller.refresh();
-    await _controller.loadDevices();
+    await _loadLists();
   }
 
   Future<void> _save(PushPreferences changed) async {
-    final messenger = ScaffoldMessenger.of(context);
     final error = await _controller.setPushPreferences(changed);
-    if (error != null) {
-      messenger.showSnackBar(SnackBar(content: Text(error)));
-    }
+    if (error != null && mounted) showAppSnackBar(context, error);
   }
+
+  /// The address of the server, as the app reaches it.
+  String? get _host =>
+      Uri.tryParse(_controller.credentials?.baseUrl ?? '')?.authority;
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Settings')),
     body: ListenableBuilder(
       // The alert's summaries follow its settings.
-      listenable: Listenable.merge([_controller, ?_controller.alert]),
+      listenable: Listenable.merge([
+        _controller,
+        _controller.deviceList,
+        _controller.producers,
+        ?_controller.alert,
+      ]),
       builder: (context, _) {
         final preferences = _controller.registration?.pushPreferences;
         final alert = _controller.alert;
+        final producers = _controller.producers;
+        // Names for the producers a muted ID may belong to: those this user
+        // sees, or else the ones an event of the inbox came from.
+        final names = {
+          for (final id in preferences?.mutedProducerIds ?? const <String>[])
+            if (_controller.producerName(id) case final name?) id: name,
+        };
         // Pushes are paused: what shapes them is kept, and can be changed.
         final paused = preferences != null && !preferences.enabled;
         return RefreshIndicator(
@@ -85,13 +105,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _group(
                 SettingsGroup.pushFilters,
                 title: 'Push filters',
+                icon: Icons.notifications_outlined,
                 greyed: paused,
                 summary: preferences == null
                     ? 'Not supported by this server'
-                    : PushFilters.summary(
-                        preferences,
-                        _controller.inboxProducers,
-                      ),
+                    : PushFilters.summary(preferences, names),
                 child: preferences == null
                     ? const ListTile(
                         title: Text(
@@ -103,7 +121,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : PushFilters(
                         preferences: preferences,
                         enabled: !_controller.savingPushPreferences,
-                        producers: _controller.inboxProducers,
+                        producers: [
+                          for (final p in producers.subscribed)
+                            EventProducer(id: p.id, name: p.name),
+                        ],
+                        names: names,
                         save: _save,
                       ),
               ),
@@ -111,6 +133,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _group(
                   SettingsGroup.alert,
                   title: 'Alert',
+                  icon: Icons.volume_up_outlined,
                   greyed: paused,
                   summary: GeneralAlertSection.summary(alert),
                   child: Column(
@@ -122,6 +145,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _group(
                         SettingsGroup.critical,
                         title: 'Critical alert',
+                        icon: Icons.priority_high,
                         enabled: alert.critical.different,
                         summary: CriticalAlertSection.summary(alert),
                         child: CriticalAlertSection(controller: alert),
@@ -129,31 +153,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
+              // Every role has the Devices screen: a Basic user's is read
+              // only.
+              ListTile(
+                key: const Key('devices'),
+                leading: const Icon(Icons.devices_outlined),
+                title: const Text('Devices'),
+                subtitle: switch (_controller.deviceList.summary) {
+                  final summary? => Text(summary),
+                  null => null,
+                },
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => DevicesScreen(controller: _controller),
+                  ),
+                ),
+              ),
+              ListTile(
+                key: const Key('aboutServer'),
+                leading: Icon(
+                  Icons.dns_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text('About this server'),
+                subtitle: Text(
+                  [?_host, 'who can see what'].join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => AboutServerScreen(controller: _controller),
+                  ),
+                ),
+              ),
               _group(
                 SettingsGroup.device,
                 title: 'This device',
+                icon: Icons.phone_android,
                 summary: [
                   _controller.registration?.name ?? 'This device',
                   _controller.pushStatus.description,
                 ].join(' · '),
                 child: _ThisDevice(controller: _controller),
               ),
-              if (_controller.canManageDevices || _controller.lostAdminRights)
-                ListTile(
-                  key: const Key('devices'),
-                  leading: const Icon(Icons.devices_outlined),
-                  title: const Text('Devices'),
-                  subtitle: switch (DevicesScreen.summary(_controller)) {
-                    final summary? => Text(summary),
-                    null => null,
-                  },
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => DevicesScreen(controller: _controller),
-                    ),
-                  ),
-                ),
               // Clear of the navigation bar.
               SizedBox(height: 16 + MediaQuery.paddingOf(context).bottom),
             ],
@@ -166,6 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _group(
     SettingsGroup group, {
     required String title,
+    required IconData icon,
     required String summary,
     required Widget child,
     bool greyed = false,
@@ -173,6 +219,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) => _Group(
     group: group,
     title: title,
+    icon: icon,
     summary: summary,
     greyed: greyed,
     enabled: enabled,
@@ -190,6 +237,7 @@ class _Group extends StatelessWidget {
   const _Group({
     required this.group,
     required this.title,
+    required this.icon,
     required this.summary,
     required this.greyed,
     required this.enabled,
@@ -200,6 +248,7 @@ class _Group extends StatelessWidget {
 
   final SettingsGroup group;
   final String title;
+  final IconData icon;
   final String summary;
   final bool greyed;
   final bool enabled;
@@ -223,6 +272,7 @@ class _Group extends StatelessWidget {
     textColor: grey,
     collapsedTextColor: grey,
     expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+    leading: Icon(icon),
     title: Text(title),
     subtitle: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

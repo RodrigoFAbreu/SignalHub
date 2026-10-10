@@ -41,12 +41,20 @@ class PushFilters extends StatelessWidget {
     required this.preferences,
     required this.enabled,
     required this.producers,
+    this.names = const {},
     required this.save,
   });
 
   final PushPreferences preferences;
   final bool enabled;
+
+  /// The producers this user subscribes to: the ones whose pushes can be
+  /// muted.
   final List<EventProducer> producers;
+
+  /// The names of the producers a muted ID may belong to that are not in
+  /// [producers], such as one unsubscribed from since.
+  final Map<String, String> names;
   final void Function(PushPreferences) save;
 
   static const _severities = [
@@ -64,10 +72,11 @@ class PushFilters extends StatelessWidget {
   ];
 
   /// One line for the folded group, such as _Normal and up · Info muted ·
-  /// all producers_.
+  /// all producers_. [names] are the producers' names by ID, for the muted
+  /// ones.
   static String summary(
     PushPreferences preferences,
-    List<EventProducer> producers,
+    Map<String, String> names,
   ) {
     final severity = switch (EventSeverity.parse(preferences.minimumSeverity)) {
       EventSeverity.low || EventSeverity.unknown => 'All severities',
@@ -79,7 +88,6 @@ class PushFilters extends StatelessWidget {
       for (final c in _categories)
         if (muted.contains(c.wireName)) c.label,
     ];
-    final names = {for (final p in producers) p.id: p.name};
     final mutedProducers = [
       for (final id in preferences.mutedProducerIds) names[id] ?? id,
     ];
@@ -99,13 +107,13 @@ class PushFilters extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = preferences;
     final severity = EventSeverity.parse(p.minimumSeverity);
-    // Muted producers that have no event in the inbox are still listed, by
-    // ID, so they can be unmuted.
-    final named = {for (final producer in producers) producer.id};
+    // A muted producer the user does not subscribe to is still listed, by
+    // name or else by ID, so it can be unmuted.
+    final listed = {for (final producer in producers) producer.id};
     final producerRows = [
       for (final producer in producers) (producer.id, producer.name),
       for (final id in p.mutedProducerIds)
-        if (!named.contains(id)) (id, id),
+        if (!listed.contains(id)) (id, names[id] ?? id),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -152,10 +160,7 @@ class PushFilters extends StatelessWidget {
         const _Heading('Producers'),
         if (producerRows.isEmpty)
           const ListTile(
-            title: Text(
-              'Producers appear here once their events are in the '
-              'inbox.',
-            ),
+            title: Text('Producers you subscribe to appear here.'),
           ),
         for (final (id, name) in producerRows)
           SwitchListTile(

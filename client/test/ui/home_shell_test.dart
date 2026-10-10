@@ -84,6 +84,7 @@ void main() {
 
   testWidgets('the inbox has no gear: Settings is a tab', (tester) async {
     final app = AppHarness();
+    app.backend.publish('e-1', 'One');
     useDesignPhone(tester);
 
     await app.start(tester);
@@ -149,11 +150,13 @@ void main() {
     expect(find.text("Your role changed. You're now a Mod."), findsOneWidget);
     // The screen the role lost is not drawn: a plain message, and the bar
     // already has the new role's tabs.
+    expect(find.text("You can't open this"), findsOneWidget);
     expect(
-      find.text('This screen is not available to your role'),
+      find.text(
+        'People is for admins of this server. If you need it, ask an admin.',
+      ),
       findsOneWidget,
     );
-    expect(find.text('Ask an admin of this server.'), findsOneWidget);
     // Said once.
     await tester.runAsync(app.controller.rereadRegistration);
     await app.settle(tester);

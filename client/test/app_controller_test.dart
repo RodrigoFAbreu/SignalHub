@@ -5,6 +5,7 @@ import 'package:signalhub_client/src/api/signalhub_api.dart';
 import 'package:signalhub_client/src/app_controller.dart';
 import 'package:signalhub_client/src/connection/pairing_uri.dart';
 import 'package:signalhub_client/src/connection/server_credentials.dart';
+import 'package:signalhub_client/src/connection/setup_failure.dart';
 import 'package:signalhub_client/src/models/client_registration.dart';
 import 'package:signalhub_client/src/models/event.dart';
 import 'package:signalhub_client/src/models/inbox_filter.dart';
@@ -80,7 +81,11 @@ void main() {
 
     final error = await app.connect(serverUrl, clientKey);
 
-    expect(error, 'The server did not accept this client key');
+    expect(error?.kind, SetupFailureKind.keyRejected);
+    expect(
+      error?.message,
+      "That key isn't valid, or its device was disconnected.",
+    );
     expect(app.phase, isNot(ConnectionPhase.connected));
     expect(store.saved, isNull);
   });
@@ -90,7 +95,8 @@ void main() {
 
     final error = await app.connect('not a url', clientKey);
 
-    expect(error, contains('server address'));
+    expect(error?.kind, SetupFailureKind.badAddress);
+    expect(error?.message, contains('server address'));
     expect(backend.requests, isEmpty);
   });
 
@@ -129,7 +135,8 @@ void main() {
 
       final error = await app.pair(pairingUri);
 
-      expect(error, const PairingRejectedException().message);
+      expect(error?.kind, SetupFailureKind.codeRejected);
+      expect(error?.message, const PairingRejectedException().message);
       expect(app.phase, isNot(ConnectionPhase.connected));
       expect(store.saved, isNull);
     });
@@ -140,7 +147,9 @@ void main() {
 
       final error = await app.pair(pairingUri);
 
-      expect(error, 'Could not reach the server ($serverUrl)');
+      expect(error?.kind, SetupFailureKind.unreachable);
+      expect(error?.message, startsWith("Can't reach signalhub.test."));
+      expect(error?.canRetry, isTrue);
       expect(store.saved, isNull);
       // The code was not used: pairing works once the server is reachable.
       backend.offline = false;
@@ -152,7 +161,8 @@ void main() {
 
       final error = await app.pair(clientKey);
 
-      expect(error, PairingUri.invalid);
+      expect(error?.kind, SetupFailureKind.notInvitation);
+      expect(error?.message, PairingUri.invalid);
       expect(backend.requests, isEmpty);
     });
 
@@ -188,7 +198,8 @@ void main() {
 
     expect(app.phase, ConnectionPhase.disconnected);
     expect(store.saved, isNull);
-    expect(app.error, contains('no longer accepts'));
+    expect(app.signedOut, isTrue);
+    expect(app.error, isNull);
   });
 
   test('an unreachable server keeps the credentials and reports it', () async {
@@ -897,10 +908,11 @@ void main() {
       await app.setFilter(const InboxFilter(producerIds: {'p-2'}));
 
       expect(app.events.map((e) => e.id), ['e-1']);
-      expect(
-        [for (final p in app.inboxProducers) p.name],
-        ['nas', 'nightly-build'],
-      );
+      // A filter by a producer the user does not see keeps its name from the
+      // events read.
+      expect(app.producerName('p-2'), 'nas');
+      expect(app.producerName('p-1'), 'nightly-build');
+      expect(app.producerName('p-9'), isNull);
     });
 
     test(
@@ -935,7 +947,7 @@ void main() {
       await app.disconnect();
 
       expect(app.filter, InboxFilter.none);
-      expect(app.inboxProducers, isEmpty);
+      expect(app.producerName('p-1'), isNull);
     });
   });
 
@@ -1213,20 +1225,6 @@ void main() {
       expect(store.saved, isNull);
     },
   );
-
-  test('the inbox producers are the distinct producers, by name', () async {
-    backend
-      ..publish('e-1', 'Disk full', producer: {'id': 'p-2', 'name': 'nas'})
-      ..publish('e-2', 'Build failed')
-      ..publish('e-3', 'Disk fine', producer: {'id': 'p-2', 'name': 'nas'});
-    final app = controller();
-    await app.connect(serverUrl, clientKey);
-
-    expect(
-      [for (final p in app.inboxProducers) (p.id, p.name)],
-      [('p-2', 'nas'), ('p-1', 'nightly-build')],
-    );
-  });
 
   group('device management', () {
     const tablet = 'c-tablet';
