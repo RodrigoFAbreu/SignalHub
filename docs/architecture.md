@@ -751,6 +751,10 @@ the producer, never changed) and `visibility` (`PUBLIC` or `PRIVATE`, `PRIVATE`
 by default), and creates `producer_allowed_users` and `subscriptions`; see
 [Users, roles and subscriptions](#users-roles-and-subscriptions). Existing
 producers become the first user's, private.
+`V18__add_producer_disabled_by_owner.sql` adds `disabled_by_owner` (`false` by
+default, so existing disabled producers are the operator's): see [Own producers
+from a device](#own-producers-from-a-device). A producer's `name` can be
+changed from a device; its events and keys reference its ID.
 
 ### Logging
 
@@ -812,6 +816,20 @@ ID remains in the log lines `Client <caller> revoked client <id>` and
 `Client <caller> deleted client <id>`). Keep few admin users: each of their
 devices is a key that can do this.
 
+**A stolen device of an admin** can also, through the proxy, invite users as
+`BASIC` or `MOD` (each with a pairing code that is a bearer secret) and set the
+role of users who are not admins, so it can promote a basic user to mod; it
+still cannot make an admin, and the operator revokes the users it invited.
+**A stolen device of any user** can do what that user can: create, rename,
+make public and disable that user's producers, issue and revoke their keys,
+allow users on them, and subscribe and unsubscribe. It reaches no producer
+of anyone else's (`404`), and it cannot enable a producer the operator
+disabled. The user's producer keys are not in it (a key is shown once, to the
+device that created the producer), but it can issue new ones: revoke the
+device, then rotate the user's keys from another device or with the admin
+token. A user without limits can fill the server with producers; the
+operator revokes them.
+
 **A user's devices** can read only what that user is subscribed to, and a
 basic user's devices can change nothing about devices. The limits that keep
 users apart (events, read state, pushes, producers) are enforced by the
@@ -860,8 +878,8 @@ follow. Producers and subscriptions are open to every role.
 | Role | Devices |
 |---|---|
 | `BASIC` | Reads their own devices. Cannot pair, rename, revoke or delete devices, not even their own. |
-| `MOD` | As `BASIC`, plus pairs, revokes and deletes their own devices (renaming is the operator's for now). A mod cannot revoke their own last active device, so they cannot lock themselves out. |
-| `ADMIN` | As `MOD`, plus sees every user's devices, revokes and deletes any device that is not an admin's, and creates pairing codes for any user who is not revoked. |
+| `MOD` | As `BASIC`, plus pairs, renames, revokes and deletes their own devices. A mod cannot revoke their own last active device, so they cannot lock themselves out. |
+| `ADMIN` | As `MOD`, plus sees every user's devices, renames, revokes and deletes any device that is not an admin's, creates pairing codes for any user who is not revoked, [invites users](#users-from-a-device) as `BASIC` or `MOD` and sets the role of users who are not admins to `BASIC` or `MOD`. |
 
 **Making a user an admin, or no longer one, is done only with the admin
 token** (`PATCH /api/v1/admin/users/{id}`, usually on the [admin
@@ -871,9 +889,10 @@ another admin's devices, nor their own. A device's role checks read its user
 at the time of the change, so an operator's change applies before a device's
 request or after it. Devices manage devices through
 [the client API](#device-management-from-a-device); inviting users and
-setting `BASIC` or `MOD` from a device, and users' own producers and
-subscriptions from a device, come with the later self-service API. Until
-then the operator does them with the management API.
+setting `BASIC` or `MOD` from a device is [described below](#users-from-a-device), and
+users' own producers and subscriptions are managed from their devices through
+[the self-service API](#own-producers-from-a-device), which every role may
+use.
 
 ### Visibility and subscriptions
 
@@ -1039,6 +1058,7 @@ admin token nor the host. What it may do depends on its user's [role](#roles):
 |---|---|
 | `GET /api/v1/client/devices` | For an admin, every client, revoked or not, oldest first, as `{"items": [...]}`: exactly what `GET /api/v1/admin/clients` returns (schema `ManagedClient`, with `pushStatus`). For a mod or basic user, only the clients of their own user. Never a key or a push token. |
 | `POST /api/v1/client/devices/{id}/admin` | Always `409`, see [Admin devices](#admin-devices). |
+| `PATCH /api/v1/client/devices/{id}` | Renames a client (`{"name"}`, 1–100 characters, not blank, as when pairing; the key keeps working). A mod: their own devices only (any other is `404`). An admin: any device of a user who is not an admin; `409 Client is an admin device` for an admin's device, the caller included. `200` with the client (`ManagedClient`); `200` and no change if it already has the name; `409 Client is revoked` for a revoked client, which never changes; `404` for an unknown ID; `403` for a basic user. No push is sent. |
 | `POST /api/v1/client/devices/{id}/revoke` | Revokes a client and removes its push target, as the operator's revoke does. A mod: their own devices only (any other is `404`), but not their last active one (`409 Cannot revoke the last active device of a user`). An admin: any device of a user who is not an admin; `409 Client is an admin device` for an admin's device, the caller included. `200` with the client; `200` and no change if it is already revoked; `404` for an unknown ID; `403` for a basic user. |
 | `DELETE /api/v1/client/devices/{id}` | [Deletes a revoked client](#deleting-a-revoked-client), with the same reach: a mod their own, an admin those of users who are not admins. `204`; `409 Client is not revoked` for an active client, the caller included; `409 Client is an admin device`; `404` for an unknown ID, or a mod's device that is not theirs; `403` for a basic user. |
 
@@ -1046,7 +1066,7 @@ An admin or a mod also creates pairing codes, with `POST
 /api/v1/client/pairings` under the same rules: see [Pairing from a
 device](#pairing-from-a-device).
 
-No request has a body. The limits keep a stolen key from taking over:
+Only renaming has a body. The limits keep a stolen key from taking over:
 
 - **The role is checked first.** A basic user's key gets `403 Not allowed for
   your role` on every change, before the path's client is looked up, so the
@@ -1063,10 +1083,11 @@ No request has a body. The limits keep a stolen key from taking over:
 - **A device can do nothing to an admin's device**, its own included, if it
   is one: no device can take admin rights away (there is no endpoint for it)
   or revoke or delete an admin's device. Only the operator can, with the admin
-  token, usually on the [admin page](#the-admin-page). Renaming is the
-  operator's too.
+  token, usually on the [admin page](#the-admin-page). An admin's device is not
+  renamed from a device either.
 - **Every change is logged** at `INFO` with client IDs only: `Client <caller>
-  revoked client <id>` and `Client <caller> deleted client <id>`. A request
+  renamed client <id>`, `Client <caller> revoked client <id>` and `Client
+  <caller> deleted client <id>`. A request
   that changes nothing or is refused logs nothing.
 - **The user's devices and the admins' are told** of a revocation (not of a
   deletion, which changes nothing a device can use). A change pushes a
@@ -1089,6 +1110,88 @@ No request has a body. The limits keep a stolen key from taking over:
 
 What a stolen admin key can do, and how to recover, is in
 [Security limitations](#security-limitations).
+
+### Users from a device
+
+A device reads the users on the server, and an admin's device invites users and
+sets their role, with its client key under `/api/v1/client/users`, so the
+proxy forwards it. The operator keeps making and unmaking admins and revoking
+users, with the admin token: no device can.
+
+| Method and path | Result |
+|---|---|
+| `GET /api/v1/client/users` | Any role. The users who are not revoked, by name ignoring case, as `{"items": [{"id", "name"}]}`: to choose whom to allow on a producer. **Never a role**, so admins are not told apart, and never a device or a producer. |
+| `POST /api/v1/client/users` | Admin only (`403` for anyone else, before the body's meaning is looked at). Invites a user (`{"name", "role", "deviceName"}`; `role` is `BASIC` or `MOD`, `BASIC` when omitted, and `ADMIN` is `400`; `deviceName` defaults to `First device`) and creates a [pairing code](#pairing-from-a-device) for their first device, in one transaction: either both exist or neither. `201` with `{"user": {"id", "name", "role"}, "pairing": {...}}`, the pairing as `POST /api/v1/client/pairings` answers it, its code shown only here; `409` if the name is taken (ignoring case). The code is valid for 10 minutes, and its status is asked at `GET /api/v1/client/pairings/{id}`. |
+| `PATCH /api/v1/client/users/{id}` | Admin only. Sets the role of a user who is not an admin to `BASIC` or `MOD` (`{"role"}`); `200` with `{"id", "name", "role"}`. `400` for `ADMIN` or no role, `404` for an unknown ID, `409` for a revoked user or an admin (the caller included): no device demotes an admin. The user's devices stay as they are; what they may do follows the role from their next request. Setting the role they have changes nothing. |
+
+The caller's user is locked and its role read in the transaction that changes
+anything, so an operator demoting or revoking the admin meanwhile applies
+before the change or after it. Every change is logged at `INFO` with user IDs
+only: `User <caller's user> invited user <id> as MOD` and `User <caller's user>
+made user <id> BASIC`.
+
+### Own producers from a device
+
+Every role manages the producers its user owns from a device, under
+`/api/v1/client/producers`, with the client key: a user with no machine access
+creates a producer, gets its key, publishes with it, and decides who receives
+it. Nothing about it is special to a role, and **nothing reaches a producer the
+caller's user does not own**: another user's producer, an admin's included and
+the operator's, is `404`, the same answer as for an ID that does not exist.
+(An admin has no more reach here than anyone: the operator has the
+[management API](#producer-management).)
+
+| Method and path | Result |
+|---|---|
+| `POST /api/v1/client/producers` | Registers a producer owned by the caller's user (`{"name", "visibility"}`; `visibility` is `PRIVATE` when omitted; the name is as in [Producer management](#producer-management)). The owner is subscribed. `201` with `{"producer", "keyId", "apiKey"}` (`IssuedOwnApiKey`) and `Location`; **the key is shown only in this answer**. `409` if the name is taken. |
+| `GET /api/v1/client/producers` | The caller's producers by name, `{"items": [...]}`. |
+| `GET /api/v1/client/producers/{id}` | One of them (`OwnProducer`): `id`, `name`, `createdAt`, `disabledAt`, `disabledByOperator`, `lastEventAt`, `visibility`, `subscribed`, `allowedUsers` (`{"id", "name"}`) and `keys`: for each key its `id`, `prefix` (`shpk1_` and the key ID, which starts the key and is not secret), `createdAt` and `revokedAt`. **Never a key.** |
+| `PATCH /api/v1/client/producers/{id}` | Renames the producer and/or sets its `visibility` (at least one; `400` otherwise); `409` if another producer has the name. Keys keep working and events stay the producer's own (they show the new name). Making a producer private ends the subscriptions of users who are neither its owner nor on its allow-list. |
+| `POST /api/v1/client/producers/{id}/keys` | Issues an additional key (rotate: issue, switch, revoke). `201` with `IssuedOwnApiKey`. |
+| `POST /api/v1/client/producers/{id}/keys/{keyId}/revoke` | Revokes a key at once and for good. Idempotent. `404` for a key of another producer. |
+| `POST /api/v1/client/producers/{id}/disable`, `.../enable` | Disables the producer (none of its keys authenticate; events are kept) or enables it. Idempotent. `409` when enabling a producer **the operator disabled**: see below. |
+| `PUT`, `DELETE /api/v1/client/producers/{id}/allowed-users/{userId}` | Puts a user who is not revoked on the allow-list (`404` if there is none), or takes them off. Idempotent; allowing the owner changes nothing. Taking a user off a private producer ends their subscription in the same transaction. |
+
+All answers are `OwnProducer`, except the two that issue a key. The decisions
+the entry left to this increment:
+
+- **A producer the operator disabled stays disabled.** `V18` adds
+  `producers.disabled_by_owner`; a producer is disabled "by the owner" only
+  when the owner did it. Disabling with the admin token, or revoking its
+  owner, makes it the operator's, even if the owner had disabled it: then
+  `POST .../enable` is `409` and `disabledByOperator` is `true`, and only the
+  operator enables it. Without this, an owner could undo the operator's block
+  of a misbehaving producer. Existing disabled producers count as the
+  operator's.
+- **Visibility is changed by the owner alone**, and a guest on the allow-list
+  or a subscriber of a public producer does nothing but unsubscribe.
+- **Keys are listed by prefix**, which is not secret, and never otherwise.
+  `IssuedOwnApiKey` omits the key from `toString()`, and nothing logs a key,
+  a hash or a pairing code: producer, key, user and client IDs only (`Owner
+  disabled producer <id>`, `Renamed producer <id>`, `Allowed user <id> on
+  producer <id>`, and the registration and key lines of
+  [Producer management](#logging)).
+- **A producer's name is global and unique**, so creating or renaming to a
+  taken name answers `409` even when the other producer is private; that
+  tells a user a name exists, nothing more. There is no quota (a [non-goal of
+  users](#users-roles-and-subscriptions)): the operator disables or revokes.
+- Changing a producer takes its row lock, as subscribing to it does, so a
+  user cannot subscribe behind the change that hid it from them.
+
+### Subscriptions from a device
+
+Every role sees the producers it may and chooses which to receive, under
+`/api/v1/client/visible-producers`.
+
+| Method and path | Result |
+|---|---|
+| `GET /api/v1/client/visible-producers` | The producers the caller's user sees, by name: public ones, their own and private ones they are allowed on, as `{"items": [{"id", "name", "owner": {"id", "name"}, "visibility", "disabled", "subscribed"}]}`. **Never** a key, an allow-list, a role or when the producer last published. |
+| `PUT /api/v1/client/visible-producers/{id}/subscription` | Subscribes the user, on all their devices: they receive the producer's events from now on and find its stored ones in their inbox. Idempotent. `404` for a producer they do not see, which looks like one that does not exist. |
+| `DELETE /api/v1/client/visible-producers/{id}/subscription` | Unsubscribes. Idempotent; `404` for a producer they do not see. |
+
+Both answer the producer (`VisibleProducer`). The subscription rules are those
+of [Visibility and subscriptions](#visibility-and-subscriptions); a basic user
+subscribes exactly as an admin does.
 
 ### Renaming a client
 
@@ -1645,9 +1748,14 @@ suppressed push is simply not sent to that client.
 | `PUT /api/v1/client/push-preferences` | client key | Replaces the push preferences (`{"enabled", "minimumSeverity", "mutedCategories", "mutedProducerIds"}`, each optional). `200` with the client. |
 | `GET /api/v1/client/push-config` | client key | The options an app needs to set up push with the server's provider, `{"provider", "options"}` (see [Push client options](#push-client-options)); `404` if the operator configured none. |
 | `GET /api/v1/client/devices` | client key | An admin: every client, as `GET /api/v1/admin/clients` lists them; anyone else: the clients of their own user. See [Device management from a device](#device-management-from-a-device). |
+| `PATCH /api/v1/client/devices/{id}` | client key | Renames a client (`{"name"}`): a mod their own, an admin those of users who are not admins. `200` with the client (`ManagedClient`); `409` for an admin's device or a revoked client; `403` for a basic user. |
 | `POST /api/v1/client/devices/{id}/admin` | client key | Always `409`: roles are set per user, only with the admin token. |
 | `POST /api/v1/client/devices/{id}/revoke` | client key | Revokes a client: a mod their own (not their last active one), an admin those of users who are not admins. `200` with the client (`ManagedClient`), idempotent; `409` for an admin's device; `403` for a basic user. |
 | `DELETE /api/v1/client/devices/{id}` | client key | Deletes a revoked client, with the same reach. `204`; `409` if it is not revoked or is an admin's; `404` for an unknown ID; `403` for a basic user. |
+| `GET`, `POST /api/v1/client/producers`, `GET`, `PATCH /api/v1/client/producers/{id}`, and the paths below it | client key, any role | The caller's own producers, their keys, state and allow-list: see [Own producers from a device](#own-producers-from-a-device). |
+| `GET /api/v1/client/visible-producers`, `PUT`, `DELETE /api/v1/client/visible-producers/{id}/subscription` | client key, any role | The producers the caller sees, and subscribing to them: see [Subscriptions from a device](#subscriptions-from-a-device). |
+| `GET /api/v1/client/users` | client key, any role | The names of the users who are not revoked. |
+| `POST /api/v1/client/users`, `PATCH /api/v1/client/users/{id}` | client key of an admin | Invites a user with a first pairing code, and sets a role: see [Users from a device](#users-from-a-device). |
 
 The management paths behave like producer management: `404` for every path
 while no admin token is configured, `404` for unknown IDs, and `400` for

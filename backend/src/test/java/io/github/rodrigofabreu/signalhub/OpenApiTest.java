@@ -384,8 +384,15 @@ class OpenApiTest {
         .body(delete + ".security", equalTo(clientKey))
         .body(delete + ".responses.keySet()", containsInAnyOrder("204", "401", "403", "404", "409"))
         .body(delete + ".responses.'204'", not(hasKey("content")))
-        // Renaming and taking admin rights away stay with the admin token.
-        .body("paths.'/api/v1/client/devices/{id}'.keySet()", containsInAnyOrder("delete"));
+        // Taking admin rights away stays with the admin token; renaming is for mods and admins.
+        .body("paths.'/api/v1/client/devices/{id}'.keySet()", containsInAnyOrder("delete", "patch"))
+        .body(
+            "paths.'/api/v1/client/devices/{id}'.patch.requestBody.content.'application/json'"
+                + ".schema.$ref",
+            equalTo("#/components/schemas/RenameDeviceRequest"))
+        .body(
+            "paths.'/api/v1/client/devices/{id}'.patch.responses.keySet()",
+            hasItems("200", "400", "401", "403", "404", "409"));
   }
 
   @Test
@@ -638,5 +645,71 @@ class OpenApiTest {
         .body(SCHEMAS + ".Producer.required", hasItems("owner", "visibility", "allowedUsers"))
         .body(SCHEMAS + ".Visibility.enum", containsInAnyOrder("PUBLIC", "PRIVATE"))
         .body(SCHEMAS + ".CreateClientRequest.properties", hasKey("userId"));
+  }
+
+  @Test
+  void describesSelfServiceForUsersInTheClientApi() {
+    var clientKey = List.of(Map.of("clientKey", List.of()));
+    var producers = "paths.'/api/v1/client/producers'";
+    var producer = "paths.'/api/v1/client/producers/{id}'";
+    var visible = "paths.'/api/v1/client/visible-producers'";
+    var users = "paths.'/api/v1/client/users'";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(producers + ".post.security", equalTo(clientKey))
+        .body(
+            producers + ".post.responses.'201'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/IssuedOwnApiKey"))
+        .body(producers + ".post.responses.keySet()", hasItems("201", "400", "401", "409"))
+        .body(
+            producers + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/OwnProducerList"))
+        .body(producer + ".keySet()", containsInAnyOrder("get", "patch"))
+        .body(producer + ".patch.responses.keySet()", hasItems("200", "400", "401", "404", "409"))
+        .body(
+            "paths.'/api/v1/client/producers/{id}/keys'.post.responses.'201'.content"
+                + ".'application/json'.schema.$ref",
+            equalTo("#/components/schemas/IssuedOwnApiKey"))
+        .body(
+            "paths.'/api/v1/client/producers/{id}/keys/{keyId}/revoke'.post.responses.keySet()",
+            hasItems("200", "401", "404"))
+        .body("paths.'/api/v1/client/producers/{id}/disable'.post.security", equalTo(clientKey))
+        .body(
+            "paths.'/api/v1/client/producers/{id}/enable'.post.responses.keySet()",
+            hasItems("200", "404", "409"))
+        .body(
+            "paths.'/api/v1/client/producers/{id}/allowed-users/{userId}'.keySet()",
+            hasItems("put", "delete"))
+        .body(visible + ".get.security", equalTo(clientKey))
+        .body(
+            visible + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/VisibleProducerList"))
+        .body(
+            "paths.'/api/v1/client/visible-producers/{id}/subscription'.keySet()",
+            hasItems("put", "delete"))
+        .body(
+            "paths.'/api/v1/client/visible-producers/{id}/subscription'.put.responses.keySet()",
+            hasItems("200", "401", "404"))
+        .body(users + ".get.security", equalTo(clientKey))
+        .body(
+            users + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/NamedUserList"))
+        .body(
+            users + ".post.responses.'201'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/InvitedUser"))
+        .body(users + ".post.responses.keySet()", hasItems("201", "400", "401", "403", "409"))
+        .body(
+            "paths.'/api/v1/client/users/{id}'.patch.responses.keySet()",
+            hasItems("200", "400", "401", "403", "404", "409"))
+        // A key is in the answers that issue one, and nowhere else.
+        .body(SCHEMAS + ".OwnApiKey.properties", not(hasKey("apiKey")))
+        .body(SCHEMAS + ".OwnProducer.properties", not(hasKey("apiKey")))
+        .body(SCHEMAS + ".IssuedOwnApiKey.properties", hasKey("apiKey"))
+        // Other users see an ID and a name, never a role.
+        .body(SCHEMAS + ".NamedUser.properties.keySet()", containsInAnyOrder("id", "name"));
   }
 }

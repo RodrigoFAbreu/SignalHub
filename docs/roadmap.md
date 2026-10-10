@@ -2197,7 +2197,7 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
 - decisions the section left open: requests that name no user act for the
   oldest admin who is not revoked (so scripts keep working); revoking an
   admin makes them basic; user names are unique ignoring case; a mod
-  cannot rename (the operator does, until R62); notices about devices go to
+  cannot rename (R62 gave mods and admins that); notices about devices go to
   the user's devices and the admins'; the operator's read state is
   separate from every user's; pairing from a device for an admin user
   makes an admin device
@@ -2209,6 +2209,51 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   and the end-to-end job with a second user and a private producer.
   `docs/architecture.md` (Users, roles and subscriptions),
   `docs/deployment.md` (upgrade notes to v3.0.0)
+
+### R62 - Self-service for users: the API
+
+- **own producers** (`/api/v1/client/producers`, a client key, every
+  role): create one (its key shown once in the answer, `IssuedOwnApiKey`),
+  list them and get one (keys by prefix, the last event, the allow-list,
+  whether the caller is subscribed), rename, set `PUBLIC` or `PRIVATE`,
+  issue and revoke keys, disable and enable, and add or remove users on the
+  allow-list. Every operation finds only producers the caller's user owns:
+  another user's, an admin's included, is `404`
+- **producers a user sees and subscriptions**
+  (`/api/v1/client/visible-producers`): the public ones, their own and the
+  private ones they are allowed on, with the owner's name; subscribe and
+  unsubscribe (`404` for one they do not see)
+- **the users' names** (`GET /api/v1/client/users`, every role): ID and
+  name of the users who are not revoked, never a role
+- **devices, by role**: a mod's and an admin's renaming
+  (`PATCH /api/v1/client/devices/{id}`, with the reach of revoking); an
+  admin invites a `BASIC` or `MOD` user with their first pairing code in
+  one transaction (`POST /api/v1/client/users`) and sets a user's role to
+  `BASIC` or `MOD` (`PATCH /api/v1/client/users/{id}`); a basic user gets
+  `403` for every device operation except reading their own devices, as
+  before. Listing, pairing, revoking and deleting devices were R36 to R44
+  and R61, unchanged
+- decisions the entry left open: a producer the operator disabled (or
+  disabled by revoking its owner) stays disabled, as the owner cannot
+  enable it (`V18`, `producers.disabled_by_owner`; `409`, and the response
+  says `disabledByOperator`); the allow-list is changed one user at a time
+  (`PUT`/`DELETE .../allowed-users/{userId}`) rather than replaced, so
+  two changes cannot overwrite each other; the subscription paths are under
+  `visible-producers` so that the listing and the subscribing share a
+  resource; an admin has no reach over other users' producers (the operator
+  has the management API); no admin is made, demoted or invited from a
+  device; there is no quota; changing a producer and subscribing to it
+  take the producer's row lock, so no user subscribes behind a change that
+  hid the producer from them (this also covers the management API's)
+- tests: each operation for each role and for other users' producers and
+  devices, the negative cases (`OwnProducerApiTest`,
+  `SubscriptionSelfServiceApiTest`, `UserSelfApiTest`,
+  `DeviceRenameApiTest`, `OpenApiTest`), the exit criteria (a basic user
+  creates a producer, publishes with its key, makes it public, and a second
+  user subscribes and receives its events; a mod pairs a second device), that
+  logs hold IDs only. `docs/architecture.md` (Users from a device, Own
+  producers from a device, Subscriptions from a device). The Python SDK and
+  command are unchanged. Compatible (`feat`)
 
 ---
 
@@ -2789,8 +2834,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 48    | R59 - A read event leaves the unread-only inbox                                                  | Increment (`fix(client)`)              | Done (see section 3)                                                             |
 | 49    | R60 - Pushes reach a sleeping phone at once                                                      | Increment (`fix`)                      | Done (see section 3)                                                             |
 | 50    | R61 - Users, roles and subscriptions                                                             | Increment (`feat!`)                    | Done (see section 3)                                                             |
-| 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Next                                                                             |
-| 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Blocked until R62 is merged                                                      |
+| 51    | R62 - Self-service for users: the API                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 52    | R63 - The admin page: traffic by user                                                            | Increment (`feat`)                     | Next                                                                             |
 | 53    | R64 - Designs for users in the app and on a web page                                             | Increment (`docs`)                     | Blocked until R63 is merged                                                      |
 | 54    | G4 - The maintainer approves the user designs                                                    | Human gate                             | Blocked until R64 is merged                                                      |
 | 55    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Blocked until G4 is passed                                                       |
@@ -5010,7 +5055,7 @@ producers and receives a public producer's events once subscribed.
 
 ### R62 - Self-service for users: the API
 
-Status: next. Added by the maintainer (2026-10-10).
+Status: done (see section 3). Added by the maintainer (2026-10-10).
 
 Goal: a user manages their own producers and subscriptions, and devices
 as their role allows, from their device, with no work on the machine
@@ -5055,8 +5100,7 @@ and receives its events; a mod pairs a second device of their own.
 
 ### R63 - The admin page: traffic by user
 
-Status: blocked until R62 is merged. Added by the maintainer
-(2026-10-10).
+Status: next. Added by the maintainer (2026-10-10).
 
 Goal: the operator (an admin) watches all traffic per user, for testing
 and debugging.
@@ -5298,9 +5342,10 @@ admin page), R54 (sending a test event from the admin page) and R55 (the
 admin page: a status panel), R56 (an event's delivery), R57 (the
 alert also plays while the app is open), R58 (the second batch of
 Dependabot updates), R59 (a read event leaves the unread-only inbox),
-R60 (pushes reach a sleeping phone at once) and R61 (users, roles and
-subscriptions) are done. **R62 (self-service for users: the API) is
-next**, followed by R63, R64, the human gate G4 (the maintainer approves the user designs), R65 and R66. A new
+R60 (pushes reach a sleeping phone at once), R61 (users, roles and
+subscriptions) and R62 (self-service for users: the API) are done. **R63
+(the admin page: traffic by user) is next**, followed by R64, the human
+gate G4 (the maintainer approves the user designs), R65 and R66. A new
 item is added only by the maintainer, in a reviewed pull request; the
 deferred candidates of section 5 are not started without that.
 

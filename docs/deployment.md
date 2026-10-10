@@ -487,6 +487,17 @@ refuses to start on a database holding a migration it does not have.
 CI upgrades a stack of the previous release and one of v0.13.0 to this
 release with their data (see [Upgrades](#upgrades)).
 
+### Upgrading to the self-service release
+
+The release after v3.0.0 that adds [self-service for
+users](architecture.md#own-producers-from-a-device) is compatible: one
+migration (`V18`) adds a flag to producers, applied at startup with no operator
+action and nothing lost. Producers that are disabled stay disabled, and count
+as disabled by you, so their owners cannot enable them from a device. The new
+paths are under `/api/v1/client/`, so the [proxy](#network-exposure) already
+forwards them; there is nothing to configure. Going back is by restoring the
+backup, as for every migration.
+
 ## Health monitoring
 
 What already happens without an operator:

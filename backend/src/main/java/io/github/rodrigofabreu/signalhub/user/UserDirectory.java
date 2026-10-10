@@ -3,6 +3,8 @@ package io.github.rodrigofabreu.signalhub.user;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -51,6 +53,15 @@ public class UserDirectory {
     }
     return users.list("id in ?1", ids).stream()
         .collect(Collectors.toMap(UserEntity::id, UserEntity::ref));
+  }
+
+  /** The users who are not revoked, by name ignoring case. */
+  @Transactional
+  public List<UserRef> active() {
+    return users.list("revokedAt is null").stream()
+        .map(UserEntity::ref)
+        .sorted(Comparator.comparing(UserRef::name, String.CASE_INSENSITIVE_ORDER))
+        .toList();
   }
 
   /**
