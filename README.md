@@ -27,6 +27,9 @@ optional SDK/CLI
   Raspberry Pi 5)
 
 See [docs/architecture.md](docs/architecture.md).
+The screens designed for several users (the app and a web page), with the
+design system and a walk-through of the main flows, are in
+[docs/design/users/](docs/design/users/README.md).
 
 ## Status
 

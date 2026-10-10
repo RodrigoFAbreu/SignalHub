@@ -3,4 +3,5 @@
 *.cmd text eol=crlf
 *.png binary
 *.jpg binary
+*.webp binary
 *.jar binary
