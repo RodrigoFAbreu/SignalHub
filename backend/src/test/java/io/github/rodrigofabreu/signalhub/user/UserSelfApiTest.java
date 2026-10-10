@@ -5,6 +5,7 @@ import static io.github.rodrigofabreu.signalhub.TestClients.asClient;
 import static io.github.rodrigofabreu.signalhub.TestProducers.adminToken;
 import static io.github.rodrigofabreu.signalhub.TestProducers.asAdmin;
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
@@ -14,6 +15,7 @@ import static org.hamcrest.Matchers.startsWith;
 
 import io.github.rodrigofabreu.signalhub.TestClients;
 import io.github.rodrigofabreu.signalhub.TestClients.Registered;
+import io.github.rodrigofabreu.signalhub.TestProducers;
 import io.github.rodrigofabreu.signalhub.TestUsers;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -34,8 +36,8 @@ class UserSelfApiTest {
   private static final String USERS = CLIENT + "/users";
 
   @ParameterizedTest
-  @ValueSource(strings = {"BASIC", "MOD", "ADMIN"})
-  void everyRoleListsTheNamesOfTheUsersWhoAreNotRevokedAndNothingElse(String role) {
+  @ValueSource(strings = {"BASIC", "MOD"})
+  void aBasicOrModUserListsTheNamesOfTheUsersWhoAreNotRevokedAndNothingElse(String role) {
     var caller = TestClients.registerAs(role, "names-" + role);
     var active = TestUsers.create("names-active", "BASIC");
     var revoked = TestUsers.create("names-revoked", "MOD");
@@ -48,8 +50,111 @@ class UserSelfApiTest {
         .body("items.id", hasItem(active.id().toString()))
         .body("items.id", hasItem(caller.userId().toString()))
         .body("items.id", not(hasItem(revoked.id().toString())))
-        // Every user is an ID and a name: no role, so admins are not told apart.
+        // Every user is an ID and a name: no role, device count or producer, so admins are not
+        // told apart.
         .body("items.collect { it.keySet() }.flatten().unique()", containsInAnyOrder("id", "name"));
+  }
+
+  @Test
+  void anAdminListsEveryUsersRoleAndDevices() {
+    var admin = TestClients.registerAs("ADMIN", "people-admin");
+    var mod = TestClients.registerAs("MOD", "people-mod");
+    TestClients.registerFor(mod.userId(), "people-mod-second");
+    var noDevice = TestUsers.create("people-invited", "BASIC");
+    var allRevoked = TestClients.registerAs("BASIC", "people-gone");
+    asAdmin().post(TestClients.ADMIN + "/" + allRevoked.id() + "/revoke").then().statusCode(200);
+    var revokedUser = TestUsers.create("people-revoked", "MOD");
+    asAdmin().post(TestUsers.ADMIN + "/" + revokedUser.id() + "/revoke").then().statusCode(200);
+
+    var list = asClient(admin.clientKey()).get(USERS).then().statusCode(200);
+    list.body(
+        "items.collect { it.keySet() }.flatten().unique()",
+        containsInAnyOrder("id", "name", "role", "activeDevices", "hasPaired"));
+    list.body("items.id", not(hasItem(revokedUser.id().toString())));
+    person(list, admin.userId(), "ADMIN", 1, true);
+    person(list, mod.userId(), "MOD", 2, true);
+    // Invited, no device yet.
+    person(list, noDevice.id(), "BASIC", 0, false);
+    // Had a device, now revoked: still paired once, none active.
+    person(list, allRevoked.userId(), "BASIC", 0, true);
+  }
+
+  @Test
+  void anAdminReadsTheProducersAUserOwns() {
+    var admin = TestClients.registerAs("ADMIN", "owned-admin");
+    var owner = TestUsers.create("owned-owner", "BASIC");
+    var other = TestUsers.create("owned-other", "BASIC");
+    var pub = TestProducers.register("owned-b-pub", owner.id(), "PUBLIC");
+    var priv = TestProducers.register("owned-a-priv", owner.id(), "PRIVATE");
+    TestProducers.register("owned-not-theirs", other.id(), "PRIVATE");
+    asAdmin().post(TestProducers.ADMIN + "/" + priv.id() + "/disable").then().statusCode(200);
+
+    var response = asClient(admin.clientKey()).get(USERS + "/" + owner.id() + "/producers").then();
+    response
+        .statusCode(200)
+        .body("items.size()", equalTo(2))
+        .body("items.id", contains(priv.id().toString(), pub.id().toString()))
+        .body("items[0].name", equalTo(priv.name()))
+        .body("items[0].visibility", equalTo("PRIVATE"))
+        .body("items[0].disabled", equalTo(true))
+        .body("items[1].visibility", equalTo("PUBLIC"))
+        .body("items[1].disabled", equalTo(false))
+        // An ID, a name, a visibility and whether it is disabled: no key, no allow-list.
+        .body(
+            "items.collect { it.keySet() }.flatten().unique()",
+            containsInAnyOrder("id", "name", "visibility", "disabled"));
+
+    var none = TestUsers.create("owned-none", "MOD");
+    asClient(admin.clientKey())
+        .get(USERS + "/" + none.id() + "/producers")
+        .then()
+        .statusCode(200)
+        .body("items.size()", equalTo(0));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"BASIC", "MOD"})
+  void onlyAnAdminReadsPeoplesDetails(String role) {
+    var caller = TestClients.registerAs(role, "details-" + role);
+    var owner = TestUsers.create("details-owner", "BASIC");
+    TestProducers.register("details-prod", owner.id(), "PUBLIC");
+
+    // Forbidden for an existing user, an unknown one and oneself alike: nothing to tell apart.
+    for (var id : new UUID[] {owner.id(), caller.userId(), UUID.randomUUID()}) {
+      asClient(caller.clientKey()).get(USERS + "/" + id + "/producers").then().statusCode(403);
+    }
+    asClient(caller.clientKey())
+        .get(USERS)
+        .then()
+        .statusCode(200)
+        .body("items.collect { it.keySet() }.flatten().unique()", containsInAnyOrder("id", "name"));
+  }
+
+  @Test
+  void aRevokedOrUnknownUserHasNoProducersToRead() {
+    var admin = TestClients.registerAs("ADMIN", "owned-gone-admin");
+    var revoked = TestUsers.create("owned-gone", "BASIC");
+    TestProducers.register("owned-gone-prod", revoked.id(), "PUBLIC");
+    asAdmin().post(TestUsers.ADMIN + "/" + revoked.id() + "/revoke").then().statusCode(200);
+
+    for (var id : new UUID[] {revoked.id(), UUID.randomUUID()}) {
+      asClient(admin.clientKey()).get(USERS + "/" + id + "/producers").then().statusCode(404);
+    }
+    // No key at all and a revoked device are refused.
+    given().get(USERS + "/" + revoked.id() + "/producers").then().statusCode(401);
+    asAdmin().post(TestClients.ADMIN + "/" + admin.id() + "/revoke").then().statusCode(200);
+    asClient(admin.clientKey())
+        .get(USERS + "/" + revoked.id() + "/producers")
+        .then()
+        .statusCode(401);
+  }
+
+  private static void person(
+      ValidatableResponse list, UUID id, String role, int activeDevices, boolean hasPaired) {
+    var item = "items.find { it.id == '" + id + "' }";
+    list.body(item + ".role", equalTo(role))
+        .body(item + ".activeDevices", equalTo(activeDevices))
+        .body(item + ".hasPaired", equalTo(hasPaired));
   }
 
   @Test

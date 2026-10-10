@@ -743,7 +743,17 @@ class OpenApiTest {
         .body(SCHEMAS + ".OwnApiKey.properties", not(hasKey("apiKey")))
         .body(SCHEMAS + ".OwnProducer.properties", not(hasKey("apiKey")))
         .body(SCHEMAS + ".IssuedOwnApiKey.properties", hasKey("apiKey"))
-        // Other users see an ID and a name, never a role.
-        .body(SCHEMAS + ".NamedUser.properties.keySet()", containsInAnyOrder("id", "name"));
+        // Other users see an ID and a name, never a role; an admin's device sees the details.
+        .body(SCHEMAS + ".NamedUser.properties.keySet()", containsInAnyOrder("id", "name"))
+        .body(
+            SCHEMAS + ".DetailedUser.properties.keySet()",
+            containsInAnyOrder("id", "name", "role", "activeDevices", "hasPaired"))
+        .body(
+            SCHEMAS + ".PersonProducer.properties.keySet()",
+            containsInAnyOrder("id", "name", "visibility", "disabled"))
+        .body(
+            "paths.'/api/v1/client/users/{id}/producers'.get.responses.keySet()",
+            hasItems("200", "401", "403", "404"))
+        .body("paths.'/api/v1/client/users/{id}/producers'.get.security", equalTo(clientKey));
   }
 }

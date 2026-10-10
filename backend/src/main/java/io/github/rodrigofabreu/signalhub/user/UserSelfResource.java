@@ -67,14 +67,50 @@ public class UserSelfResource {
   @Operation(
       summary = "List the users' names",
       description =
-          "The users who are not revoked, by name, each with an ID and a name only: to choose"
-              + " whom to allow on a producer. Never roles, devices or producers.")
+          "The users who are not revoked, by name: to choose whom to allow on a producer. An ID"
+              + " and a name only, never roles, devices or producers; except for an admin's"
+              + " device, which also gets each user's role, active devices and whether they have"
+              + " paired.")
   @APIResponse(
       responseCode = "200",
       description = "The users, in items.",
-      content = @Content(schema = @Schema(implementation = NamedUserList.class)))
-  public NamedUserList list() {
+      content = @Content(schema = @Schema(oneOf = {NamedUserList.class, DetailedUserList.class})))
+  public Object list() {
+    if (isAdmin()) {
+      return new DetailedUserList(users.detailedActive());
+    }
     return new NamedUserList(directory.active().stream().map(NamedUser::of).toList());
+  }
+
+  @GET
+  @Path("/{id}/producers")
+  @Operation(
+      summary = "List the producers a user owns",
+      description =
+          "For an admin's device: the producers the user owns, by name, each with its ID, name,"
+              + " visibility and whether it is disabled. Never a key, an event or an allow-list.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The producers, in items.",
+      content = @Content(schema = @Schema(implementation = PersonProducerList.class)))
+  @APIResponse(
+      responseCode = "403",
+      description = "The caller's user is not an admin.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No user has this ID, or the user is revoked.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public PersonProducerList producers(@PathParam("id") UUID id) {
+    if (!isAdmin()) {
+      throw refusal(UserService.Refusal.NOT_ALLOWED);
+    }
+    return new PersonProducerList(refusing(() -> users.producersOf(id)));
+  }
+
+  /** The role was read when the key authenticated this request. */
+  private boolean isAdmin() {
+    return caller.get().role() == Role.ADMIN;
   }
 
   @POST

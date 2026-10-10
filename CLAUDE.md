@@ -70,7 +70,8 @@ as its user's role allows (a mod their own devices, an admin those of
 users who are not admins, a basic user none; a device is an admin device
 exactly when its user is an admin; an admin's device also invites users
 and sets basic or mod roles, and any user's device manages that user's
-own producers, subscribes and lists users' names, all under
+own producers, subscribes and lists users' names, and an admin's device
+also sees each user's role, device count and producers, all under
 `/api/v1/client/`) through
 `/api/v1/client/devices`, with a push naming it (none for a deletion), and
 creates pairing codes at `/api/v1/client/pairings`; whoever
