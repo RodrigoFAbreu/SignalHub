@@ -410,7 +410,14 @@ jobs:
           test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
           status=$(manage --request DELETE "http://localhost:8080/api/v1/admin/clients/$client_id")
           test "$status" = 404 || { echo "expected 404, got $status"; exit 1; }
-          curl --fail --silent --show-error --header "Authorization: Bearer $ADMIN_TOKEN" \
+          # Read state is the user's: a new device of the same user finds the event still read.
+          other_key=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data '{"name": "ci-smoke-other"}' \
+            http://localhost:8080/api/v1/admin/clients | jq --raw-output .clientKey)
+          echo "::add-mask::$other_key"
+          curl --fail --silent --show-error --header "Authorization: Bearer $other_key" \
             "http://localhost:8080/api/v1/events/$newest" | jq --exit-status '.readAt != null'
       - name: A device pairs through the proxy with a code the operator made on the host, and an admin device pairs another, sees it used, revokes it and deletes it
         run: |
@@ -675,8 +682,15 @@ jobs:
           restore
           docker compose up --wait --wait-timeout 120
           # Events from before the backup are back, with their read state; later ones are gone.
-          curl --fail --silent --show-error --get \
+          # (Read state is the user's, so it is read with a device of the owner.)
+          restored_key=$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data '{"name": "ci-restored"}' \
+            http://localhost:8080/api/v1/admin/clients | jq --raw-output .clientKey)
+          echo "::add-mask::$restored_key"
+          curl --fail --silent --show-error --get \
+            --header "Authorization: Bearer $restored_key" \
             --data-urlencode "producerId=$PRODUCER_ID" \
             http://localhost:8080/api/v1/events \
             | jq --exit-status '[.items[].title] == ["From the command", "Smoke test"]
