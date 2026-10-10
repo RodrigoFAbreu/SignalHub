@@ -262,6 +262,23 @@ void main() {
     });
   });
 
+  testWidgets('the welcome and what\'s new are drawn in the light theme', (
+    tester,
+  ) async {
+    final app = await pair(tester, role: 'ADMIN', name: 'Sofia');
+    useDesignPhone(tester, brightness: Brightness.light);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final colors = Theme.of(tester.element(find.text('Welcome, Sofia')))
+        .colorScheme;
+    expect(colors.brightness, Brightness.light);
+    await shot(tester, '4b2-light');
+
+    await tester.tap(byKey('welcomeLater'));
+    await app.settle(tester);
+    expect(tester.takeException(), isNull);
+  });
+
   group('what\'s new', () {
     Future<FirstRunHarness> upgraded(
       WidgetTester tester, {
