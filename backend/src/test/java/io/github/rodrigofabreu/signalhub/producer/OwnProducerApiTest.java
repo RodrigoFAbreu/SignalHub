@@ -15,6 +15,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.rodrigofabreu.signalhub.TestClients;
 import io.github.rodrigofabreu.signalhub.TestClients.Registered;
@@ -335,7 +336,10 @@ class OwnProducerApiTest {
 
       org.junit.jupiter.api.Assertions.assertFalse(records.isEmpty());
       for (var secret : secrets) {
-        var tail = secret.substring(secret.lastIndexOf('_') + 1);
+        // The random part is base64url, which has '_' too, so cut the prefix (and a key's ID) by
+        // its known form rather than at the last '_', which can leave a character or two.
+        var tail = secret.replaceFirst("^shp[kc]1_([0-9a-f]{32}_)?", "");
+        assertTrue(tail.length() >= 22, "the random part of " + secret.substring(0, 6));
         for (var line : records) {
           assertFalse(line.contains(secret), "a log line holds a secret");
           assertFalse(line.contains(tail), "a log line holds a secret's random part");
