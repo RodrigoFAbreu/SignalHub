@@ -25,10 +25,11 @@ class AdminPage(StackTestCase):
             with self.subTest(section):
                 self.assertIn(f'href="#{section}" data-section="{section}"', page)
 
-    def test_the_admin_page_has_the_send_and_delete_event_forms(self):
-        page = self.page()
-        self.assertIn('id="send-event"', page)
-        self.assertIn('id="delete-events"', page)
+    def test_the_events_section_has_the_send_and_delete_by_rule_dialogs(self):
+        # The dialogs are drawn by the Events section's modules, not by the page's markup.
+        script = self.assertStatus(host().get("/admin/js/event-dialogs.js"), 200).text
+        self.assertIn('title: "Send a test event"', script)
+        self.assertIn('title: "Delete events by rule"', script)
 
     def test_the_status_section_reads_the_status_summary(self):
         status = self.ok(admin("GET", "/api/v1/admin/status"))
