@@ -105,6 +105,10 @@ class AdminPageTest {
                 "/admin/js/signin.js",
                 "/admin/js/pairing.js",
                 "/admin/js/events.js",
+                "/admin/js/event-pane.js",
+                "/admin/js/event-dialogs.js",
+                "/admin/js/event-filters.js",
+                "/admin/js/event-pushes.js",
                 "/admin/js/users.js",
                 "/app/fonts/fonts.css",
                 "/webjars/qrcode-generator/2.0.4/dist/qrcode.js")),
@@ -221,13 +225,11 @@ class AdminPageTest {
             "id=\"status-button\" href=\"#status\" aria-label=\"Server status: checking\""));
     assertTrue(page.contains("id=\"account\" class=\"acct\" aria-label=\"Account\""));
     assertTrue(page.contains("<main id=\"main\" class=\"main\">"));
-    // Events and Users are in the new shell with their earlier content.
+    // Users is in the new shell with its earlier content until it is rebuilt; Events is rebuilt.
     assertTrue(
         page.contains(
             "<div id=\"section-users\" class=\"legacy-section\" data-section=\"users\" hidden>"));
-    assertTrue(
-        page.contains(
-            "<div id=\"section-events\" class=\"legacy-section\" data-section=\"events\" hidden>"));
+    assertFalse(page.contains("section-events"));
     var router = source("router.js");
     assertTrue(
         router.contains(
@@ -435,7 +437,17 @@ class AdminPageTest {
 
   @Test
   void aChangeMadeOnThePageNeverOffersUndoAndAnythingThatCannotBeUndoneAsksFirst() {
-    for (var path : new String[] {"producers.js", "devices.js", "pairing.js", "ui.js", "list.js"}) {
+    for (var path :
+        new String[] {
+          "producers.js",
+          "devices.js",
+          "pairing.js",
+          "ui.js",
+          "list.js",
+          "events.js",
+          "event-pane.js",
+          "event-dialogs.js"
+        }) {
       var script = source(path);
       // The words of a button or a message: a comment may say there is none.
       assertFalse(Pattern.compile("[\"'`][^\"'`\\n]*Undo").matcher(script).find(), path);
@@ -522,256 +534,101 @@ class AdminPageTest {
   }
 
   @Test
-  void thePageBrowsesEventsWithTheListingAPageAtATime() {
-    var script = given().get("/admin/js/events.js").then().statusCode(200).extract().asString();
+  void thePageBrowsesEventsWithTheListingAPageAtATimeAndItsFiltersAreCheckedBeforeTheyAreSent() {
+    var script = source("events.js");
+    var filters = source("event-filters.js");
     assertTrue(source("api.js").contains("export const EVENTS = \"/api/v1/events\";"));
-    // The app inbox's filters, each only when chosen, and the page's cursor.
-    for (var filter :
-        new String[] {
-          "producerId: \"filter-producer\"",
-          "category: \"filter-category\"",
-          "severity: \"filter-severity\"",
-          "userId: \"filter-user\"",
-          "relation: \"filter-relation\"",
-          "read: \"filter-read\""
-        }) {
-      assertTrue(script.contains(filter), filter);
-    }
-    // The user's producers are asked for only with a user: the server refuses one without.
+    // 25 a page by the listing's own cursor, with the total asked for, since the page shows it.
+    assertTrue(script.contains("const PAGE = 25;"));
+    assertTrue(script.contains("params.set(\"total\", \"true\");"));
+    assertTrue(script.contains("if (cursor) params.set(\"cursor\", cursor);"));
+    // Newer goes back through the cursors already read; a filter starts over from the newest page.
+    assertTrue(script.contains("cursors = [...cursors, nextCursor];"));
+    assertTrue(script.contains("cursors = cursors.slice(0, -1);"));
+    assertTrue(script.contains("cursors = [null];"));
+    // Several values for producer, category and severity; Push problems is the two summaries the
+    // server names; days are midnight in the browser's time zone.
+    assertTrue(filters.contains("params.append(\"producerId\", id)"));
+    assertTrue(filters.contains("params.append(\"severity\", value)"));
+    assertTrue(filters.contains("export const PUSH_PROBLEMS = [\"FAILED\", \"GAVE_UP\"];"));
+    assertTrue(filters.contains("new Date(`${day}T00:00`).toISOString()"));
+    // Which of a user's producers means nothing without the user, as the server insists.
+    assertTrue(filters.contains("if (filters.user) {\n    params.set(\"userId\", filters.user);"));
+    // Nothing in the address is trusted: ids are canonical, values are the page's own.
     assertTrue(
-        script.contains("if ($(id).value && !$(id).disabled) query.set(name, $(id).value);"));
-    assertTrue(script.contains("$(\"filter-relation\").disabled = !$(\"filter-user\").value;"));
-    assertTrue(script.contains("if (cursor) query.set(\"cursor\", cursor);"));
-    assertTrue(script.contains("const page = await call(\"GET\", `${EVENTS}?${query}`);"));
-    // Older follows the listing's cursor; Newer goes back to the page before; a filter starts over.
-    assertTrue(
-        Pattern.compile(
-                "\\$\\(\"older-events\"\\)\\.addEventListener\\(\"click\", \\(\\) => \\{\\s*"
-                    + "eventPages\\.push\\(nextEventCursor\\);")
-            .matcher(script)
-            .find());
-    assertTrue(
-        Pattern.compile(
-                "\\$\\(\"newer-events\"\\)\\.addEventListener\\(\"click\", \\(\\) => \\{\\s*"
-                    + "eventPages\\.pop\\(\\);")
-            .matcher(script)
-            .find());
-    assertTrue(
-        Pattern.compile(
-                "\\$\\(id\\)\\.addEventListener\\(\"change\", \\(\\) => \\{\\s*"
-                    + "eventPages = \\[null\\];")
-            .matcher(script)
-            .find());
-    assertTrue(script.contains("$(\"older-events\").disabled = !nextEventCursor;"));
-    var page = given().get("/admin/").then().extract().asString();
-    for (var control :
-        new String[] {
-          "<select id=\"filter-producer\">",
-          "<option value=\"ACTION_REQUIRED\">Action required</option>",
-          "<option value=\"CRITICAL\">Critical</option>",
-          "<option value=\"false\">Unread only</option>",
-          "<button type=\"button\" id=\"older-events\" class=\"secondary\">Older</button>"
-        }) {
-      assertTrue(page.contains(control), control);
-    }
+        filters.contains(
+            "filters.producer = [...new Set(many(\"producer\").filter((id) => ID.test(id)))];"));
+    assertTrue(filters.contains("known(SEVERITIES, many(\"severity\"))"));
+    // The table has no sort: the API has none.
+    assertFalse(script.contains("aria-sort"));
+    assertFalse(script.contains("arrow_upward"));
+    assertTrue(script.contains("Newest first"));
   }
 
   @Test
-  void anEventOpensByItsIdAndIsMarkedReadOrUnread() {
-    var script = given().get("/admin/js/events.js").then().statusCode(200).extract().asString();
+  void anEventOpensByItsIdIsMarkedReadOrUnreadAndItsLinkOnlyOpensInANewTab() {
+    var pane = source("event-pane.js");
+    assertTrue(pane.contains("call(\"GET\", `${EVENTS}/${wanted}`)"));
+    assertTrue(
+        pane.contains(
+            "await call(current.readAt ? \"DELETE\" : \"PUT\", `${EVENTS}/${current.id}/read`)"));
     // Only a canonical ID from the address becomes a request path.
-    assertTrue(script.contains("const one = EVENT_ID.test(eventId || \"\");"));
-    assertTrue(script.contains("renderEvent(await call(\"GET\", `${EVENTS}/${eventId}`));"));
-    assertTrue(script.contains("link.href = `#events/${event.id}`;"));
-    assertTrue(
-        script.contains(
-            "renderEvent(await call(event.readAt ? \"DELETE\" : \"PUT\","
-                + " `${EVENTS}/${event.id}/read`));"));
-    assertTrue(
-        script.contains(
-            "$(\"toggle-read\").textContent = event.readAt ? \"Mark as unread\" : \"Mark as read\";"));
-  }
-
-  @Test
-  void anEventIsShownAsTextAndItsLinkOnlyOpensInANewTab() {
-    var script = given().get("/admin/js/events.js").then().statusCode(200).extract().asString();
-    // Every field is text; the metadata is formatted JSON, as text too.
-    assertTrue(script.contains("$(\"event-title\").textContent = event.title;"));
-    assertTrue(script.contains("$(\"event-message\").textContent = event.message || \"\";"));
-    assertTrue(
-        script.contains(
-            "$(\"event-metadata\").textContent = JSON.stringify(event.metadata, null, 2);"));
-    // A link is clickable only as http or https, opens in a new tab that cannot reach back to the
-    // page and gets no referrer; the page itself never follows it.
-    assertTrue(script.contains("const WEB_LINK = /^https?:\\/\\//i;"));
-    assertTrue(
-        Pattern.compile(
-                "if \\(!WEB_LINK\\.test\\(url\\)\\) \\{\\s*cell\\.textContent = url;\\s*return cell;")
-            .matcher(script)
-            .find());
-    assertTrue(
-        Pattern.compile(
-                "link\\.href = url;\\s*link\\.target = \"_blank\";\\s*"
-                    + "link\\.rel = \"noopener noreferrer\";")
-            .matcher(script)
-            .find());
-    for (var forbidden :
-        new String[] {"window.open", "location.assign", "location.replace", "location.href"}) {
-      assertFalse(script.contains(forbidden), forbidden);
+    assertTrue(source("events.js").contains("route.id && ID.test(route.id) ? route.id : null"));
+    // The link: web addresses only, a new tab that cannot reach back and gets no referrer.
+    assertTrue(pane.contains("const url = webLink(link);"));
+    assertTrue(pane.contains("target: \"_blank\", rel: \"noopener noreferrer\""));
+    for (var script : new String[] {pane, source("events.js")}) {
+      for (var forbidden :
+          new String[] {"window.open", "location.assign", "location.replace", "location.href"}) {
+        assertFalse(script.contains(forbidden), forbidden);
+      }
     }
+    // Every field is set as text; the metadata is the producer's own words and never interpreted.
+    assertTrue(pane.contains("el(\"p\", { class: \"msg\", text: event.message })"));
+    assertTrue(pane.contains("typeof value === \"string\" ? value : JSON.stringify(value)"));
   }
 
   @Test
-  void anEventGroupsItsDeliveriesByTheUsersItReachedAndTheEventsFilterByUser() {
-    var script = given().get("/admin/js/events.js").then().statusCode(200).extract().asString();
-    // A user per entry, named as text, with a badge for the owner; a device-less user says so.
-    assertTrue(script.contains("const title = element(\"strong\", null, user.name);"));
-    assertTrue(
-        script.contains(
-            "if (user.owner) item.append(\" \", element(\"span\", \"badge muted\", \"Owner\"));"));
-    assertTrue(script.contains("const byUser = new Map(reached.map("));
-    var page = given().get("/admin/").then().extract().asString();
-    for (var control :
-        new String[] {
-          "<select id=\"filter-user\">",
-          "<select id=\"filter-relation\" disabled>",
-          "<option value=\"OWNED\">Owned</option>",
-          "<option value=\"SUBSCRIBED\">Subscribed to</option>"
-        }) {
-      assertTrue(page.contains(control), control);
-    }
-  }
-
-  @Test
-  void anEventShowsItsDeliveriesOneLinePerDeviceAsText() {
-    var script = given().get("/admin/js/events.js").then().statusCode(200).extract().asString();
-    // Read with the admin token once the event is shown, and again on Refresh.
-    assertTrue(
-        script.contains(
-            "renderDeliveries(await call(\"GET\", `${ADMIN_EVENTS}/${eventId}/deliveries`));"));
-    assertTrue(
-        Pattern.compile(
-                "renderEvent\\(await call\\(\"GET\", `\\$\\{EVENTS\\}/\\$\\{eventId\\}`\\)\\);"
-                    + "\\s*\\} catch \\(e\\) \\{\\s*showError\\(\"event-error\", e\\.message\\);"
-                    + "\\s*return;\\s*\\}\\s*await refreshDeliveries\\(eventId\\);")
-            .matcher(script)
-            .find());
-    // One line per device, grouped by its ID, named by the device's name set as text; the rest of
-    // the line, the outcome and the provider's reason, is appended as text too.
-    assertTrue(
-        script.contains("if (!devices.has(record.clientId)) devices.set(record.clientId, []);"));
-    assertTrue(script.contains("element(\"strong\", null, last.clientName),"));
-    assertTrue(script.contains("`: ${outcome(last)}, ${time(last.at)} (${ago(last.at)})`,"));
-    assertTrue(
-        source("legacy.js")
-            .contains("return record.detail ? `${text} (${record.detail})` : text;"));
-    var page = given().get("/admin/").then().extract().asString();
-    for (var control :
-        new String[] {
-          "<button type=\"button\" id=\"refresh-deliveries\" class=\"secondary\">Refresh</button>",
-          "<ul id=\"event-deliveries\" class=\"deliveries\"></ul>",
-          "<p id=\"deliveries-error\" class=\"error\" role=\"alert\" hidden></p>"
-        }) {
-      assertTrue(page.contains(control), control);
-    }
-  }
-
-  @Test
-  void eventsAreDeletedOnlyAfterAConfirmationStatingTheDryRunsCount() {
-    var script = given().get("/admin/js/events.js").then().statusCode(200).extract().asString();
+  void aPushIsReadFromTheDeliveryRecordsAndGivesUpOnlyWhenTheServersFinalMarkerSaysSo() {
     assertTrue(source("api.js").contains("export const ADMIN_EVENTS = \"/api/v1/admin/events\";"));
     assertTrue(
-        source("api.js").contains("export const DELETE_EVENTS = \"/api/v1/admin/events/delete\";"));
-    // A selection and the Delete events form: a dry run first, its count in the confirmation, and
-    // only then the same request without the dry run.
+        source("event-pane.js").contains("call(\"GET\", `${ADMIN_EVENTS}/${id}/deliveries`)"));
+    var pushes = source("event-pushes.js");
+    assertTrue(pushes.contains("record.final === true"));
+    assertTrue(pushes.contains("Waiting for a retry"));
+    assertTrue(pushes.contains("`Gave up after ${record.attempt}"));
+    assertTrue(pushes.contains("Refused"));
+    // The latest record of each device, grouped by the users the event reached.
     assertTrue(
-        Pattern.compile(
-                "const \\{ count \\} = await call\\(\"POST\", DELETE_EVENTS, \\{ \\.\\.\\.request,"
-                    + " dryRun: true \\}\\);\\s*"
-                    + "if \\(count === 0\\) \\{[^}]*\\}\\s*"
-                    + "if \\(!confirm\\(question\\(count\\)\\)\\) return false;\\s*"
-                    + "const deleted = await call\\(\"POST\", DELETE_EVENTS, request\\);")
-            .matcher(script)
-            .find());
-    assertTrue(script.contains("deleteEvents(\n    { ids },"));
-    assertTrue(script.contains("if (producer.value) request.producerId = producer.value;"));
-    assertTrue(
-        script.contains(
-            "if (day) request.createdBefore = new Date(`${day}T00:00`).toISOString();"));
-    // One event: a confirmation naming it, then back to the list.
-    assertTrue(
-        Pattern.compile(
-                "if \\(!confirm\\([^;]*\\)\\) return;\\s*showError\\(\"event-error\", null\\);\\s*"
-                    + "try \\{\\s*await call\\(\"DELETE\", `\\$\\{ADMIN_EVENTS\\}/\\$\\{event\\.id\\}`\\);")
-            .matcher(script)
-            .find());
-    assertTrue(script.contains("location.hash = \"#events\";"));
-    // A selection is only of the events shown: a page read again starts with none.
-    assertTrue(
-        Pattern.compile("\\$\\(\"newer-events\"\\)\\.disabled = true;\\s*selected = new Set\\(\\);")
-            .matcher(script)
-            .find());
-    var page = given().get("/admin/").then().extract().asString();
-    for (var control :
-        new String[] {
-          "<button type=\"button\" id=\"delete-selected\" class=\"danger\" disabled>Delete"
-              + " selected</button>",
-          "<button type=\"button\" id=\"delete-event\" class=\"danger\">Delete</button>",
-          "<form id=\"delete-events\" autocomplete=\"off\" aria-labelledby=\"delete-events-title\">",
-          "<select id=\"delete-producer\">",
-          "<input id=\"delete-before\" type=\"date\" />"
-        }) {
-      assertTrue(page.contains(control), control);
-    }
+        pushes.contains("device.records.at(-1)") || pushes.contains("device.records.at(-1);"));
   }
 
   @Test
-  void aTestEventIsSentAsAnEnabledProducerAndLinkedOnceSent() {
-    var script = given().get("/admin/js/events.js").then().statusCode(200).extract().asString();
-    // Through the management API, as the producer chosen; only enabled producers are offered.
+  void eventsAreDeletedOnlyAfterAConfirmationAndARuleOnlyAfterTheDryRunsCount() {
     assertTrue(
-        script.contains(
-            "sent = await call(\"POST\", `${PRODUCERS}/${$(\"send-producer\").value}/events`,"
-                + " testEvent());"));
+        source("api.js").contains("export const DELETE_EVENTS = \"/api/v1/admin/events/delete\";"));
+    var dialogs = source("event-dialogs.js");
+    // The dry run first, its count in the confirmation, then the same request without it.
+    assertTrue(dialogs.contains("{ ...body(), dryRun: true }"));
+    assertTrue(dialogs.contains("await call(\"POST\", DELETE_EVENTS, body());"));
+    assertTrue(dialogs.contains("`Delete ${eventCount(found)}`"));
+    var script = source("events.js");
+    assertTrue(script.contains("call(\"POST\", DELETE_EVENTS, { ids })"));
+    assertTrue(script.contains("title: `Delete ${eventCount(ids.length)}?`"));
+    assertTrue(source("event-pane.js").contains("title: \"Delete this event?\""));
     assertTrue(
-        script.contains(
-            "[\"send-producer\", \"Choose a producer\", producers.filter((p) => !p.disabledAt)],"));
-    // The fields a producer sends, the optional ones only when filled in; metadata only as a JSON
-    // object.
+        source("event-pane.js").contains("call(\"DELETE\", `${ADMIN_EVENTS}/${current.id}`)"));
+  }
+
+  @Test
+  void aTestEventIsSentAsAnEnabledProducerAndTheFieldsAreCheckedBeforeSending() {
+    var dialogs = source("event-dialogs.js");
+    assertTrue(dialogs.contains("call(\"POST\", `${PRODUCERS}/${producer.select.value}/events`"));
+    assertTrue(dialogs.contains("producers.filter((producer) => !producer.disabledAt)"));
+    assertTrue(dialogs.contains("Metadata must be a JSON object, such as {“run”: 42}."));
     assertTrue(
-        Pattern.compile(
-                "category: \\$\\(\"send-category\"\\)\\.value,\\s*"
-                    + "severity: \\$\\(\"send-severity\"\\)\\.value,\\s*"
-                    + "title: \\$\\(\"send-title\"\\)\\.value\\.trim\\(\\),")
-            .matcher(script)
-            .find());
-    assertTrue(script.contains("if (value) request[name] = value;"));
-    assertTrue(script.contains("if (metadata) request.metadata = jsonObject(metadata);"));
-    assertTrue(
-        script.contains(
-            "if (value === null || typeof value !== \"object\" || Array.isArray(value)) {"));
-    // Once sent: a link to the event in the Events section, where it can be deleted, set as text.
-    assertTrue(
-        Pattern.compile(
-                "const link = element\\(\"a\", null, \"Open it\"\\);\\s*"
-                    + "link\\.href = `#events/\\$\\{sent\\.id\\}`;\\s*"
-                    + "\\$\\(\"send-event-result\"\\)\\.replaceChildren\\(")
-            .matcher(script)
-            .find());
-    var page = given().get("/admin/").then().extract().asString();
-    // Defaults that make a push likely to arrive.
-    for (var control :
-        new String[] {
-          "<form id=\"send-event\" autocomplete=\"off\" aria-labelledby=\"send-event-title\">",
-          "<select id=\"send-producer\" required>",
-          "<option value=\"ACTION_REQUIRED\" selected>Action required</option>",
-          "<option value=\"HIGH\" selected>High</option>",
-          "<input id=\"send-title\" type=\"text\" required maxlength=\"200\" value=\"Test event\" />",
-          "<textarea id=\"send-metadata\" rows=\"3\" spellcheck=\"false\"></textarea>",
-          "<button type=\"submit\">Send test event</button>"
-        }) {
-      assertTrue(page.contains(control), control);
-    }
+        dialogs.contains("The link must be a web address starting with http:// or https://."));
+    assertTrue(dialogs.contains("if (value) body[name] = value;"));
   }
 
   @ParameterizedTest

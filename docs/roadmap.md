@@ -6319,7 +6319,8 @@ approved flows of these sections at desktop width and at 390 px.
 
 ### R79 - The admin page: Events and Users
 
-Status: next. Added at the maintainer's approval of the
+Status: next, in two pull requests as the item allows: *Events* is built (the first pull request), *Users* is
+what is left. Added at the maintainer's approval of the
 admin page designs (G6, 2026-10-11).
 
 Goal: the admin page's *Events* and *Users* sections are rebuilt as

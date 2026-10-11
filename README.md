@@ -32,8 +32,8 @@ design system and a walk-through of the main flows, are in
 [docs/design/users/](docs/design/users/README.md).
 The operator's admin page's approved designs are in
 [docs/design/admin/](docs/design/admin/README.md); the page is built from them (its shell,
-signing in, Status, Producers and Devices; Events and Users keep their earlier content until they
-are rebuilt).
+signing in, Status, Producers, Devices and Events; Users keeps its earlier content until it is
+rebuilt).
 
 ## Status
 

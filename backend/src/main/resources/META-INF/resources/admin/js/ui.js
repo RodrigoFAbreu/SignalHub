@@ -544,3 +544,68 @@ export function openMenu(anchor, { header, items, placement = "below-end", label
   first?.focus({ preventScroll: true });
   return { close };
 }
+
+// ---- Panel -----------------------------------------------------------------------------
+
+/**
+ * A popover under `anchor` that holds controls (a menu of checkboxes, a date range) and stays open
+ * while they are used. Escape or a click outside closes it and returns focus to the anchor, and so
+ * does leaving it with Tab. `onClose` is where the choice is applied.
+ */
+export function openPanel(anchor, { label, content, width = 240, onClose }) {
+  closeMenu?.();
+  const panel = el("div", { class: "menu panel", role: "group", "aria-label": label }, content);
+  panel.style.width = `${width}px`;
+  const catcher = el("div", { class: "menu-catcher" });
+  document.body.append(catcher, panel);
+  const rect = anchor.getBoundingClientRect();
+  const left = Math.max(8, Math.min(rect.left, window.innerWidth - panel.offsetWidth - 8));
+  const top = Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - panel.offsetHeight - 8));
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  anchor.setAttribute("aria-expanded", "true");
+
+  function close(restore = true) {
+    if (!panel.isConnected) return;
+    document.removeEventListener("keydown", onKey, true);
+    catcher.remove();
+    panel.remove();
+    anchor.setAttribute("aria-expanded", "false");
+    closeMenu = null;
+    if (restore && anchor.isConnected) anchor.focus({ preventScroll: true });
+    onClose?.();
+  }
+  function onKey(event) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    } else if (event.key === "Tab") {
+      const items = focusable(panel);
+      const edge = event.shiftKey ? items[0] : items.at(-1);
+      if (!items.length || document.activeElement === edge) {
+        event.preventDefault();
+        close();
+      }
+    }
+  }
+  document.addEventListener("keydown", onKey, true);
+  catcher.addEventListener("click", () => close());
+  closeMenu = close;
+  (focusable(panel)[0] ?? panel).focus({ preventScroll: true });
+  return { close, node: panel };
+}
+
+/** A row of a panel with a checkbox: 48 px, the box 18 px; Space or a press toggles it. */
+export function checkRow({ label, checked, onChange }) {
+  const box = el("span", { class: `cb${checked ? " on" : ""}` }, checked ? icon("check") : null);
+  const node = el("button", { type: "button", class: "mu", role: "checkbox", "aria-checked": String(checked) }, box, el("span", { text: label }));
+  node.addEventListener("click", () => {
+    const next = node.getAttribute("aria-checked") !== "true";
+    node.setAttribute("aria-checked", String(next));
+    box.classList.toggle("on", next);
+    box.replaceChildren(...(next ? [icon("check")] : []));
+    onChange(next);
+  });
+  return node;
+}

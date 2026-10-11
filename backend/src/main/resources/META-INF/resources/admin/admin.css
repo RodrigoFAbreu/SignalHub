@@ -3184,3 +3184,812 @@ a {
     order: 0;
   }
 }
+
+/* ---- Events ---------------------------------------------------------------------------------- */
+
+.gE {
+  display: grid;
+  gap: 12px;
+  align-items: center;
+  grid-template-columns: 40px minmax(0, 1fr) 140px 108px 128px 76px;
+}
+
+.cb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--on-surface-variant);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.cb.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.cb .ms {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+/* The box is 18 px; the target is 48 px high. */
+.cbc {
+  width: 48px;
+  height: 48px;
+  margin: 0 -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 24px;
+}
+
+.th .c-box,
+.tr .c-box {
+  display: flex;
+}
+
+.tr.chk,
+.tr.chk[aria-selected="true"] {
+  background: var(--sc-high);
+  border-radius: 16px;
+  margin: 0 8px;
+  padding: 0 16px 0 24px;
+  width: calc(100% - 16px);
+}
+
+.tr.chk[aria-selected="true"] {
+  background: var(--secondary-container);
+}
+
+.ud {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--primary);
+  flex: none;
+  margin-right: 8px;
+}
+
+.udz {
+  width: 16px;
+  flex: none;
+}
+
+.tr.gE.unr .nm {
+  font-weight: 500;
+}
+
+.tr.gE:not(.unr) .nm {
+  color: var(--on-surface-variant);
+}
+
+.tr .cell.nm-var {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.tr .cell {
+  white-space: nowrap;
+}
+
+.cic {
+  margin-right: 12px;
+}
+
+.s-crit,
+.s-high {
+  color: var(--error);
+}
+
+.s-norm {
+  color: var(--primary);
+}
+
+.s-low {
+  color: var(--on-surface-variant);
+}
+
+.sv {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px 0 4px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--on-surface-variant);
+  flex: none;
+}
+
+.sv .ms {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.sv.crit {
+  background: var(--error-container);
+  color: var(--on-error-container);
+}
+
+.sv.high {
+  border: 1px solid var(--error);
+  color: var(--error);
+}
+
+.sv.norm {
+  color: var(--primary);
+}
+
+.pp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  margin-left: 8px;
+  height: 24px;
+  padding: 0 8px 0 4px;
+  border-radius: 8px;
+  border: 1px solid var(--error);
+  color: var(--error);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pp .ms {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.tg.err {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.tg-ic {
+  margin-right: 4px;
+}
+
+.pgr {
+  height: 56px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px 0 32px;
+  border-top: 1px solid var(--outline-variant);
+  font-size: 14px;
+  color: var(--on-surface-variant);
+}
+
+.btn-o.sm,
+.btn-t.sm,
+.btn-f.sm {
+  height: 48px;
+}
+
+.btn-o.older {
+  padding: 0 16px 0 24px;
+}
+
+.btn-o:disabled .ms,
+.btn-o:disabled {
+  color: var(--off-fg);
+}
+
+.bulk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 24px 4px 32px;
+  height: 56px;
+  border-radius: 28px;
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  padding: 0 8px;
+  flex: none;
+  font-size: 14px;
+  font-weight: 500;
+  animation: fade-in 150ms linear;
+}
+
+.bulk .btn-x {
+  color: inherit;
+}
+
+.bulk .btn-x.dng {
+  color: var(--error);
+}
+
+.bulk .ib {
+  color: inherit;
+}
+
+.bulk-count {
+  min-width: 96px;
+}
+
+.fc.plain {
+  border-color: transparent;
+  color: var(--primary);
+}
+
+.fchips .fc {
+  cursor: pointer;
+}
+
+.phone-actions {
+  display: none;
+}
+
+/* A panel under a chip: checkboxes that stay open, or a date range. */
+.panel {
+  padding: 8px 0;
+}
+
+.mu {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  width: 100%;
+  padding: 0 16px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.mu:hover:not(.info-row) {
+  background: color-mix(in srgb, var(--on-surface) 8%, transparent);
+}
+
+.clear-row {
+  border-top: 1px solid var(--outline-variant);
+  border-radius: 0;
+  width: 100%;
+  justify-content: flex-start;
+  margin-top: 4px;
+  padding: 0 16px;
+}
+
+.received-panel {
+  padding: 0 16px;
+}
+
+.received-panel .t1 {
+  padding: 8px 0 0;
+}
+
+.received-panel .help {
+  padding: 4px 0 0;
+}
+
+.pdates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pdates .field {
+  margin-top: 0;
+}
+
+.pdates .tf {
+  margin-top: 16px;
+}
+
+.pre {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  margin-top: 4px;
+}
+
+.pre .fc {
+  margin: 8px 0;
+  cursor: pointer;
+}
+
+.panel-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hint-line {
+  padding: 4px 16px 0;
+}
+
+/* The detail: tabs, the event, its pushes. */
+.seg3 {
+  display: flex;
+  border-bottom: 1px solid var(--outline-variant);
+  flex: none;
+  padding: 0 24px;
+}
+
+.seg3 > button {
+  flex: 1;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  text-align: center;
+}
+
+.seg3 > button.on {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.seg3 .tg {
+  margin-left: 0;
+}
+
+.pc-n {
+  display: none;
+}
+
+.phd .trash {
+  display: none;
+}
+
+.pbody .chips {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 4px 0 8px;
+}
+
+.pbody .msg {
+  margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+
+.link-row {
+  min-height: 56px;
+}
+
+.link-row .t1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pbody .kv {
+  padding-top: 10px;
+}
+
+.spaced-s {
+  min-height: 32px;
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  font-family: "Roboto Mono", ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 20px;
+  background: var(--sc-lowest);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 2px;
+}
+
+.meta b {
+  font-weight: 400;
+  color: var(--on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.meta span {
+  color: var(--on-surface);
+  word-break: break-all;
+}
+
+.push-row {
+  margin-top: 12px;
+}
+
+.ugrp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 15px;
+  font-weight: 500;
+  padding-top: 8px;
+}
+
+.ugrp .tg {
+  margin-left: 0;
+}
+
+.drow {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 8px 0 8px 34px;
+}
+
+.drow .tx {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.drow .t1 {
+  white-space: normal;
+}
+
+.d-ok {
+  color: var(--primary);
+}
+
+.d-wait {
+  color: var(--on-surface);
+}
+
+.d-bad {
+  color: var(--error);
+}
+
+.d-no {
+  color: var(--on-surface-variant);
+}
+
+.tech.indent {
+  margin-left: 34px;
+}
+
+.pbody .caveat {
+  margin: 2px 0 4px;
+}
+
+.nodev {
+  padding: 4px 0 4px 34px;
+}
+
+.pbody .tfold {
+  margin-top: 4px;
+}
+
+.empty.compact {
+  padding-bottom: 80px;
+}
+
+.empty .h {
+  font-weight: 400;
+}
+
+.pane-sk {
+  padding: 0 24px;
+}
+
+.pbody .note {
+  margin-top: 4px;
+}
+
+.pfoot .del {
+  padding-left: 12px;
+}
+
+.w-phone {
+  display: none;
+}
+
+/* Dialogs: Send a test event, Delete events by rule. */
+.row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.row2 .field {
+  margin-top: 0;
+}
+
+.row2 .tf {
+  margin-top: 16px;
+}
+
+.sev-slot {
+  padding: 16px 0 0;
+}
+
+.seg-label {
+  font-size: 12px;
+  padding: 0 0 4px 4px;
+}
+
+.tfa {
+  min-height: 96px;
+  align-items: flex-start;
+  padding-top: 16px;
+}
+
+.tfa textarea {
+  height: 72px;
+  resize: none;
+  line-height: 20px;
+}
+
+.dlg-body .warn.danger {
+  background: var(--error-container);
+  color: var(--on-error-container);
+}
+
+.warn .ms {
+  flex: none;
+}
+
+/* The snack bar stays above the pager of the Events table. */
+.app:has(.ev) ~ .snack {
+  bottom: 72px;
+}
+
+/* The pane and the table narrow in steps: the category goes first, the producer next. */
+@media (max-width: 1439px) {
+  .gE {
+    grid-template-columns: 40px minmax(0, 1fr) 128px 108px 76px;
+  }
+
+  .gE .c-category {
+    display: none;
+  }
+}
+
+@media (max-width: 599px) {
+  .ev .mhead .primary,
+  .ev .mhead .cnt.small {
+    display: none;
+  }
+
+  .ev .phone-actions {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px 8px;
+    flex: none;
+  }
+
+  .ev .phone-actions .btn-o {
+    padding: 0 16px 0 12px;
+  }
+
+  .ev .phone-actions .tg {
+    margin-left: 4px;
+  }
+
+  .ev .fchips {
+    display: none;
+  }
+
+  .ev .tools {
+    display: none;
+  }
+
+  .ev .bulk {
+    margin: 0 16px 8px;
+  }
+
+  .ev .th.gE {
+    display: none;
+  }
+
+  .ev .tr.gE .c-box,
+  .ev .tr.gE .c-severity,
+  .ev .tr.gE .c-category,
+  .ev .tr.gE .c-producer,
+  .ev .tr.gE .c-received {
+    display: none;
+  }
+
+  .ev .tr.gE,
+  .ev .tr.gE.chk {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 8px 8px 8px 12px;
+    min-height: 72px;
+    margin: 0;
+    width: 100%;
+    gap: 0;
+    border-radius: 0;
+  }
+
+  .ev .tr.chk {
+    background: var(--sc-high);
+  }
+
+  .ev .tr .nmc {
+    flex: 1 1 100%;
+    padding-right: 32px;
+  }
+
+  .ev .tr .cic {
+    margin-right: 8px;
+  }
+
+  .ev .tr .nm {
+    color: var(--on-surface);
+  }
+
+  .ev .tr.gE:not(.unr) .nm {
+    color: var(--on-surface-variant);
+  }
+
+  .ev .tr .m2 {
+    font-size: 13px;
+    padding-left: 48px;
+  }
+
+  .ev .pp {
+    border: 0;
+    padding: 0;
+    margin-left: auto;
+  }
+
+  .ev .pp .pp-w {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .ev .pgr {
+    padding: 0 16px;
+  }
+
+  .ev .pgr .btn-o:not(.older) {
+    display: none;
+  }
+
+  .ev .pgr .pgr-text {
+    display: none;
+  }
+
+  .ev .pgr .older {
+    flex: 1;
+  }
+
+  .ev .pgr .older:disabled {
+    display: none;
+  }
+
+  .w-wide {
+    display: none;
+  }
+
+  .w-phone {
+    display: inline;
+  }
+
+  .phd .trash {
+    display: flex;
+  }
+
+  .pfoot .del {
+    display: none;
+  }
+
+  .pc-word {
+    display: none;
+  }
+
+  .pc-n {
+    display: inline;
+  }
+
+  .seg3 {
+    padding: 0 8px;
+  }
+
+  .pbody .kv {
+    grid-template-columns: 84px 1fr;
+  }
+
+  .pfoot {
+    padding: 12px 16px;
+  }
+
+  .row2 {
+    grid-template-columns: 1fr;
+  }
+
+  .app:has(.ev) ~ .snack {
+    bottom: 96px;
+  }
+
+  .app.detail:has(.ev) ~ .snack {
+    bottom: 16px;
+  }
+}
+
+/* The phone's filters sheet: a select-like button per filter, its choices folded under it. */
+.sel2 {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 14px;
+  position: relative;
+  margin-top: 14px;
+  text-align: left;
+}
+
+.sel2 i {
+  position: absolute;
+  top: -8px;
+  left: 8px;
+  padding: 0 4px;
+  background: var(--sc-high);
+  font-style: normal;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--on-surface-variant);
+}
+
+.sel2 .ms {
+  margin-left: auto;
+}
+
+.sel2.on {
+  border-color: var(--primary);
+}
+
+.sel-body {
+  padding: 4px 0;
+}
+
+.sheet-fields {
+  max-height: 60dvh;
+  overflow-y: auto;
+  padding-bottom: 4px;
+}
+
+.sheet-fields > .mu {
+  margin-top: 6px;
+  padding: 0 4px;
+}
+
+.dlg {
+  position: relative;
+}
+
+/* The phone's filters sheet keeps Clear at the top right, beside its title. */
+.sheet-clear {
+  position: absolute;
+  top: 20px;
+  right: 8px;
+}
+
+.tf select:disabled,
+.tf input:disabled {
+  opacity: 1;
+  color: var(--on-surface);
+}

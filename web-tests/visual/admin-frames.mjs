@@ -7,7 +7,7 @@
 //                                            SignalHub to serve the page's files)
 
 import { BASE } from "../support/server.mjs";
-import { ana, clients, health, mockAdmin, producers, rodrigo, rui, status, users } from "./admin-sample.mjs";
+import { NOW, ana, clients, deliveries, eventClients, events, health, mockAdmin, otherDeliveries, producers, rodrigo, rui, status, users } from "./admin-sample.mjs";
 
 const SHELL = "Admin - Shell and Producers";
 const SIGN_IN = "Admin - Status and sign-in";
@@ -16,9 +16,15 @@ const STATUS_STATES = "Admin - Status states";
 const DEVICES = "Admin - Devices";
 const DEVICE_DIALOGS = "Admin - Devices dialogs";
 const LIGHT = "Admin - Light theme check";
+const EVENTS = "Admin - Events";
+const EVENT_STATES = "Admin - Events states";
+const EVENT_DIALOGS = "Admin - Events dialogs";
 
 const url = (hash = "") => `${BASE}/admin/${hash}`;
 const TOKEN = "x".repeat(40);
+
+/** A piece of the page on its own: the detail pane, at the height of its drawing. */
+const pane = (height) => ({ drawingSelector: ".st2", size: { width: 1440, height: height + 8 }, shot: (page) => page.locator(".pane:not(.prompt)").screenshot() });
 
 export const producer = (name) => producers.find((candidate) => candidate.name === name);
 export const device = (name) => clients.find((candidate) => candidate.name === name);
@@ -104,6 +110,196 @@ export const adminFrames = [
     await mockAdmin(page);
     await signedIn(page, `#devices/${device("Rodrigo - Pixel 9").id}`, ".pane h2");
   }),
+
+  // ---- Events ----------------------------------------------------------------------------------
+  frame("EA", EVENTS, "A", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, `#events/${events[1].id}`, ".pane h2");
+  }),
+  frame("E1", EVENTS, "E1", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, `#events/${events[1].id}`, ".pane h2");
+    await page.waitForSelector(".push-row .t2");
+  }, pane(840)),
+  frame("E2", EVENTS, "E2", async (page) => {
+    await mockAdmin(page, { clients: eventClients });
+    await signedIn(page, `#events/${events[1].id}`, ".pane h2");
+    await page.getByRole("tab", { name: /^Pushes/ }).click();
+  }, pane(840)),
+  frame("E2b", EVENTS, "E2b", async (page) => {
+    await mockAdmin(page, { deliveries: otherDeliveries });
+    await signedIn(page, `#events/${events[1].id}`, ".pane h2");
+    await page.getByRole("tab", { name: /^Pushes/ }).click();
+  }, pane(700)),
+  frame("E3", EVENTS, "E3", async (page) => {
+    await mockAdmin(page, { clients: eventClients });
+    await signedIn(page, `#events/${events[1].id}`, ".pane h2");
+    await page.getByRole("tab", { name: /^Pushes/ }).click();
+    await page.getByRole("button", { name: "Technical details" }).click();
+  }, pane(1180)),
+  frame("E4", EVENTS, "E4", async (page) => {
+    await mockAdmin(page, { deliveries: { items: [], users: [] } });
+    await signedIn(page, `#events/${events[7].id}`, ".pane h2");
+    await page.getByRole("tab", { name: /^Pushes/ }).click();
+  }, pane(520)),
+  frame("E5", EVENTS, "E5", async (page) => {
+    await mockAdmin(page, { deliveries: { __status: 500, body: { title: "Internal Server Error" } } });
+    await signedIn(page, `#events/${events[1].id}`, ".pane h2");
+    await page.getByRole("tab", { name: /^Pushes/ }).click();
+  }, pane(520)),
+  frame("Q1", EVENTS, "Q1", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+  }),
+  frame("Q2", EVENTS, "Q2", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, `#events/${events[1].id}`, ".pane h2");
+  }),
+  frame("Q3", EVENTS, "Q3", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    await page.getByRole("button", { name: "Send a test event" }).first().click();
+    await page.getByRole("dialog").getByLabel("Producer").selectOption({ label: "ci-pipeline" });
+  }),
+  frame("Q4", EVENTS, "Q4", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events?severity=CRITICAL&read=false", ".tr");
+    await page.getByRole("button", { name: /^Filters/ }).click();
+    await page.waitForTimeout(400);
+  }),
+
+  frame("S1", EVENT_STATES, "S1", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    for (const index of [0, 1, 2]) await page.getByRole("checkbox", { name: `Select ${events[index].title}` }).click();
+  }, { size: { width: 1440, height: 688 } }),
+  frame("S2", EVENT_STATES, "S2", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    for (const index of [0, 1, 2]) await page.getByRole("checkbox", { name: `Select ${events[index].title}` }).click();
+    await page.getByRole("button", { name: "Delete 3 events" }).click();
+    await page.waitForTimeout(300);
+  }, { size: { width: 1440, height: 688 } }),
+  frame("S3", EVENT_STATES, "S3", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    await page.getByRole("button", { name: "More" }).click();
+  }, { size: { width: 1440, height: 688 } }),
+  frame("S4", EVENT_STATES, "S4", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events?severity=HIGH,CRITICAL", ".tr");
+    await page.getByRole("button", { name: /^Severity/ }).click();
+  }, { size: { width: 1440, height: 688 } }),
+  frame("S4b", EVENT_STATES, "S4b", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events?from=2026-10-01&before=2026-10-08", ".tr");
+    await page.getByRole("button", { name: /^Received/ }).click();
+  }, { size: { width: 1440, height: 688 } }),
+  frame("S5", EVENT_STATES, "S5", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events?read=false&severity=CRITICAL", ".tr");
+  }, { size: { width: 1440, height: 688 } }),
+  frame("L1", EVENT_STATES, "L1", async (page) => {
+    await mockAdmin(page, { eventList: () => new Promise(() => {}) });
+    await signedIn(page, "#events", ".skeletons");
+  }, { size: { width: 1440, height: 688 } }),
+  frame("L2", EVENT_STATES, "L2", async (page) => {
+    await mockAdmin(page, { eventList: { items: [], nextCursor: null, total: 0 } });
+    await signedIn(page, "#events", ".empty");
+  }, { size: { width: 1440, height: 688 } }),
+  frame("L3", EVENT_STATES, "L3", async (page) => {
+    await mockAdmin(page, { eventList: { items: [], nextCursor: null, total: 0 } });
+    await signedIn(page, `#events?read=false&severity=CRITICAL&producer=${producers.find((item) => item.name === "homelab-monitor").id}`, ".empty");
+  }, { size: { width: 1440, height: 688 } }),
+  frame("L4", EVENT_STATES, "L4", async (page) => {
+    let calls = 0;
+    const { listEvents } = await import("./admin-sample.mjs");
+    await mockAdmin(page, { eventList: (request) => ((calls += 1) === 1 ? listEvents(request.url()) : "abort") });
+    await signedIn(page, "#events", ".tr");
+    await page.getByRole("button", { name: "Refresh", exact: true }).click();
+    await page.waitForSelector(".bn.err");
+  }, { size: { width: 1440, height: 688 } }),
+  frame("L5", EVENT_STATES, "L5", async (page) => {
+    await mockAdmin(page, { eventList: "abort" });
+    await signedIn(page, "#events", ".empty");
+  }, { size: { width: 1440, height: 688 } }),
+  frame("F1", EVENT_STATES, "F1", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    for (const index of [0, 1, 2]) await page.getByRole("checkbox", { name: `Select ${events[index].title}` }).click();
+    await page.getByRole("button", { name: "Delete 3 events" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Delete 3 events" }).click();
+    await page.waitForSelector(".snack");
+  }, { size: { width: 1440, height: 688 } }),
+  frame("F2", EVENT_STATES, "F2", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    await page.locator(".th .cbc").focus();
+    await page.keyboard.press("Tab");
+  }, { size: { width: 1440, height: 688 } }),
+
+  frame("D1", EVENT_DIALOGS, "D1", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    await page.getByRole("button", { name: "Send a test event" }).first().click();
+    await page.getByRole("dialog").getByLabel("Producer").selectOption({ label: "ci-pipeline" });
+  }, dialog({ drawingSelector: ".dlg" })),
+  frame("D2", EVENT_DIALOGS, "D2", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    await page.getByRole("button", { name: "Send a test event" }).first().click();
+    const box = page.getByRole("dialog");
+    await box.getByLabel("Producer").selectOption({ label: "ci-pipeline" });
+    await box.getByLabel("Context (optional)").fill("signalhub-web");
+    await box.getByLabel("Metadata (optional, a JSON object)").fill('{"branch": main, "run": 42}');
+    await box.getByRole("button", { name: "Send", exact: true }).click();
+  }, dialog({ drawingSelector: ".dlg" })),
+  frame("D2b", EVENT_DIALOGS, "D2b", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    await page.getByRole("button", { name: "Send a test event" }).first().click();
+    const box = page.getByRole("dialog");
+    await box.getByLabel("Producer").selectOption({ label: "ci-pipeline" });
+    await box.getByRole("button", { name: "Send", exact: true }).click();
+    await page.waitForSelector(".snack");
+  }, { size: { width: 1440, height: 688 } }),
+  frame("D6", EVENT_DIALOGS, "D6", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    await page.getByRole("button", { name: "More" }).click();
+    await page.getByRole("menuitem", { name: "Delete events by rule…" }).click();
+    const box = page.getByRole("dialog");
+    await box.getByLabel("Producer").selectOption({ label: "ci-pipeline" });
+    await box.getByLabel("Received before").fill("2026-10-01");
+  }, dialog({ drawingSelector: ".dlg" })),
+  frame("D3", EVENT_DIALOGS, "D3", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    await page.getByRole("button", { name: "More" }).click();
+    await page.getByRole("menuitem", { name: "Delete events by rule…" }).click();
+  }, dialog({ drawingSelector: ".dlg" })),
+  frame("D4", EVENT_DIALOGS, "D4", async (page) => {
+    await mockAdmin(page);
+    await signedIn(page, "#events", ".tr");
+    await page.getByRole("button", { name: "More" }).click();
+    await page.getByRole("menuitem", { name: "Delete events by rule…" }).click();
+    const box = page.getByRole("dialog");
+    await box.getByLabel("Producer").selectOption({ label: "ci-pipeline" });
+    await box.getByLabel("Received before").fill("2026-10-01");
+    await box.getByRole("button", { name: "Count events" }).click();
+    await page.waitForSelector(".warn.danger");
+  }, dialog({ drawingSelector: ".dlg" })),
+  frame("D5", EVENT_DIALOGS, "D5", async (page) => {
+    await mockAdmin(page, { deleteCount: 0 });
+    await signedIn(page, "#events", ".tr");
+    await page.getByRole("button", { name: "More" }).click();
+    await page.getByRole("menuitem", { name: "Delete events by rule…" }).click();
+    const box = page.getByRole("dialog");
+    await box.getByLabel("Producer").selectOption({ label: "ci-pipeline" });
+    await box.getByLabel("Received before").fill("2026-10-01");
+    await box.getByRole("button", { name: "Count events" }).click();
+    await page.waitForSelector(".dlg .warn");
+  }, dialog({ drawingSelector: ".dlg" })),
 ];
 
-void [ana, rodrigo, rui, health, users];
+void [ana, rodrigo, rui, health, users, NOW];

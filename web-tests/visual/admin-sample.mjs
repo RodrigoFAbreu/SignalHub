@@ -90,6 +90,130 @@ export const status = {
   startedAt: new Date("2026-10-03T08:12:00").toISOString(),
 };
 
+// ---- Events ---------------------------------------------------------------------------------
+
+const producerRef = (name) => {
+  const found = producers.find((candidate) => candidate.name === name);
+  return { id: found.id, name };
+};
+const eventId = (n) => uuid(1000 + n);
+
+function event(n, title, producerName, category, severity, ago, extra = {}) {
+  return {
+    id: eventId(n),
+    title,
+    message: null,
+    category,
+    severity,
+    context: null,
+    link: null,
+    occurredAt: null,
+    createdAt: at(ago),
+    readAt: null,
+    metadata: {},
+    producer: producerRef(producerName),
+    push: "SENT",
+    ...extra,
+  };
+}
+
+const read = (ago) => at(ago - MIN);
+
+/** The events of the drawings (Admin - Events), newest first: the first seven are the ones drawn. */
+export const events = [
+  event(1, "Rain expected at 16:00", "weather-alerts", "INFO", "LOW", 3 * MIN),
+  event(2, "Build 1842 failed on main", "ci-pipeline", "BLOCKED", "HIGH", 4 * MIN, {
+    message: "3 of 412 tests failed on main. The deploy to staging was not started.",
+    context: "signalhub-web",
+    link: "https://ci.signalhub.example/runs/1842",
+    occurredAt: at(5 * MIN),
+    push: "FAILED",
+    metadata: { branch: "main", commit: "a1b2c3d", failed_tests: 3, run: 1842, jobs: ["unit", "lint"] },
+  }),
+  event(3, "Disk usage above 90% on nas-01", "homelab-monitor", "ACTION_REQUIRED", "CRITICAL", 12 * MIN),
+  event(4, "Deploy to staging needs approval", "ci-pipeline", "ACTION_REQUIRED", "HIGH", 48 * MIN),
+  event(5, "Nightly backup finished", "backup-jobs", "COMPLETED", "NORMAL", 2 * HOUR, { readAt: read(2 * HOUR) }),
+  event(6, "Build 1841 passed on main", "ci-pipeline", "COMPLETED", "LOW", 2 * HOUR + 5 * MIN, { readAt: read(2 * HOUR) }),
+  event(7, "Frost warning for tonight", "weather-alerts", "INFO", "NORMAL", 6 * HOUR, { readAt: read(6 * HOUR) }),
+  event(8, "Weekly report is ready", "ana-reports", "INFO", "NORMAL", DAY + 3 * HOUR, { readAt: read(DAY) }),
+  event(9, "Nightly backup finished", "backup-jobs", "COMPLETED", "NORMAL", 5 * DAY + 4 * HOUR, { createdAt: new Date("2026-10-06T03:10:00").toISOString(), readAt: read(5 * DAY) }),
+  event(10, "Build 1830 passed on main", "ci-pipeline", "COMPLETED", "LOW", 8 * DAY, { createdAt: new Date("2026-10-03T14:02:00").toISOString(), readAt: read(8 * DAY) }),
+  ...Array.from({ length: 15 }, (_, index) => event(11 + index, `Heartbeat ${index + 1}`, "backup-jobs", "INFO", "LOW", (9 + index) * DAY, { readAt: read(9 * DAY) })),
+];
+export const EVENTS_TOTAL = 1284;
+
+/** The listing, as the server answers it: the filters it takes, the newest 25, a cursor and the total. */
+export function listEvents(url) {
+  const params = new URL(url).searchParams;
+  const many = (name) => params.getAll(name);
+  const wanted = (name, values) => !values.length || values.includes(name);
+  let matching = events.filter((item) => wanted(item.producer.id, many("producerId")) && wanted(item.severity, many("severity")) && wanted(item.category, many("category")));
+  if (params.get("read") === "false") matching = matching.filter((item) => !item.readAt);
+  if (params.get("read") === "true") matching = matching.filter((item) => item.readAt);
+  if (params.has("push")) matching = matching.filter((item) => many("push").includes(item.push));
+  if (params.get("createdFrom")) matching = matching.filter((item) => item.createdAt >= params.get("createdFrom"));
+  if (params.get("createdBefore")) matching = matching.filter((item) => item.createdAt < params.get("createdBefore"));
+  const limit = Number(params.get("limit") ?? 25);
+  const filtered = [...params.keys()].some((key) => !["limit", "total", "cursor"].includes(key));
+  const body = { items: params.get("cursor") ? [] : matching.slice(0, limit), nextCursor: !params.get("cursor") && !filtered && matching.length >= limit ? "next-page" : null };
+  if (params.get("total") === "true") body.total = filtered ? matching.length : EVENTS_TOTAL;
+  return body;
+}
+
+const device = (name, owner, kind = "DEVICE") => {
+  const found = clients.find((candidate) => candidate.name === name);
+  return found ?? { id: uuid(400 + name.length), name, user: owner, kind };
+};
+
+const record = (clientId, clientName, owner, outcome, minute, extra = {}) => ({
+  clientId,
+  clientName,
+  userId: owner.id,
+  userName: owner.name,
+  attempt: 1,
+  outcome,
+  detail: null,
+  at: new Date(`2026-10-11T12:37:0${minute}`).toISOString(),
+  final: true,
+  ...extra,
+});
+
+const browserId = clients.find((candidate) => candidate.name === "Rodrigo - Laptop browser").id;
+
+/** The pushes of Build 1842 (E2): sent, no push address, waiting for a retry, failed, filtered. */
+export const deliveries = {
+  items: [
+    record(clients[0].id, "Rodrigo - Pixel 9", rodrigo, "DELIVERED", 2),
+    record(browserId, "Rodrigo - Firefox", rodrigo, "NO_TARGET", 2),
+    record(clients[2].id, "Ana - Pixel", ana, "TRANSIENT_FAILURE", 3, { detail: "UNAVAILABLE (503)", final: false }),
+    record(clients[3].id, "Ana - Tablet", ana, "INVALID_TARGET", 3, { detail: "UNREGISTERED" }),
+    record(clients[5].id, "Rui - iPhone", rui, "FILTERED", 2, { detail: "below the minimum severity" }),
+  ],
+  users: [
+    { id: rodrigo.id, name: "Rodrigo", owner: true },
+    { id: ana.id, name: "Ana", owner: false },
+    { id: rui.id, name: "Rui", owner: false },
+  ],
+};
+
+/** E2b: the other wordings. */
+export const otherDeliveries = {
+  items: [
+    record(clients[2].id, "Ana - Pixel", ana, "TRANSIENT_FAILURE", 3, { attempt: 5, detail: "UNAVAILABLE (503)" }),
+    record(clients[3].id, "Ana - Tablet", ana, "PERMANENT_FAILURE", 3, { detail: "INVALID_ARGUMENT (400)" }),
+    record(clients[5].id, "Rui - iPhone", rui, "UNSUPPORTED_PROVIDER", 2, { detail: "apns" }),
+    record(device("Rui - Tablet", rui).id, "Rui - Tablet", rui, "FILTERED", 2, { detail: "pushes paused" }),
+    record(device("Rui - Watch", rui).id, "Rui - Watch", rui, "FILTERED", 2, { detail: "producer muted" }),
+  ],
+  users: [
+    { id: ana.id, name: "Ana", owner: false },
+    { id: rui.id, name: "Rui", owner: false },
+  ],
+};
+
+/** The devices with Rui's iPhone asking to skip what is below Critical (E2). */
+export const eventClients = clients.map((candidate) => (candidate.name === "Rui - iPhone 15" ? { ...candidate, pushPreferences: { enabled: true, minimumSeverity: "CRITICAL", mutedCategories: [], mutedProducerIds: [] } } : candidate));
+
 export const info = { signalhub: { version: "3.8.0", revision: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678" } };
 export const health = { status: "UP", checks: [{ name: "Database connections health check", status: "UP", data: { "<default>": "UP" } }] };
 export const latestEvent = { id: uuid(950), title: "Rain expected at 15:00", category: "INFO", severity: "NORMAL", createdAt: at(MIN), producer: { id: producers[9].id, name: "weather-alerts" }, readAt: null };
@@ -114,9 +238,28 @@ export async function mockAdmin(page, data = {}) {
   await page.route("**/api/v1/admin/users", (route) => answer(route, world.users, (items) => ({ items })));
   await page.route("**/api/v1/admin/pairings", (route) => answer(route, world.pairings, (items) => ({ items })));
   await page.route("**/api/v1/admin/status", (route) => answer(route, world.status));
-  await page.route("**/api/v1/events?limit=1", (route) => answer(route, world.latest, (items) => ({ items, nextCursor: null })));
+  // The listing (any filters) and the single newest event the Status page reads; later routes win.
+  await page.route("**/api/v1/events?*", (route) => {
+    const url = route.request().url();
+    if (new URL(url).searchParams.get("limit") === "1" && !url.includes("total=")) return answer(route, world.latest, (items) => ({ items, nextCursor: null }));
+    return answer(route, world.eventList ?? ((request) => listEvents(request.url())));
+  });
+  await page.route(/\/api\/v1\/events\/[0-9a-f-]{36}$/, (route) => {
+    const found = events.find((item) => route.request().url().endsWith(item.id));
+    return route.request().method() === "GET" ? answer(route, world.eventDetail ?? found ?? { __status: 404, body: { title: "Not Found" } }) : answer(route, found);
+  });
+  await page.route(/\/api\/v1\/admin\/events\/[0-9a-f-]{36}\/deliveries$/, (route) => {
+    const id = route.request().url().split("/").at(-2);
+    return answer(route, world.deliveries ? (typeof world.deliveries === "function" ? world.deliveries(id) : world.deliveries) : id === events[1].id ? deliveries : { items: [], users: [] });
+  });
   await page.route("**/q/health", (route) => answer(route, world.health));
   await page.route("**/q/info", (route) => answer(route, world.info));
+  // Deleting events: a dry run counts, the real request answers with the same count.
+  await page.route("**/api/v1/admin/events/delete", (route) => {
+    const body = route.request().postDataJSON();
+    return answer(route, { count: world.deleteCount ?? (body.ids ? body.ids.length : 42) });
+  });
+  await page.route(/\/api\/v1\/admin\/producers\/[0-9a-f-]{36}\/events$/, (route) => answer(route, { ...events[0], id: eventId(99), title: route.request().postDataJSON().title, producer: { id: producers[2].id, name: "ci-pipeline" } }));
   for (const [pattern, value] of Object.entries(world.routes ?? {})) await page.route(pattern, (route) => answer(route, value));
   return world;
 }

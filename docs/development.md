@@ -1181,10 +1181,10 @@ mode an edit shows on reload), under the same rules as the users' page: every se
 no inline script or style, nothing from another server (its fonts and icons are the files
 `/app/fonts/` bundles), the token only in `js/api.js`'s memory. `AdminPageTest` checks every file it
 loads is served with the policy and what each module calls. `web-tests/tests/admin-*.spec.mjs` drive
-it in a headless browser the same way (sign-in, Status, Producers, Devices, the layout at 1440,
+it in a headless browser the same way (sign-in, Status, Producers, Devices, Events, the layout at 1440,
 1280, 1100 and 390 px, themes, reduced motion, focus); they sign in with `ADMIN_TOKEN`. Its frames
 are compared with the drawings without any server data:
-`SIGNALHUB_URL=http://localhost:8080 node visual/compare.mjs A P1 ST1 DV1` (`visual/admin-frames.mjs`
+`SIGNALHUB_URL=http://localhost:8080 node visual/compare.mjs A P1 ST1 DV1 EA E2 S4b Q1` (`visual/admin-frames.mjs`
 serves the drawings' sample data in place of the management API).
 
 ### Comparing the page with its drawings
