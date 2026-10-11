@@ -214,6 +214,54 @@ export const otherDeliveries = {
 /** The devices with Rui's iPhone asking to skip what is below Critical (E2). */
 export const eventClients = clients.map((candidate) => (candidate.name === "Rui - iPhone 15" ? { ...candidate, pushPreferences: { enabled: true, minimumSeverity: "CRITICAL", mutedCategories: [], mutedProducerIds: [] } } : candidate));
 
+// ---- Users ----------------------------------------------------------------------------------
+
+const ref = (name) => producers.find((candidate) => candidate.name === name);
+const prod = (name) => {
+  const found = ref(name);
+  return { id: found.id, name, visibility: found.visibility, disabledAt: found.disabledAt };
+};
+const deviceRef = (name) => {
+  const found = clients.find((candidate) => candidate.name === name);
+  return { id: found.id, name, revokedAt: found.revokedAt };
+};
+const person = (base, created, extra) => ({ ...base, createdAt: day(created), revokedAt: null, devices: [], producers: [], subscriptions: [], ...extra });
+
+/** The five users of Admin - Users: Ana (mod), Marta (invited, no device), Rodrigo (admin), Rui, Tiago (revoked). */
+export const drawnUsers = [
+  person(ana, "2026-09-25", {
+    devices: ["Ana - Galaxy Tab", "Ana - Pixel 8a", "Ana - Home browser", "Ana - Old phone"].map(deviceRef),
+    producers: ["ana-reports", "family-calendar", "old-sensor"].map(prod),
+    subscriptions: ["ci-pipeline", "weather-alerts", "homelab-monitor", "ana-reports"].map(prod),
+  }),
+  person(user(4, "Marta", "BASIC"), "2026-10-11", { subscriptions: ["weather-alerts"].map(prod) }),
+  person(rodrigo, "2026-09-25", {
+    devices: ["Rodrigo - Pixel 9", "Rodrigo - Laptop browser", "Rodrigo - Old Pixel 6"].map(deviceRef),
+    producers: ["backup-jobs", "ci-pipeline", "garage-door", "homelab-monitor", "quarterly-finance-report-generator"].map(prod),
+    subscriptions: ["ana-reports", "backup-jobs", "ci-pipeline", "family-calendar", "garage-door", "homelab-monitor"].map(prod),
+  }),
+  person(rui, "2026-09-25", {
+    devices: ["Rui - iPhone 15", "Rui - Work laptop"].map(deviceRef),
+    producers: ["price-watch"].map(prod),
+    subscriptions: ["price-watch", "ci-pipeline", "weather-alerts"].map(prod),
+  }),
+  person(user(5, "Tiago", "BASIC"), "2026-08-01", { revokedAt: day("2026-09-12") }),
+];
+
+/** What the pane's traffic shows for Ana (U2). */
+export const userTraffic = {
+  events: [
+    { id: eventId(2), title: "Build 1842 failed on main", category: "BLOCKED", severity: "HIGH", createdAt: at(4 * MIN), producer: { id: ref("ci-pipeline").id, name: "ci-pipeline" } },
+    { id: eventId(4), title: "Deploy to staging needs approval", category: "ACTION_REQUIRED", severity: "HIGH", createdAt: at(48 * MIN), producer: { id: ref("ci-pipeline").id, name: "ci-pipeline" } },
+    { id: eventId(8), title: "Weekly report is ready", category: "COMPLETED", severity: "NORMAL", createdAt: at(DAY + 3 * HOUR), producer: { id: ref("ana-reports").id, name: "ana-reports" } },
+    { id: eventId(7), title: "Frost warning for tonight", category: "INFO", severity: "NORMAL", createdAt: at(6 * HOUR), producer: { id: ref("weather-alerts").id, name: "weather-alerts" } },
+  ],
+  deliveries: [
+    { clientId: clients[3].id, clientName: "Ana - Pixel 8a", attempt: 1, outcome: "DELIVERED", detail: null, at: at(4 * MIN), eventId: eventId(2), eventTitle: "Build 1842 failed on main", final: true },
+    { clientId: clients[2].id, clientName: "Ana - Galaxy Tab", attempt: 1, outcome: "TRANSIENT_FAILURE", detail: "UNAVAILABLE (503)", at: at(4 * MIN), eventId: eventId(2), eventTitle: "Build 1842 failed on main", final: false },
+  ],
+};
+
 export const info = { signalhub: { version: "3.8.0", revision: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678" } };
 export const health = { status: "UP", checks: [{ name: "Database connections health check", status: "UP", data: { "<default>": "UP" } }] };
 export const latestEvent = { id: uuid(950), title: "Rain expected at 15:00", category: "INFO", severity: "NORMAL", createdAt: at(MIN), producer: { id: producers[9].id, name: "weather-alerts" }, readAt: null };
@@ -259,6 +307,7 @@ export async function mockAdmin(page, data = {}) {
     const body = route.request().postDataJSON();
     return answer(route, { count: world.deleteCount ?? (body.ids ? body.ids.length : 42) });
   });
+  await page.route(/\/api\/v1\/admin\/users\/[0-9a-f-]{36}\/traffic$/, (route) => answer(route, world.traffic ?? userTraffic));
   await page.route(/\/api\/v1\/admin\/producers\/[0-9a-f-]{36}\/events$/, (route) => answer(route, { ...events[0], id: eventId(99), title: route.request().postDataJSON().title, producer: { id: producers[2].id, name: "ci-pipeline" } }));
   for (const [pattern, value] of Object.entries(world.routes ?? {})) await page.route(pattern, (route) => answer(route, value));
   return world;
