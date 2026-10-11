@@ -307,7 +307,7 @@ backend migrates the database at startup, forward only, applying every
 migration between the two releases, so skipping releases works the same
 way. CI upgrades a stack of the previous release to deployment files of the
 current code, with its data, and rolls it back again, on every change (the
-`Stacks (Compose smoke test, upgrade from the latest release)` job), and does the
+`Stacks (Compose smoke test, upgrades from the latest release and v3.5.0)` job), and does the
 same from v0.13.0, skipping every release since (the `Stacks (end-to-end, fresh
 install, upgrade from v0.13.0)` job). v0.13.0 is the oldest release that stores the
 events, producer keys, clients, read state and push preferences these jobs

@@ -34,20 +34,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Stacks (Compose smoke test, upgrade from the latest release)
+          - name: Stacks (Compose smoke test, upgrades from the latest release and v3.5.0)
             arch: amd64
             runner: ubuntu-latest
-            tests: [compose, upgrade-latest]
+            tests: [compose, upgrade-latest, upgrade-v3.5.0]
           # Natively on ARM64 (such as a Raspberry Pi 5), so the whole stack is
           # checked on both architectures.
           - name: Stacks (Compose smoke test, ARM64)
             arch: arm64
             runner: ubuntu-24.04-arm
             tests: [compose]
-          - name: Stacks (web page, upgrade from v3.5.0)
+          - name: Stacks (web page)
             arch: amd64
             runner: ubuntu-latest
-            tests: [web, upgrade-v3.5.0]
+            tests: [web]
           - name: Stacks (end-to-end, fresh install, upgrade from v0.13.0)
             arch: amd64
             runner: ubuntu-latest

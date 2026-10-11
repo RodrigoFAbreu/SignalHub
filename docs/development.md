@@ -1163,7 +1163,7 @@ filters, producers and keys, people and devices for each role, every server
 value rendered as text (an event, a name and a link full of markup), the policy
 headers of every file, that no request leaves the page's origin and no script
 or policy violation happens on any screen, framing, focus order, dialogs and
-the light theme. The `Stacks (web page, ...)` job runs them in CI. Tests that mean a
+the light theme. The `Stacks (web page)` job runs them in CI. Tests that mean a
 working clipboard get the permission from `useSession` (a headless Chromium
 refuses a copy otherwise); the refused-copy test removes it. When the CI job
 fails it uploads `web-tests/.results` (traces) and `web-tests/playwright-report`.
