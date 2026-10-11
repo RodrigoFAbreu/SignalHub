@@ -1,0 +1,57 @@
+/* Devices and Users (R73 step 3c). Loaded after admin-events.css; it only adds classes, so no earlier admin page changes. */
+.gD{display:grid;gap:16px;align-items:center;grid-template-columns:minmax(0,1fr) 104px 92px 216px}
+.gU{display:grid;gap:12px;align-items:center;grid-template-columns:minmax(0,1fr) 72px 68px 84px 104px 96px}
+.ps{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap}
+.ps .pt{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ps .ms{font-size:18px;width:18px;height:18px}
+.ps.ok .ms{color:var(--primary)}.ps.wait{color:var(--on-surface)}.ps.bad,.ps.bad .ms{color:var(--error)}.ps.no .ms{color:var(--outline)}
+.tr.rev .nm,.tr.rev{color:var(--outline)}
+.pst{display:flex;width:480px;height:760px;border-radius:12px;overflow:hidden;border:1px solid var(--frame-line);flex:none;background:var(--sc-low)}
+.pst .pane{border-radius:0}
+#DV3 .pst,#DV4 .pst{height:520px!important}
+#U3 .pst,#U4 .pst{height:660px!important}
+.dv-turn+.need{margin:0!important;max-width:none;align-self:stretch;border:0;border-top:1px dashed var(--canvas-dash);border-radius:0;padding:16px 44px 28px;background:var(--canvas);font-size:13px;line-height:19px}
+.qr{width:208px;height:208px;background:#fff;border-radius:12px;box-sizing:border-box;flex:none;position:relative;overflow:hidden}
+.qr .n{position:absolute;inset:14px;background:repeating-linear-gradient(0deg,#fff 0 9px,transparent 9px 27px),repeating-linear-gradient(90deg,#fff 0 11px,transparent 11px 33px),repeating-linear-gradient(90deg,#111 0 7px,#fff 7px 14px)}
+.qr .f{position:absolute;width:48px;height:48px;background:#fff;border:8px solid #111;box-sizing:border-box;box-shadow:0 0 0 6px #fff}
+.qr .f::after{content:'';position:absolute;inset:8px;background:#111}
+.qr .a{left:14px;top:14px}.qr .b{right:14px;top:14px}.qr .c{left:14px;bottom:14px}
+.qr.old{opacity:.18}
+.qrwrap{position:relative;flex:none}
+.qrover{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;font-size:14px;line-height:20px;padding:0 20px}
+.qrover .ms{font-size:40px;width:40px;height:40px}
+.cd{height:4px;background:var(--sc-highest);border-radius:2px;overflow:hidden;margin:8px 0 4px}
+.cd i{display:block;height:100%;background:var(--primary)}
+.cd.low i{background:var(--error)}
+.pair{display:flex;gap:24px;align-items:flex-start;margin-top:16px}
+.pair .rt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.pair .big{font-size:22px;line-height:28px}
+.lnk{font-family:'Roboto Mono',ui-monospace,monospace;font-size:12px;line-height:18px;background:var(--sc-highest);border-radius:12px;padding:10px 12px;word-break:break-all;color:var(--on-surface);margin-top:8px}
+.okbox{display:flex;gap:12px;align-items:flex-start;background:var(--sc-low);border-radius:12px;padding:16px;margin-top:16px;font-size:14px;line-height:20px}
+.okbox .ms{color:var(--primary);font-size:32px;width:32px;height:32px}
+.rnote{font-size:13px;line-height:18px;color:var(--on-surface-variant);padding:6px 4px 4px}
+.scrim.b{align-items:flex-end;padding:0}
+.sheetb{width:100%;background:var(--sc-high);border-radius:28px 28px 0 0;padding:24px 16px 20px;box-sizing:border-box}
+.sheetb h4{margin:0 0 12px;font-size:22px;line-height:28px;font-weight:400}
+.sheetb p{margin:0;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+.sheetb .acts{margin-top:20px}
+.sheetb .acts:not(.col)>*{flex:1}
+.sheetb .acts.col{flex-direction:column-reverse;align-items:stretch}
+.sheetb .acts.col>*{flex:none;width:100%;height:48px}
+.tabs2{display:flex;border-bottom:1px solid var(--outline-variant);margin:0 -24px;padding:0 24px}
+.tabs2>span{height:44px;display:flex;align-items:center;padding:0 16px;font-size:14px;font-weight:500;color:var(--on-surface-variant);border-bottom:3px solid transparent;margin-bottom:-1px;box-sizing:border-box}
+.tabs2>.on{color:var(--primary);border-bottom-color:var(--primary)}
+.sublab{font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant);padding:12px 0 2px}
+.chip-s{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--outline);border-radius:8px;font-size:13px;font-weight:500;color:var(--on-surface-variant);box-sizing:border-box}
+.rrow{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 0;border-top:1px solid var(--outline-variant)}
+.rrow .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+.rrow .nm2{font-size:14px;line-height:20px;color:var(--on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.choice{display:flex;align-items:flex-start;gap:12px;padding:12px 4px;border-top:1px solid var(--outline-variant)}
+.choice .rb{width:20px;height:20px;border:2px solid var(--on-surface-variant);border-radius:10px;box-sizing:border-box;flex:none;margin-top:2px;position:relative}
+.choice.on .rb{border-color:var(--primary)}
+.choice.on .rb::after{content:'';position:absolute;inset:3px;border-radius:5px;background:var(--primary)}
+.choice .tx{display:flex;flex-direction:column}
+.choice .t1{white-space:normal}
+.menu2.s{width:260px}
+/* light: outline is only 4.06 : 1 on the list, so a revoked row's text uses on-surface-variant (8.4); the Revoked tag carries the state */
+.light .tr.rev,.light .tr.rev .nm{color:var(--on-surface-variant)}

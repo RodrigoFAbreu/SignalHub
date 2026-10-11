@@ -17,6 +17,11 @@ Everything is sample data. The host is `signalhub.example`. The only key is
 | [source/](source/README.md) | **The drawings themselves**, the source of truth: the same `.dc.html` pages as the design project (the screen pages and both clickable prototypes), with the fonts and scripts they load vendored, so they render the same with no network. Serve the folder and open a page; read its source for exact sizes, colours, icons and copy. |
 | `images/` | Previews: one image per screen and state: 147 images in WebP, in 9 folders. |
 
+The operator's admin page and the web page's New producer button (R73) are
+drawn in the same project and the same `source/` folder. Their previews,
+walkthrough and server items are in [../admin/](../admin/README.md). Their rules
+and components are in [DESIGN.md](DESIGN.md#9-the-admin-page-r73).
+
 The designs were made in a Claude Design project, with a design system page,
 nine screen pages and two clickable prototypes:
 <https://claude.ai/design/p/17711c15-5ce6-495c-9841-de8eb831a828>

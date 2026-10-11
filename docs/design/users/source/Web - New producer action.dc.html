@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--tertiary-container:#5d3c55;--on-tertiary-container:#ffd8ee;--error:#ffb4ab;--on-error:#690005;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-lowest:#0d0e13;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f;--fr-chrome:#1b1c21;--fr-url:#0f1014;--fr-line:#2c2d33;--fr-dot:#3a3b42}
+          .light{--primary:#515b92;--on-primary:#ffffff;--primary-container:#dee0ff;--on-primary-container:#394379;--secondary-container:#e0e1f9;--on-secondary-container:#434659;--tertiary-container:#ffd7f1;--on-tertiary-container:#5d3c55;--error:#ba1a1a;--on-error:#ffffff;--surface:#fbf8ff;--on-surface:#1b1b21;--on-surface-variant:#46464f;--sc-lowest:#ffffff;--sc-low:#f5f2fa;--sc:#efedf4;--sc-high:#e9e7ef;--sc-highest:#e4e1e9;--outline:#767680;--outline-variant:#c7c5d0;--fr-chrome:#e9e7ef;--fr-url:#ffffff;--fr-line:#c7c5d0;--fr-dot:#c7c5d0;color:var(--on-surface)}
+          body{margin:0;background:#0b0c10;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}
+          .dv-turn{padding:40px 44px 32px;background:#0b0c10}
+          .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+          .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#e4e1e9;color:#121318;border-radius:4px;text-decoration:none}
+          .dv-tname{font:600 14px/1.2 Roboto,sans-serif;color:#e4e1e9}
+          .dv-why{font:14px/20px Roboto,sans-serif;color:#c7c5d0;max-width:1040px;margin:0 0 14px}
+          .dv-opts{display:flex;flex-direction:column;gap:56px;align-items:flex-start}
+          .dv-opt{display:flex;flex-direction:column;gap:12px}
+          .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#e4e1e9;border-radius:5px;text-decoration:none}
+          .dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 13px/1.3 Roboto,sans-serif;color:#e4e1e9}
+          .dv-onote{font:13px/19px Roboto,sans-serif;color:#9a98a3;margin:0;max-width:1100px;text-wrap:pretty}
+          .dv-onote b,.nt b{color:#c7c5d0;font-weight:500}
+          .dv-opt:target .dv-oid{background:#bac3ff;color:#222c61}
+          .pair{display:flex;gap:40px;align-items:flex-start}
+          .nt{display:grid;grid-template-columns:96px 1fr;gap:6px 16px;font:13px/19px Roboto,sans-serif;color:#9a98a3;max-width:1100px}
+          .nt b{font-weight:500}
+          .rec{border:1px solid #46464f;border-radius:12px;padding:16px 20px;max-width:1100px;font:14px/21px Roboto,sans-serif;color:#c7c5d0}
+          .rec b{color:#e4e1e9}
+          .r66{font:12px/16px Roboto,sans-serif;color:#9a98a3;border:1px dashed #46464f;border-radius:6px;padding:4px 8px;align-self:flex-start;max-width:1100px}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .br{width:1440px;height:800px;background:var(--surface);border-radius:12px;border:1px solid var(--fr-line);overflow:hidden;display:flex;flex-direction:column;flex:none;color:var(--on-surface)}
+          .chrome{height:40px;flex:none;background:var(--fr-chrome);display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid var(--fr-line)}
+          .dots{display:flex;gap:6px}.dots span{width:10px;height:10px;border-radius:5px;background:var(--fr-dot)}
+          .url{flex:1;height:26px;border-radius:13px;background:var(--fr-url);display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;min-width:0}
+          .url .ms{font-size:14px;width:14px;height:14px}
+          .app{flex:1;display:flex;min-height:0;position:relative}
+          .rail{width:88px;flex:none;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0;background:var(--surface)}
+          .rlogo{width:40px;height:40px;border-radius:12px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+          .ri{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:500;color:var(--on-surface-variant)}
+          .ri .pill,.nv .pill{width:56px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .ri.on,.nv.on{color:var(--on-surface)}
+          .ri.on .pill,.nv.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .acct{margin-top:auto;width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center}
+          .acct .av{background:var(--primary-container);color:var(--on-primary-container);font-size:16px;font-weight:500}
+          .nbadge{position:absolute;top:2px;left:32px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:var(--on-error);font-size:11px;line-height:16px;text-align:center;box-sizing:border-box}
+          .listp{width:420px;flex:none;display:flex;flex-direction:column;background:var(--sc-low);border-radius:16px 0 0 0;margin-top:8px;position:relative}
+          .detp{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--sc-low);margin:8px 8px 0 1px;border-radius:0 16px 0 0;padding:28px 40px;text-align:center}
+          .detp .ms{font-size:48px;width:48px;height:48px;color:var(--outline)}
+          .detp .e1{font-size:22px;line-height:28px}
+          .detp .e2{font-size:14px;line-height:20px;color:var(--on-surface-variant);max-width:36ch}
+          .phead{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px 0 20px}
+          .phead .t{font-size:22px;line-height:28px;flex:1;min-width:0;white-space:nowrap}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .mini{width:32px;height:32px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500}
+          .lt{display:flex;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2n{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .t2w{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .c-var{color:var(--on-surface-variant)}
+          .av{width:40px;height:40px;border-radius:20px;background:var(--sc-highest);color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;flex:none}
+          .tbtn{width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;flex:none}
+          .tbtn.on{color:var(--on-secondary-container)}
+          .tbtn.off{color:var(--on-surface-variant)}
+          .own{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;vertical-align:middle}
+          .search{margin:0 16px 4px;height:48px;border-radius:24px;background:var(--sc-high);display:flex;align-items:center;gap:12px;padding:0 16px;color:var(--on-surface-variant);font-size:16px;flex:none}
+          .fchips{display:flex;flex-wrap:wrap;gap:0 8px;padding:0 16px 4px;flex:none}
+          .fc{height:32px;margin:8px 0;border-radius:8px;border:1px solid var(--outline);display:flex;align-items:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500;color:var(--on-surface-variant);box-sizing:border-box;white-space:nowrap;flex:none}
+          .fc.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container);padding-left:8px}
+          .lw{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+          .lh{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+          .rows{flex:none;padding-bottom:8px}
+          .rows.pad{padding-bottom:88px}
+          .btn-t{height:48px;border-radius:24px;background:var(--secondary-container);color:var(--on-secondary-container);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box;white-space:nowrap;flex:none}
+          .btn-t .ms{font-size:18px;width:18px;height:18px}
+          .fab{position:absolute;right:16px;bottom:16px;height:56px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;gap:12px;padding:0 20px 0 16px;font-size:14px;font-weight:500}
+          .fab.sm{width:56px;padding:0;justify-content:center}
+          .endc{margin:8px 16px 16px;border:1px dashed var(--outline);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;flex:none}
+          .endc .top{display:flex;gap:16px;align-items:flex-start}
+          .endc .btn-t{align-self:flex-start;margin-left:56px}
+          .ph{width:390px;height:844px;background:var(--surface);border-radius:28px;border:1px solid var(--fr-line);overflow:hidden;display:flex;flex-direction:column;flex:none;position:relative;color:var(--on-surface)}
+          .phchrome{height:52px;flex:none;background:var(--fr-chrome);display:flex;align-items:center;padding:16px 14px 8px;box-sizing:border-box}
+          .phchrome .url{height:30px;border-radius:15px}
+          .nav{height:80px;flex:none;background:var(--sc);display:flex;padding:12px 8px 16px;box-sizing:border-box}
+          .nv{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant)}
+          .nv .pill{width:64px}
+          .nv .nbadge{left:36px}
+          .mono{font-family:"Roboto Mono",monospace}
+        </style>
+      </helmet>
+
+      <section class="dv-turn" id="t9" data-screen-label="Turn 9: the New producer action">
+        <div class="dv-thd"><a class="dv-tid" href="#t9">9</a><span class="dv-tname">The web page: where New producer lives so it never covers a producer</span></div>
+        <p class="dv-why"><b style="color:#e4e1e9">The problem.</b> On the users' web page, New producer is a floating button in the bottom right of the Producers list. With a long list it sits on top of the last producer. Three ways to fix it follow, each drawn at 1440 and at 390 with 13 producers, scrolled to the end, so the last row has to be fully visible. All frames use sample data only: Rodrigo (admin) on <span class="mono">signalhub.example</span>, with Rui and Ana as other people.</p>
+        <p class="dv-why"><b style="color:#e4e1e9">Up to date with R72.</b> These frames replace the Producers drawings of <i>Web - Inbox and producers</i> (7b, 7d) and the floating button in <i>Web - Settings, people and states</i> and <i>Prototype - Web</i>; those older pages are left as they are. What changed: the chip row has a fifth chip, <b style="color:#e4e1e9">Disabled</b>, and the chips <b style="color:#e4e1e9">wrap onto a second line</b> instead of scrolling sideways, so Disabled is never hidden (each chip keeps a 48 px hit area, 32 px of chip and 8 px of space above and below); disabled producers sit <b style="color:#e4e1e9">at the bottom</b> of the list, yours first (pause icon, "Disabled by you · its keys do not work", which wraps instead of cutting at 390), then other people's (block icon, "Rui · Disabled"), each group A to Z.</p>
+        <p class="dv-why"><b style="color:#e4e1e9">Chosen: A</b> (owner, 2026-10-11), a tonal New producer button in the list header, like the admin page's. B and C stay as drawn, for the record. No server change is needed for any option.</p>
+        <div class="r66">Likely cause of the bug, to confirm when building: at phone width the list area runs under the 80 px bottom bar, so the 88 px of list padding is mostly spent on the bar and the last row ends up behind the button.</div>
+        <div class="dv-opts" style="margin-top:40px">
+
+          <div class="dv-opt" id="9a" data-screen-label="9a Header button">
+            <div class="dv-olabel"><a class="dv-oid" href="#9a">9a</a>A. A tonal New producer button in the list header (chosen). No floating button.</div>
+            <div class="pair">
+              <div class="br">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="ri on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div><span class="acct"><span class="av">R</span></span></div>
+                  <div class="listp">
+                    <div class="phead" style="padding-right:16px"><div class="t">Producers</div><span class="btn-t"><span class="ms">add</span>New producer</span></div>
+                    <div class="search"><span class="ms">search</span>Find a producer</div>
+                    <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span><span class="fc">Disabled</span></div>
+                    <div class="lw"><div class="lh"><div class="rows">
+                      <sc-for list="{{ producers }}" as="p" hint-placeholder-count="6">
+                        <div class="lt"><span class="av"><span class="ms">{{ p.glyph }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></div>
+                      </sc-for>
+                    </div></div></div>
+                  </div>
+                  <div class="detp"><span class="ms">sensors</span><span class="e1">Choose a producer</span><span class="e2">Its keys, who can see it and its events show up here.</span></div>
+                </div>
+              </div>
+              <div class="ph">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers</div></div>
+                <div class="phead" style="padding-left:16px"><div class="t">Producers</div><span class="btn-t"><span class="ms">add</span>New producer</span><span class="ib"><span class="mini">R</span></span></div>
+                <div class="search"><span class="ms">search</span>Find a producer</div>
+                <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span><span class="fc">Disabled</span></div>
+                <div class="lw"><div class="lh"><div class="rows">
+                  <sc-for list="{{ producers }}" as="p" hint-placeholder-count="6">
+                    <div class="lt"><span class="av"><span class="ms">{{ p.glyph }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></div>
+                  </sc-for>
+                </div></div></div>
+                <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              </div>
+            </div>
+            <div class="nt">
+              <b>1440</b><span>The button is a tonal 48 px button with an add icon, in the list pane's header beside the title (the same tonal button as the admin page's New producer). The header stays put while the list scrolls under it, so the action is always on screen and nothing floats over a row. The list ends with 8 px of padding.</span>
+              <b>1024</b><span>Same: rail 88, list 420, detail 516. The header is unchanged.</span>
+              <b>600</b><span>Bottom bar and a full-width list, as the app. Same header; the extra width goes to the title.</span>
+              <b>390</b><span>Title, button and the account avatar share one row (about 330 px of the 390). The list area ends at the bottom bar, so the last row rests on the bar.</span>
+              <b>Keyboard</b><span>The button is the first stop in the Producers pane, before the search box, the chips and the rows, so nobody tabs through 13 rows and 13 bells to reach it. It is a link to <span class="mono">#producers/new</span>: Enter opens the form.</span>
+              <b>Names</b><span>The button is named "New producer"; the chips are a group named "Filter producers" and each shows its state (the chosen one is checked); each bell is named after its producer and its state ("Notifications for backup-jobs: on"); the page title is the h1 and the list is a list landmark named "Producers".</span>
+              <b>200% text</b><span>When title and button no longer fit on one line the header wraps: the title above, the button below it, full width and at least 48 px tall. The list keeps the rest of the height and scrolls.</span>
+              <b>Never covers</b><span>It is in the layout flow, not on top of it, at every width and text size. Cost: one more item in the header at 390, and it does not look like the app's Producers tab, which still has its floating button.</span>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="9b" data-screen-label="9b Floating button with reserved space">
+            <div class="dv-olabel"><a class="dv-oid" href="#9b">9b</a>B. Keep the floating button, reserve space under the last row, and shrink it to an icon while scrolling down.</div>
+            <div class="pair">
+              <div class="br">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="ri on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div><span class="acct"><span class="av">R</span></span></div>
+                  <div class="listp">
+                    <div class="phead"><div class="t">Producers</div></div>
+                    <div class="search"><span class="ms">search</span>Find a producer</div>
+                    <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span><span class="fc">Disabled</span></div>
+                    <div class="lw"><div class="lh"><div class="rows pad">
+                      <sc-for list="{{ producers }}" as="p" hint-placeholder-count="6">
+                        <div class="lt"><span class="av"><span class="ms">{{ p.glyph }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></div>
+                      </sc-for>
+                    </div></div>
+                    <div class="fab sm" aria-label="New producer"><span class="ms">add</span></div></div>
+                  </div>
+                  <div class="detp"><span class="ms">sensors</span><span class="e1">Choose a producer</span><span class="e2">Its keys, who can see it and its events show up here.</span></div>
+                </div>
+              </div>
+              <div class="ph">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers</div></div>
+                <div class="phead" style="padding-left:16px"><div class="t">Producers</div><span class="ib"><span class="mini">R</span></span></div>
+                <div class="search"><span class="ms">search</span>Find a producer</div>
+                <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span><span class="fc">Disabled</span></div>
+                <div class="lw"><div class="lh"><div class="rows pad">
+                  <sc-for list="{{ producers }}" as="p" hint-placeholder-count="6">
+                    <div class="lt"><span class="av"><span class="ms">{{ p.glyph }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></div>
+                  </sc-for>
+                </div></div>
+                <div class="fab sm" aria-label="New producer"><span class="ms">add</span></div></div>
+                <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              </div>
+            </div>
+            <div class="nt">
+              <b>1440</b><span>The button floats at the bottom right of the list pane, extended (icon and label) when the list is at the top, and a 56 px icon square once the list is scrolled down. It extends again on hover, on focus and when scrolled back to the top. The frame shows the scrolled state. The list ends with a band of reserved space as tall as the button plus 32 px, so the last row can always be scrolled clear of it.</span>
+              <b>1024</b><span>Same, inside the 420 px list pane.</span>
+              <b>600</b><span>The button belongs to the list area, which ends at the top of the bottom bar, so it floats above the bar and the bar never counts as reserved space.</span>
+              <b>390</b><span>Icon only while scrolling, 16 px from the right and 16 px above the bar. The reserved band is below the last row, inside the list.</span>
+              <b>Keyboard</b><span>It comes last in the tab order, after every row and bell (26 stops with 13 producers). Focus extends it to show the label. Pressing Tab from the last bell reaches it.</span>
+              <b>200% text</b><span>The extended button grows with the text and the shrunk one stays 56 px, so the reserved band must be measured from the button's real height (plus 32 px), not fixed at 88 px.</span>
+              <b>Never covers</b><span>Only while the reserved band is right at every width and text size; that is the weak point, and it is the one that failed. It keeps the app's familiar floating button and costs the least change, but it does not match the admin page's header button.</span>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="9c" data-screen-label="9c End of list card">
+            <div class="dv-olabel"><a class="dv-oid" href="#9c">9c</a>C. A New producer card at the end of the list, after the last producer. No floating button.</div>
+            <div class="pair">
+              <div class="br">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="ri on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div><span class="acct"><span class="av">R</span></span></div>
+                  <div class="listp">
+                    <div class="phead"><div class="t">Producers</div></div>
+                    <div class="search"><span class="ms">search</span>Find a producer</div>
+                    <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span><span class="fc">Disabled</span></div>
+                    <div class="lw"><div class="lh"><div class="rows" style="padding-bottom:0">
+                      <sc-for list="{{ producers }}" as="p" hint-placeholder-count="6">
+                        <div class="lt"><span class="av"><span class="ms">{{ p.glyph }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></div>
+                      </sc-for>
+                    </div>
+                    <div class="endc"><div class="top"><span class="av"><span class="ms">add</span></span><div class="tx"><span class="t1">Send events from something new</span><span class="t2w">A producer has its own key and you choose who sees it.</span></div></div><span class="btn-t"><span class="ms">add</span>New producer</span></div></div></div>
+                  </div>
+                  <div class="detp"><span class="ms">sensors</span><span class="e1">Choose a producer</span><span class="e2">Its keys, who can see it and its events show up here.</span></div>
+                </div>
+              </div>
+              <div class="ph">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers</div></div>
+                <div class="phead" style="padding-left:16px"><div class="t">Producers</div><span class="ib"><span class="mini">R</span></span></div>
+                <div class="search"><span class="ms">search</span>Find a producer</div>
+                <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span><span class="fc">Disabled</span></div>
+                <div class="lw"><div class="lh"><div class="rows" style="padding-bottom:0">
+                  <sc-for list="{{ producers }}" as="p" hint-placeholder-count="6">
+                    <div class="lt"><span class="av"><span class="ms">{{ p.glyph }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></div>
+                  </sc-for>
+                </div>
+                <div class="endc"><div class="top"><span class="av"><span class="ms">add</span></span><div class="tx"><span class="t1">Send events from something new</span><span class="t2w">A producer has its own key and you choose who sees it.</span></div></div><span class="btn-t"><span class="ms">add</span>New producer</span></div></div></div>
+                <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              </div>
+            </div>
+            <div class="nt">
+              <b>1440</b><span>A dashed card is the last item of the list, after the disabled producers: a short line, "Send events from something new", and a tonal New producer button. It is part of the scrolling content, so it sits under the last producer and never over it. The same button is the one the empty states already have.</span>
+              <b>1024</b><span>Same, inside the 420 px list pane.</span>
+              <b>600</b><span>Same card, full width, with the button under its text.</span>
+              <b>390</b><span>The frame shows the end of the list: last producer, then the card, then the bottom bar. The card is about 160 px tall.</span>
+              <b>Keyboard</b><span>The card's button is the last stop of the list, after every row and bell. There is no way to reach it faster.</span>
+              <b>200% text</b><span>The card grows and its text wraps; the button stays 48 px tall and moves to its own line. Nothing is fixed in height.</span>
+              <b>Never covers</b><span>It is in the flow at every width. Cost: on a long list you must scroll to the end to find it; it is not shown while a search or the Subscribed, Can subscribe or Disabled chip is on (the empty state of Yours keeps its own button); and it is unlike the header buttons of the admin page.</span>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="9d" data-screen-label="9d Recommended option, light">
+            <div class="dv-olabel"><a class="dv-oid" href="#9d">9d</a>Option A in the light theme, 1440 and 390, scrolled to the end</div>
+            <div class="pair">
+              <div class="br light">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="ri on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div><span class="acct"><span class="av">R</span></span></div>
+                  <div class="listp">
+                    <div class="phead" style="padding-right:16px"><div class="t">Producers</div><span class="btn-t"><span class="ms">add</span>New producer</span></div>
+                    <div class="search"><span class="ms">search</span>Find a producer</div>
+                    <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span><span class="fc">Disabled</span></div>
+                    <div class="lw"><div class="lh"><div class="rows">
+                      <sc-for list="{{ producers }}" as="p" hint-placeholder-count="6">
+                        <div class="lt"><span class="av"><span class="ms">{{ p.glyph }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></div>
+                      </sc-for>
+                    </div></div></div>
+                  </div>
+                  <div class="detp"><span class="ms">sensors</span><span class="e1">Choose a producer</span><span class="e2">Its keys, who can see it and its events show up here.</span></div>
+                </div>
+              </div>
+              <div class="ph light">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers</div></div>
+                <div class="phead" style="padding-left:16px"><div class="t">Producers</div><span class="btn-t"><span class="ms">add</span>New producer</span><span class="ib"><span class="mini">R</span></span></div>
+                <div class="search"><span class="ms">search</span>Find a producer</div>
+                <div class="fchips"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span><span class="fc">Disabled</span></div>
+                <div class="lw"><div class="lh"><div class="rows">
+                  <sc-for list="{{ producers }}" as="p" hint-placeholder-count="6">
+                    <div class="lt"><span class="av"><span class="ms">{{ p.glyph }}</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></div>
+                  </sc-for>
+                </div></div></div>
+                <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              </div>
+            </div>
+            <p class="dv-onote">Light roles are the exact ones of the design system (primary #515b92, secondaryContainer #e0e1f9, surfaceContainerLow #f5f2fa). The tonal button's text (#434659 on #e0e1f9) stays above 4.5:1.</p>
+          </div>
+
+          <div class="rec">
+            <b>Chosen: A, the tonal header button.</b> It cannot cover a producer because nothing floats: there is no reserved space to size, so it holds at 1440, 1024, 600 and 390, at 200% text and in any browser zoom. It matches the admin page, whose Producers section also keeps New producer in the header as a tonal button (a header button at 390 as well), so the same action sits in the same place on both pages. It is the first stop in the pane for keyboard users instead of the last of 26. It costs one tonal button in a header that has room for it. B keeps the app's look but depends on a measured band staying right, which is exactly what failed. C is safe but hides the action at the end of a long list and on three of the five chips. The Flutter app's Producers tab keeps its floating button for now; moving it to the app bar is a separate decision.
+          </div>
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{}">
+      class Component extends DCLogic {
+        renderVals() {
+          const r = (name, sub, o) => ({ name, sub, own: o.y ? 'own' : '', ownText: o.y ? 'Yours' : '', bell: o.on ? 'on' : 'off', fill: o.on ? 'fill' : '', icon: o.on ? 'notifications_active' : 'notifications', glyph: o.g || 'sensors' });
+          const producers = [
+            r('backup-jobs', 'Private · 1 key · last event 00:41', { y: 1, on: 1 }),
+            r('ci-pipeline', 'Public · 2 keys · last event 01:19', { y: 1, on: 1 }),
+            r('homelab-monitor', 'Private · 2 people · last event 00:36', { y: 1, on: 1 }),
+            r('ana-reports', 'Ana · Public', { on: 1 }),
+            r('family-calendar', 'Ana · Private', { on: 1 }),
+            r('price-watch', 'Rui · Public', { on: 1 }),
+            r('door-sensor', 'Ana · Private', {}),
+            r('garden-sensors', 'Ana · Public', {}),
+            r('nas-health', 'Rui · Public', {}),
+            r('rui-notes', 'Rui · Public', {}),
+            r('weather-alerts', 'Rui · Public', {}),
+            r('old-cron-jobs', 'Disabled by you · its keys do not work', { y: 1, on: 1, g: 'pause_circle' }),
+            r('speedtest-logger', 'Rui · Disabled', { g: 'block' })
+          ];
+          return { producers };
+        }
+      }
+    </script>
+  </body>
+</html>

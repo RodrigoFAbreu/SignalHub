@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
+    <script src='./support.js'></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name='design_doc_mode' content='canvas' />
+        <link rel='stylesheet' href='vendor/css/roboto-roboto-mono.css' />
+        <link rel='stylesheet' href='vendor/css/material-symbols-outlined.css' />
+        <link rel='stylesheet' href='./admin-events.css' />
+        <link rel='stylesheet' href='./admin-people.css' />
+        <link rel='stylesheet' href='./admin-status.css' />
+        <link rel='stylesheet' href='./admin-fix-b.css' />
+      </helmet>
+
+<section class='dv-turn' id='t1' data-screen-label='Turn 1: Status: is SignalHub working?'><div class='dv-thd'><a class='dv-tid' href='#t1'>1</a><span class='dv-tname'>Status: is SignalHub working?</span></div>
+<p class='dv-why'>Shell A, one version. The page answers the question in its first line, in words and an icon (SignalHub is working, or SignalHub needs attention), never by colour alone. Below it the parts are in plain language, each with a value and one line on what to do when it is wrong; the problem rows move to the top under their own heading with a red edge, the Needs attention word and a warning icon. There is no list and no side pane: Status is one column of answers, so the page uses the width for readable lines instead. Raw health check names, values and the endpoints they come from are only in the Technical details fold at the end. Nothing here can be changed (settings live in the server's .env and need a restart), and the page says so. It reads <span class='mono'>/q/info</span>, <span class='mono'>/q/health</span>, <span class='mono'>/api/v1/admin/status</span>, the device list and the newest event, and looks again every 30 seconds while it is open. Sample data only.</p>
+<div class='dv-opts'>
+<div class='dv-opt' id='ST1' data-screen-label='ST1 Status: working' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#ST1'>ST1</a>Working</div>
+<div class='br h11'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#status</div></div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div><div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div><div class='ri'><span class='pill'><span class='ms'>sensors</span></span>Producers</div><div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div><div class='ri on'><span class='pill'><span class='ms fill'>monitor_heart</span></span>Status</div><div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div><span class='acct'><span class='av'>A</span></span></div></div>
+<div class='main'><div class='sbody'><div class='mhead'><h1>Status</h1><span class='cnt'>Checked 12:41</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Looks again every 30 s</span><span class='ib' aria-label='Refresh the status'><span class='ms'>refresh</span></span></div>
+<div class='sin'><div class='hero'><span class='hi'><span class='ms fill'>check_circle</span></span><div class='tx'><span class='h'>SignalHub is working</span><span class='s'>Events are being stored and pushes are going out. Nothing needs attention.</span></div></div>
+<div class='sgrp'>DELIVERING EVENTS</div>
+<div class='srow ok'><span class='ms'>database</span><span class='nmx'>Database</span><div class='vl'>Connected. Events are being stored and read.<span class='do'><b>If it goes wrong:</b> events cannot be stored. Check that the database container is running (docker compose ps). SignalHub reconnects by itself.</span></div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='srow ok'><span class='ms'>notifications_active</span><span class='nmx'>Push service</span><div class='vl'>Firebase Cloud Messaging is set up, and apps are given their push options by this server.<span class='do'><b>If it goes wrong:</b> events are kept but no phone is told. Check the push service's key file in the server's .env, then restart.</span></div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='srow ok'><span class='ms'>schedule_send</span><span class='nmx'>Events waiting to be pushed</span><div class='vl'>0 events waiting<span class='do'><b>If it goes wrong:</b> a few for a second or two is normal. A number that keeps growing means SignalHub is not keeping up: the push service or the database is slow.</span></div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='srow ok'><span class='ms'>replay</span><span class='nmx'>Pushes waiting for a retry</span><div class='vl'>0 waiting &middot; 0 given up since you opened this page<span class='do'><b>If it goes wrong:</b> a temporary failure is tried again by itself, up to 5 tries in all. A push that was given up is not tried again, but its event is still in the inbox.</span></div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='srow ok'><span class='ms'>phonelink_erase</span><span class='nmx'>Devices whose last push failed</span><div class='vl'>None<span class='do'><b>If some are listed:</b> open Devices (with Push problems chosen); each one says in words why its last push failed.</span></div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='sgrp'>ACTIVITY</div>
+<div class='srow'><span class='ms c-var'>inbox</span><span class='nmx'>Last event received</span><div class='vl'>1 minute ago, from weather-alerts: Rain expected at 15:00 &middot; <a href='#x'>Open event</a><span class='do'>A quiet period is not a fault. Producers marks the ones that have not sent for a week.</span></div></div>
+<div class='srow'><span class='ms c-var'>notifications</span><span class='nmx'>Last push sent</span><div class='vl'>12 minutes ago, to Rodrigo - Pixel 9<span class='do'>Taken from the devices' last push results. A quiet day has none to show.</span></div></div>
+<div class='sgrp'>THIS SERVER</div>
+<div class='srow'><span class='ms c-var'>info</span><span class='nmx'>Version</span><div class='vl'>3.8.0 &middot; revision <span class='mono'>a1b2c3d</span><span class='do'>The release this server is running. A build that is not a release says development and shows no revision.</span></div></div>
+<div class='srow'><span class='ms c-var'>timer</span><span class='nmx'>Running since</span><div class='vl'><div class='need nsc'>Needs a server change: the start time (or uptime) is not in any endpoint today. Drawn here as “Running since 3 Oct 08:12, 8 days” once the status response carries it.</div></div></div>
+<div class='srow'><span class='ms c-var'>delete_sweep</span><span class='nmx'>Event retention</span><div class='vl'>Events older than 365 days are deleted by themselves.<span class='do'>Set by SIGNALHUB_EVENTS_RETENTION in the server's .env. When it is not set the row is not shown and events are kept for ever.</span></div></div>
+<div class='sfold'><span class='ms'>expand_more</span>Technical details</div>
+<div class='sfoot'>Nothing is changed on this page: settings are in the server's .env and take effect after a restart.</div></div></div></div></div></div>
+<p class='dv-onote'>First line: the answer. Then three groups in the order an operator asks: is it delivering (database, push service, the two backlogs, devices that failed), what happened lately (last event, last push) and which server is this (version, running since, retention). A row with a chip has a judgement (Working or Needs attention); an informational row has none. The revision is the first seven characters of <span class='mono'>signalhub.revision</span>; the whole value is in Technical details. Retention appears only when it is set. Each “If it goes wrong” line is one sentence naming the setting or place to look, never a log. Refresh is the icon in the header; the page also looks again by itself. The rail's status button follows the one rule written in the shell page's note.</p>
+<p class='dv-onote'><b>Accessible names.</b> Landmarks: the rail is a navigation named “Sections” and the page is the main region. Headings: “Status” is the level 1 heading, the answer (“SignalHub is working”) is level 2 and each group (Delivering events, Activity, This server) is level 3. Each row is a list item whose name is the part and its state, never colour alone. Icon buttons have names (“Refresh the status”). The values refresh by themselves and are announced politely only when the answer changes.</p></div>
+<div class='dv-opt' id='ST2' data-screen-label='ST2 Status: needs attention' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#ST2'>ST2</a>Needs attention: the push service is failing and its retries are being given up</div>
+<div class='br h11'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#status</div></div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div><div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div><div class='ri'><span class='pill'><span class='ms'>sensors</span></span>Producers</div><div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div><div class='ri on'><span class='pill'><span class='ms fill'>monitor_heart</span></span>Status</div><div class='rfoot'><div class='ri bad'><span class='pill'><span class='ms fill'>warning</span></span>Check</div><span class='acct'><span class='av'>A</span></span></div></div>
+<div class='main'><div class='sbody'><div class='mhead'><h1>Status</h1><span class='cnt'>Checked 12:41</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Looks again every 30 s</span><span class='ib' aria-label='Refresh the status'><span class='ms'>refresh</span></span></div>
+<div class='sin'><div class='hero bad'><span class='hi'><span class='ms fill'>warning</span></span><div class='tx'><span class='h'>SignalHub needs attention</span><span class='s'>Events are still being received and stored, but pushes to phones are failing. 2 things to look at:</span><div class='jumps'><span class='fc'>Push service</span><span class='fc'>Pushes waiting for a retry</span></div></div></div>
+<div class='sgrp bad'><span class='ms ms18'>warning</span>NEEDS ATTENTION &middot; 2</div>
+<div class='srow bad'><span class='ms'>notification_important</span><span class='nmx'>Push service</span><div class='vl'>Firebase Cloud Messaging is set up, but every device with a push address failed its last push (3 of 3): the push service is probably down, or refusing this server.<span class='do'><b>What to do:</b> open Devices and read each failure. If every device fails, the key file may be wrong or revoked: replace it in the server's .env and restart.</span></div><span class='sc bad'><span class='ms fill'>error</span>Needs attention</span></div>
+<div class='srow bad'><span class='ms'>replay</span><span class='nmx'>Pushes waiting for a retry</span><div class='vl'>148 waiting &middot; 12 given up since you opened this page<span class='do'><b>What to do:</b> the waiting number grows while the push service refuses pushes. Fix the push service first; the waiting ones are then sent by themselves. The given-up ones are not retried, but their events are in the inbox.</span></div><span class='sc bad'><span class='ms fill'>error</span>Needs attention</span></div>
+<div class='sgrp'><span class='ms ms18'>info</span>WORTH A LOOK &middot; 1</div>
+<div class='srow un'><span class='ms'>phonelink_erase</span><span class='nmx'>Devices whose last push failed</span><div class='vl'>3 devices' last push failed: Rodrigo - Pixel 9, Ana - Galaxy Tab, Rui - iPhone 15 &middot; <a href='#x'>Open Devices</a><span class='do'>Opens Devices with Push problems chosen. Each device says in words why its last push failed, and whether SignalHub is trying again.</span></div><span class='sc look'><span class='ms'>info</span>Look</span></div>
+<div class='sgrp'>WORKING</div>
+<div class='srow ok'><span class='ms'>database</span><span class='nmx'>Database</span><div class='vl'>Connected. Events are being stored and read.</div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='srow ok'><span class='ms'>schedule_send</span><span class='nmx'>Events waiting to be pushed</span><div class='vl'>0 events waiting</div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='sgrp'>ACTIVITY</div>
+<div class='srow'><span class='ms c-var'>inbox</span><span class='nmx'>Last event received</span><div class='vl'>1 minute ago, from ci-pipeline: Build 1842 failed on main &middot; <a href='#x'>Open event</a></div></div>
+<div class='srow'><span class='ms c-var'>notifications</span><span class='nmx'>Last push sent</span><div class='vl'>None to show<span class='do'>No device's last push was accepted, so nothing has been delivered lately.</span></div></div>
+<div class='sgrp'>THIS SERVER</div>
+<div class='srow'><span class='ms c-var'>info</span><span class='nmx'>Version</span><div class='vl'>3.8.0 &middot; revision <span class='mono'>a1b2c3d</span></div></div>
+<div class='srow'><span class='ms c-var'>timer</span><span class='nmx'>Running since</span><div class='vl'><div class='need nsc'>Needs a server change: not available today (see ST1).</div></div></div>
+<div class='sfold'><span class='ms'>expand_more</span>Technical details</div>
+<div class='sfoot'>Nothing is changed on this page: settings are in the server's .env and take effect after a restart.</div></div></div></div></div></div>
+<p class='dv-onote'>The same page with a failing push service. The headline changes to “SignalHub needs attention” with a warning icon and says what still works (events are received and stored) and how many things to look at; each is a chip that scrolls to its row. The problem rows sit first, under a red heading with an icon, each with a red edge, an error icon and the words Needs attention, so colour is never the only cue. The rail's status button shows the same (a warning icon and the word Check), by the one rule written in the shell page's note. The row Events waiting to be pushed (events stored whose push has not been handed to the push service yet) stays Working here (0 events waiting). Both rows under Needs attention follow the rules below; the Devices row is a row warning, not part of the headline.</p>
+<p class='dv-onote'><b>When the page says Needs attention.</b> Any one of: the database check is down; no push service is set up; every device that has a push address failed its last push, with at least one such device (the push service is likely down); the events waiting to be pushed are above 20 and have not fallen over two checks in a row; pushes were given up since this page opened (the page remembers the count it saw when it opened: it is not a count since the server started); or a part could not be read. A single device's failure is never the headline: it is a row warning (“2 devices' last push failed”) with a link to Devices filtered to Push problems, drawn here under Worth a look. ST2 shows the third rule (3 of 3 devices with a push address failed) and the fifth (12 given up since the page opened).</p></div>
+<div class='dv-opt' id='ST4' data-screen-label='ST4 Status: technical details open' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#ST4'>ST4</a>Technical details open (the page scrolled to its end)</div>
+<div class='br h8'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#status</div></div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div><div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div><div class='ri'><span class='pill'><span class='ms'>sensors</span></span>Producers</div><div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div><div class='ri on'><span class='pill'><span class='ms fill'>monitor_heart</span></span>Status</div><div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div><span class='acct'><span class='av'>A</span></span></div></div>
+<div class='main'><div class='sbody'><div class='mhead'><h1>Status</h1><span class='cnt'>Checked 12:41</span><span class='sp'></span><span class='ib' aria-label='Refresh the status'><span class='ms'>refresh</span></span></div>
+<div class='sin'><div class='sgrp'>THIS SERVER</div>
+<div class='srow'><span class='ms c-var'>info</span><span class='nmx'>Version</span><div class='vl'>3.8.0 &middot; revision <span class='mono'>a1b2c3d</span><span class='do'>The whole revision is under Technical details.</span></div></div>
+<div class='srow'><span class='ms c-var'>delete_sweep</span><span class='nmx'>Event retention</span><div class='vl'>Events older than 365 days are deleted by themselves.</div></div>
+<div class='sfold'><span class='ms'>expand_less</span>Technical details<span class='sp'></span><span class='btn-x'><span class='ms'>content_copy</span>Copy</span></div>
+<div class='techbox'><div class='tech'>GET /q/health               status UP
+    Database connections health check    UP
+GET /q/info                 signalhub.version   3.8.0
+                            signalhub.revision  a1b2c3d4e5f60718293a4b5c6d7e8f9012345678
+GET /api/v1/admin/status    pushProviders          ["fcm"]
+                            pushClientOptions      "fcm"
+                            pendingDispatches      0
+                            pendingRetries         0
+                            abandonedRetries       0   (0 when this page opened)
+                            eventRetentionSeconds  31536000
+GET /api/v1/admin/clients   4 devices, 0 whose last push failed
+GET /api/v1/events?limit=1  newest event received 12:40:21
+
+Metrics for Prometheus are at /q/metrics on the server's own port.</div></div>
+<div class='sfoot'>Nothing is changed on this page: settings are in the server's .env and take effect after a restart.</div></div></div></div></div></div>
+<p class='dv-onote'>The fold holds everything the plain-language rows were made from: each endpoint with its raw check names and values, monospaced, so an operator can match them to a log, a monitor or a bug report. Copy puts the whole block on the clipboard (nothing in it is secret: no token, key or push address). The fold is closed by default and its open state is remembered only while the page is open. The given-up count is shown next to the value the page saw when it opened, which is what the Needs attention rule compares.</p></div>
+</div></section>
+    </x-dc>
+    <script type='text/x-dc' data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() {
+          return {};
+        }
+      }
+    </script>
+  </body>
+</html>
