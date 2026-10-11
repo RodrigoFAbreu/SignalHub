@@ -5883,7 +5883,7 @@ upgrade done by the documented steps keeps `/app/` working.
 
 ### R72 - Fixes and polish from the maintainer's testing of 3.6.0
 
-Status: queued, after R74. Added by the maintainer (2026-10-11), from testing the
+Status: next. Added by the maintainer (2026-10-11), from testing the
 app and the web page on 3.6.0.
 
 Goal: what the maintainer found while testing the users' app and web
