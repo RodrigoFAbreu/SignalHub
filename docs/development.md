@@ -1173,6 +1173,20 @@ checks without a browser that every file the page loads is served, with the poli
 headers, that no file names another server, and that the bundled QR encoder is
 the one the backend's pinned WebJar has.
 
+### The admin page
+
+The operator's page is plain HTML, CSS and ES modules in
+`backend/src/main/resources/META-INF/resources/admin/` (no build step, nothing to install; in dev
+mode an edit shows on reload), under the same rules as the users' page: every server value is text,
+no inline script or style, nothing from another server (its fonts and icons are the files
+`/app/fonts/` bundles), the token only in `js/api.js`'s memory. `AdminPageTest` checks every file it
+loads is served with the policy and what each module calls. `web-tests/tests/admin-*.spec.mjs` drive
+it in a headless browser the same way (sign-in, Status, Producers, Devices, the layout at 1440,
+1280, 1100 and 390 px, themes, reduced motion, focus); they sign in with `ADMIN_TOKEN`. Its frames
+are compared with the drawings without any server data:
+`SIGNALHUB_URL=http://localhost:8080 node visual/compare.mjs A P1 ST1 DV1` (`visual/admin-frames.mjs`
+serves the drawings' sample data in place of the management API).
+
 ### Comparing the page with its drawings
 
 The approved drawings are in `docs/design/users/source/` (`Web - *.dc.html`). To see

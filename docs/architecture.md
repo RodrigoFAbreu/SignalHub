@@ -1396,7 +1396,7 @@ connected and get ready for the next one:
   `null` unless `REDEEMED`. An asker that meets a state it does not know
   treats it as `PENDING`, so a state added later is compatible.
 - **Polling, not pushing.** The asker polls while it shows the code; the
-  admin page asks every 2.5 seconds. For one owner that costs a lookup by
+  admin page asks every 3 seconds. For one owner that costs a lookup by
   primary key now and then, and needs no connection held open.
 - **Kept long enough.** Redeeming no longer deletes a pairing: it is kept,
   used or not, until a pairing is created more than 10 minutes after it
@@ -1669,6 +1669,39 @@ reload or a bookmark opens it, and switching sections reads its list
 again. A reload asks for the admin token again, since the
 page keeps it only in memory; the fragment never reaches the server.
 
+**Layout.** The page is plain HTML, CSS and ES modules in
+`backend/src/main/resources/META-INF/resources/admin/` (no framework, no build step), in the
+users' design system with its light and dark themes (`prefers-color-scheme`) and the motion rules
+of [docs/design/users/DESIGN.md](design/users/DESIGN.md#9-the-admin-page-r73), drawn in
+`docs/design/users/source/Admin - *.dc.html`. The only screen without the rail is the **sign-in**:
+one field for the admin token, checked with the management API (`401` is a wrong token, `404` says
+the management API is off, anything else the server could not be reached), kept in the page's
+memory only and forgotten by *Sign out* in the account menu. A token that stops working in use
+(`401`) returns to the sign-in and, after it, to the same address. A navigation rail (a bottom bar
+at 390 px) has the five sections, a status button and the account menu. The status button follows
+one rule: every 30 seconds while the page is visible it reads `/api/v1/admin/status` and
+`/q/health` (and judges the device list when a section has read it) and shows *Working*, *Check*,
+*Checking* or *Unknown*. *Producers* and *Devices* are a table with a fixed 480 px detail pane,
+which below 1180 px is a side sheet and on a phone a screen of its own; forms and confirmations
+are dialogs, never the browser's `confirm()` and `prompt()`; a change is confirmed in words and
+never offers Undo. The filters and the open item are kept in the address
+(`#producers/<id>?f=quiet&q=text`). Its fonts and icons are the files the users' page bundles
+under `/app/fonts/`, so nothing is fetched from another server. *Events* and *Users* keep their
+earlier content inside the shell until they are rebuilt (R79).
+
+**Status** reads `/q/info`, `/q/health`, `/api/v1/admin/status` (its `startedAt` is *Running since*),
+the device list and the newest event, and says *SignalHub needs attention* when the database is
+down, no push service is set up, every device with a push address failed its last push, the events
+waiting to be pushed are above 20 and did not fall over two checks, retries were given up since
+the page was opened, or a part could not be read. One device's failure is a row warning that links
+to Devices with *Push problems* chosen. It changes nothing.
+
+**Producers** lists every producer (search, chips and an owner menu), and its pane renames it,
+issues and revokes keys (shown once, in a dialog), makes it public or private (to private after a
+question), adds and removes allowed users, and disables and enables it; a disabled producer says
+whether its owner or the host disabled it (`disabledBy`). **Devices** also lists the open pairing
+codes (never a code) and cancels one.
+
 **Devices.** After the operator types the
 admin token, it shows every client, revoked or not: its name, its user and
 their role, whether it is an admin device, when it was created or revoked,
@@ -1689,12 +1722,12 @@ have no delete: they must be revoked first.
 **Connect a device** creates a pairing for a device name and a user (chosen
 from the users who are not revoked; the device is an admin device when the
 user is an admin), and shows the pairing URI as a QR code, counts down to its
-expiry and blurs the code once it has expired. It copies the QR code as an
+expiry and fades the code once it has expired. It copies the QR code as an
 image or the URI as text, or downloads the image, so the code can be sent to
 someone whose device should connect. While the code is shown, the page asks
-every 2.5 seconds whether it was used
+every 3 seconds whether it was used
 ([Whether a code was used](#whether-a-code-was-used)), and once more when it
-expires. Once a device has used it, a toast says that the device (by name)
+expires. Once a device has used it, the dialog says that the device (by name)
 connected with the pairing code, the QR code and the link disappear, the
 form goes back to its first state (the device name and _Create pairing
 code_) and the device list is read again, showing the new device. An

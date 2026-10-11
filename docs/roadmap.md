@@ -2640,6 +2640,37 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   admin page and the API are unchanged
 - web page only, so a minor release (`feat`)
 
+### R78 - The admin page: the new layout, signing in, Status, Producers and Devices
+
+- the admin page is rebuilt as drawn (shell A): plain HTML, CSS and ES
+  modules in `admin/` (the one `admin.js` is gone), in the users' design
+  system with light and dark themes and reduced motion; a navigation rail
+  (a bottom bar at 390 px) with the status button (one rule, read every
+  30 seconds while the page is visible: `model.js`, `signal.js`), the
+  account menu and *Sign out*, the section and the open item kept in the
+  address with the filters; a fixed detail pane that is a side sheet below
+  1180 px and a screen of its own on a phone; fonts and icons are the
+  files `/app/fonts/` bundles (the policy gains `font-src 'self'`)
+- signing in with the admin token, every state drawn (wrong, off, not
+  reachable, waiting, signed out, session lost, and the phone), the token
+  kept in memory only
+- *Status* with the confirmed "needs attention" rules and *Running since*
+  (`startedAt`); *Producers* (list, chips, pane, New producer, the key shown
+  once, issue and revoke, disable and enable with *by its owner / the
+  host*, rename, public or private, the allow-list) and *Devices* (list,
+  pane, push words, Connect a device with its pairing code, the open codes
+  listed and cancelled, rename, revoke, delete), with their dialogs,
+  states and phone frames; *Events* and *Users* work inside the new shell
+  with their earlier content (R79 rebuilds them); *See its events* opens
+  Events filtered to a producer
+- `AdminPageTest`, headless browser tests in `web-tests/tests/admin-*.spec.mjs`
+  and the drawings' frames in `web-tests/visual/admin-frames.mjs`
+- deliberate differences: ids in the address are UUIDs, not names; snack
+  bars last 8 s (DESIGN.md R3); the open pairing codes are a block above the
+  Devices table (not drawn); the drawings' frames not yet in
+  `admin-frames.mjs` were checked by eye
+- the admin page only, so a minor release (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -3238,8 +3269,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 67    | R75 - Small additions to the admin API for the admin page                                        | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 68    | R76 - The events list: a total count, and how each event's pushes went                           | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 69    | R77 - The web page's New producer button                                                         | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Next                                                                             |
-| 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Queued (after R78)                                                               |
+| 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3820,6 +3851,7 @@ advance; they follow from the queue.
 | R75           | minor (`feat`)                                                                                                                                        | additions to the admin API: open pairings and cancelling one, renaming a producer, `disabledBy`, `startedAt`, `final` |
 | R76           | minor (`feat`)                                                                                                                                        | additions to the events listing with the admin token: `total` and each event's `push`, and a `push` filter  |
 | R77           | minor (`feat`)                                                                                                                                        | the web page's New producer button in the list header; no API change                                       |
+| R78           | minor (`feat`)                                                                                                                                        | the admin page's new layout, signing in, Status, Producers and Devices; no API change                       |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6243,7 +6275,7 @@ Non-goals: the app (its *New producer* stays as it is); the admin page.
 
 ### R78 - The admin page: the new layout, signing in, Status, Producers and Devices
 
-Status: next. Added at the maintainer's approval of the
+Status: complete (see section 3). Added at the maintainer's approval of the
 admin page designs (G6, 2026-10-11).
 
 Goal: the operator's admin page is rebuilt as approved: the navigation
@@ -6287,7 +6319,7 @@ approved flows of these sections at desktop width and at 390 px.
 
 ### R79 - The admin page: Events and Users
 
-Status: queued (after R78). Added at the maintainer's approval of the
+Status: next. Added at the maintainer's approval of the
 admin page designs (G6, 2026-10-11).
 
 Goal: the admin page's *Events* and *Users* sections are rebuilt as
@@ -6463,8 +6495,9 @@ go-ahead at G5, and R73 (designs for the admin page and the web page's
 G6, and R75 to R79 were queued. R75 (small additions to the admin API
 for the admin page) is done, and so is R76 (the events list's total count
 and how each event's pushes went), and so is R77 (the web page's New
-producer button). **Next is R78 (the admin page: the new layout, signing
-in, Status, Producers and Devices), then R79; the queue ends after R79.** A new item is added only by the maintainer, in a reviewed pull
+producer button), and so is R78 (the admin page's new layout, signing in,
+Status, Producers and Devices). **Next is R79 (the admin page: Events and
+Users); the queue ends after R79.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 
