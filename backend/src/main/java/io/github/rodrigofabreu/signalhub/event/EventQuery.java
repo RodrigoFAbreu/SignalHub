@@ -26,6 +26,10 @@ import java.util.UUID;
  * @param userId only events of the producers this user stands in {@code relation} to (the
  *     operator's listing only)
  * @param relation which producers of {@code userId}: owned, subscribed to, or either when empty
+ * @param push only events whose pushes went as one of these summaries say (the operator's listing
+ *     only)
+ * @param total whether to count every matching event, not just fill a page (the operator's listing
+ *     only)
  * @param after position to continue after, from a previous page's cursor
  */
 record EventQuery(
@@ -37,6 +41,8 @@ record EventQuery(
     Optional<Instant> createdBefore,
     Optional<UUID> userId,
     Optional<UserRelation> relation,
+    Set<PushSummary> push,
+    boolean total,
     Optional<EventCursor> after,
     int limit) {
 
@@ -47,6 +53,7 @@ record EventQuery(
     producerIds = Set.copyOf(producerIds);
     categories = Set.copyOf(categories);
     severities = Set.copyOf(severities);
+    push = Set.copyOf(push);
   }
 
   /**
@@ -63,6 +70,8 @@ record EventQuery(
       String createdBefore,
       String userId,
       String relation,
+      List<String> push,
+      String total,
       String cursor,
       String limit) {
     var problems = new ArrayList<ApiError.Violation>();
@@ -71,7 +80,7 @@ record EventQuery(
             parseAll("producerId", producerIds, EventQuery::parseUuid, problems),
             parseEnums("category", categories, Category.class, problems),
             parseEnums("severity", severities, Severity.class, problems),
-            parseRead(read, problems),
+            parseBoolean("read", read, problems),
             parseTimestamp("createdFrom", createdFrom, problems),
             parseTimestamp("createdBefore", createdBefore, problems),
             parseAll(
@@ -88,6 +97,8 @@ record EventQuery(
                     problems)
                 .stream()
                 .findFirst(),
+            parseEnums("push", push, PushSummary.class, problems),
+            parseBoolean("total", total, problems).orElse(false),
             parseCursor(cursor, problems),
             parseLimit(limit, problems));
     if (!problems.isEmpty()) {
@@ -145,7 +156,8 @@ record EventQuery(
     }
   }
 
-  private static Optional<Boolean> parseRead(String text, List<ApiError.Violation> problems) {
+  private static Optional<Boolean> parseBoolean(
+      String field, String text, List<ApiError.Violation> problems) {
     if (text == null) {
       return Optional.empty();
     }
@@ -154,7 +166,7 @@ record EventQuery(
       case "true" -> Optional.of(true);
       case "false" -> Optional.of(false);
       default -> {
-        problems.add(new ApiError.Violation("read", "must be true or false"));
+        problems.add(new ApiError.Violation(field, "must be true or false"));
         yield Optional.empty();
       }
     };

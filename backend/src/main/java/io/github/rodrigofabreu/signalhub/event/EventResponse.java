@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.event;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonRawValue;
 import java.time.Instant;
 import java.util.UUID;
@@ -54,7 +55,14 @@ public record EventResponse(
                     + " Always null in a producer's response.",
             examples = "2026-09-25T12:10:44.019273Z",
             nullable = true)
-        Instant readAt) {
+        Instant readAt,
+    @Schema(
+            description =
+                "How the event's pushes went, from its delivery records (see the event's"
+                    + " deliveries). Only in the admin token's event listing; absent everywhere"
+                    + " else.")
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        PushSummary push) {
 
   @Schema(name = "EventProducer", description = "The producer that published an event.")
   public record Producer(

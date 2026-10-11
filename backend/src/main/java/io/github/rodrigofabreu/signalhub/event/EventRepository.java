@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
@@ -26,67 +27,12 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
    */
   List<EventEntity> find(
       EventQuery query, int count, Optional<Viewer> viewer, Optional<Set<UUID>> userProducerIds) {
-    if (viewer.isPresent() && viewer.get().producerIds().isEmpty()) {
+    var filter = Filter.of(query, viewer, userProducerIds);
+    if (filter.isEmpty()) {
       return List.of();
     }
-    if (userProducerIds.isPresent() && userProducerIds.get().isEmpty()) {
-      return List.of();
-    }
-    var conditions = new ArrayList<String>();
-    var parameters = new HashMap<String, Object>();
-    viewer.ifPresent(
-        v -> {
-          // Only events of the producers the viewer's user is subscribed to.
-          conditions.add("producerId in :viewerProducers");
-          parameters.put("viewerProducers", v.producerIds());
-        });
-    userProducerIds.ifPresent(
-        ids -> {
-          // The operator's per-user view: the producers a user owns or is subscribed to.
-          conditions.add("producerId in :userProducers");
-          parameters.put("userProducers", ids);
-        });
-    if (!query.producerIds().isEmpty()) {
-      conditions.add("producerId in :producerIds");
-      parameters.put("producerIds", query.producerIds());
-    }
-    if (!query.categories().isEmpty()) {
-      conditions.add("category in :categories");
-      parameters.put("categories", query.categories());
-    }
-    if (!query.severities().isEmpty()) {
-      conditions.add("severity in :severities");
-      parameters.put("severities", query.severities());
-    }
-    query
-        .read()
-        .ifPresent(
-            read -> {
-              viewer.ifPresent(v -> parameters.put("viewerUser", v.userId()));
-              conditions.add(
-                  viewer.isPresent()
-                      // A user's read state is theirs alone.
-                      ? (read ? "exists " : "not exists ")
-                          + "(select 1 from EventReadEntity r where r.id.eventId = e.id"
-                          + " and r.id.userId = :viewerUser)"
-                      // Literal predicates: "read_at is null" is the one the partial index of V6
-                      // matches.
-                      : (read ? "readAt is not null" : "readAt is null"));
-            });
-    query
-        .createdFrom()
-        .ifPresent(
-            from -> {
-              conditions.add("createdAt >= :createdFrom");
-              parameters.put("createdFrom", from);
-            });
-    query
-        .createdBefore()
-        .ifPresent(
-            before -> {
-              conditions.add("createdAt < :createdBefore");
-              parameters.put("createdBefore", before);
-            });
+    var conditions = filter.conditions();
+    var parameters = filter.parameters();
     query
         .after()
         .ifPresent(
@@ -104,6 +50,128 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
                 NEWEST_FIRST,
                 parameters);
     return matching.range(0, count - 1).list();
+  }
+
+  /**
+   * How many events match the query's filters, ignoring its cursor and limit. Counts the matching
+   * rows, so it costs more the more events match: the listing runs it only when asked.
+   */
+  long countListed(EventQuery query, Optional<Viewer> viewer, Optional<Set<UUID>> userProducerIds) {
+    var filter = Filter.of(query, viewer, userProducerIds);
+    if (filter.isEmpty()) {
+      return 0;
+    }
+    return filter.conditions().isEmpty()
+        ? count()
+        : count(
+            "from EventEntity e where " + String.join(" and ", filter.conditions()),
+            filter.parameters());
+  }
+
+  /** The delivery records of the events, for their push summaries. */
+  List<PushSummary.Record> deliveryRecords(Collection<UUID> eventIds) {
+    return getEntityManager()
+        .createQuery(
+            "select d.eventId, d.clientId, d.attempt, d.outcome from EventDeliveryEntity d"
+                + " where d.eventId in :ids",
+            Object[].class)
+        .setParameter("ids", eventIds)
+        .getResultList()
+        .stream()
+        .map(
+            row ->
+                new PushSummary.Record(
+                    (UUID) row[0],
+                    (UUID) row[1],
+                    ((Number) row[2]).intValue(),
+                    DeliveryOutcome.valueOf((String) row[3])))
+        .toList();
+  }
+
+  /** Which of the events still wait in the push outbox. */
+  List<UUID> pendingPushes(Collection<UUID> eventIds) {
+    return getEntityManager()
+        .createQuery(
+            "select p.eventId from PushDispatchEntity p where p.eventId in :ids", UUID.class)
+        .setParameter("ids", eventIds)
+        .getResultList();
+  }
+
+  /**
+   * The conditions of a listing's filters and their parameters, without the cursor. Empty if no
+   * event can match.
+   */
+  private record Filter(boolean isEmpty, List<String> conditions, Map<String, Object> parameters) {
+
+    static Filter of(
+        EventQuery query, Optional<Viewer> viewer, Optional<Set<UUID>> userProducerIds) {
+      var conditions = new ArrayList<String>();
+      var parameters = new HashMap<String, Object>();
+      if ((viewer.isPresent() && viewer.get().producerIds().isEmpty())
+          || (userProducerIds.isPresent() && userProducerIds.get().isEmpty())) {
+        return new Filter(true, conditions, parameters);
+      }
+      viewer.ifPresent(
+          v -> {
+            // Only events of the producers the viewer's user is subscribed to.
+            conditions.add("producerId in :viewerProducers");
+            parameters.put("viewerProducers", v.producerIds());
+          });
+      userProducerIds.ifPresent(
+          ids -> {
+            // The operator's per-user view: the producers a user owns or is subscribed to.
+            conditions.add("producerId in :userProducers");
+            parameters.put("userProducers", ids);
+          });
+      if (!query.producerIds().isEmpty()) {
+        conditions.add("producerId in :producerIds");
+        parameters.put("producerIds", query.producerIds());
+      }
+      if (!query.categories().isEmpty()) {
+        conditions.add("category in :categories");
+        parameters.put("categories", query.categories());
+      }
+      if (!query.severities().isEmpty()) {
+        conditions.add("severity in :severities");
+        parameters.put("severities", query.severities());
+      }
+      query
+          .read()
+          .ifPresent(
+              read -> {
+                viewer.ifPresent(v -> parameters.put("viewerUser", v.userId()));
+                conditions.add(
+                    viewer.isPresent()
+                        // A user's read state is theirs alone.
+                        ? (read ? "exists " : "not exists ")
+                            + "(select 1 from EventReadEntity r where r.id.eventId = e.id"
+                            + " and r.id.userId = :viewerUser)"
+                        // Literal predicates: "read_at is null" is the one the partial index of V6
+                        // matches.
+                        : (read ? "readAt is not null" : "readAt is null"));
+              });
+      query
+          .createdFrom()
+          .ifPresent(
+              from -> {
+                conditions.add("createdAt >= :createdFrom");
+                parameters.put("createdFrom", from);
+              });
+      query
+          .createdBefore()
+          .ifPresent(
+              before -> {
+                conditions.add("createdAt < :createdBefore");
+                parameters.put("createdBefore", before);
+              });
+      if (!query.push().isEmpty()) {
+        conditions.add(
+            query.push().stream()
+                .map(PushPredicates::of)
+                .collect(Collectors.joining(" or ", "(", ")")));
+      }
+      return new Filter(false, conditions, parameters);
+    }
   }
 
   /** Whose events a listing is limited to: a user, and the producers they are subscribed to. */
@@ -195,7 +263,7 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
 
   /** How many events match the filter; an absent bound does not restrict. */
   long countMatching(Optional<UUID> producerId, Optional<Instant> createdBefore) {
-    var filter = Filter.of(producerId, createdBefore);
+    var filter = DeleteFilter.of(producerId, createdBefore);
     return count(filter.query(), filter.parameters());
   }
 
@@ -204,12 +272,12 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
    * keys of {@code push_dispatches} and {@code push_retries} cascade); returns how many.
    */
   long deleteMatching(Optional<UUID> producerId, Optional<Instant> createdBefore) {
-    var filter = Filter.of(producerId, createdBefore);
+    var filter = DeleteFilter.of(producerId, createdBefore);
     return delete(filter.query(), filter.parameters());
   }
 
-  private record Filter(String query, Map<String, Object> parameters) {
-    static Filter of(Optional<UUID> producerId, Optional<Instant> createdBefore) {
+  private record DeleteFilter(String query, Map<String, Object> parameters) {
+    static DeleteFilter of(Optional<UUID> producerId, Optional<Instant> createdBefore) {
       var conditions = new ArrayList<String>();
       var parameters = new HashMap<String, Object>();
       producerId.ifPresent(
@@ -226,7 +294,7 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
         // Never "every event" by accident: a filter always restricts.
         throw new IllegalArgumentException("A filter needs a producer or a time");
       }
-      return new Filter(String.join(" and ", conditions), parameters);
+      return new DeleteFilter(String.join(" and ", conditions), parameters);
     }
   }
 
