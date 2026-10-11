@@ -1,4 +1,4 @@
-import { createPerson, createProducer, publish, unique } from "../support/server.mjs";
+import { createPerson, createProducer, unique } from "../support/server.mjs";
 import { adminSignIn, expect, test } from "../support/page.mjs";
 
 const SECTIONS = ["#devices", "#users", "#producers", "#events", "#status"];
@@ -271,7 +271,7 @@ test.describe("themes and motion", () => {
   });
 });
 
-test.describe("Events and Users keep working in the new shell", () => {
+test.describe("Users keeps working in the new shell", () => {
   test("Users lists the users with their devices and producers, and Connect a device opens the new dialog with the user chosen", async ({ page }) => {
     const person = await createPerson("MOD");
     await adminSignIn(page, "#users");
@@ -286,25 +286,5 @@ test.describe("Events and Users keep working in the new shell", () => {
     await page.getByLabel("Name", { exact: true }).fill(unique("invited"));
     await page.getByRole("button", { name: "Invite user" }).click();
     await expect(page.locator("#user-list li").first()).toBeVisible();
-  });
-
-  test("Events lists events, opens one at #events/<id>, and a producer's pane links to its events", async ({ page }) => {
-    const person = await createPerson("BASIC");
-    const producer = await createProducer(person, unique("events"), "PUBLIC");
-    const title = unique("An event");
-    const sent = await publish(producer, { title });
-    await adminSignIn(page, "#events");
-    await expect(page.getByRole("heading", { name: "Events", level: 1 })).toBeVisible();
-    await expect(page.locator("#event-list").getByText(title)).toBeVisible();
-    await page.locator("#event-list").getByRole("link", { name: title }).click();
-    await expect(page).toHaveURL(new RegExp(`#events/${sent.id}$`));
-    await expect(page.locator("#event-title")).toHaveText(title);
-    await page.evaluate((hash) => {
-      location.hash = hash;
-    }, `#producers/${producer.id}`);
-    await page.getByRole("link", { name: "See its events" }).click();
-    await expect(page.getByRole("heading", { name: "Events", level: 1 })).toBeVisible();
-    await expect(page.locator("#filter-producer")).toHaveValue(producer.id);
-    await expect(page.locator("#event-list").getByText(title)).toBeVisible();
   });
 });

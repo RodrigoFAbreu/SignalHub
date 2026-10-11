@@ -1686,8 +1686,31 @@ which below 1180 px is a side sheet and on a phone a screen of its own; forms an
 are dialogs, never the browser's `confirm()` and `prompt()`; a change is confirmed in words and
 never offers Undo. The filters and the open item are kept in the address
 (`#producers/<id>?f=quiet&q=text`). Its fonts and icons are the files the users' page bundles
-under `/app/fonts/`, so nothing is fetched from another server. *Events* and *Users* keep their
-earlier content inside the shell until they are rebuilt (R79).
+under `/app/fonts/`, so nothing is fetched from another server. *Users* keeps its earlier content
+inside the shell until it is rebuilt (R79).
+
+**Events** is a dense table of the events, newest first and 25 a page by the listing's own cursor
+(*Older* and *Newer* go back through the cursors already read; on a phone the older events are
+added under the first page), with the total from `total=true` (“25 of 1,284”). It has no sort and no
+search: the API has none. Its filter chips are *Read state*, *Severity*, *Push problems*
+(`push=FAILED&push=GAVE_UP`), *Producer*, *Category*, *User* (with *Their producers* once a user is
+chosen) and *Received* (a from and a before day, midnight in the browser's time zone); *Severity*,
+*Category* and *Producer* take several values, in a panel of checkboxes applied when it closes. A
+chosen filter is in the address (`#events?severity=HIGH,CRITICAL&read=false&producer=<id>`, and
+`#events/<id>` for the open event), every value checked against what the page offers before it
+becomes a request. A row with an unread dot, its category icon coloured by severity, the severity
+as a word with an icon, and a *Push problems* marker when the event's `push` summary is `FAILED` or
+`GAVE_UP`. Ticking rows (the checkbox, or Space; a long press on a phone) turns the chips into a
+bulk bar (count, *Select all on this page*, *Mark read*, *Delete*); the bar never reaches beyond the
+page. The fixed detail pane has an *Event* tab (what was sent, the link shown by its host and
+opened only by the operator in a new tab, the facts, the metadata as the producer sent it) and a
+*Pushes* tab: the users the event reached, and one line per device in plain words (*Sent*,
+*Waiting for a retry*, *Gave up after N tries* only when the delivery record's `final` marker says
+so, *Refused*, *Failed*, *Not sent* with its reason), the codes and ids only under *Technical
+details*. Its foot marks the event read or unread (the operator's own state) and deletes it after a
+question. The header's *Send a test event* and the *More* menu's *Delete events by rule…* are
+dialogs (full screens on a phone); a rule is counted by a dry run first and deleted only after the
+count is confirmed. A refresh that fails keeps the older list under a banner.
 
 **Status** reads `/q/info`, `/q/health`, `/api/v1/admin/status` (its `startedAt` is *Running since*),
 the device list and the newest event, and says *SignalHub needs attention* when the database is

@@ -1,452 +1,912 @@
-// Events, as the admin page showed them before the next item rebuilds this section: a page at a time,
-// filtered, an event opened at #events/<id> to read it, see how its push went to each device and mark
-// it read or unread, deleting one, a selection, or a producer's or older events after a confirmation
-// with their count, and sending a test event as a producer. Names and event contents come from the
-// server and are always set as text, never as HTML; an event's link is only ever opened by the
-// operator, in a new tab, never followed by the page.
+// Events: a dense table of what the producers sent, newest first, a page of 25 at a time, with filter
+// chips and a fixed detail pane for the selected event. The listing is read by the management API's
+// own cursor and filters (no search, no sort), so a filter starts over from the newest page and
+// Newer goes back through the pages already read. A chosen filter and the open event are in the
+// address. Everything the server sends is set as text.
 
-import { ADMIN_EVENTS, DELETE_EVENTS, EVENTS, PRODUCERS, USERS, call } from "./api.js";
-import { ID as EVENT_ID } from "./router.js";
-import { $, LABELS, ROLES, ago, button, element, hideLegacy, outcome, showError, showLegacy, time, toast } from "./legacy.js";
+import { DELETE_EVENTS, EVENTS, PRODUCERS, STATUS, SessionEnded, call } from "./api.js";
+import { el, icon } from "./dom.js";
+import { deleteByRule, eventCount, sendTestEvent } from "./event-dialogs.js";
+import { CATEGORIES, READ_STATES, RELATIONS, SEVERITIES, categoryOf, describe, emptyFilters, filterCount, fromQuery, isFiltered, rangeText, severityOf, toApi, toQuery, valuesText } from "./event-filters.js";
+import { createEventPane, severityChip } from "./event-pane.js";
+import { clock, duration, shortDate } from "./format.js";
+import { ID, go, hashFor, keepAddress } from "./router.js";
+import { setDetailOpen } from "./shell.js";
+import { loadClients, loadUsers } from "./store.js";
+import { announce, banner, button, checkRow, chip, confirmDialog, emptyState, iconButton, openDialog, openMenu, openPanel, phone, skeletonRows, snack, textField } from "./ui.js";
 
-const EVENT_PAGE = 25;
-// The listing's filters, by the field that sets each; the same as the app's inbox.
-const EVENT_FILTERS = {
-  producerId: "filter-producer",
-  category: "filter-category",
-  severity: "filter-severity",
-  userId: "filter-user",
-  relation: "filter-relation",
-  read: "filter-read",
-};
-// The server accepts only these schemes; checked again so no other link is ever made clickable.
-const WEB_LINK = /^https?:\/\//i;
+const PAGE = 25;
+const REFRESH_MS = 30_000;
+const LONG_PRESS_MS = 500;
 
-// The cursor of each events page read so far, the first page having none, and the next one's.
-let eventPages = [null];
-let nextEventCursor = null;
-let shownEvent = null;
-// The users, for the user filter.
+/** 3 min, 2 h, then the day: the table's Received column. */
+function received(iso, now = Date.now()) {
+  const age = Math.max(0, now - Date.parse(iso));
+  if (age < 60_000) return "now";
+  if (age < 3_600_000) return `${Math.round(age / 60_000)} min`;
+  if (age < 86_400_000) return `${Math.round(age / 3_600_000)} h`;
+  return shortDate(iso);
+}
+
+const number = (value) => value.toLocaleString("en");
+
+// ---- State ---------------------------------------------------------------------------------------
+
+let host = null;
+let nodes = null;
+let pane = null;
+let filters = emptyFilters();
+let selectedId = null;
+// The cursor of each page read so far, the first having none; the last is the page shown.
+let cursors = [null];
+let items = null;
+let nextCursor = null;
+let total = null;
+let loadedAt = null;
+let failure = null;
+let loading = false;
+let ticked = new Set();
+let timer = null;
+let sequence = 0;
+let restoreFocus = null;
+let pressTimer = null;
+let swallowClick = false;
+// Whether older events were added under the first page (a phone): a refresh would drop them.
+let appended = false;
+// What the filters and the dialogs offer: read when the section opens.
+let producers = [];
 let users = [];
-// The IDs of the events ticked on the page shown; a page read again starts with none.
-let selected = new Set();
+let retention = null;
 
-async function loadUsers() {
-  users = (await call("GET", USERS)).items;
+const names = {
+  producer: (id) => producers.find((item) => item.id === id)?.name ?? "a producer",
+  user: (id) => users.find((item) => item.id === id)?.name ?? "a user",
+};
+
+const query = () => toQuery(filters);
+const addressFor = (id) => hashFor("events", id, query());
+
+// ---- Reading -------------------------------------------------------------------------------------
+
+function listParams(cursor) {
+  const params = toApi(filters);
+  params.set("limit", String(PAGE));
+  params.set("total", "true");
+  if (cursor) params.set("cursor", cursor);
+  return params;
 }
 
-$("refresh-events").addEventListener("click", () => refreshEvents());
-
-for (const id of Object.values(EVENT_FILTERS)) {
-  // Other filters, other events: back to the newest page.
-  $(id).addEventListener("change", () => {
-    eventPages = [null];
-    refreshEvents();
-  });
-}
-$("older-events").addEventListener("click", () => {
-  eventPages.push(nextEventCursor);
-  refreshEvents();
-});
-$("newer-events").addEventListener("click", () => {
-  eventPages.pop();
-  refreshEvents();
-});
-$("toggle-read").addEventListener("click", () => toggleRead());
-$("delete-event").addEventListener("click", () => deleteShownEvent());
-$("refresh-deliveries").addEventListener("click", () => {
-  if (shownEvent) refreshDeliveries(shownEvent.id);
-});
-$("delete-selected").addEventListener("click", () => deleteSelected());
-$("delete-events").addEventListener("submit", (event) => {
-  event.preventDefault();
-  deleteMatching();
-});
-$("send-event").addEventListener("submit", (event) => {
-  event.preventDefault();
-  sendTestEvent();
-});
-
-// The list, or one event when the address names one. Producers links here with ?producer=<id>, to
-// see that producer's events.
-async function showEvents(eventId, producerId) {
-  const one = EVENT_ID.test(eventId || "");
-  $("event-browser").hidden = one;
-  $("event-details").hidden = !one;
-  if (one) return openEvent(eventId);
-  await refreshProducerChoices();
-  const choice = $("filter-producer");
-  if (EVENT_ID.test(producerId || "") && [...choice.options].some((option) => option.value === producerId)) {
-    choice.value = producerId;
-    eventPages = [null];
+/** Reads the page shown again. `first` starts over from the newest page. */
+async function reload({ first = false } = {}) {
+  if (!nodes) return;
+  if (first) {
+    cursors = [null];
+    ticked = new Set();
   }
-  return refreshEvents();
-}
-
-async function refreshEvents() {
-  showError("events-error", null);
-  // Until this page is in, so a second click cannot step twice from the same one.
-  $("older-events").disabled = true;
-  $("newer-events").disabled = true;
-  selected = new Set();
-  showSelection();
-  const query = new URLSearchParams({ limit: String(EVENT_PAGE) });
-  // Which of a user's producers means nothing without the user.
-  $("filter-relation").disabled = !$("filter-user").value;
-  for (const [name, id] of Object.entries(EVENT_FILTERS)) {
-    if ($(id).value && !$(id).disabled) query.set(name, $(id).value);
-  }
-  const cursor = eventPages[eventPages.length - 1];
-  if (cursor) query.set("cursor", cursor);
+  const mine = ++sequence;
+  loading = true;
+  appended = false;
+  paintHead();
+  paintTable();
   try {
-    const page = await call("GET", `${EVENTS}?${query}`);
-    nextEventCursor = page.nextCursor;
-    renderEvents(page.items);
-  } catch (e) {
-    nextEventCursor = null;
-    $("event-list").replaceChildren();
-    showError("events-error", e.message);
+    const page = await call("GET", `${EVENTS}?${listParams(cursors.at(-1))}`);
+    if (mine !== sequence || !nodes) return;
+    items = page.items;
+    nextCursor = page.nextCursor;
+    total = page.total ?? null;
+    failure = null;
+    loadedAt = new Date();
+    // What was ticked stays ticked only while the event is on the page.
+    const present = new Set(items.map((item) => item.id));
+    ticked = new Set([...ticked].filter((id) => present.has(id)));
+    const shown = items.find((item) => item.id === selectedId);
+    if (shown) pane?.follow(shown);
+  } catch (error) {
+    if (mine !== sequence || !nodes || error.name === "SessionEnded" || error instanceof SessionEnded) return;
+    failure = error;
   }
-  $("older-events").disabled = !nextEventCursor;
-  $("newer-events").disabled = eventPages.length === 1;
+  loading = false;
+  paintAll();
 }
 
-// The producer filter and the Delete events form offer every producer, and the test event every
-// enabled one, keeping the one chosen.
-async function refreshProducerChoices() {
-  let producers;
-  try {
-    producers = (await call("GET", PRODUCERS)).items;
-    await loadUsers();
-  } catch {
-    return; // The filter keeps what it had; the list says what went wrong, if anything did.
-  }
-  for (const [id, none, offered] of [
-    ["filter-producer", "All producers", producers],
-    ["delete-producer", "Any producer", producers],
-    // A disabled producer could not publish the event itself, so the server refuses it.
-    ["send-producer", "Choose a producer", producers.filter((p) => !p.disabledAt)],
-    // Revoked users keep their events, so the operator can still look at them.
-    ["filter-user", "All users", users],
-  ]) {
-    const select = $(id);
-    const chosen = select.value;
-    const options = offered.map((p) => new Option(p.revokedAt ? `${p.name} (revoked)` : p.name, p.id));
-    select.replaceChildren(new Option(none, ""), ...options);
-    select.value = offered.some((p) => p.id === chosen) ? chosen : "";
-  }
+async function readLookups() {
+  const results = await Promise.allSettled([call("GET", PRODUCERS), loadUsers(), loadClients(), call("GET", STATUS)]);
+  if (!nodes) return;
+  if (results[0].status === "fulfilled") producers = results[0].value.items;
+  if (results[1].status === "fulfilled") users = results[1].value;
+  if (results[3].status === "fulfilled") retention = results[3].value.eventRetentionSeconds ?? null;
+  paintChips();
+  paintTable();
+  paintHead();
 }
 
-function renderEvents(events) {
-  const list = $("event-list");
-  list.replaceChildren(...events.map(eventCard));
-  if (events.length === 0) list.append(element("li", "empty", "No events."));
+// ---- Building ------------------------------------------------------------------------------------
+
+function build() {
+  const count = el("span", { class: "cnt", "aria-live": "polite" });
+  const stamp = el("span", { class: "cnt small keep" });
+  const refresh = iconButton("refresh", "Refresh", () => reload());
+  const send = button("Send a test event", { kind: "tonal", glyph: "science", onClick: () => openSend(), className: "primary" });
+  const more = iconButton("more_vert", "More", () => openMore(more));
+  const head = el("div", { class: "mhead" }, el("h1", { text: "Events", tabindex: "-1" }), count, el("span", { class: "sp" }), stamp, refresh, send, more);
+  const phoneBar = el("div", { class: "phone-actions" });
+  const chips = el("div", { class: "fchips", role: "group", "aria-label": "Filter events" });
+  const tools = el("div", { class: "tools" }, chips);
+  const bulk = el("div", { class: "bulk", role: "toolbar", "aria-label": "Selected events", hidden: true });
+  const bar = el("div", { class: "prog", role: "progressbar", "aria-label": "Loading events", hidden: true });
+  const slot = el("div", { class: "banner-slot" });
+  const table = el("div", { class: "tbl" });
+  const pager = el("div", { class: "pgr" });
+  const left = el("div", { class: "left" }, head, phoneBar, tools, bulk, bar, slot, table, pager);
+  const scrim = el("div", { class: "sheet-scrim", hidden: true, on: { click: () => closePane() } });
+  const prompt = el("div", { class: "pane prompt" }, emptyState({ glyph: "inbox", title: "Select an event", body: "Its message, link, metadata and how its push went show here." }));
+  const cols = el("div", { class: "cols ev" }, left, scrim, pane.node, prompt);
+  return { count, stamp, refresh, send, more, head, phoneBar, chips, tools, bulk, bar, slot, table, pager, scrim, prompt, left, cols };
 }
 
-function eventCard(event) {
-  const item = element("li", event.readAt ? "event" : "event unread");
-  const title = element("h3");
-  const box = element("input");
-  box.type = "checkbox";
-  box.setAttribute("aria-label", `Select "${event.title}"`);
-  box.addEventListener("change", () => {
-    if (box.checked) selected.add(event.id);
-    else selected.delete(event.id);
-    showSelection();
+// ---- Painting ------------------------------------------------------------------------------------
+
+function paintAll() {
+  paintHead();
+  paintChips();
+  paintBulk();
+  paintTable();
+  paintPager();
+  paintPane();
+}
+
+function countText() {
+  if (items === null) return failure ? "Not loaded" : "Loading…";
+  if (total === 0 || items.length === 0) return "0 events";
+  if (total !== null) {
+    const base = items.length === total && cursors.length === 1 ? eventCount(total) : `${number(items.length)} of ${number(total)}`;
+    return `${base} · Newest first`;
+  }
+  return items.length === 0 ? "0 events" : "Newest first";
+}
+
+function stampText() {
+  if (items === null) return failure ? "Not updated" : "";
+  if (failure) return `Not updated since ${clock(loadedAt)}`;
+  return loading ? "Updating…" : `Updated ${clock(loadedAt)}`;
+}
+
+function paintHead() {
+  if (!nodes) return;
+  nodes.count.textContent = countText();
+  nodes.stamp.textContent = stampText();
+  nodes.bar.hidden = !loading;
+  nodes.refresh.disabled = loading && items === null;
+  paintPhoneBar();
+}
+
+function paintPhoneBar() {
+  const active = filterCount(filters);
+  nodes.phoneBar.replaceChildren(
+    el("button", { type: "button", class: "btn-o sm filters-btn", on: { click: () => openFiltersSheet() } }, icon("tune"), "Filters", active ? el("span", { class: "tg p", text: String(active) }) : null),
+    button("Send a test event", { kind: "tonal", glyph: "science", onClick: () => openSend(), className: "sm" }),
+  );
+}
+
+// A chip with several values: a panel of checkboxes that stays open, applied when it closes.
+function multiChip({ key, prefix, options, selected, set }) {
+  const labels = options.filter((option) => selected.includes(option.value)).map((option) => option.text);
+  const sorted = key === "severity" ? [...labels].reverse() : labels;
+  const on = selected.length > 0;
+  const node = chip({
+    label: on ? `${prefix}: ${valuesText(sorted)}` : prefix,
+    on,
+    menu: true,
+    onClick: () => {
+      let draft = [...selected];
+      const content = options.length
+        ? [
+            ...options.map((option) =>
+              checkRow({
+                label: option.text,
+                checked: draft.includes(option.value),
+                onChange: (checked) => {
+                  draft = checked ? [...draft, option.value] : draft.filter((value) => value !== option.value);
+                },
+              }),
+            ),
+            el("button", { type: "button", class: "btn-x clear-row", on: { click: () => { draft = []; panel.close(); } } }, "Clear"),
+          ]
+        : [el("div", { class: "mu info-row" }, el("span", { text: `No ${prefix.toLowerCase()} to choose from.` }))];
+      const panel = openPanel(node, {
+        label: `${prefix} filter`,
+        content,
+        width: 240,
+        onClose: () => {
+          const same = draft.length === selected.length && draft.every((value) => selected.includes(value));
+          if (!same) set(draft);
+        },
+      });
+    },
   });
-  const link = element("a", null, event.title);
-  link.href = `#events/${event.id}`;
-  title.append(box, " ", link, " ", ...badges(event));
-  item.append(title);
-  const where = [event.producer.name, event.context].filter(Boolean).join(" · ");
-  item.append(element("p", "meta", `${where} · ${time(event.createdAt)} (${ago(event.createdAt)})`));
-  return item;
+  node.setAttribute("aria-haspopup", "true");
+  node.dataset.key = key;
+  if (on) node.prepend(icon("check", "ms18"));
+  return node;
 }
 
-function badges(event) {
+function singleChip({ key, prefix, options, value, any, set }) {
+  const current = options.find((option) => option.value === value && value !== "");
+  const node = chip({
+    label: current ? `${prefix}: ${current.text}` : prefix,
+    on: Boolean(current),
+    menu: true,
+    onClick: () =>
+      openMenu(node, {
+        placement: "below-start",
+        label: `${prefix} filter`,
+        narrow: true,
+        items: [
+          ...(any ? [{ label: any, selected: !value, onSelect: () => set("") }] : []),
+          ...options.filter((option) => option.value !== "" || !any).map((option) => ({ label: option.text, sub: option.sub, selected: option.value === value, onSelect: () => set(option.value) })),
+        ],
+      }),
+  });
+  node.dataset.key = key;
+  if (current) node.prepend(icon("check", "ms18"));
+  return node;
+}
+
+function receivedChip() {
+  const range = rangeText(filters);
+  const node = chip({
+    label: range ? `Received: ${range}` : "Received",
+    on: Boolean(range),
+    menu: true,
+    onClick: () => openReceived(node),
+  });
+  node.setAttribute("aria-haspopup", "true");
+  node.dataset.key = "received";
+  if (range) node.prepend(icon("check", "ms18"));
+  return node;
+}
+
+function paintChips() {
+  if (!nodes) return;
+  const group = nodes.chips;
+  const userOptions = users.map((item) => ({ value: item.id, text: item.name, sub: item.revokedAt ? "Revoked" : null }));
+  const pushChip = chip({ label: "Push problems", on: filters.push, onClick: () => setFilters({ push: !filters.push }, "push") });
+  pushChip.dataset.key = "push";
   const list = [
-    // Only high and critical stand out, so Unread is the one blue badge.
-    element("span", `badge muted severity-${event.severity.toLowerCase()}`, label(event.severity)),
-    element("span", "badge muted", label(event.category)),
+    singleChip({ key: "read", prefix: "Read state", options: READ_STATES, value: filters.read, set: (value) => setFilters({ read: value }, "read") }),
+    multiChip({ key: "severity", prefix: "Severity", options: SEVERITIES, selected: filters.severity, set: (value) => setFilters({ severity: value }, "severity") }),
+    pushChip,
+    multiChip({ key: "producer", prefix: "Producer", options: [...producers].sort((a, b) => a.name.localeCompare(b.name)).map((item) => ({ value: item.id, text: item.name })), selected: filters.producer, set: (value) => setFilters({ producer: value }, "producer") }),
+    multiChip({ key: "category", prefix: "Category", options: CATEGORIES, selected: filters.category, set: (value) => setFilters({ category: value }, "category") }),
+    singleChip({ key: "user", prefix: "User", options: userOptions, value: filters.user, any: "Any user", set: (value) => setFilters({ user: value, relation: "" }, "user") }),
   ];
-  if (!event.readAt) list.push(element("span", "badge", "Unread"));
-  return list;
+  // Which of a user's producers means nothing without the user: its chip comes with one.
+  if (filters.user) {
+    list.push(singleChip({ key: "relation", prefix: "Their producers", options: RELATIONS, value: filters.relation, set: (value) => setFilters({ relation: value }, "relation") }));
+  }
+  list.push(receivedChip());
+  if (isFiltered(filters)) {
+    const clear = el("button", { type: "button", class: "fc plain", on: { click: () => clearFilters() } }, "Clear filters");
+    clear.dataset.key = "clear";
+    list.push(clear);
+  }
+  const focused = document.activeElement?.dataset?.key;
+  group.replaceChildren(...list);
+  if (focused) group.querySelector(`[data-key='${focused}']`)?.focus({ preventScroll: true });
 }
 
-// A value this page does not know yet (a later release may add one) is shown as it is.
-function label(value) {
-  return LABELS[value] || value;
-}
-
-async function openEvent(eventId) {
-  showError("event-error", null);
-  $("event-body").hidden = true;
-  $("event-deliveries").replaceChildren();
-  shownEvent = null;
-  try {
-    renderEvent(await call("GET", `${EVENTS}/${eventId}`));
-  } catch (e) {
-    showError("event-error", e.message);
+function paintBulk() {
+  if (!nodes) return;
+  const count = ticked.size;
+  nodes.bulk.hidden = count === 0;
+  nodes.tools.hidden = count > 0;
+  nodes.left.classList.toggle("selecting", count > 0);
+  if (count === 0) {
+    nodes.bulk.replaceChildren();
     return;
   }
-  await refreshDeliveries(eventId);
-}
-
-async function refreshDeliveries(eventId) {
-  showError("deliveries-error", null);
-  try {
-    renderDeliveries(await call("GET", `${ADMIN_EVENTS}/${eventId}/deliveries`));
-  } catch (e) {
-    $("event-deliveries").replaceChildren();
-    showError("deliveries-error", e.message);
-  }
-}
-
-// One entry per user the event reached, by name (a user with records who has since unsubscribed
-// follows them), each with one line per device in the order the devices were first tried: how
-// the latest attempt went and when, then the earlier attempts, if any. The records are oldest
-// first.
-function renderDeliveries({ items, users: reached }) {
-  const byUser = new Map(reached.map((u) => [u.id, { name: u.name, owner: u.owner, devices: new Map() }]));
-  for (const record of items) {
-    if (!byUser.has(record.userId)) {
-      byUser.set(record.userId, { name: record.userName, owner: false, devices: new Map(), left: true });
-    }
-    const devices = byUser.get(record.userId).devices;
-    if (!devices.has(record.clientId)) devices.set(record.clientId, []);
-    devices.get(record.clientId).push(record);
-  }
-  const list = $("event-deliveries");
-  list.replaceChildren(...[...byUser.values()].map(recipient));
-  if (byUser.size === 0) {
-    list.append(element("li", "empty", "No user receives it: nobody is subscribed to its producer."));
-  }
-}
-
-function recipient(user) {
-  const item = element("li", "recipient");
-  const title = element("strong", null, user.name);
-  item.append(title);
-  if (user.owner) item.append(" ", element("span", "badge muted", "Owner"));
-  if (user.left) item.append(" ", element("span", "badge muted", "No longer subscribed"));
-  const devices = element("ul", "deliveries");
-  devices.append(...[...user.devices.values()].map(deliveryLine));
-  if (user.devices.size === 0) {
-    devices.append(element("li", "empty", "None: its push is not dispatched yet, or the user has no device."));
-  }
-  item.append(devices);
-  return item;
-}
-
-function deliveryLine(attempts) {
-  const last = attempts[attempts.length - 1];
-  const item = element("li", `delivery outcome-${last.outcome.toLowerCase()}`);
-  item.append(
-    element("strong", null, last.clientName),
-    `: ${outcome(last)}, ${time(last.at)} (${ago(last.at)})`,
+  const every = items.length > 0 && items.every((item) => ticked.has(item.id));
+  nodes.bulk.replaceChildren(
+    iconButton("close", "Clear the selection", () => clearSelection()),
+    el("span", { class: "bulk-count", text: `${count} selected` }),
+    every ? null : button(`Select all ${items.length} on this page`, { kind: "text", onClick: () => selectAll(), className: "select-all" }),
+    el("span", { class: "sp" }),
+    button("Mark read", { kind: "text", glyph: "mark_email_read", onClick: () => markTickedRead() }),
+    button("Delete", { kind: "text-error", glyph: "delete", ariaLabel: `Delete ${eventCount(count)}`, onClick: () => deleteTicked() }),
   );
-  if (attempts.length > 1) {
-    const earlier = attempts.slice(0, -1).map((a) => `${a.attempt}. ${outcome(a)}`);
-    item.append(element("p", "meta", `Attempt ${last.attempt}; before: ${earlier.join("; ")}`));
-  }
-  return item;
 }
 
-function renderEvent(event) {
-  shownEvent = event;
-  $("event-title").textContent = event.title;
-  $("event-badges").replaceChildren(...badges(event));
-  $("event-message").textContent = event.message || "";
-  $("event-message").hidden = !event.message;
-
-  const facts = $("event-facts");
-  facts.replaceChildren();
-  const fact = (name, value) => facts.append(element("dt", null, name), element("dd", null, value));
-  fact("Producer", event.producer.name);
-  fact("Category", label(event.category));
-  fact("Severity", label(event.severity));
-  if (event.context) fact("Context", event.context);
-  fact("Happened", event.occurredAt ? time(event.occurredAt) : "Not given");
-  fact("Received", `${time(event.createdAt)} (${ago(event.createdAt)})`);
-  if (event.link) facts.append(element("dt", null, "Link"), linkTo(event.link));
-  fact("Read", event.readAt ? time(event.readAt) : "Unread");
-  fact("ID", event.id);
-
-  $("event-metadata").textContent = JSON.stringify(event.metadata, null, 2);
-  $("toggle-read").textContent = event.readAt ? "Mark as unread" : "Mark as read";
-  $("event-body").hidden = false;
+function paintPager() {
+  if (!nodes) return;
+  let text = "";
+  if (items === null) text = failure ? "Not loaded" : "Loading…";
+  else if (items.length === 0) text = "No events";
+  else if (cursors.length > 1) {
+    const start = (cursors.length - 1) * PAGE + 1;
+    text = `Events ${number(start)} to ${number(start + items.length - 1)}`;
+  } else text = nextCursor ? `Newest ${items.length} events` : eventCount(items.length);
+  nodes.pager.replaceChildren(
+    el("span", { class: "pgr-text", text }),
+    el("span", { class: "sp" }),
+    button("Newer", { kind: "outlined", glyph: "chevron_left", disabled: cursors.length === 1 || loading, onClick: () => page(-1), className: "sm" }),
+    el(
+      "button",
+      { type: "button", class: "btn-o sm older", disabled: !nextCursor || loading, on: { click: () => (phone() ? loadMore() : page(1)) } },
+      el("span", { class: "w-wide", text: "Older" }),
+      el("span", { class: "w-phone", text: `Load ${PAGE} older events` }),
+      icon("chevron_right"),
+    ),
+  );
 }
 
-// Opened only by the operator's click, in a new tab that cannot reach back to this page and is
-// told nothing of where it came from.
-function linkTo(url) {
-  const cell = element("dd");
-  if (!WEB_LINK.test(url)) {
-    cell.textContent = url;
-    return cell;
-  }
-  const link = element("a", null, url);
-  link.href = url;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  cell.append(link);
-  return cell;
-}
-
-async function toggleRead() {
-  const event = shownEvent;
-  if (!event) return;
-  showError("event-error", null);
+// On a phone the older events are added under the ones shown, as a list is read there.
+async function loadMore() {
+  const mine = ++sequence;
+  loading = true;
+  paintHead();
+  paintPager();
   try {
-    renderEvent(await call(event.readAt ? "DELETE" : "PUT", `${EVENTS}/${event.id}/read`));
-  } catch (e) {
-    showError("event-error", e.message);
+    const more = await call("GET", `${EVENTS}?${listParams(nextCursor)}`);
+    if (mine !== sequence || !nodes) return;
+    items = [...items, ...more.items];
+    nextCursor = more.nextCursor;
+    total = more.total ?? total;
+    appended = true;
+  } catch (error) {
+    if (mine !== sequence || !nodes || error.name === "SessionEnded") return;
+    snack(`Could not load older events. ${error.message}`, { label: "Try again", onClick: () => loadMore() });
   }
+  loading = false;
+  paintAll();
 }
 
-function showSelection() {
-  $("delete-selected").disabled = selected.size === 0;
-  $("selection-count").textContent = selected.size ? `${eventCount(selected.size)} selected` : "";
+function page(step) {
+  if (step > 0) cursors = [...cursors, nextCursor];
+  else cursors = cursors.slice(0, -1);
+  ticked = new Set();
+  reload();
+  nodes.table.scrollTop = 0;
 }
 
-function eventCount(count) {
-  return `${count} event${count === 1 ? "" : "s"}`;
-}
+// ---- The table -----------------------------------------------------------------------------------
 
-// One event, named in the confirmation; then back to the list it came from, read again.
-async function deleteShownEvent() {
-  const event = shownEvent;
-  if (!event) return;
-  if (!confirm(`Delete the event "${event.title}"? It is gone for good.`)) return;
-  showError("event-error", null);
-  try {
-    await call("DELETE", `${ADMIN_EVENTS}/${event.id}`);
-  } catch (e) {
-    showError("event-error", e.message);
+function paintTable() {
+  if (!nodes) return;
+  const table = nodes.table;
+  const focusedRow = document.activeElement?.closest?.(".tr")?.dataset.id ?? null;
+  nodes.slot.replaceChildren();
+  if (items === null && failure === null) {
+    table.replaceChildren(headerRow(), skeletonRows(5));
+    table.setAttribute("aria-busy", "true");
     return;
   }
-  toast(`Deleted the event "${event.title}".`);
-  location.hash = "#events";
-}
-
-function deleteSelected() {
-  const ids = [...selected];
-  if (ids.length === 0) return;
-  deleteEvents(
-    { ids },
-    (count) => `Delete the ${eventCount(count)} selected? They are gone for good.`,
-    "events-error",
-  );
-}
-
-// By producer, by day or both; a day is from midnight in this browser's time zone.
-async function deleteMatching() {
-  showError("delete-events-error", null);
-  const producer = $("delete-producer");
-  const day = $("delete-before").value;
-  const request = {};
-  if (producer.value) request.producerId = producer.value;
-  if (day) request.createdBefore = new Date(`${day}T00:00`).toISOString();
-  if (!request.producerId && !request.createdBefore) {
-    return showError("delete-events-error", "Choose a producer, a day or both.");
+  table.removeAttribute("aria-busy");
+  if (items === null) {
+    const unreachable = failure.kind === "unreachable";
+    table.replaceChildren(
+      headerRow(),
+      emptyState({
+        glyph: "cloud_off",
+        title: "Could not load events",
+        body: unreachable ? "The server did not answer. Check that SignalHub is running, then try again." : failure.message,
+        action: button("Try again", { kind: "tonal", glyph: "refresh", onClick: () => reload() }),
+      }),
+    );
+    return;
   }
-  const which = [
-    producer.value ? `of "${producer.selectedOptions[0].text}"` : null,
-    day ? `received before ${day}` : null,
-  ].filter(Boolean);
-  const deleted = await deleteEvents(
-    request,
-    (count) => `Delete ${eventCount(count)} ${which.join(" ")}? They are gone for good.`,
-    "delete-events-error",
-  );
-  if (deleted) $("delete-events").reset();
+  if (failure) {
+    nodes.slot.append(banner({ glyph: "error", error: true, role: "alert", text: `Could not refresh. This list is from ${clock(loadedAt)} and may be out of date.`, actions: [button("Try again", { onClick: () => reload() })] }));
+  }
+  if (items.length === 0) {
+    table.replaceChildren(headerRow(), emptyList());
+    return;
+  }
+  const rows = items.map((item) => buildRow(item));
+  const grid = el("div", { role: "grid", "aria-label": "Events", "aria-rowcount": String(items.length + 1) }, headerRow(), ...rows);
+  const stop = rows.find((row) => row.getAttribute("aria-selected") === "true") ?? rows[0];
+  stop.tabIndex = 0;
+  grid.addEventListener("keydown", onGridKey);
+  table.replaceChildren(grid);
+  if (focusedRow) table.querySelector(`.tr[data-id='${focusedRow}']`)?.focus({ preventScroll: true });
 }
 
-// Asks the server first how many events the request deletes (a dry run, which deletes none), says
-// so in the confirmation, and only then deletes them; the list is read again afterwards. Whether
-// any were deleted.
-async function deleteEvents(request, question, errorId) {
-  showError(errorId, null);
-  try {
-    const { count } = await call("POST", DELETE_EVENTS, { ...request, dryRun: true });
-    if (count === 0) {
-      toast("No events to delete.");
-      return false;
+function emptyList() {
+  if (isFiltered(filters)) {
+    return emptyState({ glyph: "filter_alt_off", title: "No events match", body: describe(filters, names), action: button("Clear filters", { kind: "tonal", onClick: () => clearFilters() }) });
+  }
+  const kept = retention ? ` Events older than ${duration(retention)} are removed.` : "";
+  return emptyState({
+    glyph: "inbox",
+    title: "No events yet",
+    body: `Events show here as soon as a producer sends one. Send a test event to see how one looks and how it reaches devices.${kept}`,
+    action: button("Send a test event", { kind: "tonal", glyph: "science", onClick: () => openSend() }),
+  });
+}
+
+function checkbox(checked, label, mixed = false, onClick) {
+  const box = el("span", { class: `cb${checked || mixed ? " on" : ""}` }, checked ? icon("check") : mixed ? icon("remove") : null);
+  const node = el("button", { type: "button", class: "cbc", role: "checkbox", "aria-checked": mixed ? "mixed" : String(checked), "aria-label": label, tabindex: "-1" }, box);
+  node.addEventListener("click", (event) => {
+    event.stopPropagation();
+    onClick();
+  });
+  return node;
+}
+
+function headerRow() {
+  const all = items !== null && items.length > 0 && items.every((item) => ticked.has(item.id));
+  const some = ticked.size > 0 && !all;
+  const select = checkbox(all, "Select all events on this page", some, () => (all ? clearSelection() : selectAll()));
+  select.tabIndex = items && items.length ? 0 : -1;
+  return el(
+    "div",
+    { class: "th gE", role: "row" },
+    el("span", { role: "columnheader", class: "c-box" }, select),
+    el("span", { role: "columnheader", text: "Event" }),
+    el("span", { role: "columnheader", class: "c-producer", text: "Producer" }),
+    el("span", { role: "columnheader", class: "c-severity", text: "Severity" }),
+    el("span", { role: "columnheader", class: "c-category", text: "Category" }),
+    el("span", { role: "columnheader", class: "c-received", text: "Received" }),
+  );
+}
+
+const pushProblem = (item) => item.push === "FAILED" || item.push === "GAVE_UP";
+
+function buildRow(item) {
+  const unread = !item.readAt;
+  const checked = ticked.has(item.id);
+  const severity = severityOf(item.severity);
+  const category = categoryOf(item.category);
+  const problem = pushProblem(item);
+  const age = received(item.createdAt);
+  const label = `${item.title}, ${severity?.text ?? item.severity}, ${category?.text ?? item.category}, ${item.producer.name}, ${age === "now" ? "just now" : age}${unread ? ", unread" : ""}${problem ? ", push problems" : ""}`;
+  const row = el(
+    "div",
+    { class: `tr gE${unread ? " unr" : ""}${checked ? " chk" : ""}`, id: `row-${item.id}`, role: "row", tabindex: "-1", "aria-selected": String(item.id === selectedId), "aria-label": label, data: { id: item.id } },
+    el("span", { role: "gridcell", class: "c-box" }, checkbox(checked, `Select ${item.title}`, false, () => toggle(item.id))),
+    el(
+      "span",
+      { class: "nmc", role: "gridcell" },
+      unread ? el("span", { class: "ud" }) : el("span", { class: "udz" }),
+      icon(category?.glyph ?? "info", `cic s-${severity?.tone ?? "low"}`),
+      el("span", { class: "nm", text: item.title }),
+      problem ? el("span", { class: "pp" }, icon("error"), el("span", { class: "pp-w", text: "Push problems" })) : null,
+    ),
+    el("span", { role: "gridcell", class: "cell nm-var c-producer", text: item.producer.name }),
+    el("span", { role: "gridcell", class: "c-severity" }, severityChip(item.severity)),
+    el("span", { role: "gridcell", class: "cell c-category", text: category?.text ?? item.category }),
+    el("span", { role: "gridcell", class: "cell c-received", text: age }),
+    el("span", { class: "m2", "aria-hidden": "true", text: `${item.producer.name} · ${severity?.text ?? item.severity} · ${age}` }),
+  );
+  row.addEventListener("click", () => {
+    if (swallowClick) {
+      swallowClick = false;
+      return;
     }
-    if (!confirm(question(count))) return false;
-    const deleted = await call("POST", DELETE_EVENTS, request);
-    toast(`Deleted ${eventCount(deleted.count)}.`);
-  } catch (e) {
-    showError(errorId, e.message);
-    return false;
-  }
-  await refreshEvents();
-  return true;
+    // While rows are ticked on a phone, a tap ticks.
+    if (phone() && ticked.size > 0) toggle(item.id);
+    else openEvent(item.id);
+  });
+  // A long press ticks a row on a phone, and turns the header into the bulk bar.
+  row.addEventListener("pointerdown", (event) => {
+    swallowClick = false;
+    if (!phone() || event.pointerType === "mouse") return;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      swallowClick = true;
+      toggle(item.id);
+    }, LONG_PRESS_MS);
+  });
+  for (const stop of ["pointerup", "pointercancel", "pointermove", "pointerleave"]) row.addEventListener(stop, () => clearTimeout(pressTimer));
+  row.addEventListener("contextmenu", (event) => {
+    if (phone()) event.preventDefault();
+  });
+  return row;
 }
 
-// Published as the producer chosen, stored and pushed as its own event would be; once sent, it is
-// linked from here, to open and delete it, and the list is read again. The form keeps its values,
-// so the same event can be sent again.
-async function sendTestEvent() {
-  showError("send-event-error", null);
-  $("send-event-result").hidden = true;
-  let sent;
-  try {
-    sent = await call("POST", `${PRODUCERS}/${$("send-producer").value}/events`, testEvent());
-  } catch (e) {
-    return showError("send-event-error", e.message);
+function onGridKey(event) {
+  const rows = [...nodes.table.querySelectorAll(".tr")];
+  const at = rows.indexOf(document.activeElement);
+  if (at < 0) return;
+  let next = null;
+  if (event.key === "ArrowDown") next = rows[Math.min(rows.length - 1, at + 1)];
+  else if (event.key === "ArrowUp") next = rows[Math.max(0, at - 1)];
+  else if (event.key === "Home") next = rows[0];
+  else if (event.key === "End") next = rows.at(-1);
+  else if (event.key === "Enter") {
+    event.preventDefault();
+    openEvent(rows[at].dataset.id);
+    return;
+  } else if (event.key === " ") {
+    event.preventDefault();
+    toggle(rows[at].dataset.id);
+    return;
   }
-  const link = element("a", null, "Open it");
-  link.href = `#events/${sent.id}`;
-  $("send-event-result").replaceChildren(`Sent "${sent.title}" as "${sent.producer.name}". `, link);
-  $("send-event-result").hidden = false;
-  await refreshEvents();
+  if (!next) return;
+  event.preventDefault();
+  for (const row of rows) row.tabIndex = row === next ? 0 : -1;
+  next.focus();
 }
 
-// The fields a producer sends, the optional ones only when filled in; the server validates them
-// as it does a producer's.
-function testEvent() {
-  const request = {
-    category: $("send-category").value,
-    severity: $("send-severity").value,
-    title: $("send-title").value.trim(),
+// ---- Selection -----------------------------------------------------------------------------------
+
+function toggle(id) {
+  if (ticked.has(id)) ticked.delete(id);
+  else ticked.add(id);
+  afterSelection();
+}
+
+function selectAll() {
+  ticked = new Set(items.map((item) => item.id));
+  afterSelection();
+}
+
+function clearSelection() {
+  ticked = new Set();
+  afterSelection();
+}
+
+function afterSelection() {
+  const row = document.activeElement?.closest?.(".tr")?.dataset.id;
+  paintBulk();
+  paintTable();
+  paintPane();
+  if (row) nodes.table.querySelector(`.tr[data-id='${row}']`)?.focus({ preventScroll: true });
+  announce(ticked.size ? `${ticked.size} selected` : "Selection cleared");
+}
+
+async function markTickedRead() {
+  const ids = [...ticked];
+  const results = await Promise.allSettled(ids.map((id) => call("PUT", `${EVENTS}/${id}/read`)));
+  const failed = results.filter((result) => result.status === "rejected" && result.reason?.name !== "SessionEnded").length;
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    const at = items?.findIndex((item) => item.id === result.value.id) ?? -1;
+    if (at >= 0) items[at] = { ...items[at], ...result.value, push: items[at].push };
+  }
+  if (failed) {
+    snack(`Could not mark ${failed} of ${eventCount(ids.length)} read.`, { label: "Try again", onClick: () => markTickedRead() });
+  } else {
+    snack(`Marked ${eventCount(ids.length)} read`);
+    ticked = new Set();
+  }
+  paintBulk();
+  paintTable();
+}
+
+function deleteTicked() {
+  const ids = [...ticked];
+  return confirmDialog({
+    title: `Delete ${eventCount(ids.length)}?`,
+    message: "They are gone for good, with their waiting pushes and delivery records. Producers and users are not touched. This cannot be undone.",
+    action: `Delete ${eventCount(ids.length)}`,
+    destructive: true,
+    busyLabel: "Deleting…",
+    retryLabel: "Try again",
+    run: async () => {
+      const done = await call("POST", DELETE_EVENTS, { ids });
+      ticked = new Set();
+      snack(`Deleted ${eventCount(done.count)}`);
+      if (selectedId && ids.includes(selectedId)) go(addressFor(null));
+      await reload();
+    },
+  });
+}
+
+// ---- Filters -------------------------------------------------------------------------------------
+
+function setFilters(change, focusKey) {
+  filters = { ...filters, ...change };
+  keepAddress(addressFor(selectedId));
+  ticked = new Set();
+  reload({ first: true });
+  paintChips();
+  if (focusKey) nodes.chips.querySelector(`[data-key='${focusKey}']`)?.focus({ preventScroll: true });
+}
+
+function clearFilters() {
+  filters = emptyFilters();
+  keepAddress(addressFor(selectedId));
+  reload({ first: true });
+  paintChips();
+  nodes.chips.querySelector("[data-key='read']")?.focus({ preventScroll: true });
+}
+
+// The Received panel: a from and a before day, in this browser's time zone, with presets.
+function openReceived(anchor) {
+  const from = textField({ label: "From", type: "date", value: filters.from });
+  const before = textField({ label: "Before", type: "date", value: filters.before });
+  const help = el("div", { class: "help", text: "Midnight (00:00) in your browser's time zone. Events on the day before “Before” are included; the day itself is not." });
+  const apply = () => {
+    if (from.input.value && before.input.value && before.input.value <= from.input.value) {
+      before.setError("Before must be a day after From.");
+      return;
+    }
+    panel.close();
+    setFilters({ from: from.input.value, before: before.input.value }, "received");
   };
-  for (const [name, id] of [
-    ["message", "send-message"],
-    ["context", "send-context"],
-    ["link", "send-link"],
-  ]) {
-    const value = $(id).value.trim();
-    if (value) request[name] = value;
-  }
-  const metadata = $("send-metadata").value.trim();
-  if (metadata) request.metadata = jsonObject(metadata);
-  return request;
+  const today = new Date();
+  const dayOf = (offset) => {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+  };
+  const preset = (label, start) =>
+    el("button", { type: "button", class: "fc", on: { click: () => { from.input.value = dayOf(start); before.input.value = dayOf(1); before.setError(""); } } }, el("span", { text: label }));
+  const panel = openPanel(anchor, {
+    label: "Received filter",
+    width: 320,
+    content: el(
+      "div",
+      { class: "received-panel" },
+      el("div", { class: "t1", text: "Received" }),
+      el("div", { class: "pdates" }, from.node, before.node),
+      help,
+      el("div", { class: "pre" }, preset("Today", 0), preset("Last 7 days", -6), preset("Last 30 days", -29)),
+      el(
+        "div",
+        { class: "panel-acts" },
+        button("Clear", { kind: "text", onClick: () => { panel.close(); setFilters({ from: "", before: "" }, "received"); } }),
+        button("Apply", { kind: "text", onClick: apply }),
+      ),
+    ),
+  });
 }
 
-function jsonObject(text) {
-  let value;
-  try {
-    value = JSON.parse(text);
-  } catch {
-    throw new Error("Metadata is not valid JSON.");
+// ---- The phone's filters sheet -------------------------------------------------------------------
+
+function openFiltersSheet() {
+  let draft = { ...filters };
+  const open = new Set();
+  const slot = el("div", { class: "sheet-fields" });
+  const clear = button("Clear", { kind: "text", className: "sheet-clear", onClick: () => { draft = emptyFilters(); draw(); } });
+  const confirm = { label: "Show events", value: true, kind: "filled", className: "confirm" };
+  let counter = 0;
+
+  // What the button says it will show: the listing asked for one event and its total.
+  async function recount() {
+    const mine = ++counter;
+    try {
+      const answer = await call("GET", `${EVENTS}?${new URLSearchParams([...toApi(draft), ["limit", "1"], ["total", "true"]])}`);
+      if (mine !== counter) return;
+      const text = answer.total === 0 ? "No events" : `Show ${eventCount(answer.total)}`;
+      dialog.node.querySelector(".confirm .btn-label").textContent = text;
+    } catch {
+      // The button keeps its plain words.
+    }
   }
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Metadata must be a JSON object, such as {\"run\": 42}.");
+
+  const field = (key, name, value, body) => {
+    const expanded = open.has(key);
+    return [
+      el("button", { type: "button", class: `sel2${expanded ? " on" : ""}`, "aria-expanded": String(expanded), "aria-label": `${name}: ${value}`, on: { click: () => { if (open.has(key)) open.delete(key); else open.add(key); draw(); } } }, el("i", { text: name }), el("span", { text: value }), icon(expanded ? "arrow_drop_up" : "arrow_drop_down", "ms18")),
+      expanded ? el("div", { class: "sel-body" }, body) : null,
+    ];
+  };
+
+  // A choice redraws the sheet (the fields say what is chosen) and the focus stays on the choice.
+  const checks = (options, key) =>
+    options.map((option) => {
+      const id = `${key}:${option.value}`;
+      const node = checkRow({
+        label: option.text,
+        checked: draft[key].includes(option.value),
+        onChange: (checked) => {
+          draft = { ...draft, [key]: checked ? [...draft[key], option.value] : draft[key].filter((value) => value !== option.value) };
+          draw();
+          slot.querySelector(`[data-id='${id}']`)?.focus({ preventScroll: true });
+        },
+      });
+      node.dataset.id = id;
+      return node;
+    });
+
+  const radios = (options, key) =>
+    options.map((option) => {
+      const on = draft[key] === option.value;
+      return el("button", { type: "button", role: "radio", "aria-checked": String(on), class: "mu", on: { click: () => { draft = { ...draft, [key]: option.value, ...(key === "user" ? { relation: "" } : {}) }; draw(); } } }, icon(on ? "radio_button_checked" : "radio_button_unchecked", "ms18"), el("span", { text: option.text }));
+    });
+
+  function draw() {
+    const sever = draft.severity.length ? valuesText([...SEVERITIES.filter((item) => draft.severity.includes(item.value)).map((item) => item.text)].reverse()) : "All severities";
+    const rangeNow = rangeText(draft);
+    const userName = draft.user ? names.user(draft.user) : "All users";
+    const rows = [
+      ...field("producer", "Producer", draft.producer.length ? valuesText(draft.producer.map(names.producer)) : "All producers", checks([...producers].sort((a, b) => a.name.localeCompare(b.name)).map((item) => ({ value: item.id, text: item.name })), "producer")),
+      ...field("user", "User", userName, radios([{ value: "", text: "All users" }, ...users.map((item) => ({ value: item.id, text: item.name }))], "user")),
+      ...field("severity", "Severity", sever, checks(SEVERITIES, "severity")),
+      ...field("category", "Category", draft.category.length ? valuesText(CATEGORIES.filter((item) => draft.category.includes(item.value)).map((item) => item.text)) : "All categories", checks(CATEGORIES, "category")),
+      ...field("read", "Read state", READ_STATES.find((item) => item.value === draft.read).text, radios(READ_STATES, "read")),
+      ...field("received", "Received", rangeNow || "Any time", receivedFields()),
+      pushRow(),
+    ];
+    slot.replaceChildren(...rows.filter(Boolean));
+    recount();
   }
-  return value;
+
+  function pushRow() {
+    const node = checkRow({
+      label: "Push problems only",
+      checked: draft.push,
+      onChange: (checked) => {
+        draft = { ...draft, push: checked };
+        draw();
+        slot.querySelector("[data-id='push']")?.focus({ preventScroll: true });
+      },
+    });
+    node.dataset.id = "push";
+    return node;
+  }
+
+  function receivedFields() {
+    const from = textField({ label: "From", type: "date", value: draft.from, onInput: (value) => { draft = { ...draft, from: value }; recount(); } });
+    const before = textField({ label: "Before", type: "date", value: draft.before, onInput: (value) => { draft = { ...draft, before: value }; recount(); } });
+    return el("div", { class: "pdates" }, from.node, before.node);
+  }
+
+  const dialog = openDialog({
+    title: "Filters",
+    content: el("div", {}, clear, slot),
+    variant: "sheet",
+    actions: [
+      { ...confirm, run: async () => { filters = draft; keepAddress(addressFor(selectedId)); reload({ first: true }); paintChips(); } },
+    ],
+    initialFocus: true,
+  });
+  draw();
 }
 
+// ---- Header actions ------------------------------------------------------------------------------
+
+function openMore(anchor) {
+  openMenu(anchor, {
+    label: "More",
+    items: [
+      { glyph: "refresh", label: "Refresh now", onSelect: () => reload() },
+      { glyph: "delete_sweep", label: "Delete events by rule…", danger: true, onSelect: () => openDeleteByRule() },
+    ],
+  });
+}
+
+function openSend() {
+  const preset = filters.producer.length === 1 ? filters.producer[0] : undefined;
+  sendTestEvent({
+    producers,
+    preset,
+    onSent: async (sent) => {
+      snack(`Sent “${sent.title}” as ${sent.producer.name}`, { label: "Open", onClick: () => go(hashFor("events", sent.id, query())) });
+      cursors = [null];
+      await reload();
+    },
+  });
+}
+
+function openDeleteByRule() {
+  deleteByRule({
+    producers,
+    onDeleted: async (count) => {
+      snack(`Deleted ${eventCount(count)}`);
+      if (selectedId) go(addressFor(null));
+      ticked = new Set();
+      cursors = [null];
+      await reload();
+    },
+  });
+}
+
+// ---- The pane ------------------------------------------------------------------------------------
+
+function openEvent(id) {
+  restoreFocus = id;
+  go(addressFor(id));
+}
+
+function closePane() {
+  if (!selectedId) return;
+  restoreFocus = selectedId;
+  go(addressFor(null));
+}
+
+function paintPane() {
+  if (!nodes) return;
+  const showing = selectedId !== null && ticked.size === 0;
+  setDetailOpen(showing);
+  nodes.scrim.hidden = !showing;
+  nodes.prompt.hidden = showing || (items !== null && items.length === 0 && failure === null);
+  for (const row of nodes.table.querySelectorAll(".tr")) row.setAttribute("aria-selected", String(row.dataset.id === selectedId));
+  if (!showing) {
+    pane.hide();
+    return;
+  }
+  pane.show(selectedId, items?.find((item) => item.id === selectedId) ?? null);
+  nodes.table.querySelector(`.tr[data-id='${selectedId}']`)?.scrollIntoView?.({ block: "nearest" });
+}
+
+function onKey(event) {
+  if (event.key !== "Escape" || !selectedId) return;
+  if (document.querySelector(".scrim, .menu")) return;
+  event.preventDefault();
+  closePane();
+}
+
+function onVisible() {
+  if (document.visibilityState === "visible" && nodes) reload();
+}
+
+function readRoute(route) {
+  filters = fromQuery(route.query);
+  selectedId = route.id && ID.test(route.id) ? route.id : null;
+}
+
+// ---- Section -------------------------------------------------------------------------------------
 
 export const eventsSection = {
-  mount({ route }) {
-    showLegacy("events");
-    showEvents(route.id, route.query.get("producer"));
+  mount({ container, route }) {
+    host = container;
+    pane = createEventPane({
+      producerOwner: (id) => producers.find((item) => item.id === id)?.owner.name ?? null,
+      close: closePane,
+      onRead: (event) => {
+        const at = items?.findIndex((item) => item.id === event.id) ?? -1;
+        if (at >= 0) items[at] = { ...items[at], ...event, push: items[at].push };
+        paintTable();
+      },
+      onDeleted: async (event) => {
+        snack(`Deleted “${event.title}”`);
+        go(addressFor(null));
+        await reload();
+      },
+    });
+    items = null;
+    failure = null;
+    appended = false;
+    total = null;
+    loadedAt = null;
+    loading = false;
+    cursors = [null];
+    ticked = new Set();
+    producers = [];
+    users = [];
+    retention = null;
+    readRoute(route);
+    nodes = build();
+    host.replaceChildren(nodes.cols);
+    host.hidden = false;
+    paintAll();
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("visibilitychange", onVisible);
+    timer = setInterval(() => {
+      if (document.visibilityState === "visible" && !document.querySelector(".scrim, .menu") && ticked.size === 0 && !loading && !appended) reload();
+    }, REFRESH_MS);
+    readLookups();
+    reload();
   },
   update(route) {
-    showEvents(route.id, route.query.get("producer"));
+    const before = selectedId;
+    const wasQuery = String(query());
+    readRoute(route);
+    if (String(query()) !== wasQuery) {
+      ticked = new Set();
+      reload({ first: true });
+    }
+    paintChips();
+    paintHead();
+    paintPane();
+    if (before && !selectedId && restoreFocus) {
+      nodes.table.querySelector(`.tr[data-id='${restoreFocus}']`)?.focus({ preventScroll: true });
+      restoreFocus = null;
+    }
   },
   unmount() {
-    hideLegacy();
+    clearInterval(timer);
+    clearTimeout(pressTimer);
+    document.removeEventListener("keydown", onKey);
+    document.removeEventListener("visibilitychange", onVisible);
+    pane?.hide();
+    host = null;
+    nodes = null;
+    pane = null;
+    items = null;
+    sequence += 1;
+    setDetailOpen(false);
   },
 };
