@@ -1,0 +1,47 @@
+name: Web page tests
+description: >-
+  The users' web page (backend/src/main/resources/META-INF/resources/app) in a
+  real browser, against the backend built from this commit and PostgreSQL, as
+  Compose runs them. web-tests/ is test tooling only: nothing in it is shipped.
+  Needs the images loaded. Leaves no stack or file for the next test of the same job.
+
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/prepare-env
+    - name: Start PostgreSQL and the backend
+      shell: bash
+      run: docker compose up --no-build --wait --wait-timeout 180
+    # The runner image ships Node.js; the version of Playwright and of its
+    # Chromium is pinned by web-tests/package-lock.json.
+    - run: npm ci
+      shell: bash
+      working-directory: web-tests
+    - run: npx playwright install --with-deps chromium
+      shell: bash
+      working-directory: web-tests
+    - run: npx playwright test
+      shell: bash
+      working-directory: web-tests
+      env:
+        SIGNALHUB_URL: http://localhost:8080
+        ADMIN_TOKEN: ${{ env.SIGNALHUB_TEST_ADMIN_TOKEN }}
+    - if: failure()
+      shell: bash
+      run: docker compose logs backend
+    - if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: web-test-results
+        path: |
+          web-tests/.results
+          web-tests/playwright-report
+        # The folder starts with a dot, which the action skips unless told otherwise.
+        include-hidden-files: true
+        if-no-files-found: ignore
+    - if: always()
+      shell: bash
+      run: |
+        docker compose down --volumes
+        rm -f .env
+        rm -rf web-tests/.results web-tests/playwright-report

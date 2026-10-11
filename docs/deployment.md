@@ -307,9 +307,9 @@ backend migrates the database at startup, forward only, applying every
 migration between the two releases, so skipping releases works the same
 way. CI upgrades a stack of the previous release to deployment files of the
 current code, with its data, and rolls it back again, on every change (the
-`Backend container (upgrade from the latest release)` job), and does the
-same from v0.13.0, skipping every release since (the `Backend container
-(upgrade from v0.13.0)` job). v0.13.0 is the oldest release that stores the
+`Stacks (Compose smoke test, upgrades from the latest release and v3.5.0)` job), and does the
+same from v0.13.0, skipping every release since (the `Stacks (end-to-end, fresh
+install, upgrade from v0.13.0)` job). v0.13.0 is the oldest release that stores the
 events, producer keys, clients, read state and push preferences these jobs
 check; upgrading from an older release applies the same migrations but is
 not tested.
@@ -461,7 +461,7 @@ but the stack does not start until the data is moved. The move is a backup
 and a restore into a new, empty volume, as in
 [Backup and restore](architecture.md#backup-and-restore); CI moves a stack
 with data this way on every change that changes the major version (the
-`Backend container (upgrade from ...)` jobs).
+`Stacks (... upgrade from ...)` jobs).
 
 From PostgreSQL 17 (releases up to v1.7.1) to 18 (v2.0.0 and later):
 18 keeps its data in a directory named for its major version, so

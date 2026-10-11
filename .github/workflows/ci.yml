@@ -8,12 +8,17 @@ name: CI
 # tab (docs/development.md#continuous-integration):
 #
 #   ci-python.yml      the repository's Python tooling, the SDK, the examples
-#                      and the workflows' own lint
+#                      and the workflows' own lint, in one job
 #   ci-backend.yml     the backend's build and tests
 #   ci-app.yml         the Flutter app: checks, Android and iOS builds
 #   ci-image.yml       the backend image, built once per architecture
-#   ci-web.yml         the users' web page in a browser
-#   ci-containers.yml  the Compose stack, upgrades, a fresh install, end to end
+#   ci-containers.yml  every test that starts the backend as a container: the
+#                      users' web page in a browser, the Compose stack, the
+#                      upgrades, a fresh install, end to end
+#
+# A pull request holds few runners at once (docs/development.md#continuous-integration):
+# the parts pack their short jobs into one and the two that start a stack wait for
+# the images, and a single job, CI passed, reports whether every part passed.
 on:
   pull_request:
   workflow_call:
@@ -37,53 +42,30 @@ jobs:
     uses: ./.github/workflows/ci-app.yml
   image:
     uses: ./.github/workflows/ci-image.yml
-  # The two parts that start the stack use the images the image part built.
-  web:
-    needs: image
-    uses: ./.github/workflows/ci-web.yml
-    with:
-      images: backend-images-amd64
+  # It starts stacks from the images the image part built.
   containers:
     needs: image
     uses: ./.github/workflows/ci-containers.yml
     with:
       images: backend-images
 
-  # The branch protection of main requires these checks by name (docs/development.md,
-  # "Repository settings"). A job of a called workflow is reported as "caller / job",
-  # so each name is reported here, passing only when the part that holds its job
-  # passed. Add a check to a part and its name here, and to the ruleset.
-  required:
-    name: ${{ matrix.check }}
+  # The only check the branch protection of main requires from this workflow
+  # (besides Conventional Commit title, which only a pull request has). It fails
+  # unless every part succeeded, so a part that is skipped, cancelled or failed
+  # never passes it. A new part is added to `needs` and to the loop below.
+  passed:
+    name: CI passed
     if: ${{ always() }}
-    needs: [python, backend, app, image, web, containers]
+    needs: [python, backend, app, image, containers]
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { part: python, check: "Python (lint + test)" }
-          - { part: python, check: "GitHub Actions lint" }
-          - { part: backend, check: "Backend (build + test)" }
-          - { part: app, check: "Client (analyze + test + Android build)" }
-          - { part: app, check: "Client (iOS build)" }
-          - { part: image, check: "Backend image (release build)" }
-          - { part: image, check: "Backend image (release build, ARM64)" }
-          - { part: web, check: "Web page (browser tests)" }
-          - { part: containers, check: "Backend container (Compose smoke test)" }
-          - { part: containers, check: "Backend container (Compose smoke test, ARM64)" }
-          - { part: containers, check: "Backend container (upgrade from the latest release)" }
-          - { part: containers, check: "Backend container (upgrade from v0.13.0)" }
-          - { part: containers, check: "End-to-end (producer to push and client inbox)" }
-          - { part: containers, check: "Deployment (fresh install from docs/deployment.md)" }
     steps:
       - env:
-          PART: ${{ matrix.part }}
-          RESULT: ${{ needs[matrix.part].result }}
+          RESULTS: ${{ toJSON(needs) }}
         run: |
-          echo "$PART: $RESULT"
-          if [ "$RESULT" != success ]; then
-            echo "::error::The $PART part of CI did not succeed ($RESULT); see its jobs above."
+          echo "$RESULTS" | jq --raw-output 'to_entries[] | "\(.key): \(.value.result)"'
+          failed=$(echo "$RESULTS" | jq --raw-output '[to_entries[] | select(.value.result != "success") | .key] | join(", ")')
+          if [ -n "$failed" ]; then
+            echo "::error::These parts of CI did not succeed: $failed; see their jobs above."
             exit 1
           fi

@@ -1,0 +1,67 @@
+name: End-to-end test
+description: >-
+  The whole path of an event, with FCM push enabled against a fake FCM: a
+  producer publishes, the clients' preferences decide who is pushed, and the
+  client opens the event from its inbox. Needs the images loaded and the Python
+  SDK installed. Leaves no stack, process, file or setting for the next test of
+  the same job.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        echo "SIGNALHUB_FCM_SENDS=$RUNNER_TEMP/fcm-sends.jsonl" >> "$GITHUB_ENV"
+        echo "SIGNALHUB_FIREBASE_OPTIONS=$RUNNER_TEMP/firebase-options.json" >> "$GITHUB_ENV"
+    - uses: ./.github/actions/prepare-env
+    - name: Start a fake FCM, PostgreSQL and the backend with FCM push enabled
+      shell: bash
+      run: |
+        python scripts/e2e/fake_fcm.py --port 8099 --record "$SIGNALHUB_FCM_SENDS" \
+          > "$RUNNER_TEMP/fake-fcm.log" 2>&1 &
+        # A throwaway service account key that only the fake accepts; no real
+        # Firebase credential is ever needed in CI.
+        openssl genpkey -quiet -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$RUNNER_TEMP/fcm-key.pem"
+        jq --null-input --rawfile key "$RUNNER_TEMP/fcm-key.pem" '{
+            type: "service_account", project_id: "signalhub-e2e", private_key_id: "e2e",
+            private_key: $key, client_email: "signalhub@signalhub-e2e.iam.gserviceaccount.com",
+            token_uri: "http://host.docker.internal:8099/token"}' > "$RUNNER_TEMP/fcm.json"
+        chmod a+r "$RUNNER_TEMP/fcm.json" # the backend runs as UID 10001
+        # The app's Firebase options, served to clients (client/firebase-options.example.json).
+        jq '.FIREBASE_PROJECT_ID = "signalhub-e2e"' client/firebase-options.example.json \
+          > "$SIGNALHUB_FIREBASE_OPTIONS"
+        chmod a+r "$SIGNALHUB_FIREBASE_OPTIONS"
+        # The key mount of docs/development.md#firebase-cloud-messaging, with the
+        # FCM API pointed at the fake on the runner.
+        cat > compose.override.yaml <<YAML
+        services:
+          backend:
+            environment:
+              SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE: /run/secrets/fcm.json
+              SIGNALHUB_PUSH_FCM_CLIENT_OPTIONS_FILE: /run/config/firebase-options.json
+              SIGNALHUB_PUSH_FCM_API_URL: http://host.docker.internal:8099
+            volumes:
+              - $RUNNER_TEMP/fcm.json:/run/secrets/fcm.json:ro
+              - $SIGNALHUB_FIREBASE_OPTIONS:/run/config/firebase-options.json:ro
+            extra_hosts:
+              - host.docker.internal:host-gateway
+        YAML
+        docker compose up --no-build --wait --wait-timeout 180
+    - name: The end-to-end checks
+      shell: bash
+      env:
+        SIGNALHUB_URL: http://localhost:8080
+      run: python -m unittest discover --start-directory container-tests --pattern 'test_e2e.py' --verbose
+    - if: failure()
+      shell: bash
+      run: |
+        docker compose logs
+        cat "$RUNNER_TEMP/fake-fcm.log"
+    - if: always()
+      shell: bash
+      run: |
+        docker compose down --volumes
+        pkill -f scripts/e2e/fake_fcm.py || true
+        rm -f .env compose.override.yaml
+        # An empty setting is an unset one to the tests.
+        printf '%s\n' SIGNALHUB_FCM_SENDS= SIGNALHUB_FIREBASE_OPTIONS= >> "$GITHUB_ENV"

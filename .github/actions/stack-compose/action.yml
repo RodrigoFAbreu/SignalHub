@@ -1,0 +1,60 @@
+name: Compose smoke test
+description: >-
+  The Compose stack with the TLS proxy and the recommended resource limits, the
+  checks of its API, then the checks that restart, stop or empty parts of it
+  (container-tests/). Needs the images loaded and the Python SDK installed. Leaves
+  no stack, file or setting for the next test of the same job.
+
+inputs:
+  arch:
+    description: The architecture of the runner, amd64 or arm64.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/prepare-env
+    - name: Start PostgreSQL and the backend
+      shell: bash
+      run: |
+        # The TLS reverse proxy of docs/deployment.md, with Caddy's own CA.
+        printf '%s\n' COMPOSE_PROFILES=proxy SIGNALHUB_DOMAIN=localhost SIGNALHUB_TLS=internal >> .env
+        # The resource limits recommended in docs/architecture.md#resources.
+        cat > compose.override.yaml <<'YAML'
+        services:
+          backend:
+            mem_limit: 512m
+            cpus: 1
+          postgres:
+            mem_limit: 256m
+        YAML
+        docker compose up --no-build --wait --wait-timeout 180
+    - name: The stack's checks
+      shell: bash
+      env:
+        SIGNALHUB_URL: http://localhost:8080
+        SIGNALHUB_PROXY_URL: https://localhost
+        SIGNALHUB_EXPECT_ARCH: ${{ inputs.arch }}
+        SIGNALHUB_EXPECT_LIMITS: "1"
+      run: python -m unittest discover --start-directory container-tests --pattern 'test_compose_*.py' --verbose
+    # They stop PostgreSQL, restart the backend with other settings and
+    # replace the database from a backup: after the others.
+    - name: Restarts, outages and backups
+      shell: bash
+      env:
+        SIGNALHUB_URL: http://localhost:8080
+        SIGNALHUB_PROXY_URL: https://localhost
+        SIGNALHUB_EXPECT_ARCH: ${{ inputs.arch }}
+        SIGNALHUB_EXPECT_LIMITS: "1"
+      run: python -m unittest discover --start-directory container-tests --pattern 'test_operations_*.py' --verbose
+    - if: always()
+      shell: bash
+      run: docker stats --no-stream
+    - if: failure()
+      shell: bash
+      run: docker compose logs
+    - if: always()
+      shell: bash
+      run: |
+        docker compose down --volumes
+        rm -f .env compose.override.yaml
