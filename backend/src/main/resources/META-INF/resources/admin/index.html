@@ -1,103 +1,56 @@
 <!doctype html>
 <!--
-  The admin page: the operator's users, their devices, pairing codes, producers and events, test
-  events, and the service's status (docs/architecture.md#the-admin-page).
-  Served only on the backend's own port, never through the proxy. It is static; everything it does
-  goes through the management API with the admin token typed here, which stays in this page's
-  memory.
+  The admin page: the operator's devices, users, producers and events, and whether SignalHub is
+  working (docs/architecture.md#the-admin-page). Plain HTML, CSS and ES modules; no framework and no
+  build step. Served only on the backend's own port, never through the proxy. It is static; everything
+  it does goes through the management API with the admin token typed on its sign-in screen, which
+  stays in this page's memory. Its layout, tokens and wording are the approved drawings'
+  (docs/design/users/source/Admin - *.dc.html).
 -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="dark light" />
     <title>Admin - SignalHub</title>
+    <link rel="stylesheet" href="../app/fonts/fonts.css" />
     <link rel="stylesheet" href="admin.css" />
     <script src="/webjars/qrcode-generator/2.0.4/dist/qrcode.js" defer></script>
-    <script src="admin.js" defer></script>
+    <script type="module" src="js/main.js"></script>
   </head>
   <body>
-    <main>
-      <h1>SignalHub admin</h1>
-      <p class="lead">
-        The people SignalHub serves, their devices, the producers that publish to them and their
-        events: invite users and set their roles, manage devices and connect new ones with a
-        pairing code, register producers, choose who sees them and manage their keys, browse, send
-        test events and delete events, and see whether SignalHub is working.
-      </p>
+    <div id="live" class="sr-only" role="status" aria-live="polite"></div>
+    <div id="signin"></div>
 
-      <form id="unlock" autocomplete="off">
-        <label for="token">Admin token</label>
-        <input id="token" type="password" required minlength="32" spellcheck="false" />
-        <button type="submit">Unlock</button>
-        <p id="error" class="error" role="alert" hidden></p>
-      </form>
-
-      <div id="admin" hidden>
-        <!-- The section shown is the address's fragment, so a reload stays on it. -->
-        <nav id="sections" aria-label="Sections">
-          <a href="#devices" data-section="devices">Devices</a>
-          <a href="#users" data-section="users">Users</a>
-          <a href="#producers" data-section="producers">Producers</a>
-          <a href="#events" data-section="events">Events</a>
-          <a href="#status" data-section="status">Status</a>
-        </nav>
-
-        <div id="section-devices" data-section="devices">
-          <section aria-labelledby="devices-title">
-            <div class="heading">
-              <h2 id="devices-title">Devices</h2>
-              <button type="button" id="refresh" class="secondary">Refresh</button>
-            </div>
-            <p id="devices-error" class="error" role="alert" hidden></p>
-            <ul id="device-list" class="cards"></ul>
-          </section>
-
-          <section aria-labelledby="connect-title">
-            <h2 id="connect-title">Connect a device</h2>
-            <form id="create" autocomplete="off">
-              <label for="name">Device name</label>
-              <input id="name" type="text" required maxlength="100" value="New device" />
-              <label for="pair-user">User</label>
-              <select id="pair-user" required></select>
-              <p class="lead">
-                The device belongs to this user. It is an admin device when the user is an admin.
-              </p>
-              <button type="submit">Create pairing code</button>
-              <p id="pair-error" class="error" role="alert" hidden></p>
-            </form>
-
-            <div id="pairing" hidden aria-live="polite">
-              <h3>Pairing code for <span id="pairing-name"></span></h3>
-              <p id="pairing-user"></p>
-              <p id="pairing-admin" hidden>It will be an admin device.</p>
-              <div id="qr-box">
-                <canvas id="qr" width="320" height="320" aria-label="Pairing QR code"></canvas>
-                <p id="expired-cover" hidden>Expired. Create a new code.</p>
-              </div>
-              <p id="countdown"></p>
-              <label for="link">Pairing link</label>
-              <input id="link" type="text" readonly spellcheck="false" />
-              <div class="actions">
-                <button type="button" id="copy-image" class="secondary">Copy QR image</button>
-                <button type="button" id="copy-link" class="secondary">Copy link</button>
-                <button type="button" id="download" class="secondary">Download QR</button>
-              </div>
-              <p id="status" role="status"></p>
-              <p class="warning">
-                Anyone with this code, its link or a picture of it can connect one device until it is
-                used or expires. Send it only to someone you trust. The device gets its own key, which
-                you can revoke, and the user's devices and the admins' devices get a push when it
-                connects.
-              </p>
-            </div>
-          </section>
+    <div id="app" class="app" hidden>
+      <!-- The rail's section is the address's fragment, so a reload stays on it. -->
+      <nav id="rail" class="rail" aria-label="Sections">
+        <span class="rlogo"><span class="ms" aria-hidden="true">sensors</span></span>
+        <span class="rcap">Admin</span>
+        <a class="ri" href="#devices" data-section="devices"><span class="pill"><span class="ms" aria-hidden="true">devices</span></span>Devices</a>
+        <a class="ri" href="#users" data-section="users"><span class="pill"><span class="ms" aria-hidden="true">group</span></span>Users</a>
+        <a class="ri" href="#producers" data-section="producers"><span class="pill"><span class="ms" aria-hidden="true">sensors</span></span>Producers</a>
+        <a class="ri" href="#events" data-section="events"><span class="pill"><span class="ms" aria-hidden="true">inbox</span></span>Events</a>
+        <a class="ri" href="#status" data-section="status"><span class="pill"><span class="ms" aria-hidden="true">monitor_heart</span></span>Status</a>
+        <div class="rfoot">
+          <a class="ri" id="status-button" href="#status" aria-label="Server status: checking">
+            <span class="pill"><span class="ms" aria-hidden="true">dns</span><span class="sdot un"></span></span><span class="word">Checking</span>
+          </a>
+          <button type="button" id="account" class="acct" aria-label="Account" aria-haspopup="menu" aria-expanded="false">
+            <span class="av" aria-hidden="true">A</span>
+          </button>
         </div>
+      </nav>
 
-        <div id="section-users" data-section="users" hidden>
-          <section aria-labelledby="users-title">
+      <main id="main" class="main">
+        <div id="view" class="view">
+          <div id="sect" class="sect"></div>
+<div id="section-users" class="legacy-section" data-section="users" hidden>
+          <div class="mhead"><h1>Users</h1></div>
+          <div class="legacy"><div class="wrap">
+          <section aria-label="Users">
             <div class="heading">
-              <h2 id="users-title">Users</h2>
               <button type="button" id="refresh-users" class="secondary">Refresh</button>
             </div>
             <p class="lead">
@@ -129,56 +82,14 @@
               them a pairing code; the device that uses it belongs to them.
             </p>
           </section>
+        </div></div>
         </div>
 
-        <div id="section-producers" data-section="producers" hidden>
-          <section aria-labelledby="producers-title">
+<div id="section-events" class="legacy-section" data-section="events" hidden>
+          <div class="mhead"><h1>Events</h1></div>
+          <div class="legacy"><div class="wrap">
+          <section id="event-browser" aria-label="Events">
             <div class="heading">
-              <h2 id="producers-title">Producers</h2>
-              <button type="button" id="refresh-producers" class="secondary">Refresh</button>
-            </div>
-            <p id="producers-error" class="error" role="alert" hidden></p>
-
-            <div id="new-key" class="new-key" hidden aria-live="polite">
-              <h3>New key for <span id="new-key-producer"></span></h3>
-              <label for="new-key-value">API key</label>
-              <input id="new-key-value" type="text" readonly spellcheck="false" />
-              <div class="actions">
-                <button type="button" id="copy-key" class="secondary">Copy key</button>
-                <button type="button" id="new-key-done">I have stored it</button>
-              </div>
-              <p id="new-key-status" role="status"></p>
-              <p class="warning">
-                This key is shown only now: SignalHub keeps only its hash and cannot show it again.
-                Store it in the producer's configuration or secret store before you close this. A
-                lost key cannot be recovered; issue a new one and revoke the old one.
-              </p>
-            </div>
-
-            <ul id="producer-list" class="cards"></ul>
-          </section>
-
-          <section aria-labelledby="create-producer-title">
-            <h2 id="create-producer-title">Create a producer</h2>
-            <form id="create-producer" autocomplete="off">
-              <label for="producer-name">Producer name</label>
-              <input id="producer-name" type="text" required maxlength="100" spellcheck="false" />
-              <label for="producer-owner">Owner</label>
-              <select id="producer-owner" required></select>
-              <label for="producer-visibility">Who sees it</label>
-              <select id="producer-visibility">
-                <option value="PRIVATE" selected>Private: its owner and the users allowed on it</option>
-                <option value="PUBLIC">Public: every user may see it and subscribe</option>
-              </select>
-              <button type="submit">Create producer</button>
-              <p id="create-producer-error" class="error" role="alert" hidden></p>
-            </form>
-          </section>
-        </div>
-        <div id="section-events" data-section="events" hidden>
-          <section id="event-browser" aria-labelledby="events-title">
-            <div class="heading">
-              <h2 id="events-title">Events</h2>
               <button type="button" id="refresh-events" class="secondary">Refresh</button>
             </div>
             <div id="event-filters" class="filters">
@@ -341,26 +252,18 @@
               </div>
             </div>
           </section>
+        </div></div>
         </div>
+        </div>
+      </main>
 
-        <div id="section-status" data-section="status" hidden>
-          <section aria-labelledby="status-title">
-            <div class="heading">
-              <h2 id="status-title">Status</h2>
-              <button type="button" id="refresh-status" class="secondary">Refresh</button>
-            </div>
-            <p id="status-summary"></p>
-            <dl id="status-facts" class="facts"></dl>
-            <h3>Devices whose last push failed</h3>
-            <ul id="failing-devices" class="keys"></ul>
-            <p class="lead">
-              Nothing is changed here: settings are in the server's <code>.env</code> and take
-              effect after a restart.
-            </p>
-          </section>
-        </div>
-      </div>
-      <p id="toast" class="toast" role="status" hidden></p>
-    </main>
+      <nav id="bottom-bar" class="nav" aria-label="Sections (phone)">
+        <a class="ri" href="#devices" data-section="devices"><span class="pill"><span class="ms" aria-hidden="true">devices</span></span>Devices</a>
+        <a class="ri" href="#users" data-section="users"><span class="pill"><span class="ms" aria-hidden="true">group</span></span>Users</a>
+        <a class="ri" href="#producers" data-section="producers"><span class="pill"><span class="ms" aria-hidden="true">sensors</span></span>Producers</a>
+        <a class="ri" href="#events" data-section="events"><span class="pill"><span class="ms" aria-hidden="true">inbox</span></span>Events</a>
+        <a class="ri" href="#status" data-section="status"><span class="pill"><span class="ms" aria-hidden="true">monitor_heart</span></span>Status</a>
+      </nav>
+    </div>
   </body>
 </html>

@@ -64,3 +64,19 @@ export async function sessionCookie(page) {
   const cookies = await page.context().cookies();
   return cookies.find((cookie) => cookie.name === "__Host-signalhub_session");
 }
+
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+
+/**
+ * Signs in to the operator's admin page (/admin/) the way the operator does: types the token on its
+ * sign-in screen. The token is the operator's own, which the tests already hold to set things up.
+ */
+export async function adminSignIn(page, hash = "") {
+  if (!ADMIN_TOKEN) throw new Error("ADMIN_TOKEN is not set: the admin page tests sign in with the operator's token");
+  // The clipboard a person's browser has: a headless Chromium refuses a copy unless it is granted.
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(BASE).origin });
+  await page.goto(`/admin/${hash}`);
+  await page.getByLabel("Admin token").fill(ADMIN_TOKEN);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("navigation", { name: /^Sections/ })).toBeVisible({ timeout: 20_000 });
+}

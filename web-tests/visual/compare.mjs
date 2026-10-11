@@ -13,7 +13,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { BASE } from "../support/server.mjs";
-import { frames } from "./frames.mjs";
+import { adminFrames } from "./admin-frames.mjs";
+import { frames as webFrames } from "./frames.mjs";
 import { seedWorld } from "./world.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -21,6 +22,10 @@ const out = resolve(here, "..", ".visual");
 const drawings = resolve(here, "..", "..", "docs", "design", "users", "source");
 const port = Number(process.env.DRAWINGS_PORT ?? 8765);
 const only = process.argv.slice(2).filter((argument) => !argument.startsWith("--"));
+// The users' page's frames, then the admin page's (admin-frames.mjs: ids that start with the family's
+// letters, such as SI1 or DV2, never clash with the web page's 6a, 7b). A frame of the admin page
+// asks for no world (`world: false`): it is rendered from the drawings' sample data, mocked.
+const frames = [...webFrames, ...adminFrames];
 
 mkdirSync(out, { recursive: true });
 
@@ -34,12 +39,15 @@ const browser = await chromium.launch({ executablePath });
 // The sample world is made once and kept (with its keys, in the ignored output folder) so a
 // second run does not need an empty database. --fresh makes it again.
 const worldFile = join(out, "world.json");
-let world;
-if (!process.argv.includes("--fresh") && existsSync(worldFile)) {
-  world = JSON.parse(readFileSync(worldFile, "utf8"));
-} else {
-  world = await seedWorld();
-  writeFileSync(worldFile, JSON.stringify(world, null, 2));
+let world = {};
+const needsWorld = frames.some((frame) => (!only.length || only.includes(frame.id)) && frame.world !== false);
+if (needsWorld) {
+  if (!process.argv.includes("--fresh") && existsSync(worldFile)) {
+    world = JSON.parse(readFileSync(worldFile, "utf8"));
+  } else {
+    world = await seedWorld();
+    writeFileSync(worldFile, JSON.stringify(world, null, 2));
+  }
 }
 
 const sheets = new Map();
@@ -58,8 +66,13 @@ async function drawingPage(file) {
 // The drawing's frame: its inner size, and the height of the fake browser bar the page lacks.
 async function drawingFrame(frame) {
   const page = await drawingPage(frame.file);
-  const locator = page.locator(`[id='${frame.option}'] :is(.br, .ph)`).nth(frame.index ?? 0);
+  const locator = page.locator(`[id='${frame.option}'] ${frame.drawingSelector ?? ":is(.br, .ph)"}`).nth(frame.index ?? 0);
   await locator.scrollIntoViewIfNeeded();
+  if (frame.drawingSelector) {
+    // A piece of the drawing (a dialog, a pane): its own picture, at its own size.
+    const box = await locator.boundingBox();
+    return { image: await locator.screenshot(), width: Math.round(box.width), height: Math.round(box.height) };
+  }
   const info = await locator.evaluate((node) => {
     const chrome = node.querySelector(":scope > .chrome, :scope > .phchrome, :scope > .mchrome");
     const box = node.getBoundingClientRect();
@@ -81,7 +94,7 @@ async function render(frame, size) {
   await frame.setup(page, world, context);
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(frame.settle ?? 400);
-  const image = await page.screenshot();
+  const image = frame.shot ? await frame.shot(page) : await page.screenshot();
   await context.close();
   return { image, errors };
 }

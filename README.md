@@ -30,8 +30,10 @@ See [docs/architecture.md](docs/architecture.md).
 The screens designed for several users (the app and a web page), with the
 design system and a walk-through of the main flows, are in
 [docs/design/users/](docs/design/users/README.md).
-The redesigned operator's admin page, waiting for the maintainer's approval,
-is in [docs/design/admin/](docs/design/admin/README.md).
+The operator's admin page's approved designs are in
+[docs/design/admin/](docs/design/admin/README.md); the page is built from them (its shell,
+signing in, Status, Producers and Devices; Events and Users keep their earlier content until they
+are rebuilt).
 
 ## Status
 
