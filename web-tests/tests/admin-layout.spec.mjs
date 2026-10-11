@@ -90,7 +90,7 @@ test.describe("desktop", () => {
 
   test("every control has an accessible name, the page has its landmarks, and the focus ring is 2 px primary", async ({ page }) => {
     const person = await createPerson("BASIC");
-    const producer = await createProducer(person, unique("names"), "PUBLIC");
+    const producer = await createProducer(person, unique("labels"), "PUBLIC");
     await adminSignIn(page, `#producers/${producer.id}`);
     for (const hash of [`#producers/${producer.id}`, "#devices", "#status", "#users", "#events"]) {
       await page.goto(`/admin/${hash}`).catch(() => {});

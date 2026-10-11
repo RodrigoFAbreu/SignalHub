@@ -5,6 +5,7 @@ Parts of the old step "The owner lists the event with the admin token".
 
 import re
 import unittest
+from urllib.parse import urljoin
 
 from signalhub_stack import StackTestCase, admin, host
 
@@ -19,9 +20,10 @@ class AdminPage(StackTestCase):
 
     def test_the_admin_page_has_its_sections(self):
         page = self.page()
-        for section in ("producers", "events", "status"):
+        # The rail's five sections; Producers, Devices and Status are drawn by the page's modules.
+        for section in ("devices", "users", "producers", "events", "status"):
             with self.subTest(section):
-                self.assertIn(f'id="section-{section}" data-section="{section}"', page)
+                self.assertIn(f'href="#{section}" data-section="{section}"', page)
 
     def test_the_admin_page_has_the_send_and_delete_event_forms(self):
         page = self.page()
@@ -35,13 +37,14 @@ class AdminPage(StackTestCase):
         self.assertIsNone(status["eventRetentionSeconds"])
 
     def test_every_asset_of_the_admin_page_is_served(self):
-        # The page and its QR library are served on the host.
+        # The page, its modules, its stylesheet, the fonts it shares with the users' page and its QR
+        # library are served on the host.
         assets = re.findall(r'(?:src|href)="([^"]+)"', self.page())
         self.assertTrue(assets)
         for asset in assets:
             if asset.startswith("#"):
                 continue
-            path = asset if asset.startswith("/") else f"/admin/{asset}"
+            path = urljoin("/admin/", asset)
             with self.subTest(asset):
                 self.assertStatus(host().get(path), 200)
 

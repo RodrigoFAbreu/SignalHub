@@ -203,6 +203,7 @@ test("issuing a key shows it once in a dialog, and revoking one names it and say
   expect((await fetch(`${BASE}/api/v1/events`, { method: "POST", headers: { Authorization: `Bearer ${producer.apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ category: "INFO", severity: "NORMAL", title: "Old" }) })).status).toBe(401);
   expect((await fetch(`${BASE}/api/v1/events`, { method: "POST", headers: { Authorization: `Bearer ${fresh}`, "Content-Type": "application/json" }, body: JSON.stringify({ category: "INFO", severity: "NORMAL", title: "New" }) })).status).toBe(201);
   // The one working key left is said to be the only one.
+  await expect(pane.getByRole("button", { name: /^Revoke key/ })).toHaveCount(1);
   await pane.getByRole("button", { name: /^Revoke key/ }).click();
   await expect(page.getByRole("dialog", { name: "Revoke the only key?" })).toContainText("nothing can send its events until you issue a new key");
   await page.getByRole("button", { name: "Cancel" }).click();
@@ -239,7 +240,7 @@ test("a producer its owner disabled says so: Disabled by its owner", async ({ pa
 
 test("renaming is a dialog: the new name shows at once, and a name that is taken is said under the field", async ({ page }) => {
   const owner = await createPerson("BASIC");
-  const producer = await createProducer(owner, unique("rename"), "PRIVATE");
+  const producer = await createProducer(owner, unique("relabel"), "PRIVATE");
   const other = await createProducer(owner, unique("other"), "PRIVATE");
   await open(page, producer.name);
   const pane = page.getByRole("region", { name: producer.name });
@@ -251,7 +252,7 @@ test("renaming is a dialog: the new name shows at once, and a name that is taken
   await dialog.getByLabel("Name").fill(other.name);
   await rename.click();
   await expect(dialog.getByText("That name is taken. Names are shared by everyone on this server.")).toBeVisible();
-  const renamed = unique("renamed");
+  const renamed = unique("relabeled");
   await dialog.getByLabel("Name").fill(renamed);
   await rename.click();
   await expect(page.getByRole("region", { name: renamed })).toBeVisible();
