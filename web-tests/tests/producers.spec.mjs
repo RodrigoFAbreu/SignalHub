@@ -102,14 +102,17 @@ test("a producer its owner disabled goes to the bottom, and the Disabled chip sh
   await asDevice(viewer, "POST", `/api/v1/client/producers/${off.id}/disable`);
   await page.goto("/app/#producers");
 
-  await expect(page.locator(".prow-item")).toHaveCount(2);
-  await expect(page.locator(".prow-item").first()).toContainText(on.name);
-  await expect(page.locator(".prow-item").last()).toContainText(off.name);
-  await expect(page.locator(".prow-item").last()).toContainText("Disabled by you · its keys do not work");
+  // The server is shared with other tests, so only these two rows are looked at.
+  const onRow = page.locator(".prow-item", { hasText: on.name });
+  const offRow = page.locator(".prow-item", { hasText: off.name });
+  await expect(offRow).toContainText("Disabled by you · its keys do not work");
+  await expect(onRow).toBeVisible();
+  const top = async (row) => (await row.boundingBox()).y;
+  expect(await top(offRow)).toBeGreaterThan(await top(onRow));
 
-  await page.getByRole("radio", { name: "Disabled" }).click();
-  await expect(page.locator(".prow-item")).toHaveCount(1);
-  await expect(page.locator(".prow-item")).toContainText(off.name);
+  await page.getByRole("radio", { name: "Disabled", exact: true }).click();
+  await expect(offRow).toBeVisible();
+  await expect(onRow).toHaveCount(0);
 });
 
 test("a failed subscribe says so, with Retry", async ({ context, page }) => {
