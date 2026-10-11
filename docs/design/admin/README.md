@@ -55,7 +55,9 @@ The designs were made in the same Claude Design project as the users' designs:
 
 Each is a dashed "Needs a server change" note in the frames. Everything else
 drawn exists in the management API today. The owner approves this list at the
-design gate. Each approved item is queued as its own server item.
+design gate. The owner approved all of them at G6 (2026-10-11); they are
+queued as R75 (S1, S2a, S2b, S3, S7) and R76 (S4, E-OUTCOME) in
+`docs/roadmap.md`.
 
 | Id | Item | Size | Where it shows |
 | --- | --- | --- | --- |
@@ -72,8 +74,8 @@ list is enough), per-provider push counters, an abandoned-retries window (the
 page counts since it was opened instead), reusing a revoked user's name (the
 copy says the name stays taken), and facet counts (option C was not chosen).
 
-Rules the owner approves with the designs, which are not server changes: the
-Status "needs attention" rules, and that "push not set up" counts as needing
+Rules the owner approved with the designs at G6, which are not server
+changes: the Status "needs attention" rules, and that "push not set up" counts as needing
 attention ([DESIGN.md 9.5](../users/DESIGN.md#95-status-when-signalhub-needs-attention)).
 
 ## Screen families

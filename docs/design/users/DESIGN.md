@@ -618,8 +618,8 @@ changes made from a device, pairings and browser sign-ins do.
 
 ### 9.5 Status: when SignalHub "needs attention"
 
-The first line of Status answers in words and an icon. These are the proposed
-rules, for the owner's approval at the design gate: the database is down; no
+The first line of Status answers in words and an icon. These are the rules
+the owner approved at the design gate (G6, 2026-10-11): the database is down; no
 push service is set up; every device that has a push address failed its last
 push (at least one such device), so the push service is likely down; the events
 waiting to be pushed are above 20 and not falling over two checks; retries were

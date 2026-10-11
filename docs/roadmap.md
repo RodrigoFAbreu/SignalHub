@@ -3178,7 +3178,12 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 63    | R72 - Fixes and polish from the maintainer's testing of 3.6.0                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 64    | G5 - The maintainer's go-ahead for the admin page redesign                                       | Human gate                             | Passed (2026-10-11, go-ahead given)                                              |
 | 65    | R73 - Designs for the admin page, and the web page's New producer button                         | Increment (`docs`)                     | Done (see section 3)                                                             |
-| 66    | G6 - The maintainer approves the admin page designs                                              | Human gate                             | Waiting for the maintainer                                                       |
+| 66    | G6 - The maintainer approves the admin page designs                                              | Human gate                             | Passed (2026-10-11, approved without changes)                                    |
+| 67    | R75 - Small additions to the admin API for the admin page                                        | Increment (`feat`)                     | Next                                                                             |
+| 68    | R76 - The events list: a total count, and how each event's pushes went                           | Increment (`feat`)                     | Queued (after R75)                                                               |
+| 69    | R77 - The web page's New producer button                                                         | Increment (`feat`)                     | Queued (after R76)                                                               |
+| 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Queued (after R77)                                                               |
+| 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Queued (after R78)                                                               |
 
 How an autonomous run uses it:
 
@@ -3687,6 +3692,14 @@ G1 → G2 → R19 v1.0.0
   of jobs running at once rather than the total, and kept the release's
   re-validation. It runs first, before R72, since faster CI saves time on
   every later release, and before G5, so the queue does not stop there.
+- **R75 to R79 were queued at the maintainer's approval of the admin
+  page designs (G6, 2026-10-11)**, with every server item the designs
+  need. The server items come first (R75, the five small additions, then
+  R76, the events list's total count and push outcomes, larger and on
+  its own), so the builds never wait on the server; then the web page's
+  *New producer* button (R77), small and independent; then the admin
+  page in two items, so each stays reviewable: R78 the layout, signing
+  in, *Status*, *Producers* and *Devices*, and R79 *Events* and *Users*.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -6063,7 +6076,11 @@ may use the admin page.
 
 ### G6 - The maintainer approves the admin page designs
 
-Status: waiting for the maintainer. A human gate.
+Status: passed. The maintainer approved the designs as drawn on
+2026-10-11, chose every server item they need (the five small ones, the
+events list's total count and each event's push outcome), and confirmed
+the Status "needs attention" rules (`docs/design/users/DESIGN.md`, 9.5).
+A human gate. The items below were queued at that approval.
 
 The maintainer reviews the drawings of R73 (`docs/design/admin/`, with
 the sources in `docs/design/users/source/` and the rules in section 9 of
@@ -6074,6 +6091,173 @@ designs need (listed in `docs/design/admin/README.md`, each marked
 with the maintainer's choices, then the items that build the admin page
 and the web page's *New producer* action. Until then nothing of them
 starts. An orchestrator stops here and never answers it.
+
+### R75 - Small additions to the admin API for the admin page
+
+Status: next. Added at the maintainer's approval of the admin page
+designs (G6, 2026-10-11).
+
+Goal: the management API gives the admin page what its approved designs
+show and the server does not provide today (S1, S2a, S2b, S3 and S7 in
+`docs/design/admin/README.md`, each a dashed "Needs a server change" note
+in the drawings).
+
+Scope:
+
+- **S1, open pairing codes**: list the unused, unexpired pairing codes
+  created with the admin token (`GET /api/v1/admin/pairings`), and cancel
+  an unused one (`DELETE /api/v1/admin/pairings/{id}`), after which it
+  cannot be redeemed; a used or expired code cannot be cancelled. The
+  code's secret part is never listed again: only what the page needs to
+  show it (its id, when it expires, the user it is for)
+- **S2a, renaming a producer**: an optional `name` on the admin producer
+  update, with the same rules and the same name-taken answer as when the
+  owner renames it from a device
+- **S2b, who disabled a producer**: `disabledBy` (its owner, or an admin)
+  in the admin producer response, so the page can say *Disabled by its
+  owner* or *Disabled by the host*
+- **S3, when the server started**: `startedAt` in
+  `/api/v1/admin/status`, for the *Running since* row
+- **S7, a delivery that gave up**: a `final` marker on an event's
+  delivery records (`/api/v1/admin/events/{id}/deliveries`), true when no
+  further attempt will be made (sent, refused, or a temporary failure on
+  the last allowed attempt)
+- tests per addition (against PostgreSQL), `docs/architecture.md` and the
+  OpenAPI description
+
+Compatible (`feat`, minor): additions only, nothing removed or changed in
+meaning.
+
+Non-goals: the admin page itself (R78, R79); anything the designs do not
+need; the same additions in the client API.
+
+### R76 - The events list: a total count, and how each event's pushes went
+
+Status: queued (after R75). Added at the maintainer's approval of the
+admin page designs (G6, 2026-10-11).
+
+Goal: the admin page's Events section can say how many events match its
+filters and which events had a push problem (S4 and E-OUTCOME in
+`docs/design/admin/README.md`).
+
+Scope:
+
+- **S4, a total count**: the event listing (`GET /api/v1/events` with the
+  admin token) can return how many events match the filters, so the page
+  says "25 of 1,284"; it stays affordable on a large table (asked for
+  only when wanted, or a measured cost recorded in the PR)
+- **E-OUTCOME, push outcomes**: each event in that listing carries a
+  short summary of how its pushes went (for example sent, waiting for a
+  retry, failed or gave up, nobody to reach), and the listing can be
+  filtered by it, for the page's *Push problems* chip and row marker; the
+  same words as the deliveries
+- tests (against PostgreSQL, including the filter's combination with the
+  existing ones and paging), `docs/architecture.md` and the OpenAPI
+  description
+
+Compatible (`feat`, minor): additions only; a client key's listing is
+unchanged unless the addition is equally harmless there.
+
+Non-goals: facet counts (option C was not chosen); the admin page itself
+(R79).
+
+### R77 - The web page's New producer button
+
+Status: queued (after R76). Added at the maintainer's approval of the
+admin page designs (G6, 2026-10-11).
+
+Goal: the users' web page's *New producer* action never covers a
+producer of the list, at any width, as approved (option A: a tonal
+*New producer* button in the Producers header instead of a floating one).
+
+Built from the approved drawings (`Web - New producer action` in
+`docs/design/users/source/`, section 9.8 of `docs/design/users/DESIGN.md`
+and `docs/design/admin/`), the drawings' sources being the source of
+truth, as for R66: the header button, the producer filter chips wrapping
+onto a second line rather than scrolling sideways, and the list's end
+fully visible. Tests in `web-tests/` (the button is reachable, the last
+producer is fully visible at phone and desktop widths, the chips wrap).
+
+Compatible (`feat`, minor): web page only; no API change.
+
+Non-goals: the app (its *New producer* stays as it is); the admin page.
+
+### R78 - The admin page: the new layout, signing in, Status, Producers and Devices
+
+Status: queued (after R77). Added at the maintainer's approval of the
+admin page designs (G6, 2026-10-11).
+
+Goal: the operator's admin page is rebuilt as approved: the navigation
+rail with a list and a fixed detail pane that becomes a side sheet below
+1180 px (shell A), desktop first and usable at 390 px, in the users'
+design system with its light and dark themes.
+
+Built from `docs/design/admin/` (approved at G6) and the drawings'
+sources in `docs/design/users/source/` (the `Admin - ...` pages and their
+stylesheets, which render offline as in the design project): they are the
+source of truth for sizes, spacing, colours, icons and copy, and each
+screen is compared with its rendered drawing. Section 9 of
+`docs/design/users/DESIGN.md` gives the rules (R1 to R8), components,
+wording, light tokens and motion; `docs/design/admin/WALKTHROUGH.md` the
+flows.
+
+Scope:
+
+- the shell: rail with the status button (its one refresh rule), the
+  account menu and signing out, the address keeping the section, the
+  light and dark themes, motion with reduced motion respected
+- signing in with the admin token and every sign-in state drawn
+- *Status*, with the "needs attention" rules the maintainer confirmed at
+  G6 (DESIGN.md 9.5) and *Running since* from R75
+- *Producers* and *Devices* with their states, dialogs and phone-width
+  frames, including R75's renaming, *Disabled by its owner* or *the
+  host*, and open pairing codes listed and cancelled
+- *Events* and *Users* keep working inside the new shell with their
+  current content until R79 rebuilds them (nothing is lost or broken in
+  between)
+- tests for the page as the existing admin page tests do, extended to the
+  new states, and `docs/architecture.md` where it describes the page
+
+Compatible (`feat`, minor): the admin page stays host only and uses only
+the management API.
+
+Non-goals: *Events* and *Users* (R79); who may use the admin page.
+
+Exit criteria: on the owner's server, the owner signs in and does the
+approved flows of these sections at desktop width and at 390 px.
+
+### R79 - The admin page: Events and Users
+
+Status: queued (after R78). Added at the maintainer's approval of the
+admin page designs (G6, 2026-10-11).
+
+Goal: the admin page's *Events* and *Users* sections are rebuilt as
+approved (Events A: a dense table with filter chips and a fixed detail
+pane), in the shell R78 built, completing the admin page's designs.
+
+Built from the same sources as R78, with the same fidelity rule.
+
+Scope:
+
+- *Events*: the table with its filter chips (several values per chip,
+  the *Received* date range, *Push problems* from R76), "25 of 1,284"
+  from R76, the detail with its tabs and each delivery's words (*Gave up
+  after 5 tries* from R75's marker), selection with the bulk bar, deleting
+  by rule with presets and a dry-run count, sending a test event, every
+  state and dialog drawn and the phone-width frames
+- *Users*: the list and detail (role, devices, producers,
+  subscriptions, recent traffic), inviting, role changes, unsubscribing
+  and revoking with their confirmations, renaming, every state and
+  dialog drawn and the phone-width frames
+- tests as for R78, and `docs/architecture.md` where it describes the
+  page
+
+Compatible (`feat`, minor).
+
+Non-goals: anything not in the approved designs.
+
+Exit criteria: on the owner's server, the owner does the approved flows
+of *Events* and *Users* at desktop width and at 390 px.
 
 ### Already in place (not scheduled again)
 
@@ -6216,8 +6400,10 @@ faster), and R71 (an upgrade puts the proxy's new configuration in
 effect), and R74 (CI holds fewer runners at once), and R72 (fixes and
 polish from the maintainer's testing of 3.6.0). The maintainer gave the
 go-ahead at G5, and R73 (designs for the admin page and the web page's
-*New producer* action) is done. **Next is G6, a human gate: the queue
-stops there until the maintainer approves the admin page designs.** A new item is added only by the maintainer, in a reviewed pull
+*New producer* action) is done. The maintainer approved the designs at
+G6, and R75 to R79 were queued. **Next is R75 (small additions to the
+admin API for the admin page), then R76, R77, R78 and R79; the queue ends
+after R79.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 
