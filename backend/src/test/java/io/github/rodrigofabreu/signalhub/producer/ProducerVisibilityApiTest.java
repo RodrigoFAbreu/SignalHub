@@ -151,7 +151,7 @@ class ProducerVisibilityApiTest {
         "{\"visibility\": \"SECRET\"}",
         "{\"allowedUserIds\": \"x\"}",
         "{\"allowedUserIds\": [null]}",
-        "{\"name\": \"renamed\"}",
+        "{\"ownerId\": \"someone\"}",
         "not json"
       })
   void invalidChangesAreRejected(String body) {

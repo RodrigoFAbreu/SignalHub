@@ -103,6 +103,14 @@ class ProducerEntity {
     }
   }
 
+  /** Who disabled it; null while it is enabled. */
+  DisabledBy disabledBy() {
+    if (disabledAt == null) {
+      return null;
+    }
+    return disabledByOwner ? DisabledBy.OWNER : DisabledBy.ADMIN;
+  }
+
   boolean disabledByOperator() {
     return disabledAt != null && !disabledByOwner;
   }

@@ -10,7 +10,10 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import java.lang.management.ManagementFactory;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
@@ -38,6 +41,11 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Produces(MediaType.APPLICATION_JSON)
 public class StatusAdminResource {
 
+  // The JVM's start, which is the server's: every restart or upgrade starts a new one.
+  private static final Instant STARTED_AT =
+      Instant.ofEpochMilli(ManagementFactory.getRuntimeMXBean().getStartTime())
+          .truncatedTo(ChronoUnit.SECONDS);
+
   private final PushProviders providers;
   private final PushClientConfig clientConfig;
   private final PushDispatches dispatches;
@@ -63,7 +71,7 @@ public class StatusAdminResource {
       description =
           "The push providers enabled and the push options served to apps, the pushes waiting"
               + " to be dispatched or retried (read from the database now), the retries given"
-              + " up since the backend started, and the event retention period.")
+              + " up since the backend started, the event retention period and when the server started.")
   @APIResponse(
       responseCode = "200",
       description = "The status.",
@@ -76,6 +84,7 @@ public class StatusAdminResource {
         backlog.dispatches(),
         backlog.retries(),
         dispatcher.abandonedRetries(),
-        retention.retention().map(Duration::toSeconds).orElse(null));
+        retention.retention().map(Duration::toSeconds).orElse(null),
+        STARTED_AT);
   }
 }

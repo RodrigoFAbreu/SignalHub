@@ -70,15 +70,19 @@ class EventDeliveries {
   }
 
   private static EventDelivery toDelivery(Object[] row) {
+    var attempt = ((Number) row[4]).intValue();
+    var outcome = DeliveryOutcome.valueOf((String) row[5]);
     return new EventDelivery(
         (UUID) row[0],
         (String) row[1],
         (UUID) row[2],
         (String) row[3],
-        ((Number) row[4]).intValue(),
-        DeliveryOutcome.valueOf((String) row[5]),
+        attempt,
+        outcome,
         (String) row[6],
-        instant(row[7]));
+        instant(row[7]),
+        outcome != DeliveryOutcome.TRANSIENT_FAILURE
+            || attempt >= EventPushDispatcher.MAX_ATTEMPTS);
   }
 
   /**

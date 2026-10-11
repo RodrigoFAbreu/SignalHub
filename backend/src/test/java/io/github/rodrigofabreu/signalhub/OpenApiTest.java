@@ -456,6 +456,49 @@ class OpenApiTest {
   }
 
   @Test
+  void describesTheOpenPairingsAndCancellingOne() {
+    var pairings = "paths.'/api/v1/admin/pairings'";
+    var pairing = "paths.'/api/v1/admin/pairings/{id}'";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(pairings + ".get.security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(
+            pairings + ".get.responses.'200'.content.'application/json'.schema.$ref",
+            equalTo("#/components/schemas/OpenPairingList"))
+        .body(pairing + ".delete.security", equalTo(List.of(Map.of("adminToken", List.of()))))
+        .body(
+            pairing + ".delete.responses.keySet()", containsInAnyOrder("204", "401", "404", "409"))
+        .body(
+            SCHEMAS + ".OpenPairingList.properties.items.items.$ref",
+            equalTo("#/components/schemas/OpenPairing"))
+        .body(
+            SCHEMAS + ".OpenPairing.properties.keySet()",
+            containsInAnyOrder("id", "name", "user", "expiresAt"));
+  }
+
+  @Test
+  void describesRenamingAProducerAndWhoDisabledIt() {
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(
+            SCHEMAS + ".UpdateProducerRequest.properties.keySet()",
+            containsInAnyOrder("name", "visibility", "allowedUserIds"))
+        .body(
+            "paths.'/api/v1/admin/producers/{id}'.patch.responses.keySet()",
+            containsInAnyOrder("200", "400", "401", "404", "409"))
+        .body(SCHEMAS + ".DisabledBy.enum", containsInAnyOrder("OWNER", "ADMIN"))
+        .body(SCHEMAS + ".Producer.required", not(hasItem("disabledBy")));
+  }
+
+  @Test
   void describesTheStatus() {
     var status = "paths.'/api/v1/admin/status'";
     given()
@@ -474,7 +517,11 @@ class OpenApiTest {
         .body(
             SCHEMAS + ".ServiceStatus.required",
             containsInAnyOrder(
-                "pushProviders", "pendingDispatches", "pendingRetries", "abandonedRetries"))
+                "pushProviders",
+                "pendingDispatches",
+                "pendingRetries",
+                "abandonedRetries",
+                "startedAt"))
         .body(
             SCHEMAS + ".ServiceStatus.properties.keySet()",
             containsInAnyOrder(
@@ -483,7 +530,8 @@ class OpenApiTest {
                 "pendingDispatches",
                 "pendingRetries",
                 "abandonedRetries",
-                "eventRetentionSeconds"));
+                "eventRetentionSeconds",
+                "startedAt"));
   }
 
   @Test
@@ -509,7 +557,14 @@ class OpenApiTest {
         .body(
             SCHEMAS + ".EventDelivery.required",
             containsInAnyOrder(
-                "clientId", "clientName", "userId", "userName", "attempt", "outcome", "at"))
+                "clientId",
+                "clientName",
+                "userId",
+                "userName",
+                "attempt",
+                "outcome",
+                "at",
+                "final"))
         .body(
             SCHEMAS + ".EventDelivery.properties.keySet()",
             containsInAnyOrder(
@@ -520,7 +575,8 @@ class OpenApiTest {
                 "attempt",
                 "outcome",
                 "detail",
-                "at"))
+                "at",
+                "final"))
         .body(
             SCHEMAS + ".DeliveryOutcome.enum",
             contains(

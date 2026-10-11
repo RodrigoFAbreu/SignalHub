@@ -254,6 +254,43 @@ class OwnProducerApiTest {
   }
 
   @Test
+  void theAdminApiSaysWhoDisabledAProducer() {
+    var owner = TestClients.registerAs("MOD", "own-disabled-by");
+    var id = create(owner, Map.of("name", unique("by"))).extract().<String>path("producer.id");
+    var path = "/api/v1/admin/producers/" + id;
+
+    post(owner, PRODUCERS + "/" + id + "/disable").statusCode(200);
+    asAdmin().get(path).then().body("disabledBy", equalTo("OWNER"));
+
+    // The owner enables it again; the admin disabling it takes it over, even from the owner's.
+    post(owner, PRODUCERS + "/" + id + "/enable").statusCode(200);
+    asAdmin().get(path).then().body("disabledBy", nullValue());
+    post(owner, PRODUCERS + "/" + id + "/disable").statusCode(200);
+    asAdmin().post(path + "/disable").then().body("disabledBy", equalTo("ADMIN"));
+    asAdmin().post(path + "/enable").then().body("disabledBy", nullValue());
+  }
+
+  @Test
+  void aRenameByTheAdminShowsInTheOwnersProducer() {
+    var owner = TestClients.registerAs("MOD", "own-admin-renamed");
+    var id = create(owner, Map.of("name", unique("was"))).extract().<String>path("producer.id");
+    var renamed = unique("now");
+
+    asAdmin()
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", renamed))
+        .patch("/api/v1/admin/producers/" + id)
+        .then()
+        .statusCode(200);
+
+    asClient(owner.clientKey())
+        .get(PRODUCERS + "/" + id)
+        .then()
+        .statusCode(200)
+        .body("name", equalTo(renamed));
+  }
+
+  @Test
   void aRevokedUserKeepsNoAccessAndTheirProducersAreDisabledForGood() {
     var owner = TestClients.registerAs("MOD", "own-revoked");
     var created = create(owner, Map.of("name", unique("rev")));
