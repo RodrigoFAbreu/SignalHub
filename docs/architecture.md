@@ -3257,7 +3257,9 @@ Implementation expectations:
   itself health-checked through readiness. Its `proxy` profile adds Caddy
   as the TLS reverse proxy, chosen because it obtains and renews
   certificates itself with a few lines of configuration (`proxy/Caddyfile`);
-  see [deployment.md](deployment.md).
+  see [deployment.md](deployment.md). Caddy reads its configuration at
+  start and Compose does not recreate a service whose mounted file changed,
+  so the upgrade steps restart the proxy.
 
 ## Compatibility
 
