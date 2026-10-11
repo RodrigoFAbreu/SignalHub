@@ -3093,6 +3093,10 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 60    | R70 - CI in reusable workflows, container checks as tests, and faster                            | Increment (`ci`)                       | Done (see section 3)                                                             |
 | 61    | R71 - An upgrade puts the proxy's new configuration in effect                                    | Increment (`fix`)                      | Done (see section 3)                                                             |
+| 62    | R74 - CI holds fewer runners at once                                                             | Increment (`ci`)                       | Next                                                                             |
+| 63    | R72 - Fixes and polish from the maintainer's testing of 3.6.0                                    | Increment (`feat`)                     | Queued (after R74)                                                               |
+| 64    | G5 - The maintainer's go-ahead for the admin page redesign                                       | Human gate                             | Waiting for the maintainer                                                       |
+| 65    | R73 - Designs for the admin page, and the web page's New producer button                         | Increment (`docs`)                     | Blocked by G5                                                                    |
 
 How an autonomous run uses it:
 
@@ -3582,6 +3586,23 @@ G1 → G2 → R19 v1.0.0
   upgrade keeps the proxy on its old configuration. The maintainer chose a
   fix with a test that fails without it and a note for installs already
   upgraded.
+- **R72, G5 and R73 were added by the maintainer on 2026-10-11**, from
+  testing the app and the web page on 3.6.0. The maintainer's choices for
+  R72: paused and disabled producers go to the bottom with a filter chip
+  for them rather than being hidden; the owner's disabled producer is
+  worded *Disabled by you* rather than renaming the actions *Pause* and
+  *Resume*; the findings are fixed together in one item, after R71 and
+  R74. The
+  admin page was not part of R64's designs; its redesign, with the web
+  page's floating *New producer* button, is low priority and waits for
+  the maintainer's go-ahead (G5).
+- **R74 was added by the maintainer on 2026-10-11**: the free plan's 20
+  runners are shared by all of the maintainer's repositories, and CI
+  waited for runners when two or three ran together. The maintainer chose
+  one required check and packed, staged jobs, measured by the peak number
+  of jobs running at once rather than the total, and kept the release's
+  re-validation. It runs first, before R72, since faster CI saves time on
+  every later release, and before G5, so the queue does not stop there.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -3640,6 +3661,9 @@ advance; they follow from the queue.
 | R69           | minor (`feat`)                                                                                                                                        | last-used times and the server version in the client API; one additive migration                           |
 | R70           | patch (`ci`)                                                                                                                                          | CI only; nothing a user, producer or operator sees                                                         |
 | R71           | patch (`fix`)                                                                                                                                         | upgrades put a changed proxy configuration in effect; nothing else changes                                 |
+| R72           | minor (`feat`)                                                                                                                                        | app and web page fixes, producer list order and filter; no API change                                      |
+| R73           | patch (`docs`)                                                                                                                                        | drawings only                                                                                              |
+| R74           | patch (`ci`)                                                                                                                                          | CI only; nothing a user, producer or operator sees                                                         |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -5829,6 +5853,129 @@ Exit criteria: CI's upgrade job proves a changed `proxy/Caddyfile` is in
 effect after the documented upgrade; on the owner's server, the next
 upgrade done by the documented steps keeps `/app/` working.
 
+### R72 - Fixes and polish from the maintainer's testing of 3.6.0
+
+Status: queued, after R74. Added by the maintainer (2026-10-11), from testing the
+app and the web page on 3.6.0.
+
+Goal: what the maintainer found while testing the users' app and web
+page is fixed, with the choices the maintainer made.
+
+Scope:
+
+- **a snack bar with an action never goes away** (subscribing,
+  unsubscribing and every snack bar with Undo or Retry): the app sets six
+  seconds, but Flutter's `SnackBar` keeps one with an action on screen
+  until it is used (`persist` defaults to true when there is an action).
+  It goes after six seconds as designed and can be dismissed without
+  undoing; a test that fails without the fix. The web page's snack bars
+  are checked for the same
+- **the browser sign-in confirmation is under Android's navigation
+  bar**: after scanning, the sheet's buttons are hidden behind the
+  system's navigation bar (the sheet makes room for the keyboard only).
+  Every bottom sheet and bottom-anchored control in the app respects the
+  system bars; tested at the navigation bar's height
+- **paused and disabled producers go to the bottom** of the Producers
+  list, in the app and on the web page, and a new filter chip shows only
+  them (the maintainer chose this over hiding them)
+- **one word for a producer its owner disabled**: *Disabled by you*,
+  matching the *Disable* action, the server and *Disabled by the host*,
+  in the app and on the web page (instead of *Paused by you*); `DESIGN.md`
+  and the walk-through follow
+- tests per finding, `docs/architecture.md` where behaviour is described
+
+Compatible (`feat`, minor): no API or schema change.
+
+Non-goals: the admin page and the web page's *New producer* button
+(R73, after G5); anything else not found in the maintainer's testing.
+
+### R74 - CI holds fewer runners at once
+
+Status: next. Added by the maintainer (2026-10-11).
+
+Goal: a pull request's CI holds few runners at the same time, so the 20
+runners GitHub's free plan shares between all of the maintainer's
+repositories (5 of them on macOS) are not used up when two or three
+repositories run CI together, without making a run noticeably longer.
+
+The measure that matters is the peak number of jobs running at once, not
+the total number of jobs. Measured on PR #152's run (after R70): 30 jobs,
+a peak of 13 Linux jobs at once and 1 macOS job, 28 Linux runner-minutes,
+5.0 minutes from first start to last end. 14 of the 30 jobs only report
+the names of the required checks and last a few seconds each.
+
+Scope:
+
+- **one required check**: a single aggregate job (for example *CI
+  passed*) that needs every part and fails unless every part succeeded
+  replaces the 14 reporting jobs; the repository ruleset then requires it
+  and *Conventional Commit title* only (the maintainer approved this
+  change on 2026-10-11). Every check still has to pass: nothing is less
+  checked. The worker cannot change the ruleset: its pull request says
+  the exact new check name and does not enable auto-merge; the
+  orchestrator changes the ruleset once the pull request is green, then
+  enables auto-merge
+- **jobs packed and staged**: short jobs that fit within the longest job
+  run one after another in one job (for example the end-to-end test, the
+  fresh install and an upgrade, or the Python checks and the workflow
+  lint), and parts start in stages (`needs`) where that lowers the peak
+  without lengthening the run, sharing what one job built
+- **measured**: a small script (for example `scripts/ci/`) reports a
+  run's jobs, peak concurrent jobs (Linux and macOS apart), runner-minutes,
+  queue wait and wall time; the PR gives these before and after, over a
+  few runs
+- targets: at most 6 Linux jobs at once in a pull request's run (three
+  repositories' CI then fit in the shared 20), at most 1 macOS job,
+  wall time within about 10% of before, runner-minutes not higher
+- `docs/development.md` (the parts, the one required check)
+
+Compatible (`ci`, patch): nothing a user, producer or operator sees.
+
+Non-goals: dropping or weakening a check; skipping parts by changed
+paths; changing the release's re-validation of the exact commit (the
+maintainer kept it); self-hosted runners (the repository is public).
+
+### G5 - The maintainer's go-ahead for the admin page redesign
+
+Status: waiting for the maintainer. A human gate.
+
+The admin page was not part of the designs of R64, and the web page's
+*New producer* button floats over the end of a long producer list. The
+maintainer wants both redesigned, at a low priority: nothing of R73
+starts until the maintainer gives the go-ahead here. An orchestrator stops
+here and never answers it.
+
+### R73 - Designs for the admin page, and the web page's New producer button
+
+Status: blocked by G5. Added by the maintainer (2026-10-11).
+
+Goal: the operator's admin page is redesigned for usability, in the same
+design system as the users' app and web page, and the web page's *New
+producer* button no longer covers the list.
+
+How it is made: as R64 was, in the Claude Design project by local design
+workers that the orchestrator plans and reviews (Claude Design is only on
+the maintainer's machine), with the design skills in their R64 roles, from
+the existing design system (`docs/design/users/DESIGN.md`), which is
+extended, not replaced.
+
+Scope, what is designed:
+
+- every section of the admin page (*Devices*, *Users*, *Producers*,
+  *Events*, *Status*) and its states, for the operator's tasks, on what
+  the management API provides; what the designs need from the server
+  becomes its own item at their approval, as for R64
+- the web page's *New producer* action placed so it never covers a
+  producer of the list, at every width
+- exported like R64 (images, the drawings' sources, `DESIGN.md` updated,
+  a walk-through), then approved by the maintainer at a gate, after which
+  the implementation items are queued
+
+Compatible (`docs`, patch): drawings only.
+
+Non-goals: building the designs (queued at their approval); changing who
+may use the admin page.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -5967,8 +6114,11 @@ maintainer approved the designs at G4, and R65 (users in the app) is
 done, and so is R66 (users' web page) with the app's *Sign in a browser*.
 So is R70 (CI in reusable workflows, container checks as tests, and
 faster), and R71 (an upgrade puts the proxy's new configuration in
-effect). **No increment is queued.** A new item is added only by the maintainer, in a
-reviewed pull request; the deferred candidates of section 5 are not
+effect). **R74 (CI holds fewer runners at once) is next, then R72
+(fixes and polish from the maintainer's testing of 3.6.0); G5 waits for
+the maintainer's go-ahead before R73 (designs for the admin page) can
+start.** A new item is added only by the maintainer, in a reviewed pull
+request; the deferred candidates of section 5 are not
 started without that.
 
 The orchestrator must first inspect `main`, releases and open pull requests to confirm this remains true.
