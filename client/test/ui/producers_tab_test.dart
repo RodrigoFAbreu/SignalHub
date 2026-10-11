@@ -97,7 +97,7 @@ void main() {
     );
 
     expect(find.text('Public · 2 keys · last event 01:19'), findsOneWidget);
-    expect(find.text('Paused by you · its keys do not work'), findsOneWidget);
+    expect(find.text('Disabled by you · its keys do not work'), findsOneWidget);
     expect(find.text('Disabled by the host · ask the host'), findsOneWidget);
     expect(find.text('Ana · Private, shared with you'), findsOneWidget);
     expect(find.text('João · Disabled'), findsOneWidget);
@@ -109,7 +109,7 @@ void main() {
         tester.widget<Text>(find.text(text)).style?.color;
     expect(colorOf('Disabled by the host · ask the host'), colors.error);
     expect(
-      colorOf('Paused by you · its keys do not work'),
+      colorOf('Disabled by you · its keys do not work'),
       colors.onSurfaceVariant,
     );
     // Yours carries a tag, nobody else's does.
@@ -159,6 +159,54 @@ void main() {
     }
   });
 
+  testWidgets('disabled producers are listed last, and have a chip', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      fill: (s) => s
+        ..addOwn('o1', 'a-paused', paused: true)
+        ..addOwn('o2', 'b-host', disabledByHost: true)
+        ..addOwn('o3', 'z-working')
+        ..addVisible('v1', 'm-subscribed')
+        ..addVisible('v2', 'c-theirs-off', owner: 'João', disabled: true),
+    );
+
+    double top(String name) => tester.getTopLeft(find.text(name)).dy;
+    final order = [
+      'z-working',
+      'm-subscribed',
+      'a-paused',
+      'b-host',
+      'c-theirs-off',
+    ];
+    for (var i = 1; i < order.length; i++) {
+      expect(top(order[i]), greaterThan(top(order[i - 1])), reason: order[i]);
+    }
+
+    await tapChip(tester, 'disabled');
+
+    expect(tester.widget<FilterChip>(chip('disabled')).selected, isTrue);
+    expect(find.text('a-paused'), findsOneWidget);
+    expect(find.text('b-host'), findsOneWidget);
+    expect(find.text('c-theirs-off'), findsOneWidget);
+    expect(find.text('z-working'), findsNothing);
+    expect(find.text('m-subscribed'), findsNothing);
+  });
+
+  testWidgets('the Disabled chip says so when nothing is disabled', (
+    tester,
+  ) async {
+    await open(tester, fill: (s) => s..addOwn('o1', 'ci-pipeline'));
+
+    await tapChip(tester, 'disabled');
+
+    expect(find.text('No disabled producers'), findsOneWidget);
+    await tester.tap(find.text('Show all'));
+    await tester.pumpAndSettle();
+    expect(find.text('ci-pipeline'), findsOneWidget);
+  });
+
   group('the chips', () {
     testWidgets('are single choice, with a check on the selected one', (
       tester,
@@ -169,10 +217,16 @@ void main() {
           tester.widget<FilterChip>(chip(key)).selected;
       expect(
         [
-          for (final k in ['all', 'yours', 'subscribed', 'canSubscribe'])
+          for (final k in [
+            'all',
+            'yours',
+            'subscribed',
+            'canSubscribe',
+            'disabled',
+          ])
             selected(k),
         ],
-        [true, false, false, false],
+        [true, false, false, false, false],
       );
       expect(tester.widget<FilterChip>(chip('all')).showCheckmark, isTrue);
 
@@ -180,10 +234,16 @@ void main() {
 
       expect(
         [
-          for (final k in ['all', 'yours', 'subscribed', 'canSubscribe'])
+          for (final k in [
+            'all',
+            'yours',
+            'subscribed',
+            'canSubscribe',
+            'disabled',
+          ])
             selected(k),
         ],
-        [false, true, false, false],
+        [false, true, false, false, false],
       );
     });
 

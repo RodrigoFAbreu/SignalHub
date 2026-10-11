@@ -6,6 +6,7 @@ import 'package:signalhub_client/src/ui/sign_in_browser_screen.dart';
 import '../support/fakes.dart';
 import '../support/first_run_support.dart';
 import '../support/people_fixture.dart';
+import '../support/phone.dart';
 import '../support/screenshot.dart';
 import '../support/web_sign_in_backend.dart';
 
@@ -127,6 +128,20 @@ void main() {
   });
 
   group('scanning the page\'s code', () {
+    testWidgets('the sheet\'s buttons clear the navigation bar', (
+      tester,
+    ) async {
+      await start(tester);
+      useEdgeToEdgePhone(tester);
+      await openScanner(tester);
+
+      await scan(tester);
+
+      expect(find.text('Sign in this browser?'), findsOneWidget);
+      expectClearOfNavigationBar(tester, byKey('approveSignIn'));
+      expectClearOfNavigationBar(tester, byKey('cancelSignIn'));
+    });
+
     testWidgets('6a3: asks Sign in this browser? and signs it in', (
       tester,
     ) async {

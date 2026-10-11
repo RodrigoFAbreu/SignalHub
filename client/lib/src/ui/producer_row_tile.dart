@@ -32,7 +32,7 @@ class ProducerRowTile extends StatelessWidget {
   final VoidCallback? onBell;
 
   IconData get _avatar {
-    if (row.pausedByYou) return Icons.pause_circle_outline;
+    if (row.disabledByYou) return Icons.pause_circle_outline;
     if (row.disabled) return Icons.block;
     return Icons.sensors;
   }

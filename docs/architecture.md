@@ -2705,13 +2705,17 @@ client key, and the backend knows nothing about Flutter, Android or iOS.
 - **Producers.** The *Producers* tab lists every producer the user sees
   (`GET /api/v1/client/visible-producers`, with the ones they own,
   `GET /api/v1/client/producers`, read together) under a search field and
-  single-choice chips (*All*, *Yours*, *Subscribed*, *Can subscribe*), ordered
-  *Yours*, *Subscribed*, *Can subscribe*, each A to Z. A row has a neutral
+  single-choice chips (*All*, *Yours*, *Subscribed*, *Can subscribe*,
+  *Disabled*, which shows only the producers disabled by their owner or by the
+  host), ordered *Yours*, *Subscribed*, *Can subscribe*, each A to Z, with the
+  disabled ones after them in the same order. A row has a neutral
   avatar (never per producer), the name, a one-line summary (`Public · 2 keys
   · last event 01:19`, `Private · 2 people · last event 00:36`, `Ana ·
-  Public`, `Paused by you`, `Disabled by the host`, `Disabled`) and a bell:
+  Public`, `Disabled by you`, `Disabled by the host`, `Disabled`) and a bell:
   tapping it subscribes or unsubscribes in place (`PUT`/`DELETE
-  /api/v1/client/visible-producers/{id}/subscription`), with a snackbar and
+  /api/v1/client/visible-producers/{id}/subscription`), with a snackbar (gone after six
+  seconds, or when swiped away: the app sets `persist: false`, since Flutter
+  keeps a snackbar with an action on screen until it is used) and
   *Undo* (an unsubscribe hides stored events, nothing is deleted) and *Retry*
   when it failed. A producer the user loses sight of simply leaves the list.
   The list is read when the tab opens, each time it comes back to the front, on

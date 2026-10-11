@@ -171,7 +171,8 @@ Each is built from the tokens above. None adds a colour or a type size.
   ellipsis. The Yours tag, the bell and the chevron keep their size.
 - **Search and filter chips.** A 56 dp search field (surfaceContainerHigh, full
   radius), then single-choice chips that scroll sideways: All, Yours,
-  Subscribed, Can subscribe. A selected chip is secondaryContainer with a check.
+  Subscribed, Can subscribe, Disabled (only the producers disabled by their
+  owner or by the host). A selected chip is secondaryContainer with a check.
   Chips never wrap. A chip's hit area is padded to 48 dp.
 - **Role sections.** A primary label with a count, one sentence on what the
   role can do, then the rows. The sections are Admins, Mods and Basic, in that
@@ -198,7 +199,8 @@ Each is built from the tokens above. None adds a colour or a type size.
 ![s6: Feedback and state components](images/design-system/s6-feedback-state-components.webp)
 
 **Snackbar** (plain, with Retry, with Undo). One or two lines, at most one
-action, gone after 6 seconds. It floats 8 dp above the bottom bar. Plain says a
+action, gone after 6 seconds (also one with an action, never kept until it is
+used). It floats 8 dp above the bottom bar. Plain says a
 result. Retry follows a change that failed and went back to what it was. Undo
 follows a change that can be reversed exactly. A failure the person must act on
 is a banner, not a snackbar.
@@ -236,7 +238,7 @@ that need a name in the title wait for it.
 **Bell toggle.** One control per producer row for subscribing, in place. A tap
 swaps the bell for a progress ring and ignores taps until the call ends. On
 failure it goes back to what it was, and a snackbar with Retry says so. Offline
-it is greyed. The bell stays on a paused or disabled producer so it can be
+it is greyed. The bell stays on a disabled producer so it can be
 unsubscribed. The visible circle is 40 dp inside a 48 by 48 dp target.
 
 | State | Look |
@@ -417,7 +419,7 @@ The canonical strings. The app and the web page use these and no others.
 - A one-line name ends in an ellipsis. Its tag, the bell and the chevron keep
   their size. At 200% a row's summary wraps to two lines, and the name still
   truncates at its end.
-- Dialogs and sheets scroll. Buttons grow and their labels wrap. Keys and
+- Sheets and bottom bars clear the system's navigation bar. Dialogs and sheets scroll. Buttons grow and their labels wrap. Keys and
   addresses wrap at any character.
 - Examples: `images/producers/1n-360dp-wide-text-200.webp`,
   `images/new-producer-key/2b6-360dp-wide-text-200.webp`,

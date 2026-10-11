@@ -38,6 +38,7 @@ const FILTERS = [
   { id: "yours", label: "Yours", admits: (row) => row.yours },
   { id: "subscribed", label: "Subscribed", admits: (row) => row.subscribed },
   { id: "can", label: "Can subscribe", admits: (row) => !row.subscribed },
+  { id: "disabled", label: "Disabled", admits: (row) => row.disabled },
 ];
 
 const keyLabel = (key) => `${key.prefix}…`;
@@ -49,7 +50,7 @@ export function summaryOf(row) {
   if (!own) {
     return [row.owner.name, row.disabled ? "Disabled" : row.visibility === "PUBLIC" ? "Public" : "Private"].join(" · ");
   }
-  if (own.disabledAt) return own.disabledByOperator ? "Disabled by the host · ask the host" : "Paused by you · its keys do not work";
+  if (own.disabledAt) return own.disabledByOperator ? "Disabled by the host · ask the host" : "Disabled by you · its keys do not work";
   const isPrivate = row.visibility === "PRIVATE";
   const people = own.allowedUsers.length;
   const keys = own.keys.filter((key) => !key.revokedAt).length;
@@ -99,7 +100,8 @@ export function mountProducers(container, route, { wide }) {
         all.push(rowOf({ id: mine.id, name: mine.name, owner: { id: state.me.userId, name: state.me.name }, visibility: mine.visibility, disabled: Boolean(mine.disabledAt), subscribed: mine.subscribed }));
       }
     }
-    const group = (r) => (r.yours ? 0 : r.subscribed ? 1 : 2);
+    // Disabled producers (by their owner or by the host) follow, in the same order.
+    const group = (r) => (r.disabled ? 3 : 0) + (r.yours ? 0 : r.subscribed ? 1 : 2);
     return all.sort((a, b) => group(a) - group(b) || a.name.toLowerCase().localeCompare(b.name.toLowerCase()) || a.id.localeCompare(b.id));
   }
 
@@ -233,7 +235,7 @@ export function mountProducers(container, route, { wide }) {
         action: button("New producer", { kind: "tonal", onClick: () => go("#producers/new") }),
       });
     }
-    const show = { yours: ["You don't have a producer yet", "A producer sends events to you and, if you let them, to others. Each one has its own key.", "New producer"], subscribed: ["You aren't subscribed to any producer", "Subscribe with the bell on a producer, and its events show up in your inbox.", "Show all"], can: ["Nothing else to subscribe to", "You get events from every producer you can see. New public producers and ones shared with you will appear here.", "Show all"] }[filterId];
+    const show = { yours: ["You don't have a producer yet", "A producer sends events to you and, if you let them, to others. Each one has its own key.", "New producer"], subscribed: ["You aren't subscribed to any producer", "Subscribe with the bell on a producer, and its events show up in your inbox.", "Show all"], can: ["Nothing else to subscribe to", "You get events from every producer you can see. New public producers and ones shared with you will appear here.", "Show all"], disabled: ["No disabled producers", "A producer you disable, or the host disables, is listed here and at the bottom of the list.", "Show all"] }[filterId];
     return emptyState({
       glyph: "sensors",
       title: show[0],
@@ -438,7 +440,7 @@ export function mountProducers(container, route, { wide }) {
     const writable = !offline;
     const parts = [titleRow(p.name, p), bannerSlot()];
     if (byHost) parts.push(noticeBox({ glyph: "block", error: true, text: "Disabled by the host. Its keys don't work. Ask the host to enable it." }));
-    if (byYou) parts.push(noticeBox({ glyph: "pause_circle", text: "Paused by you. Its keys don't work, so it sends nothing. Its events stay." }));
+    if (byYou) parts.push(noticeBox({ glyph: "pause_circle", text: "Disabled by you. Its keys don't work, so it sends nothing. Its events stay." }));
     if (noKey) parts.push(noticeBox({ glyph: "key_off", text: noKey }));
     parts.push(el("span", { class: "t2n", text: p.lastEventAt ? `Last event ${whenLabel(p.lastEventAt)}` : "No events yet" }));
     const subscribedLine = p.subscribed ? "Its events are in your inbox" : `You own it but don't get its events.${p.visibility === "PUBLIC" ? " Anyone on this server can still subscribe." : ""}`;

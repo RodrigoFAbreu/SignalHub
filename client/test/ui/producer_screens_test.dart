@@ -454,7 +454,7 @@ void main() {
       expect(find.text('Disable garage-door?'), findsOneWidget);
       await tester.tap(find.byKey(const Key('confirm')));
       await app.settle(tester);
-      expect(find.textContaining('Paused by you.'), findsOneWidget);
+      expect(find.textContaining('Disabled by you.'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('enable')));
       await app.settle(tester);

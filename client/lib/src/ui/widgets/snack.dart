@@ -16,6 +16,9 @@ void showAppSnackBar(
       SnackBar(
         content: Text(message),
         duration: const Duration(seconds: 6),
+        // A snack bar with an action stays until it is used by default; this
+        // one goes after its time like any other.
+        persist: false,
         action: actionLabel == null
             ? null
             : SnackBarAction(label: actionLabel, onPressed: onAction ?? () {}),

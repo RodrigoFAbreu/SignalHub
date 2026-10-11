@@ -6,6 +6,7 @@ import '../connection/setup_failure.dart';
 import 'app_settings.dart';
 import 'pairing_scanner_screen.dart';
 import 'widgets/banners.dart';
+import 'widgets/sheet_inset.dart';
 
 /// Connects the app to a SignalHub server, for someone who was invited: the
 /// camera scans the invitation code, or its link is pasted. Setting up by
@@ -457,12 +458,7 @@ class _PasteLinkSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      24,
-      0,
-      24,
-      24 + MediaQuery.viewInsetsOf(context).bottom,
-    ),
+    padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + sheetBottomInset(context)),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
