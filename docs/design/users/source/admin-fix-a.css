@@ -1,0 +1,22 @@
+/* R73 fixes (fixer A): 48 px targets, snack placement, wrapping chip rows, push-problem marker. Loaded after admin-events.css and admin-people.css. */
+.btn-o.sm,.btn-t.sm,.btn-f.sm,.bulk .btn-x{height:48px}
+.bulk{height:56px}
+.cbc{width:48px;height:48px;margin:0 -4px}
+.pchip{height:48px;padding:0 0 0 12px;border-radius:24px}
+.pchip .x{width:48px;height:48px}
+.snack{left:32px;transform:none;bottom:64px}
+.snack a{display:inline-flex;align-items:center;min-height:48px;padding:0 12px}
+.snack.nopager{bottom:8px}
+.fchips{flex-wrap:wrap;overflow:visible}
+.tools .fchips{flex:1 1 auto;min-width:0}
+.pp{display:inline-flex;align-items:center;gap:4px;flex:none;margin-left:8px;height:24px;padding:0 8px 0 4px;border-radius:8px;border:1px solid var(--error);color:var(--error);font-size:12px;font-weight:500;white-space:nowrap}
+.pp .ms{font-size:16px;width:16px;height:16px}
+.pre{display:flex;flex-wrap:wrap;gap:0 8px;margin-top:4px}
+.pre .fc{margin:0;height:32px}
+.mu{display:flex;align-items:center;gap:12px;height:48px;padding:0 16px;font-size:14px}
+.mu.dv{border-top:1px solid var(--outline-variant)}
+.pdates{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* frame-specific fixes: the Received chip wraps onto the second chip row, so its panel sits under it; Cancel is never dimmed */
+#S4b .menu2{left:120px!important;top:176px!important}
+#D3 .acts .btn-x{opacity:1!important}
+#D3 .acts .btn-x[style*='display:none']{display:none!important}

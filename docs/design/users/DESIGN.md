@@ -2,10 +2,13 @@
 
 This is the design system for SignalHub's app and web page. It records the
 look the released app already has (version 2.26.6) and the patterns added for
-users in R64. New screens extend it. They do not restyle it.
+users in R64. Section 9 adds what R73 drew for the operator's admin page
+(`/admin/`) and the two rules it changed for the web page. New screens extend
+it. They do not restyle it.
 
 The source is the `SignalHub Design System` page in the Claude Design project.
-Section images of that page are in `images/design-system/`. A few frames show
+Section images of that page are in `images/design-system/`, and the Admin page
+section (R73) is in `../admin/images/design-system-admin/`. A few frames show
 the same tokens in the light theme (`images/light-theme/`).
 
 ## 1. Rules, in order of precedence
@@ -173,7 +176,10 @@ Each is built from the tokens above. None adds a colour or a type size.
   radius), then single-choice chips that scroll sideways: All, Yours,
   Subscribed, Can subscribe, Disabled (only the producers disabled by their
   owner or by the host). A selected chip is secondaryContainer with a check.
-  Chips never wrap. A chip's hit area is padded to 48 dp.
+  In the app a chip row scrolls sideways and a chip never wraps. On the web
+  page and on the admin page the row wraps onto a second line at narrow widths,
+  so no chip (the Disabled chip above all) is ever hidden (R6, section 9.2). A
+  chip's hit area is padded to 48 dp (48 px on the web).
 - **Role sections.** A primary label with a count, one sentence on what the
   role can do, then the rows. The sections are Admins, Mods and Basic, in that
   order. An empty section is hidden.
@@ -299,8 +305,10 @@ opens the tab and dismisses, and Got it, which dismisses for good.
 **Web dialog and banner.** The web page uses the same components with larger
 targets (all 48 px high). A dialog is centred at 480 px and closes on Escape,
 and starts with focus on Cancel. A banner is a full-width bar under the page
-header. There is no snackbar with Undo: the page confirms instead and shows a
-failed change inline. The key dialog is the exception. Escape and a tap on the
+header. There is no snackbar with Undo on the web page or on the admin page: the page
+confirms instead and shows a failed change inline. A snackbar there only says
+that something happened, may carry Retry after a failure, and never covers a
+control (R3, section 9.2). The key dialog is the exception. Escape and a tap on the
 scrim do nothing, so the key cannot be lost by accident.
 
 ![s9: The same components on the web page](images/design-system/s9-same-components-web-page.webp)
@@ -322,6 +330,10 @@ scrim do nothing, so the key cannot be lost by accident.
 
 ### 4.1 Undo or confirm
 
+This is the app's rule. The web page and the admin page have no Undo snackbar
+(R3, section 9.2): where the table says Undo, they confirm in a dialog or, for
+a harmless change, make it and say so. The app is unchanged.
+
 If an action can be reversed exactly and only the person who did it is
 affected, do it at once and offer Undo in a snackbar. If it cannot be reversed,
 or someone else is affected, ask first in a confirmation dialog. If it is
@@ -329,7 +341,7 @@ harmless and reversible by the same control, add nothing.
 
 | Action | Pattern | Why |
 | --- | --- | --- |
-| Subscribe, unsubscribe | Snackbar with Undo | Idempotent. Stored events are hidden, not deleted. |
+| Subscribe, unsubscribe | Snackbar with Undo (app only) | Idempotent. Stored events are hidden, not deleted. On the admin page, Unsubscribe is a confirmation: it hides all of that producer's events from the user, old ones too. |
 | Enable a producer | Nothing extra | Keys work again. Nothing is lost. |
 | Disable a producer | Confirm | Its senders are turned away until it is enabled. |
 | Revoke a key | Confirm (error colour) | For good. The key never works again. |
@@ -505,3 +517,157 @@ so they never contradict.
 The designs show only what the server provides. Where a design wanted data the
 server does not give, the design changed. The cuts are listed in
 [WALKTHROUGH.md](WALKTHROUGH.md#what-was-left-out).
+
+## 9. The admin page (R73)
+
+R73 drew the operator's admin page (`/admin/`, served on the backend's own
+port) and the web page's New producer action. The operator is the host, signed
+in with the admin token (no accounts, no passwords). The drawings, the flows
+and the server changes they need are in [../admin/](../admin/README.md). The
+sources are in `source/`: the `Admin - ...` pages and the five `admin-*.css`
+stylesheets. The page uses the tokens, the type scale, the shapes and the words
+of the sections above. It adds the components in 9.3 and follows the rules in
+9.2.
+
+![s12: The Admin page section of the design system page](../admin/images/design-system-admin/s12-admin-page.webp)
+
+### 9.1 Layout
+
+- **Desktop first.** At 1440 px: an 88 px navigation rail, a list that takes the
+  rest, and a 480 px detail pane. Forms are dialogs or panes, never a form
+  under a list.
+- **Below 1180 px** the pane becomes a side sheet, 560 px from the right edge.
+- **At 390 px** the rail is a bottom bar of the five destinations, a table is
+  two-line rows, a detail is a full screen with a back arrow, and a dialog is a
+  full-width sheet or screen. No sideways scroll.
+- **Five destinations:** Devices, Users, Producers, Events, Status. At the foot
+  of the rail: the status button and the account avatar (its menu holds the
+  version and Sign out).
+- **Sign-in** is the only screen without the rail: one field for the admin
+  token, kept in the page's memory only.
+
+### 9.2 Rules every admin page follows (R1 to R8)
+
+| Rule | Text |
+| --- | --- |
+| R1 | **Dialog actions are text buttons**, 48 px high. The confirming action is in primary. A destructive confirming action is in the error colour. Never a filled red button. Form dialogs follow the same rule (Create, Rename, Invite, Send a test event). |
+| R2 | **Header actions are tonal buttons** (New producer, Connect a device, Invite a user, Send a test event), on the admin page and on the web page. Filled is for the one primary action of a form. |
+| R3 | **Snackbars never cover a control, and carry no Undo.** On the admin page a snackbar sits at the bottom left of the list area, above the pager and the pane's foot, so both stay reachable. It goes after 8 seconds or on Dismiss. The page confirms instead of offering Undo. Retry is allowed after a failure. This replaces the Undo snackbar of 4.1 on the web page and the admin page. |
+| R4 | **Every control is 48 px high** (pager, bulk bar buttons, a row's checkbox hit area, a chip's remove x, the snackbar action, the token toggle). The visible shape may be smaller (an 18 px box, a 32 px chip). The target is not. |
+| R5 | **Canonical wording** (the table in 9.4). |
+| R6 | **Chip rows wrap** onto a second line on the web page and the admin page, so no chip is hidden. This replaces "Chips never wrap" for those two. The app's chips still scroll sideways. |
+| R7 | **Neutral pronouns.** A person is their name or "they". |
+| R8 | **No sort arrows.** The API has no sort. Events say "Newest first". The other lists are ordered by the page, and the page's note says so. |
+
+### 9.3 Components the admin page adds
+
+- **Rail and status button.** Five destinations with a secondary-container
+  pill under the selected one. The status button reads `/api/v1/admin/status`
+  and `/q/health` every 30 seconds. Each of its four states differs by icon and
+  word, never by colour alone: Working (server icon, primary dot), Check (warning
+  icon, the word in error), Checking (outline dot) and Unknown (question mark).
+  Pressing it opens Status.
+- **Table row.** 56 px. The name in on-surface, then plain cells in
+  on-surface-variant. A selected row is a secondary container with a 16 px
+  radius. States are always a word or a tag as well as colour: Disabled (an
+  outlined tag, its keys not working), Quiet (a plain tag: no event for a
+  week), Revoked (dimmed, with its tag, text kept at 4.5 : 1 in both themes) and
+  an unread event with the Push problems marker (an error outline, an icon and
+  words).
+- **Detail pane and side sheet.** A 22 px title with a close button, tabs only
+  when the thing has them (Event, Pushes), a scrolling body, and a foot with the
+  actions of the whole thing. The side sheet is the same content, 560 px, over a
+  32% scrim, closed by its button, Escape or the scrim.
+- **Bulk bar.** Under the filter chips, 56 px, secondary container: the count
+  and the actions that apply to every selected row. Clear selection is the first
+  action. Delete is an error text button and opens a confirmation naming the
+  count.
+- **Filter chip and its menu.** One 32 px outlined chip per filter. A chip with
+  a choice is secondary container with a check and its value. Producer, Category
+  and Severity take several values (a menu of checkboxes that stays open).
+  Read state and Push problems are single choice or on and off. Received opens a
+  panel with a from and a before date and presets. A chosen filter is also in
+  the address.
+- **Technical details fold.** Closed by default. Raw ids, check names and values
+  in monospace, with a Copy action. Nothing in it is secret.
+- **Status row.** A part, its value, one line on what to do, and a chip with an
+  icon and a word (Working, Needs attention, Look, Could not read). A problem row
+  has an error edge and tint and moves to the top under its own heading.
+- **Sign-in card.** One field for the token (32 characters at least, a 48 px
+  show toggle) and one button.
+- **Pager.** Newer and Older, since the list is cursor based (25 a page).
+- **Dashed note.** In the drawings only: "Needs a server change" marks a detail
+  the server cannot give today.
+
+### 9.4 Wording (R5)
+
+| Use | Where | Meaning |
+| --- | --- | --- |
+| Create | In a create dialog | Never "Create producer". |
+| Could not | "Could not save the name" | Never a contraction. |
+| Send a test event | Everywhere, the same words | An event sent as an existing producer. |
+| Revoke | A device, a browser, a key or a user | Stops working and stays listed. |
+| Delete | Only revoked devices, and events | Gone for good. |
+| Disable, Enable | A producer | Its keys stop or start working. Its events stay. |
+| Remove | One entry out of a list (an allowed user) | Ends that person's subscription. |
+| Unsubscribe | A subscription | That producer's events are hidden, old ones too. |
+| People | Their name or "they" | No he or she. |
+
+A change made on the admin page (revoke, rename, delete) sends no push. Only
+changes made from a device, pairings and browser sign-ins do.
+
+### 9.5 Status: when SignalHub "needs attention"
+
+The first line of Status answers in words and an icon. These are the proposed
+rules, for the owner's approval at the design gate: the database is down; no
+push service is set up; every device that has a push address failed its last
+push (at least one such device), so the push service is likely down; the events
+waiting to be pushed are above 20 and not falling over two checks; retries were
+given up since the page was opened (page memory, not since the server started);
+or a part could not be read. One device's failure is a row warning ("2 devices'
+last push failed") with a link to Devices filtered to Push problems, never the
+headline.
+
+### 9.6 Light theme
+
+The admin drawings are dark first. `admin-events.css` holds both token sets: the
+dark `:root`, and a `.light` set that is the users' light roles (primary
+`#515b92`, secondary container `#e0e1f9`, surface `#fbf8ff`, surface container
+low `#f5f2fa`, error `#ba1a1a`). A `light` class on a frame switches it in the
+drawings. The built page switches the same tokens with `prefers-color-scheme`,
+as `admin.css` and `app.css` do. No colour is written out in a rule: the error
+row tint, the disabled and busy buttons, the scrim, the shadows and the browser
+frame are all tokens. Light frames: `../admin/images/light-theme/`. Contrast of
+the light set, from the token values: the lowest text pair is primary on surface
+container highest (4.98 : 1), error on the dialog is 5.27 and the note on the
+canvas 5.30. The lowest non-text part is the outline on surface container
+highest or on an error container (3.48 : 1, needs 3). In light a revoked row's
+text is on-surface-variant, not outline (outline was 4.06 : 1).
+
+### 9.7 Motion
+
+Short and quiet: this is a tool for operating. Entering things ease out so they
+answer at once. Leaving things are faster than entering. Nothing starts from
+scale 0. Only opacity and transform change. Everything is interruptible.
+
+| What | Enter | Leave | Easing |
+| --- | --- | --- | --- |
+| Detail pane (1180 px and wider) | 200 ms: slides 24 px from the right and fades in | 150 ms fade | `cubic-bezier(.05,.7,.1,1)` (emphasized decelerate) |
+| Side sheet (below 1180 px) | 250 ms from the right edge, the scrim fades in over the same 250 ms | 150 ms, then the scrim | decelerate in, `cubic-bezier(.3,0,.8,.15)` out |
+| Dialog | 200 ms: fades and scales from 0.9 to 1 around its centre | 100 ms fade | decelerate in, accelerate out |
+| Filter menu and date panel | 100 ms: fades and scales from 0.95, from its chip | 80 ms fade | decelerate |
+| Bulk bar | 150 ms cross-fade with the space it takes (the table does not jump) | 100 ms | decelerate |
+| Snackbar | 200 ms: fades and rises 8 px | 150 ms fade, after 8 s or on Dismiss | decelerate |
+| Row selected, tab changed, Technical details folded | No animation | None | None |
+| Loading bar and the sign-in spinner | Looping | None | linear |
+| Reduced motion | No slide and no scale: opacity only, 100 ms at most | Opacity only | linear |
+
+### 9.8 The web page's New producer action
+
+On the users' web page the floating New producer button sat on top of the last
+producer. The owner chose **option A**: a tonal New producer button in the
+list header (R2), nothing floating, the first tab stop of the list. B (the
+floating button kept, with space reserved under the last row) and C (a card at
+the end of the list) stay drawn for the record. Chips wrap on that page (R6),
+and a Disabled chip is added, so the disabled producers at the bottom are never
+hidden. Frames: [web-new-producer](../admin/README.md#the-web-pages-new-producer-action).

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
+    <script src='./support.js'></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name='design_doc_mode' content='canvas' />
+        <link rel='stylesheet' href='vendor/css/roboto-roboto-mono.css' />
+        <link rel='stylesheet' href='vendor/css/material-symbols-outlined.css' />
+        <link rel='stylesheet' href='./admin-events.css' />
+        <link rel='stylesheet' href='./admin-people.css' />
+        <link rel='stylesheet' href='./admin-status.css' />
+        <link rel='stylesheet' href='./admin-fix-b.css' />
+      </helmet>
+
+<section class='dv-turn' id='t1' data-screen-label='Turn 1: Sign in with the admin token'><div class='dv-thd'><a class='dv-tid' href='#t1'>1</a><span class='dv-tname'>Sign in with the admin token: the first screen, before the shell</span></div>
+<p class='dv-why'>The only screen without the rail. There are no passwords and no accounts here: the operator pastes the admin token (SIGNALHUB_ADMIN_TOKEN from the server's .env) and the page checks it with the management API. The screen says what the page is, that it is served only on the server's own port (it is not reachable through the public address), and, plainly, that the token stays in this page only: it is kept in the page's memory, never in the browser's storage or a cookie, so reloading or closing the tab asks again. One column, one field, one button; the field has a show and hide toggle (48 px target) and a minimum of 32 characters, which keeps Sign in off until it is met. Seven states, dark, one version. Sample data only.</p>
+<div class='dv-opts'>
+<div class='dv-opt' id='SI1' data-screen-label='SI1 Sign in: empty' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#SI1'>SI1</a>The first screen, the field has the keyboard</div>
+<div class='br h6'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/</div></div>
+<div class='si'><div class='sic'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<p>The operator's page: people, devices, producers and events, and whether SignalHub is working. It is served only on this server's own port, never through the public address.</p>
+<div class='tf focus'><span class='fl'>Admin token</span>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;<span class='vis' aria-label='Show the token'><span class='ms'>visibility</span></span></div>
+<div class='help'>The token stays in this page only. It is not saved in the browser and goes nowhere but this server; reloading or closing the tab asks again.</div>
+<div class='acts'><span class='btn-f go'>Sign in</span></div></div></div></div>
+<p class='dv-onote'>The token is typed or pasted, then Enter or Sign in. Below 32 characters Sign in is off and the help line adds “At least 32 characters; this one has 12.” (the page never shows the token's length otherwise). The eye shows the token while pressed or toggled, with “Show the token” and “Hide the token” as its names. The password manager can fill the field (it is a password field named Admin token). Focus is the 2 px primary field outline; Tab goes field, eye, Sign in.</p>
+<p class='dv-onote'><b>Accessible names.</b> This screen is the main region of the page; “SignalHub admin” is its level 1 heading. The field is labelled “Admin token” and its help line is its description. The eye is a 48 px toggle button named “Show the token” or “Hide the token”. An error message is announced as soon as it appears.</p></div>
+<div class='dv-opt' id='SI2' data-screen-label='SI2 Sign in: wrong token' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#SI2'>SI2</a>Wrong token (the server answered 401)</div>
+<div class='br h6'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/</div></div>
+<div class='si'><div class='sic'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<p>The operator's page: people, devices, producers and events, and whether SignalHub is working. It is served only on this server's own port, never through the public address.</p>
+<div class='tf err'><span class='fl'>Admin token</span>example-token-not-the-real-one-0001<span class='vis' aria-label='Hide the token'><span class='ms'>visibility_off</span></span></div>
+<div class='help err'>Wrong admin token</div>
+<p style='margin-top:12px'>SignalHub did not accept it. Check it against SIGNALHUB_ADMIN_TOKEN in the server's .env: capital letters count and there must be no space at either end.</p>
+<div class='acts'><span class='btn-f go'>Sign in</span></div></div></div></div>
+<p class='dv-onote'>The field turns red with an error icon and the words “Wrong admin token” (the words are the signal, red only adds to them); the token stays in the field, shown here because the eye was pressed, so a typo can be fixed. The message is read out as soon as it appears (role alert). Nothing is locked or delayed: the page offers no lockout, so there is no retry counter.</p></div>
+<div class='dv-opt' id='SI3' data-screen-label='SI3 Sign in: management API off' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#SI3'>SI3</a>The management API is off (the server answered 404)</div>
+<div class='br h6'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/</div></div>
+<div class='si'><div class='sic' style='width:520px'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<div class='bn neu' style='margin-top:4px;align-items:flex-start'><span class='ms' style='margin-top:14px'>block</span><div class='tx'><b style='font-weight:500'>The admin page is switched off on this server.</b><br>The server has no admin token set, so nobody can sign in. To switch it on:<ol class='steps'><li>Set SIGNALHUB_ADMIN_TOKEN in the server's .env to a secret of at least 32 characters (for example from <span class='mono'>openssl rand -hex 32</span>).</li><li>Restart SignalHub.</li><li>Reload this page.</li></ol></div></div>
+<div class='tf dis'><span class='fl'>Admin token</span><span class='c-var'>Not available</span></div>
+<div class='acts'><span class='btn-f dis go'>Sign in</span><span class='btn-o go'><span class='ms'>refresh</span>Reload this page</span></div></div></div></div>
+<p class='dv-onote'>The field and Sign in are off, because no token could work; the page says what to do instead of asking for one. Reload this page is the one live action. Nothing here reveals anything about the token.</p></div>
+<div class='dv-opt' id='SI4' data-screen-label='SI4 Sign in: server cannot be reached' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#SI4'>SI4</a>The server cannot be reached</div>
+<div class='br h6'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/</div></div>
+<div class='si'><div class='sic'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<div class='bn err' style='margin-top:4px;align-items:flex-start'><span class='ms' style='margin-top:14px'>cloud_off</span><div class='tx'><b style='font-weight:500'>Could not reach SignalHub.</b><br>The server did not answer. Check that it is running (<span class='mono'>docker compose ps</span>) and that this address is the server's own port, then try again.</div></div>
+<div class='tf'><span class='fl'>Admin token</span>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;<span class='vis' aria-label='Show the token'><span class='ms'>visibility</span></span></div>
+<div class='acts'><span class='btn-f go'>Try again</span></div></div></div></div>
+<p class='dv-onote'>A network failure, a timeout or an address with no server there. The token is kept in the field, and the button says Try again. Any other answer from the server (500, 502, 503) reads the same way with its number: “SignalHub answered 503. Try again; if it stays, read the server's log.”</p></div>
+<div class='dv-opt' id='SI5' data-screen-label='SI5 Sign in: signing in' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#SI5'>SI5</a>Signing in (waiting for the server)</div>
+<div class='br h6'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/</div></div><div class='prog'></div>
+<div class='si'><div class='sic'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<p>The operator's page: people, devices, producers and events, and whether SignalHub is working. It is served only on this server's own port, never through the public address.</p>
+<div class='tf dis'><span class='fl'>Admin token</span>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;<span class='vis' aria-label='Show the token'><span class='ms'>visibility</span></span></div>
+<div class='help'>Checking the token with the server&hellip;</div>
+<div class='acts'><span class='btn-f busy go'><span class='spin'></span>&nbsp;Signing in&hellip;</span></div></div></div></div>
+<p class='dv-onote'>The field is off and the button shows a spinner and “Signing in…” so a second press is impossible. A still bar and a still spinner arc with reduced motion. The status line is announced politely. It lasts as long as the server takes; after 15 seconds it becomes the unreachable state.</p></div>
+<div class='dv-opt' id='SI6' data-screen-label='SI6 Sign in: signed out' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#SI6'>SI6</a>Signed out (after the sign-out dialog, M2)</div>
+<div class='br h6'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/</div></div>
+<div class='si'><div class='sic'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<div class='bn neu' style='margin-top:4px;align-items:flex-start'><span class='ms c-primary' style='margin-top:14px'>check_circle</span><div class='tx'><b style='font-weight:500'>You signed out.</b><br>This page forgot the token. Nothing else changed on the server.</div></div>
+<div class='tf'><span class='fl'>Admin token</span><span class='c-var'>&nbsp;</span><span class='vis' aria-label='Show the token'><span class='ms'>visibility</span></span></div>
+<div class='help'>The token stays in this page only. It is not saved in the browser and goes nowhere but this server; reloading or closing the tab asks again.</div>
+<div class='acts'><span class='btn-f dis go'>Sign in</span></div></div></div></div>
+<p class='dv-onote'>Shown after confirming Sign out in the account menu. The token is gone from memory and the address is back to /admin/. Nothing on the server is touched: the admin token is a setting of the server, not a session, so “signing out” only means this page forgets it. The field has the keyboard.</p></div>
+<div class='dv-opt' id='SI7' data-screen-label='SI7 Sign in: session lost' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#SI7'>SI7</a>The session was lost (the token stopped working while in use)</div>
+<div class='br h6'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#events/01997d5e-0000-7000-8000-00000000e842</div></div>
+<div class='si'><div class='sic' style='width:480px'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<div class='bn neu' style='margin-top:4px;align-items:flex-start'><span class='ms c-primary' style='margin-top:14px'>lock_clock</span><div class='tx'><b style='font-weight:500'>Your session ended.</b><br>The token stopped working while you were using the page: it was changed on the server, or the server now has a different one. Sign in again with the current token.</div></div>
+<div class='tf focus'><span class='fl'>Admin token</span><span class='c-var'>&nbsp;</span><span class='vis' aria-label='Show the token'><span class='ms'>visibility</span></span></div>
+<div class='ret'><span class='ms ms18'>undo</span>You will come back to the Events section, where you were.</div>
+<div class='acts'><span class='btn-f dis go'>Sign in</span></div></div></div></div>
+<p class='dv-onote'>Any management request that answers 401 sends the page here. The section and the selected item stay in the address (#events/&hellip;), so the next sign-in returns to the same place and the older list is not shown (it came from a token that no longer works). It is neutral, not red: nothing the operator typed was wrong. A change that was in flight (a rename, a revoke) is not repeated; the page does not know if it went through, and the screen after sign-in shows the real state.</p></div>
+</div></section>
+
+<section class='dv-turn' id='t2' data-screen-label='Turn 2: Sign in on a phone'><div class='dv-thd'><a class='dv-tid' href='#t2'>2</a><span class='dv-tname'>Sign in on a phone, 390 wide</span></div>
+<p class='dv-why'>The same screen on one column with no card: the logo, the sentence, the field and a full-width Sign in. The page does not scroll sideways at 390, and with the keyboard open Sign in stays above it.</p>
+<div class='dv-opts'>
+<div class='dv-opt' id='PS1' data-screen-label='PS1 Phone sign in: empty' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#PS1'>PS1</a>Phone: the first screen</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/</div></div>
+<div class='sic pn'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<p>The operator's page: people, devices, producers and events, and whether SignalHub is working. It is served only on this server's own port, never through the public address.</p>
+<div class='tf focus'><span class='fl' style='background:var(--surface)'>Admin token</span>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;<span class='vis' aria-label='Show the token'><span class='ms'>visibility</span></span></div>
+<div class='help'>The token stays in this page only. It is not saved in the browser and goes nowhere but this server; reloading or closing the tab asks again.</div>
+<div style='flex:1'></div><div class='acts'><span class='btn-f go'>Sign in</span></div></div></div>
+<p class='dv-onote'>The button sits at the bottom of the screen, 48 px high and full width; with the keyboard open it rises with it.</p></div>
+<div class='dv-opt' id='PS2' data-screen-label='PS2 Phone sign in: wrong token' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#PS2'>PS2</a>Phone: wrong token</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/</div></div>
+<div class='sic pn'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<p>The operator's page: people, devices, producers and events, and whether SignalHub is working. It is served only on this server's own port, never through the public address.</p>
+<div class='tf err'><span class='fl' style='background:var(--surface)'>Admin token</span>example-token-0001<span class='vis' aria-label='Hide the token'><span class='ms'>visibility_off</span></span></div>
+<div class='help err'>Wrong admin token</div>
+<p style='margin-top:12px'>SignalHub did not accept it. Check it against SIGNALHUB_ADMIN_TOKEN in the server's .env: capital letters count and there must be no space at either end.</p>
+<div style='flex:1'></div><div class='acts'><span class='btn-f go'>Sign in</span></div></div></div></div>
+<div class='dv-opt' id='PS3' data-screen-label='PS3 Phone sign in: management API off' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#PS3'>PS3</a>Phone: the management API is off</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/</div></div>
+<div class='sic pn'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<div class='bn neu' style='margin:4px 0 0;align-items:flex-start'><span class='ms' style='margin-top:14px'>block</span><div class='tx'><b style='font-weight:500'>The admin page is switched off on this server.</b><br>The server has no admin token set, so nobody can sign in. To switch it on:<ol class='steps'><li>Set SIGNALHUB_ADMIN_TOKEN in the server's .env to a secret of at least 32 characters (for example from <span class='mono'>openssl rand -hex 32</span>).</li><li>Restart SignalHub.</li><li>Reload this page.</li></ol></div></div>
+<div style='flex:1'></div><div class='acts'><span class='btn-o go'><span class='ms'>refresh</span>Reload this page</span></div></div></div></div>
+<div class='dv-opt' id='PS4' data-screen-label='PS4 Phone sign in: session lost' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#PS4'>PS4</a>Phone: the session was lost</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#status</div></div>
+<div class='sic pn'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<div class='bn neu' style='margin:4px 0 0;align-items:flex-start'><span class='ms c-primary' style='margin-top:14px'>lock_clock</span><div class='tx'><b style='font-weight:500'>Your session ended.</b><br>The token stopped working while you were using the page: it was changed on the server, or the server now has a different one. Sign in again with the current token.</div></div>
+<div class='tf focus'><span class='fl' style='background:var(--surface)'>Admin token</span><span class='c-var'>&nbsp;</span><span class='vis' aria-label='Show the token'><span class='ms'>visibility</span></span></div>
+<div class='ret'><span class='ms ms18'>undo</span>You will come back to the Status section.</div>
+<div style='flex:1'></div><div class='acts'><span class='btn-f dis go'>Sign in</span></div></div></div></div>
+</div>
+<p class='dv-why' style='margin:28px 0 0'><b>Server changes these drawings need:</b> none. Sign-in uses what exists: <span class='mono'>GET /api/v1/admin/clients</span> as the token probe (401 wrong token, 404 management API off) and sends the token as a bearer header. Sign-out is only the page forgetting the token, because the admin token is a server setting, not a session.</p></section>
+    </x-dc>
+    <script type='text/x-dc' data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() {
+          return {};
+        }
+      }
+    </script>
+  </body>
+</html>

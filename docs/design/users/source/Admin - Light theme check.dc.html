@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
+    <script src='./support.js'></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name='design_doc_mode' content='canvas' />
+        <link rel='stylesheet' href='vendor/css/roboto-roboto-mono.css' />
+        <link rel='stylesheet' href='vendor/css/material-symbols-outlined.css' />
+        <link rel='stylesheet' href='./admin-events.css' />
+        <link rel='stylesheet' href='./admin-people.css' />
+        <link rel='stylesheet' href='./admin-status.css' />
+        <link rel='stylesheet' href='./admin-fix-a.css' />
+        <link rel='stylesheet' href='./admin-fix-b.css' />
+        <style>
+          html,body{background:#e9e7ef}
+          .ct{border-collapse:collapse;font:13px/18px Roboto,sans-serif;color:var(--on-surface);max-width:1000px;width:100%}
+          .ct th,.ct td{padding:6px 12px 6px 0;border-bottom:1px solid var(--outline-variant);text-align:left;vertical-align:top}
+          .ct th{font-weight:500;color:var(--on-surface-variant)}
+          .ct td.r{font-variant-numeric:tabular-nums;white-space:nowrap}
+        </style>
+      </helmet>
+
+<div class='light'>
+<section class='dv-turn' id='t1' data-screen-label='Turn 1: The admin page in the light theme'><div class='dv-thd'><a class='dv-tid' href='#t1'>1</a><span class='dv-tname'>The admin page in the light theme</span></div>
+<p class='dv-why'>The key admin screens in the light set of the users' design system (primary #515b92, secondary container #e0e1f9, surface #fbf8ff, surface container low #f5f2fa). The design is dark first; these frames show that nothing in the admin drawings depends on the dark values. The drawings switch with a <span class='mono'>light</span> class on the frame, exactly as the web page's own light frames do (9d); the build switches the same tokens with <span class='mono'>prefers-color-scheme</span>, as <span class='mono'>admin.css</span> and <span class='mono'>app.css</span> already do. The stylesheet <span class='mono'>admin-events.css</span> holds both token sets, and every colour that used to be written out (the error row tint, disabled and busy buttons, scrims, shadows, the browser frame) is a token now, so the dark frames did not change. Sample data only.</p>
+<div class='dv-opts'>
+<div class='dv-opt' id='LA1' data-screen-label='Light Shell A: the Producers list and its detail pane' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#LA1'>LA1</a>Shell A: the Producers list and its detail pane</div>
+<div class='br  light'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers/homelab-monitor</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div>
+<span class='acct'><span class='av'>A</span></span></div>
+</div>
+<div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Producers</h1><span class='cnt'>10 producers</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Updated 12:41</span><span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='tools'><div class='search'><span class='ms'>search</span>Find a producer</div>
+<div class='fchips'><span class='fc on'><span class='ms ms18'>check</span>All</span><span class='fc'>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span><span class='fc'>Owner: anyone<span class='ms ms18'>arrow_drop_down</span></span></div>
+</div>
+<div class='tbl'><div class='th gA'><span>Producer</span><span>Owner</span><span>Who sees it</span><span>Keys</span><span>Last event</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>ana-reports</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>yesterday</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>ci-pipeline</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Public</span><span>2</span><span>4 min ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>garage-door</span><span class='tg o'>Disabled</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1 (off)</span><span>12 days ago</span></div>
+<div class='tr gA sel'><span class='nmc'><span class='nm'>homelab-monitor</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private · 2 people</span><span>2</span><span>12 min ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>old-sensor</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>21 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>weather-alerts</span></span><span class='own'><span class='av s'>R</span>Rui</span><span>Public</span><span>1</span><span>3 min ago</span></div>
+</div>
+</div>
+<div class='pane '><div class='phd'><div style='flex:1;min-width:0'><div class='t'>homelab-monitor</div>
+</div>
+<span class='ib' aria-label='Rename'><span class='ms'>edit</span></span><span class='ib' aria-label='Close'><span class='ms'>close</span></span></div>
+<div class='pbody'><div class='kv'><b>Owner</b><span>Rodrigo</span><b>Last event</b><span>12 min ago · <a href='#x' style='color:var(--primary)'>See its events</a></span><b>Created</b><span>25 Sep</span></div>
+<div class='lab'>Keys<span class='cnt'>2 working</span><span class='sp'></span><span class='btn-o'><span class='ms'>add</span>Issue key</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_3f1c0b8e5d2a…</span><span class='t2'>Created 27 Sep · last used 12 min ago</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_9a47c61d0be3…</span><span class='t2'>Created 2 Oct · not used yet</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='lab' style='margin-top:4px'>Who can see it</div>
+<div class='seg'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<div class='lab' style='min-height:40px'>Allowed users</div>
+<div class='pchips'><span class='pchip'><span class='avs'>A</span>Ana<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip'><span class='avs'>R</span>Rui<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip' style='padding:0 12px 0 8px;color:var(--primary)'><span class='ms ms18'>person_add</span>Add user</span></div>
+<div class='act'><span class='btn-o'><span class='ms'>pause_circle</span>Disable</span><span class='t2' style='font-size:14px;line-height:20px'>Its keys stop working. Its events stay.</span></div>
+<div class='fold'><span class='ms'>expand_more</span>Technical details</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+<p class='dv-onote'>Light: shell A with the Producers list and the detail pane. Same layout and wording as shell A in dark: the selected row is the secondary container, the pane is surface container, links and pane labels are the primary (6.1 on surface, 5.6 on the pane), the tonal New producer button keeps its 7.2 pair. Dividers are outline variant (1.5 on the list, decorative as in dark).</p></div>
+<div class='dv-opt' id='LA2' data-screen-label='Light A disabled producer, technical details open' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#LA2'>LA2</a>A disabled producer, technical details open</div>
+<div class='br h8 light'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers/garage-door</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div>
+<span class='acct'><span class='av'>A</span></span></div>
+</div>
+<div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Producers</h1><span class='cnt'>10 producers</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Updated 12:41</span><span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='tools'><div class='search'><span class='ms'>search</span>Find a producer</div>
+<div class='fchips'><span class='fc on'><span class='ms ms18'>check</span>All</span><span class='fc'>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span><span class='fc'>Owner: anyone<span class='ms ms18'>arrow_drop_down</span></span></div>
+</div>
+<div class='tbl'><div class='th gA'><span>Producer</span><span>Owner</span><span>Who sees it</span><span>Keys</span><span>Last event</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>ana-reports</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>yesterday</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>ci-pipeline</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Public</span><span>2</span><span>4 min ago</span></div>
+<div class='tr gA sel'><span class='nmc'><span class='nm'>garage-door</span><span class='tg o'>Disabled</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1 (off)</span><span>12 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>homelab-monitor</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private · 2 people</span><span>2</span><span>12 min ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>old-sensor</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>21 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>weather-alerts</span></span><span class='own'><span class='av s'>R</span>Rui</span><span>Public</span><span>1</span><span>3 min ago</span></div>
+</div>
+</div>
+<div class='pane '><div class='phd'><div style='flex:1;min-width:0'><div class='t'>garage-door</div>
+</div>
+<span class='ib' aria-label='Rename'><span class='ms'>edit</span></span><span class='ib' aria-label='Close'><span class='ms'>close</span></span></div>
+<div class='pbody'><div class='bn neu' style='margin:4px 0 8px'><span class='ms c-var'>pause_circle</span><span class='tx'>Disabled on 29 Sep. Its keys do not work, so it sends nothing. Its events stay.</span></div>
+<div class='kv'><b>Owner</b><span>Rodrigo</span><b>Last event</b><span>12 days ago · <a href='#x' style='color:var(--primary)'>See its events</a></span><b>Created</b><span>10 Sep</span></div>
+<div class='lab'>Keys<span class='cnt'>1 · not working while disabled</span><span class='sp'></span><span class='btn-o'><span class='ms'>add</span>Issue key</span></div>
+<div class='krow' style='opacity:.6'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_b82e5f07c1d4…</span><span class='t2'>Created 10 Sep · last used 12 days ago</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='lab' style='margin-top:4px'>Who can see it</div>
+<div class='seg'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<div class='lab' style='min-height:40px'>Allowed users</div>
+<div class='pchips'><span class='pchip' style='padding:0 12px 0 8px;color:var(--primary)'><span class='ms ms18'>person_add</span>Add user</span></div>
+<div class='t2' style='padding:0 0 8px'>Only its owner, until you add someone.</div>
+<div class='act'><span class='btn-f'><span class='ms'>play_arrow</span>Enable</span><span class='t2' style='font-size:14px;line-height:20px'>Its keys work again.</span></div>
+<div class='fold' style='border-bottom:0'><span class='ms'>expand_less</span>Technical details</div>
+<div class='kv' style='padding-top:0'><b>ID</b><span class='mono' style='font-size:12px'>01997d5e-8a3c-7b1e-9f2a-4c6d8e0f1a2b</span><b>Key IDs</b><span class='mono' style='font-size:12px'>3f1c0b8e-5d2a-4c7e-9b61-0a8d4e2f7c13</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+<p class='dv-onote'>Light: a disabled producer. The banner is the neutral banner (surface container high, on-surface text 13 : 1), its dimmed key keeps the words "not working while disabled" beside it, and Enable is the filled primary button (white on primary, 6.4).</p></div>
+<div class='dv-opt' id='LE1' data-screen-label='Light Events A: an event's detail, Pushes tab' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#LE1'>LE1</a>Events A: an event's detail, Pushes tab</div><div class='br  light'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#events</div></div><div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div><div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div><div class='ri'><span class='pill'><span class='ms'>sensors</span></span>Producers</div><div class='ri on'><span class='pill'><span class='ms fill'>inbox</span></span>Events</div><div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div><div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div><span class='acct'><span class='av'>A</span></span></div></div><div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Events</h1><span class='cnt'>Newest first</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Updated 12:41</span><span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t'><span class='ms'>science</span>Send a test event</span><span class='ib' aria-label='More'><span class='ms'>more_vert</span></span></div><div class='tools' style='padding-right:24px'><div class='fchips'><span class='fc'>Read state<span class="ms ms18">arrow_drop_down</span></span><span class='fc'>Severity<span class="ms ms18">arrow_drop_down</span></span><span class='fc'>Push problems</span><span class='fc'>Producer<span class="ms ms18">arrow_drop_down</span></span><span class='fc'>Category<span class="ms ms18">arrow_drop_down</span></span><span class='fc'>User<span class="ms ms18">arrow_drop_down</span></span><span class='fc'>Received<span class="ms ms18">arrow_drop_down</span></span></div></div>
+<div class='tbl'><div class='th gE'><span class='cbc'><span class='cb'></span></span><span>Event</span><span>Producer</span><span>Severity</span><span>Category</span><span>Received</span></div><div class='tr gE unr'><span class='cbc'><span class='cb'></span></span><span class='nmc'><span class='ud'></span><span class='ms cic s-low'>info</span><span class='nm'>Rain expected at 16:00</span></span><span class='nm' style='font-size:14px;color:var(--on-surface-variant)'>weather-alerts</span><span><span class='sv low'><span class='ms'>arrow_downward</span>Low</span></span><span>Info</span><span>3 min</span></div><div class='tr gE sel unr'><span class='cbc'><span class='cb'></span></span><span class='nmc'><span class='ud'></span><span class='ms cic s-high'>block</span><span class='nm'>Build 1842 failed on main</span><span class='pp'><span class='ms'>error</span>Push problems</span></span><span class='nm' style='font-size:14px;color:var(--on-surface-variant)'>ci-pipeline</span><span><span class='sv high'><span class='ms'>warning</span>High</span></span><span>Blocked</span><span>4 min</span></div><div class='tr gE unr'><span class='cbc'><span class='cb'></span></span><span class='nmc'><span class='ud'></span><span class='ms cic s-crit'>pending_actions</span><span class='nm'>Disk usage above 90% on nas-01</span></span><span class='nm' style='font-size:14px;color:var(--on-surface-variant)'>homelab-monitor</span><span><span class='sv crit'><span class='ms'>error</span>Critical</span></span><span>Action required</span><span>12 min</span></div><div class='tr gE unr'><span class='cbc'><span class='cb'></span></span><span class='nmc'><span class='ud'></span><span class='ms cic s-high'>pending_actions</span><span class='nm'>Deploy to staging needs approval</span></span><span class='nm' style='font-size:14px;color:var(--on-surface-variant)'>ci-pipeline</span><span><span class='sv high'><span class='ms'>warning</span>High</span></span><span>Action required</span><span>48 min</span></div><div class='tr gE'><span class='cbc'><span class='cb'></span></span><span class='nmc'><span class='udz'></span><span class='ms cic s-norm'>check_circle</span><span class='nm'>Nightly backup finished</span></span><span class='nm' style='font-size:14px;color:var(--on-surface-variant)'>backup-jobs</span><span><span class='sv norm'><span class='ms'>trending_flat</span>Normal</span></span><span>Completed</span><span>2 h</span></div></div><div class='pgr'><span>Newest 25 events</span><span class='sp'></span><span class='btn-o sm dis'><span class='ms'>chevron_left</span>Newer</span><span class='btn-o sm' style='padding:0 16px 0 24px'>Older<span class='ms'>chevron_right</span></span></div></div><div class='pane'><div class='phd'><div style='flex:1;min-width:0'><div class='t'>Build 1842 failed on main</div></div><span class='ib' aria-label='Close'><span class='ms'>close</span></span></div><div class='seg3'><span class=''><span class='ms ms18'>description</span>Event</span><span class='on'><span class='ms ms18'>notifications</span>Pushes<span class='tg o' style='border-color:var(--error);color:var(--error)'>2 problems</span></span></div>
+<div class='pbody' style='gap:0'><p class='t2' style='margin:2px 0 4px'>The push service's answer is the last thing SignalHub knows. It cannot tell whether a device showed the push.</p><div class='ugrp'><span class='avs'>R</span>Rodrigo<span class='tg o'>Owns the producer</span></div><div class='drow'><span class='ms dok'>check_circle</span><div class='tx'><span class='t1' style='white-space:normal'>Rodrigo - Pixel 9 · Sent</span><span class='t2'>12:37 · accepted by the push service</span></div></div><div class='drow'><span class='ms dno'>block</span><div class='tx'><span class='t1' style='white-space:normal'>Rodrigo - Firefox · Not sent</span><span class='t2'>This browser has no push address.</span></div></div><div class='ugrp'><span class='avs'>A</span>Ana<span class='tg o'>Subscribed</span></div><div class='drow'><span class='ms dwait'>schedule</span><div class='tx'><span class='t1' style='white-space:normal'>Ana - Pixel · Waiting for a retry</span><span class='t2'>The push service did not accept it this time. SignalHub will try again.</span></div></div><div class='drow'><span class='ms dbad'>error</span><div class='tx'><span class='t1' style='white-space:normal'>Ana - Tablet · Failed</span><span class='t2'>The push service no longer knows this device, so its address was removed.</span></div></div><div class='ugrp'><span class='avs'>R</span>Rui<span class='tg o'>Subscribed</span></div><div class='drow'><span class='ms dno'>do_not_disturb_on</span><div class='tx'><span class='t1' style='white-space:normal'>Rui - iPhone · Not sent</span><span class='t2'>Its push settings skip events below Critical.</span></div></div><div class='fold'><span class='ms'>expand_more</span>Technical details</div></div><div class='pfoot'><span class='btn-t'><span class='ms'>mark_email_read</span>Mark read</span><span class='sp'></span><span class='btn-x dng'><span class='ms'>delete</span>Delete event</span></div></div></div></div></div></div><p class='dv-onote'>Light: Events A with an event's detail on the Pushes tab. Push states keep their icons and words: Sent in primary, Waiting in on-surface, Failed in error (5.6 on the pane), Not sent in on-surface-variant. The Push problems marker on the row is an error outline with error text.</p></div>
+<div class='dv-opt' id='LS1' data-screen-label='Light Status ST1: SignalHub is working' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#LS1'>LS1</a>Status ST1: SignalHub is working</div>
+<div class='br h8 light'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#status</div></div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div><div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div><div class='ri'><span class='pill'><span class='ms'>sensors</span></span>Producers</div><div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div><div class='ri on'><span class='pill'><span class='ms fill'>monitor_heart</span></span>Status</div><div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div><span class='acct'><span class='av'>A</span></span></div></div>
+<div class='main'><div class='sbody'><div class='mhead'><h1>Status</h1><span class='cnt'>Checked 12:41</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Looks again every 30 s</span><span class='ib' aria-label='Refresh the status'><span class='ms'>refresh</span></span></div>
+<div class='sin'><div class='hero'><span class='hi'><span class='ms fill'>check_circle</span></span><div class='tx'><span class='h'>SignalHub is working</span><span class='s'>Events are being stored and pushes are going out. Nothing needs attention.</span></div></div>
+<div class='sgrp'>DELIVERING EVENTS</div>
+<div class='srow ok'><span class='ms'>database</span><span class='nmx'>Database</span><div class='vl'>Connected. Events are being stored and read.<span class='do'><b>If it goes wrong:</b> events cannot be stored. Check that the database container is running (docker compose ps). SignalHub reconnects by itself.</span></div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='srow ok'><span class='ms'>notifications_active</span><span class='nmx'>Push service</span><div class='vl'>Firebase Cloud Messaging is set up, and apps are given their push options by this server.<span class='do'><b>If it goes wrong:</b> events are kept but no phone is told. Check the push service's key file in the server's .env, then restart.</span></div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='srow ok'><span class='ms'>schedule_send</span><span class='nmx'>Events waiting to be pushed</span><div class='vl'>0 events waiting<span class='do'><b>If it goes wrong:</b> a few for a second or two is normal. A number that keeps growing means SignalHub is not keeping up: the push service or the database is slow.</span></div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='srow ok'><span class='ms'>replay</span><span class='nmx'>Pushes waiting for a retry</span><div class='vl'>0 waiting &middot; 0 given up since you opened this page<span class='do'><b>If it goes wrong:</b> a temporary failure is tried again by itself, up to 5 tries in all. A push that was given up is not tried again, but its event is still in the inbox.</span></div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='srow ok'><span class='ms'>phonelink_erase</span><span class='nmx'>Devices whose last push failed</span><div class='vl'>None<span class='do'><b>If some are listed:</b> open Devices (with Push problems chosen); each one says in words why its last push failed.</span></div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='sfold'><span class='ms'>expand_more</span>Technical details</div>
+<div class='sfoot'>Nothing is changed on this page: settings are in the server's .env and take effect after a restart.</div></div></div></div></div></div>
+
+<p class='dv-onote'>Light: Status, SignalHub is working. The hero is surface container high with a primary container disc; the Working chips are primary text (5.8 on the list area).</p></div>
+<div class='dv-opt' id='LS2' data-screen-label='Light Status ST2: needs attention' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#LS2'>LS2</a>Status ST2: needs attention</div>
+<div class='br h8 light'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#status</div></div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div><div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div><div class='ri'><span class='pill'><span class='ms'>sensors</span></span>Producers</div><div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div><div class='ri on'><span class='pill'><span class='ms fill'>monitor_heart</span></span>Status</div><div class='rfoot'><div class='ri bad'><span class='pill'><span class='ms fill'>warning</span></span>Check</div><span class='acct'><span class='av'>A</span></span></div></div>
+<div class='main'><div class='sbody'><div class='mhead'><h1>Status</h1><span class='cnt'>Checked 12:41</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Looks again every 30 s</span><span class='ib' aria-label='Refresh the status'><span class='ms'>refresh</span></span></div>
+<div class='sin'><div class='hero bad'><span class='hi'><span class='ms fill'>warning</span></span><div class='tx'><span class='h'>SignalHub needs attention</span><span class='s'>Events are still being received and stored, but pushes to phones are failing. 2 things to look at:</span><div class='jumps'><span class='fc'>Push service</span><span class='fc'>Pushes waiting for a retry</span></div></div></div>
+<div class='sgrp bad'><span class='ms ms18'>warning</span>NEEDS ATTENTION &middot; 2</div>
+<div class='srow bad'><span class='ms'>notification_important</span><span class='nmx'>Push service</span><div class='vl'>Firebase Cloud Messaging is set up, but every device with a push address failed its last push (3 of 3): the push service is probably down, or refusing this server.<span class='do'><b>What to do:</b> open Devices and read each failure. If every device fails, the key file may be wrong or revoked: replace it in the server's .env and restart.</span></div><span class='sc bad'><span class='ms fill'>error</span>Needs attention</span></div>
+<div class='srow bad'><span class='ms'>replay</span><span class='nmx'>Pushes waiting for a retry</span><div class='vl'>148 waiting &middot; 12 given up since you opened this page<span class='do'><b>What to do:</b> the waiting number grows while the push service refuses pushes. Fix the push service first; the waiting ones are then sent by themselves. The given-up ones are not retried, but their events are in the inbox.</span></div><span class='sc bad'><span class='ms fill'>error</span>Needs attention</span></div>
+<div class='sgrp'><span class='ms ms18'>info</span>WORTH A LOOK &middot; 1</div>
+<div class='srow un'><span class='ms'>phonelink_erase</span><span class='nmx'>Devices whose last push failed</span><div class='vl'>3 devices' last push failed: Rodrigo - Pixel 9, Ana - Galaxy Tab, Rui - iPhone 15 &middot; <a href='#x'>Open Devices</a><span class='do'>Opens Devices with Push problems chosen. Each device says in words why its last push failed, and whether SignalHub is trying again.</span></div><span class='sc look'><span class='ms'>info</span>Look</span></div>
+<div class='sgrp'>WORKING</div>
+<div class='srow ok'><span class='ms'>database</span><span class='nmx'>Database</span><div class='vl'>Connected. Events are being stored and read.</div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='srow ok'><span class='ms'>schedule_send</span><span class='nmx'>Events waiting to be pushed</span><div class='vl'>0 events waiting</div><span class='sc ok'><span class='ms'>check_circle</span>Working</span></div>
+<div class='sfold'><span class='ms'>expand_more</span>Technical details</div>
+<div class='sfoot'>Nothing is changed on this page: settings are in the server's .env and take effect after a restart.</div></div></div></div></div></div>
+
+<p class='dv-onote'>Light: Status, needs attention. The hero is the error container (#ffdad6) with on-error-container text (7.2) and an error disc with white on it (6.4). The problem rows use the light error row tint (#fff0ee, token err-row) with a 3 px error edge, and the chips are error container with on-error-container text; the jump chips use on-error-container borders and text (7.2).</p></div>
+<div class='dv-opt' id='LI1' data-screen-label='Light Sign in SI1: the first screen' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#LI1'>LI1</a>Sign in SI1: the first screen</div>
+<div class='br h6 light'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div><div class='url'><span class='ms'>lock</span>signalhub.example/admin/</div></div>
+<div class='si'><div class='sic'><span class='rlogo'><span class='ms'>sensors</span></span><h2>SignalHub admin</h2>
+<p>The operator's page: people, devices, producers and events, and whether SignalHub is working. It is served only on this server's own port, never through the public address.</p>
+<div class='tf focus'><span class='fl'>Admin token</span>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;<span class='vis' aria-label='Show the token'><span class='ms'>visibility</span></span></div>
+<div class='help'>The token stays in this page only. It is not saved in the browser and goes nowhere but this server; reloading or closing the tab asks again.</div>
+<div class='acts'><span class='btn-f go'>Sign in</span></div></div></div></div>
+
+<p class='dv-onote'>Light: sign-in SI1. The card is surface container, the field has the focus border in primary (5.6 on the card), the helper text is on-surface-variant (8.0), and the Sign in button is white on primary (6.4).</p></div>
+<div class='dv-opt' id='LG1' data-screen-label='Light The pairing code dialog (G2)' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#LG1'>LG1</a>The pairing code dialog (G2)</div><div class='st2 light' style='width:760px;height:640px'><div class='scrim' style='padding:0 24px'><div class='dlg w6'><h4>Pairing code for Ana - Pixel 9a</h4>
+<div class='pair'><div class='qr'><span class='n'></span><span class='f a'></span><span class='f b'></span><span class='f c'></span></div><div class='rt'><span class='big'>Scan it in the app</span><span class='t2' style='font-size:14px;line-height:20px'>For Ana (Mod). Open SignalHub on the phone, then Connect with a code.</span><div class='cd'><i style='width:78%'></i></div><span class='t1'>Expires in 7:48. It works once.</span><span class='t2'>Waiting for the device to use it…</span></div></div>
+<div class='lnk'>signalhub://pair?server=https%3A%2F%2Fsignalhub.example&amp;code=shpc1_EXAMPLE-not-a-code0000</div>
+<div style='display:flex;gap:8px;margin-top:12px;flex-wrap:wrap'><span class='btn-o'><span class='ms'>link</span>Copy link</span><span class='btn-o'><span class='ms'>image</span>Copy QR image</span><span class='btn-o'><span class='ms'>download</span>Download QR</span></div>
+<div class='warn'><span class='ms'>warning</span><div>Anyone with this code, its link or a picture of it can pair a device as Ana until it expires or is used.</div></div>
+<div class='acts'><span class='btn-x dng'>Cancel this code</span><span class='btn-x'>Done</span></div></div></div></div>
+<p class='dv-onote'>Light: the pairing code dialog (G2). The dialog is surface container high on the light scrim (32% black); the QR plate stays white with black modules in both themes so a camera reads it; text buttons are primary (5.3 on the dialog) and the destructive Cancel this code is error text (5.3), both text buttons, 48 px high (R1).</p></div>
+<div class='dv-opt' id='LW1' data-screen-label='Light: web New producer option A' style='width:1000px'><div class='dv-olabel'><a class='dv-oid' href='#LW1'>LW1</a>The web page's New producer, option A, at 1440 and 390</div>
+<p class='dv-onote'>Already drawn in the light theme on <a href='./Web - New producer action.dc.html#9d'>Web - New producer action</a>, frame 9d (1440 and 390, scrolled to the end, header button, chips wrapping, disabled producers at the bottom). It is not drawn again here. It uses the same light roles as the frames above, so the tonal button, chip and list colours are the same pairs.</p></div>
+</div></section>
+<section class='dv-turn' id='t2' data-screen-label='Turn 2: Light theme contrast'><div class='dv-thd'><a class='dv-tid' href='#t2'>2</a><span class='dv-tname'>Contrast of the light set, from the token values</span></div>
+<p class='dv-why'>Computed with the WCAG 2.1 relative luminance formula from the light token values in <span class='mono'>admin-events.css</span>. Text needs 4.5:1 (large text 3:1); the parts of controls that carry meaning (borders, icons, the focus ring) need 3:1. Every pair passes. The lowest text pair is primary on surface container highest (4.98); the lowest part is the outline on surface container highest or on an error container (3.48). One dark-first rule was wrong in light and is fixed: a revoked row dimmed its text with the outline colour (4.06 on the list, under 4.5), so in light the revoked row's text is on-surface-variant (8.4) and the Revoked tag carries the state, as in dark. Disabled controls are exempt (about 2.3 : 1, as in dark). Dark values were checked in the R73 review and pass.</p>
+<table class='ct'><tr><th>Pair</th><th>Ratio</th><th>Needs</th><th>Kind</th></tr><tr><td>primary on surface container highest (a primary label on a tag or key plate)</td><td class='r'>4.98 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>error on surface container high (destructive text button in a dialog)</td><td class='r'>5.27 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>note text #5e5d66 on the canvas #e9e7ef (drawing notes, not part of the page)</td><td class='r'>5.30 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>primary on surface container (pane labels, text buttons)</td><td class='r'>5.55 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>error on surface container (pane error text, Failed push)</td><td class='r'>5.57 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>primary on surface container low (selected tab, links)</td><td class='r'>5.81 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>error on the error row tint (row warning text)</td><td class='r'>5.83 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>on-primary on primary (filled button)</td><td class='r'>6.44 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>on-secondary container on secondary container (selected row, tonal button)</td><td class='r'>7.22 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>on-error container on error container (hero, banner)</td><td class='r'>7.24 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>on-surface-variant on surface container low (table cells, notes)</td><td class='r'>8.43 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>on-surface on surface</td><td class='r'>16.30 : 1</td><td class='r'>4.5 : 1</td><td>text</td></tr><tr><td>outline on surface container highest (chip, field and checkbox borders on a tag or plate)</td><td class='r'>3.48 : 1</td><td class='r'>3 : 1</td><td>parts</td></tr><tr><td>outline on error container and on the selected row</td><td class='r'>3.48 : 1</td><td class='r'>3 : 1</td><td>parts</td></tr><tr><td>outline on surface container high (dialog fields)</td><td class='r'>3.67 : 1</td><td class='r'>3 : 1</td><td>parts</td></tr><tr><td>outline on surface container (pane)</td><td class='r'>3.87 : 1</td><td class='r'>3 : 1</td><td>parts</td></tr><tr><td>outline on surface container low (list chips)</td><td class='r'>4.06 : 1</td><td class='r'>3 : 1</td><td>parts</td></tr><tr><td>outline variant dividers on surface container low</td><td class='r'>1.54 : 1</td><td class='r'>-</td><td>decorative</td></tr></table></section>
+</div>
+    </x-dc>
+    <script type='text/x-dc' data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() {
+          return {};
+        }
+      }
+    </script>
+  </body>
+</html>

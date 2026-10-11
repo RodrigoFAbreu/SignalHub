@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
+    <script src='./support.js'></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name='design_doc_mode' content='canvas' />
+        <link rel='stylesheet' href='vendor/css/roboto-roboto-mono.css' />
+        <link rel='stylesheet' href='vendor/css/material-symbols-outlined.css' />
+        <link rel='stylesheet' href='./admin-events.css' />
+        <link rel='stylesheet' href='./admin-people.css' />
+        <link rel='stylesheet' href='./admin-fix-b.css' />
+      </helmet>
+
+<section class='dv-turn' id='t4' data-screen-label='Turn 4: Users: invite a user and connect their first device'><div class='dv-thd'><a class='dv-tid' href='#t4'>4</a><span class='dv-tname'>Invite a user, then connect their first device</span></div>
+<p class='dv-why'>Companion to Admin - Users.dc.html. Inviting is two steps in one dialog: the name and role, then the pairing code for the user's first device, drawn like the one on Devices (G2). The roles are said the way the users' app and web page say them, as a choice of three with one sentence each, not a bare select. 760 px stages stand for the dialog over the 1440 frame. Dialog actions are text buttons, 48 px high: the confirming action in primary, a destructive one in the error colour.</p>
+<div class='dv-opts'>
+<div class='dv-opt' id='UD1' data-screen-label='UD1 Invite a user' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UD1'>UD1</a>Invite a user</div><div class='st2' style='width:760px;height:660px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Invite a user</h4><p style='font-size:14px;line-height:20px'>Inviting creates the user. The next step connects their first device.</p>
+<div class='tf focus'><span class='fl'>Name</span>Marta</div><div class='help'>Up to 100 characters. Names are not case-sensitive.</div>
+<div class='sublab'>Role</div>
+<div class='choice on'><span class='rb'></span><div class='tx'><span class='t1'>Basic</span><span class='t2'>Owns producers and subscribes to them. Manages no devices.</span></div></div>
+<div class='choice'><span class='rb'></span><div class='tx'><span class='t1'>Mod</span><span class='t2'>As Basic, and manages their own devices.</span></div></div>
+<div class='choice'><span class='rb'></span><div class='tx'><span class='t1'>Admin</span><span class='t2'>As Mod, and sees every device, manages those of users who are not admins, and invites users.</span></div></div>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Invite user</span></div></div></div></div>
+<p class='dv-onote'>Basic is the default. Roles use the same words as the apps (Admin, Mod, Basic). An empty name is refused on the field (“Give the user a name.”). Each role row is a radio in a group named “Role”, 48 px high at least.</p></div>
+<div class='dv-opt' id='UD1b' data-screen-label='UD1b Invite an admin' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UD1b'>UD1b</a>Invite: Admin chosen</div><div class='st2' style='width:760px;height:660px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Invite a user</h4><p style='font-size:14px;line-height:20px'>Inviting creates the user. The next step connects their first device.</p>
+<div class='tf'><span class='fl'>Name</span>Marta</div>
+<div class='sublab'>Role</div>
+<div class='choice'><span class='rb'></span><div class='tx'><span class='t1'>Basic</span></div></div>
+<div class='choice'><span class='rb'></span><div class='tx'><span class='t1'>Mod</span></div></div>
+<div class='choice on'><span class='rb'></span><div class='tx'><span class='t1'>Admin</span><span class='t2'>As Mod, and sees every device, manages those of users who are not admins, and invites users.</span></div></div>
+<div class='warn'><span class='ms'>admin_panel_settings</span><div><b>An admin has wide powers.</b><br>Their devices become admin devices. Admin is given only here, never by another admin.</div></div>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Invite user</span></div></div></div></div>
+<p class='dv-onote'>The two unchosen roles collapse to their names, the chosen one keeps its sentence, and Admin adds the warning.</p></div>
+<div class='dv-opt' id='UD1c' data-screen-label='UD1c Invite: name taken' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UD1c'>UD1c</a>Invite: that name is taken (409)</div><div class='st2' style='width:760px;height:600px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Invite a user</h4><p style='font-size:14px;line-height:20px'>Inviting creates the user. The next step connects their first device.</p>
+<div class='tf err'><span class='fl'>Name</span>marta<span class='ms'>error</span></div><div class='help err'>That name is taken. Names are not case-sensitive, and a revoked user keeps theirs.</div>
+<div class='sublab'>Role</div>
+<div class='choice on'><span class='rb'></span><div class='tx'><span class='t1'>Basic</span></div></div>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Invite user</span></div></div></div></div>
+<p class='dv-onote'>The server answers 409 “User name already exists” when the name matches any user, ignoring case, revoked users included. The message sits on the field, the typed values stay, and nothing was created.</p></div>
+<div class='dv-opt' id='UD2' data-screen-label='UD2 Their first device' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UD2'>UD2</a>Step 2: connect their first device</div><div class='st2' style='width:760px;height:480px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Marta is invited</h4><div class='okbox' style='margin-top:0'><span class='ms'>check_circle</span><div>Marta (Basic) now exists. Marta cannot receive anything until a device is connected.</div></div>
+<div class='tf focus'><span class='fl'>Name for the first device</span>Marta - Phone</div><div class='help'>The device belongs to Marta. It can be renamed later.</div>
+<div class='acts'><span class='btn-x'>Later</span><span class='btn-x'>Create pairing code</span></div></div></div></div>
+<p class='dv-onote'>Later closes the dialog; Marta stays in the list with the “No device yet” tag, and the pane offers Connect their first device. Create pairing code leads to the same code dialog as Devices G2, titled “Pairing code for Marta - Phone”, with the same states (waiting, expired, used, and the code without a link).</p></div>
+<div class='dv-opt' id='UD3' data-screen-label='UD3 Invite failed' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UD3'>UD3</a>Invite: it did not work</div><div class='st2' style='width:760px;height:500px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Invite a user</h4><div class='bn err' style='margin:4px 0 4px'><span class='ms'>error</span><div class='tx'>Could not invite Marta: SignalHub answered 500. Nobody was created.</div></div>
+<div class='tf'><span class='fl'>Name</span>Marta</div><div class='sublab'>Role</div><div class='choice on'><span class='rb'></span><div class='tx'><span class='t1'>Basic</span></div></div>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Try again</span></div></div></div></div>
+<p class='dv-onote'>The dialog stays with the typed values and the message above them.</p></div>
+</div></section>
+
+<section class='dv-turn' id='t5' data-screen-label='Turn 5: Users: roles, subscriptions, revoke and rename'><div class='dv-thd'><a class='dv-tid' href='#t5'>5</a><span class='dv-tname'>Role changes, subscriptions, rename and revoke</span></div>
+<p class='dv-why'>Everything that acted at once or through a browser confirm now asks in the page: a role change (three sentences, one for each direction, the strong ones in the error colour), unsubscribing (it acted without asking before), and revoking a user (with the counts it affects). Subscribing and renaming are plain forms. Confirmations of reversible changes (a role, a subscription) use a primary text button; revoking, which cannot be undone, uses the error colour as text.</p>
+<div class='dv-opts'>
+<div class='dv-opt' id='UC1' data-screen-label='UC1 Role: Basic to Mod' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UC1'>UC1</a>Make a user a Mod</div><div class='st2' style='width:760px;height:400px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Make Rui a Mod?</h4><p>Rui will manage their own devices: rename, revoke, and connect new ones. Their devices and producers stay as they are.</p><div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Make Mod</span></div></div></div></div>
+<p class='dv-onote'>Mod to Basic reads “Make Rui a Basic user?” with “Rui will no longer connect, rename or revoke devices. The ones they have keep working.” and the button “Make Basic”.</p></div>
+<div class='dv-opt' id='UC2' data-screen-label='UC2 Role: to Admin' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UC2'>UC2</a>Make a user an Admin</div><div class='st2' style='width:760px;height:440px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Make Ana an Admin?</h4><p>Ana will see every device, manage the devices of users who are not admins, and invite users. Their devices become admin devices.</p><div class='warn' style='background:var(--error-container);color:var(--on-error-container)'><span class='ms'>admin_panel_settings</span><div>Only you can take it away again, on this page.</div></div><div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x dng'>Make Admin</span></div></div></div></div>
+<p class='dv-onote'>Cancel has the focus. The error-colour text button is for the one change that gives power to someone else; it is not a filled red button.</p></div>
+<div class='dv-opt' id='UC3' data-screen-label='UC3 Role: take admin away' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UC3'>UC3</a>Take Admin away (the last admin)</div><div class='st2' style='width:760px;height:480px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Take Admin away from Rodrigo?</h4><p>Rodrigo becomes a Mod. Their devices stop being admin devices at once and can no longer see or manage other people's.</p><div class='warn'><span class='ms'>info</span><div>Nobody will be an admin in the app. The admin token still works here.</div></div><div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Make Mod</span></div></div></div></div>
+<p class='dv-onote'>From Admin the segment offers Mod or Basic; this is the Mod sentence, and Basic adds “and lose the ability to manage their own devices”. The server has no last-admin guard, so the change is never refused. When it removes the last admin user, the dialog adds the sentence above and then goes ahead; the warning is shown only in that case. Revoking an admin user (UC6) makes them Basic as they are revoked and shows the same sentence when they are the last admin.</p></div>
+<div class='dv-opt' id='UC4' data-screen-label='UC4 Unsubscribe' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UC4'>UC4</a>Unsubscribe</div><div class='st2' style='width:760px;height:400px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Unsubscribe Ana from ci-pipeline?</h4><p>Ana stops receiving its events in their app, and the events it already sent disappear from their inbox too. They come back if Ana subscribes again, while the producer is public or allows them.</p><div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Unsubscribe</span></div></div></div></div>
+<p class='dv-onote'>Before this, the old page unsubscribed on a single click. The button's accessible name is “Unsubscribe Ana from ci-pipeline”.</p></div>
+<div class='dv-opt' id='UC5' data-screen-label='UC5 Subscribe' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UC5'>UC5</a>Subscribe: the choice of producer</div><div class='st2' style='width:760px;height:520px'><div class='fx' style='position:absolute;left:24px;top:24px;opacity:.6'><div class='lab'>Subscriptions<span class='cnt'>4</span></div><div class='pchips'><span class='pchip'><span class='avs'>c</span>ci-pipeline<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip' style='padding:0 12px 0 8px;color:var(--primary);border-color:var(--primary)'><span class='ms ms18'>add</span>Subscribe</span></div></div>
+<div class='menu2 s' style='left:24px;top:120px;width:320px'><div class='mhead2'><div class='n'>Subscribe Ana to</div><div class='s'>Producers open to Ana and not yet subscribed</div></div><div class='msel'><span class='avs'>a</span>ana-reports</div><div class='msel'><span class='avs'>b</span>backup-jobs</div><div class='msel'><span class='avs'>p</span>price-watch</div><div class='msel' style='color:var(--on-surface-variant)'><span class='ms'>lock</span>Private and not allowing Ana: not listed</div></div></div>
+<p class='dv-onote'>Only producers Ana may subscribe to are listed (public ones, and private ones that allow them); choosing one subscribes at once and the chip appears with a snack bar “Ana subscribed to backup-jobs”. A subscription is reversible and harmless, so there is no confirmation; Unsubscribe confirms because it silently stops events. If nothing is open to Ana, the menu says so in one line.</p></div>
+<div class='dv-opt' id='UC6' data-screen-label='UC6 Revoke a user' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UC6'>UC6</a>Revoke a user</div><div class='st2' style='width:760px;height:520px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Revoke Ana?</h4><p>Their 3 devices are revoked and their 3 producers disabled, at once and for good, so the people subscribed to those producers stop receiving them. Their events stay.</p><div class='warn' style='background:var(--error-container);color:var(--on-error-container)'><span class='ms'>warning</span><div>This cannot be undone. Ana's name stays taken: names are not case-sensitive and a revoked user keeps theirs, so Ana cannot be invited again under it.</div></div><div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x dng'>Revoke Ana</span></div></div></div></div>
+<p class='dv-onote'>The counts come from the pane. If it fails, the banner sits above the text and the dialog stays, as in Devices G6b. An admin user is made Basic as they are revoked.</p></div>
+<div class='dv-opt' id='UC7' data-screen-label='UC7 Rename a user' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UC7'>UC7</a>Rename a user</div><div class='st2' style='width:760px;height:360px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Rename the user</h4><div class='tf focus'><span class='fl'>Name</span>Ana</div><div class='help'>Up to 100 characters. Their devices and producers keep their own names.</div><div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Rename</span></div></div></div></div>
+<p class='dv-onote'>The management API can rename a user (name on the user update), which the old page did not offer. A revoked user cannot be renamed.</p></div>
+<div class='dv-opt' id='UC7b' data-screen-label='UC7b Rename: name taken' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#UC7b'>UC7b</a>Rename: that name is taken (409)</div><div class='st2' style='width:760px;height:380px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Rename the user</h4><div class='tf err'><span class='fl'>Name</span>rui<span class='ms'>error</span></div><div class='help err'>That name is taken. Names are not case-sensitive, and a revoked user keeps theirs.</div><div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Rename</span></div></div></div></div>
+<p class='dv-onote'>Same server answer and wording as UD1c; the dialog stays open with the typed value.</p></div>
+</div></section>
+
+<section class='dv-turn' id='t6' data-screen-label='Turn 6: Users dialogs at 390 px'><div class='dv-thd'><a class='dv-tid' href='#t6'>6</a><span class='dv-tname'>Users dialogs at 390 px</span></div>
+<p class='dv-why'>Short confirmations are bottom sheets with 48 px full-width text buttons; choosing a subscription is a sheet with a list.</p>
+<div class='dv-opts'>
+<div class='dv-opt' id='PC1' data-screen-label='PC1 Phone: role sheet' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#PC1'>PC1</a>A role change, as a sheet</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#users/ana</div></div>
+<div class='pbar bk'><span class='ib' aria-label='Back to the users'><span class='ms'>arrow_back</span></span><div class='t'>Ana</div><span class='tg' style='margin:0'>Mod</span><span class='ib' aria-label='Rename Ana'><span class='ms'>edit</span></span></div>
+<div class='pbody' style='padding:0 16px'><div class='lab' style='min-height:36px'>Role</div><div class='seg'><span>Basic</span><span>Mod</span><span class='on'><span class='ms ms18'>check</span>Admin</span></div></div>
+<div class='scrim b'><div class='sheetb'><h4>Make Ana an Admin?</h4><p>Ana will see every device, manage the devices of users who are not admins, and invite users. Only you can take it away again.</p><div class='acts col'><span class='btn-x'>Cancel</span><span class='btn-x dng'>Make Admin</span></div></div></div></div>
+<p class='dv-onote'>The destructive button sits above Cancel, as in the Devices sheets.</p></div>
+<div class='dv-opt' id='PC2' data-screen-label='PC2 Phone: subscribe sheet' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#PC2'>PC2</a>Subscribe, as a sheet</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#users/ana</div></div>
+<div class='pbar bk'><span class='ib' aria-label='Back to the users'><span class='ms'>arrow_back</span></span><div class='t'>Ana</div><span class='ib' aria-label='Rename Ana'><span class='ms'>edit</span></span></div>
+<div class='pbody' style='padding:0 16px'><div class='lab' style='min-height:40px'>Subscriptions<span class='cnt'>4</span></div></div>
+<div class='scrim b'><div class='sheetb'><h4>Subscribe Ana to</h4><div class='msel' style='padding:0'><span class='avs'>a</span>ana-reports</div><div class='msel' style='padding:0'><span class='avs'>b</span>backup-jobs</div><div class='msel' style='padding:0'><span class='avs'>p</span>price-watch</div><div class='acts col'><span class='btn-x'>Cancel</span></div></div></div></div>
+<p class='dv-onote'>Each row is 48 px high.</p></div>
+<div class='dv-opt' id='PC3' data-screen-label='PC3 Phone: invited, first device' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#PC3'>PC3</a>Invited: connect the first device</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#users/invite</div></div>
+<div class='pbar bk'><span class='ib' aria-label='Close'><span class='ms'>close</span></span><div class='t'>Marta is invited</div></div>
+<div style='padding:0 16px;flex:1'><div class='okbox' style='margin-top:0'><span class='ms'>check_circle</span><div>Marta (Basic) now exists. Marta cannot receive anything until a device is connected.</div></div>
+<div class='tf focus' style='margin-top:24px'><span class='fl' style='background:var(--surface)'>Name for the first device</span>Marta - Phone</div><div class='help'>It can be renamed later.</div></div>
+<div class='pfull'><span class='btn-x'>Later</span><span class='btn-x'>Create code</span></div></div>
+<p class='dv-onote'>Create code leads to the pairing code screen (Devices PD3).</p></div>
+</div></section>
+    </x-dc>
+    <script type='text/x-dc' data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() {
+          return {};
+        }
+      }
+    </script>
+  </body>
+</html>

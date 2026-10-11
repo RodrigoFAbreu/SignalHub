@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
+    <script src='./support.js'></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name='design_doc_mode' content='canvas' />
+        <link rel='stylesheet' href='vendor/css/roboto-roboto-mono.css' />
+        <link rel='stylesheet' href='vendor/css/material-symbols-outlined.css' />
+        <link rel='stylesheet' href='./admin-events.css' />
+        <link rel='stylesheet' href='./admin-people.css' />
+        <link rel='stylesheet' href='./admin-fix-b.css' />
+      </helmet>
+
+<section class='dv-turn' id='t4' data-screen-label='Turn 4: Devices: connect a device and the pairing code'><div class='dv-thd'><a class='dv-tid' href='#t4'>4</a><span class='dv-tname'>Connect a device and the pairing code</span></div>
+<p class='dv-why'>Companion to Admin - Devices.dc.html. Connect a device is one dialog (name, user) that leads, in the same place, to the pairing code: the QR, the link to copy, a countdown, and the two ways it ends (expired, or used by a named device). 760 px stages stand for the dialog over the 1440 frame. Dialog actions are text buttons, 48 px high: the confirming action in primary, a destructive one in the error colour. Every dialog is a modal with a name (its title), focus inside and Escape to close.</p>
+<div class='dv-opts'>
+<div class='dv-opt' id='G1' data-screen-label='G1 Connect a device' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#G1'>G1</a>Connect a device</div><div class='st2' style='width:760px;height:540px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Connect a device</h4><p style='font-size:14px;line-height:20px'>Make a one-time pairing code. The device redeems it in the SignalHub app, or the user scans it.</p>
+<div class='tf focus'><span class='fl'>Device name</span>Ana - Pixel 9a</div><div class='help'>Up to 100 characters. The device can be renamed later.</div>
+<div class='tf'><span class='fl'>User</span>Ana · Mod<span class='ms'>arrow_drop_down</span></div><div class='help'>The device belongs to this user.</div>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Create pairing code</span></div></div></div></div>
+<p class='dv-onote'>Opened from the header button (or from a user's pane, where the user is already chosen and the field is read-only). The name starts as “New device” with the focus in it, selected. Only users who are not revoked are offered, written “Name · Role”. If the chosen user was revoked in the meantime the server answers “User is revoked” and the dialog says so on the User field.</p></div>
+<div class='dv-opt' id='G1b' data-screen-label='G1b Connect: an admin user' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#G1b'>G1b</a>Connect: the admin-device sentence</div><div class='st2' style='width:760px;height:540px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Connect a device</h4><p style='font-size:14px;line-height:20px'>Make a one-time pairing code. The device redeems it in the SignalHub app, or the user scans it.</p>
+<div class='tf'><span class='fl'>Device name</span>Rodrigo - Tablet</div>
+<div class='tf focus'><span class='fl'>User</span>Rodrigo · Admin<span class='ms'>arrow_drop_down</span></div>
+<div class='warn'><span class='ms'>admin_panel_settings</span><div><b>It will be an admin device.</b><br>An admin device connects and revokes other devices and invites users. It is one exactly when its user is an admin.</div></div>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Create pairing code</span></div></div></div></div>
+<p class='dv-onote'>The sentence shows as soon as an admin is chosen, before the code exists, so nobody pairs an admin device by accident.</p></div>
+<div class='dv-opt' id='G1c' data-screen-label='G1c Connect: a code without a link' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#G1c'>G1c</a>The code without a link: no public address set</div><div class='st2' style='width:760px;height:600px'><div class='scrim' style='padding:0 24px'><div class='dlg w6'><h4>Pairing code for Ana - Pixel 9a</h4>
+<div class='bn neu' style='margin-top:4px'><span class='ms'>link_off</span><div class='tx'>No link or QR code this time: SignalHub does not know its public address. Type the code in the app (Connect with a code). To get a link and a QR code, set SIGNALHUB_PUBLIC_URL on the server to the address devices reach it at.</div></div>
+<div class='key' style='margin-top:12px;font-size:16px'>shpc1_EXAMPLE-not-a-code0000</div>
+<div><div class='cd'><i style='width:78%'></i></div><div class='t1'>Expires in 7:48. It works once.</div><div class='t2'>Waiting for the device to use it…</div></div>
+<div class='warn'><span class='ms'>warning</span><div>Anyone with this code can pair a device as Ana until it expires or is used.</div></div>
+<div class='acts'><span class='btn-x'><span class='ms'>content_copy</span>Copy code</span><span class='btn-x'>Done</span></div></div></div></div>
+<p class='dv-onote'>The server answers with the code but no link when SIGNALHUB_PUBLIC_URL is not set; the page then draws this state instead of the QR and the link. The sentence is the page's own. A missing name is refused on the field (“Give the device a name.”) and the Create pairing code button is off while the name is empty.</p></div>
+<div class='dv-opt' id='G2' data-screen-label='G2 The pairing code' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#G2'>G2</a>The pairing code, waiting</div><div class='st2' style='width:760px;height:640px'><div class='scrim' style='padding:0 24px'><div class='dlg w6'><h4>Pairing code for Ana - Pixel 9a</h4>
+<div class='pair'><div class='qr'><span class='n'></span><span class='f a'></span><span class='f b'></span><span class='f c'></span></div><div class='rt'><span class='big'>Scan it in the app</span><span class='t2' style='font-size:14px;line-height:20px'>For Ana (Mod). Open SignalHub on the phone, then Connect with a code.</span><div class='cd'><i style='width:78%'></i></div><span class='t1'>Expires in 7:48. It works once.</span><span class='t2'>Waiting for the device to use it…</span></div></div>
+<div class='lnk'>signalhub://pair?server=https%3A%2F%2Fsignalhub.example&amp;code=shpc1_EXAMPLE-not-a-code0000</div>
+<div style='display:flex;gap:8px;margin-top:12px;flex-wrap:wrap'><span class='btn-o'><span class='ms'>link</span>Copy link</span><span class='btn-o'><span class='ms'>image</span>Copy QR image</span><span class='btn-o'><span class='ms'>download</span>Download QR</span></div>
+<div class='warn'><span class='ms'>warning</span><div>Anyone with this code, its link or a picture of it can pair a device as Ana until it expires or is used.</div></div>
+<div class='acts'><span class='btn-x dng'>Cancel this code</span><span class='btn-x'>Done</span></div></div></div></div>
+<p class='dv-onote'>The QR is a sample picture. Copy link says “Link copied.” in a line under the buttons (or “Copy the selected link with Ctrl+C” when the browser refuses). The page asks the server about the code every 3 seconds, and the countdown is announced politely to a screen reader only at the minute marks. Done closes the dialog, and the code can be shown again only by making a new one. The last 60 seconds turn the bar red. <b>Cancel this code</b> needs a server change (below).</p>
+<div class='need'>Needs a server change: cancel an unused pairing code, and list the open ones (today a code can only be watched, and a closed dialog loses it).</div></div>
+<div class='dv-opt' id='G3' data-screen-label='G3 Expired' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#G3'>G3</a>The code expired</div><div class='st2' style='width:760px;height:560px'><div class='scrim' style='padding:0 24px'><div class='dlg w6'><h4>Pairing code for Ana - Pixel 9a</h4>
+<div class='pair'><div class='qrwrap'><div class='qr old'><span class='n'></span><span class='f a'></span><span class='f b'></span><span class='f c'></span></div><div class='qrover'><span class='ms'>timer_off</span><b>Expired</b></div></div><div class='rt'><span class='big'>This code expired</span><span class='t2' style='font-size:14px;line-height:20px'>Nobody used it in time, and it no longer works. Make a new one for the same device and user.</span><div class='cd low'><i style='width:0%'></i></div><span class='t2'>Expired at 12:50.</span></div></div>
+<div class='acts'><span class='btn-x'>Close</span><span class='btn-x'><span class='ms'>refresh</span>Make a new code</span></div></div></div></div>
+<p class='dv-onote'>The picture fades and the link is gone, so a dead code is never copied. Make a new code repeats the request with the same name and user.</p></div>
+<div class='dv-opt' id='G4' data-screen-label='G4 Used by a device' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#G4'>G4</a>The code was used</div><div class='st2' style='width:760px;height:520px'><div class='scrim' style='padding:0 24px'><div class='dlg w6'><h4>Device connected</h4>
+<div class='okbox'><span class='ms'>check_circle</span><div><b>Used by “Ana - Pixel 9a”, 12:44.</b><br>The code worked once and is spent. The device belongs to Ana (Mod) and is connected; it gets pushes once the app has registered for them.</div></div>
+<p style='font-size:14px;line-height:20px;margin-top:12px'>The name is the device's name now: it may have been renamed on the phone since. Ana's other devices and the admins were told that it paired.</p>
+<div class='acts'><span class='btn-x'>Show the device</span><span class='btn-x'>Done</span></div></div></div></div>
+<p class='dv-onote'>The same dialog replaces the QR as soon as the server's answer says the code was redeemed, and the list behind it refreshes. For an admin user the first line adds “An admin device.” Show the device closes the dialog and selects the new row.</p></div>
+</div></section>
+
+<section class='dv-turn' id='t5' data-screen-label='Turn 5: Devices: rename, revoke, delete, and on a phone'><div class='dv-thd'><a class='dv-tid' href='#t5'>5</a><span class='dv-tname'>Rename, revoke and delete, and the phone's sheets</span></div>
+<p class='dv-why'>These replaced the browser's prompt and confirm. Each says what happens in words, names the device, and keeps the dialog open with a message if the server refuses. Revoke and Delete are in the error colour because they cannot be undone; rename is not. Nobody is told of a change made on this page: no push goes out for a revoke, a rename or a delete.</p>
+<div class='dv-opts'>
+<div class='dv-opt' id='G5' data-screen-label='G5 Rename' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#G5'>G5</a>Rename</div><div class='st2' style='width:760px;height:400px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Rename the device</h4><div class='tf focus'><span class='fl'>Name</span>Rodrigo - Pixel 9 Pro</div><div class='help'>Up to 100 characters.</div><div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Rename</span></div></div></div></div>
+<p class='dv-onote'>The field starts with the current name selected. Enter saves; an empty name is refused on the field (“Give the device a name.”). Device names are not unique on the server, so a device has no name-taken error (a user's name does: see Admin - Users dialogs). Success is the snack bar in DS5.</p></div>
+<div class='dv-opt' id='G6' data-screen-label='G6 Revoke a device' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#G6'>G6</a>Revoke an admin device</div><div class='st2' style='width:760px;height:400px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Revoke “Rodrigo - Pixel 9”?</h4><p>It stops working at once, for good, and gets no more pushes. It is an admin device, so it also stops managing other devices. Its past events stay. Nobody is told.</p><div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x dng'>Revoke</span></div></div></div></div>
+<p class='dv-onote'>Cancel has the focus, not the destructive button. For a signed-in browser the title is “Sign out “Ana - Home browser”?” and the text “The browser is signed out at once. Signing in again needs a new approval from a device.”; the button says Revoke in both. The button's accessible name is “Revoke Rodrigo - Pixel 9”.</p></div>
+<div class='dv-opt' id='G6b' data-screen-label='G6b Revoke failed' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#G6b'>G6b</a>Revoke: it did not work</div><div class='st2' style='width:760px;height:480px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Revoke “Ana - Galaxy Tab”?</h4><div class='bn err' style='margin:4px 0 12px'><span class='ms'>error</span><div class='tx'>Could not revoke it: SignalHub answered 500. Nothing changed.</div></div><p>It stops working at once, for good, and gets no more pushes. Its past events stay.</p><div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x dng'>Try again</span></div></div></div></div>
+<p class='dv-onote'>While it waits, the confirming button shows “Revoking…” and is off. On failure the dialog stays and the message sits above the text; the list is not touched.</p></div>
+<div class='dv-opt' id='G7' data-screen-label='G7 Delete a revoked device' style='width:760px'><div class='dv-olabel'><a class='dv-oid' href='#G7'>G7</a>Delete a revoked device</div><div class='st2' style='width:760px;height:400px'><div class='scrim' style='padding:0 24px'><div class='dlg'><h4>Delete “Rodrigo - Old Pixel 6”?</h4><p>It leaves this list for good; its delivery records go with it. Events stay in the user's inbox, with their read state. Nobody is told.</p><div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x dng'>Delete</span></div></div></div></div>
+<p class='dv-onote'>Only a revoked device can be deleted. Success is a snack bar “Deleted “Rodrigo - Old Pixel 6”” and the pane closes.</p></div>
+</div></section>
+
+<section class='dv-turn' id='t6' data-screen-label='Turn 6: Devices dialogs at 390 px'><div class='dv-thd'><a class='dv-tid' href='#t6'>6</a><span class='dv-tname'>Devices dialogs at 390 px</span></div>
+<p class='dv-why'>Connect and the pairing code are full screens; the short confirmations are bottom sheets with 48 px full-width text buttons, the destructive one above Cancel.</p>
+<div class='dv-opts'>
+<div class='dv-opt' id='PG1' data-screen-label='PG1 Phone: connect a device' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#PG1'>PG1</a>Connect a device, full screen</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#devices/connect</div></div>
+<div class='pbar bk'><span class='ib' aria-label='Close'><span class='ms'>close</span></span><div class='t'>Connect a device</div></div>
+<div style='padding:0 16px;flex:1'><p style='font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0 0 4px'>Make a one-time pairing code. The device redeems it in the SignalHub app, or the user scans it.</p>
+<div class='tf focus' style='margin-top:20px'><span class='fl' style='background:var(--surface)'>Device name</span>Rodrigo - Tablet</div><div class='help'>Up to 100 characters.</div>
+<div class='tf' style='margin-top:20px'><span class='fl' style='background:var(--surface)'>User</span>Rodrigo · Admin<span class='ms'>arrow_drop_down</span></div>
+<div class='warn'><span class='ms'>admin_panel_settings</span><div><b>It will be an admin device.</b><br>It connects and revokes other devices and invites users.</div></div></div>
+<div class='pfull'><span class='btn-x'>Create pairing code</span></div></div>
+<p class='dv-onote'>Create pairing code is a full-width text button at the bottom; it leads to PD3 (the pairing code on a phone).</p></div>
+<div class='dv-opt' id='PG2' data-screen-label='PG2 Phone: revoke sheet' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#PG2'>PG2</a>Revoke, as a bottom sheet</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#devices/ana-galaxy-tab</div></div>
+<div class='pbar bk'><span class='ib' aria-label='Back to the devices'><span class='ms'>arrow_back</span></span><div class='t'>Ana - Galaxy Tab</div><span class='ib' aria-label='Rename Ana - Galaxy Tab'><span class='ms'>edit</span></span></div>
+<div class='pbody' style='padding:0 16px'><div class='kv'><b>User</b><span>Ana · Mod</span><b>Created</b><span>2 Oct</span><b>Last active</b><span>3 h ago</span></div><div class='act'><span class='btn-o'>Rename</span><span class='btn-o' style='color:var(--error)'>Revoke</span></div></div>
+<div class='scrim b'><div class='sheetb'><h4>Revoke “Ana - Galaxy Tab”?</h4><p>It stops working at once, for good, and gets no more pushes. Its past events stay. Nobody is told.</p><div class='acts col'><span class='btn-x'>Cancel</span><span class='btn-x dng'>Revoke</span></div></div></div></div>
+<p class='dv-onote'>Rename and Delete use the same sheet shape (Rename has the field in it).</p></div>
+<div class='dv-opt' id='PG3' data-screen-label='PG3 Phone: used' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#PG3'>PG3</a>The code was used</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#devices/pair</div></div>
+<div class='pbar bk'><span class='ib' aria-label='Close'><span class='ms'>close</span></span><div class='t'>Device connected</div></div>
+<div style='padding:8px 16px;flex:1'><div class='okbox' style='margin-top:0'><span class='ms'>check_circle</span><div><b>Used by “Ana - Pixel 9a”, 12:44.</b><br>The code is spent. The device belongs to Ana (Mod) and is connected; it gets pushes once the app has registered for them.</div></div></div>
+<div class='pfull'><span class='btn-x'>Show device</span><span class='btn-x'>Done</span></div></div>
+<p class='dv-onote'>Expired reads the same way with the faded QR and Make a new code.</p></div>
+</div></section>
+    </x-dc>
+    <script type='text/x-dc' data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() {
+          return {};
+        }
+      }
+    </script>
+  </body>
+</html>

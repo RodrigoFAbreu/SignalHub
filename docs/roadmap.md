@@ -2558,6 +2558,32 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `producers_tab_test.dart` and `web-tests/tests/producers.spec.mjs`.
   Compatible (`feat`)
 
+### R73 - Designs for the admin page, and the web page's New producer button
+
+- **made** after the maintainer's go-ahead (G5) as R64 was: in the same
+  Claude Design project by local Sonnet workers that the orchestrator
+  planned and reviewed, from an inventory and screenshots of the admin
+  page of 3.7.0, extending the users' design system rather than replacing
+  it; then a review (design quality, and every line of copy checked
+  against the server) and its fixes, and a light theme for the key screens
+- **chosen by the maintainer**: a navigation rail with list and detail
+  (desktop first, usable at 390 px), small server additions allowed, three
+  options only for the key screens; from the drawn options, a table with a
+  fixed detail pane that becomes a side sheet below 1180 px (shell A), a
+  dense events table with filter chips (Events A), and a *New producer*
+  button in the web page's Producers header instead of a floating one
+- **server needs** found by the designs are listed with their frames in
+  `docs/design/admin/README.md` and marked in the drawings; they are
+  queued at the maintainer's approval (G6), not before
+- **exported** to `docs/design/admin/`: an image of every screen and state
+  (WebP), `WALKTHROUGH.md` (the operator's main flows, the choices and the
+  options not chosen, what the server must provide) and `README.md`; the
+  drawings' sources beside the users' in `docs/design/users/source/`; and
+  section 9 of `docs/design/users/DESIGN.md` (the admin page's rules,
+  components, wording, light tokens and motion, and the two rules it
+  changes on the web page: chip rows wrap, and no snackbar covers a
+  control). Documentation only (`docs`)
+
 ---
 
 ## 4. Planned roadmap
@@ -3150,8 +3176,9 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 61    | R71 - An upgrade puts the proxy's new configuration in effect                                    | Increment (`fix`)                      | Done (see section 3)                                                             |
 | 62    | R74 - CI holds fewer runners at once                                                             | Increment (`ci`)                       | Done (see section 3)                                                             |
 | 63    | R72 - Fixes and polish from the maintainer's testing of 3.6.0                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 64    | G5 - The maintainer's go-ahead for the admin page redesign                                       | Human gate                             | Waiting for the maintainer                                                       |
-| 65    | R73 - Designs for the admin page, and the web page's New producer button                         | Increment (`docs`)                     | Blocked by G5                                                                    |
+| 64    | G5 - The maintainer's go-ahead for the admin page redesign                                       | Human gate                             | Passed (2026-10-11, go-ahead given)                                              |
+| 65    | R73 - Designs for the admin page, and the web page's New producer button                         | Increment (`docs`)                     | Done (see section 3)                                                             |
+| 66    | G6 - The maintainer approves the admin page designs                                              | Human gate                             | Waiting for the maintainer                                                       |
 
 How an autonomous run uses it:
 
@@ -3650,7 +3677,9 @@ G1 → G2 → R19 v1.0.0
   R74. The
   admin page was not part of R64's designs; its redesign, with the web
   page's floating *New producer* button, is low priority and waits for
-  the maintainer's go-ahead (G5).
+  the maintainer's go-ahead (G5). The maintainer gave it on 2026-10-11; the
+  designs (R73) then wait for the maintainer's approval (G6), at which the
+  server items they need and the items that build them are queued.
 - **R74 was added by the maintainer on 2026-10-11**: the free plan's 20
   runners are shared by all of the maintainer's repositories, and CI
   waited for runners when two or three ran together. The maintainer chose
@@ -5992,7 +6021,8 @@ maintainer kept it); self-hosted runners (the repository is public).
 
 ### G5 - The maintainer's go-ahead for the admin page redesign
 
-Status: waiting for the maintainer. A human gate.
+Status: passed. The maintainer gave the go-ahead on 2026-10-11. A human
+gate.
 
 The admin page was not part of the designs of R64, and the web page's
 *New producer* button floats over the end of a long producer list. The
@@ -6002,7 +6032,7 @@ here and never answers it.
 
 ### R73 - Designs for the admin page, and the web page's New producer button
 
-Status: blocked by G5. Added by the maintainer (2026-10-11).
+Status: done (see section 3). Added by the maintainer (2026-10-11).
 
 Goal: the operator's admin page is redesigned for usability, in the same
 design system as the users' app and web page, and the web page's *New
@@ -6030,6 +6060,20 @@ Compatible (`docs`, patch): drawings only.
 
 Non-goals: building the designs (queued at their approval); changing who
 may use the admin page.
+
+### G6 - The maintainer approves the admin page designs
+
+Status: waiting for the maintainer. A human gate.
+
+The maintainer reviews the drawings of R73 (`docs/design/admin/`, with
+the sources in `docs/design/users/source/` and the rules in section 9 of
+`docs/design/users/DESIGN.md`) and approves them, with or without
+changes, in a pull request or issue. At the approval the server items the
+designs need (listed in `docs/design/admin/README.md`, each marked
+"Needs a server change" in the drawings) are queued as their own items
+with the maintainer's choices, then the items that build the admin page
+and the web page's *New producer* action. Until then nothing of them
+starts. An orchestrator stops here and never answers it.
 
 ### Already in place (not scheduled again)
 
@@ -6170,9 +6214,10 @@ done, and so is R66 (users' web page) with the app's *Sign in a browser*.
 So is R70 (CI in reusable workflows, container checks as tests, and
 faster), and R71 (an upgrade puts the proxy's new configuration in
 effect), and R74 (CI holds fewer runners at once), and R72 (fixes and
-polish from the maintainer's testing of 3.6.0). **Next is G5, a human
-gate: the queue stops there until the maintainer gives the go-ahead
-before R73 (designs for the admin page) can start.** A new item is added only by the maintainer, in a reviewed pull
+polish from the maintainer's testing of 3.6.0). The maintainer gave the
+go-ahead at G5, and R73 (designs for the admin page and the web page's
+*New producer* action) is done. **Next is G6, a human gate: the queue
+stops there until the maintainer approves the admin page designs.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 

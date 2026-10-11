@@ -1,0 +1,29 @@
+/* R73 fixes for Devices, Users and Status pages. Loaded after the other admin stylesheets; adds classes and overrides only what the triage rules R1-R6 change. */
+/* R6: chip rows wrap, so no chip is ever hidden */
+.fchips{flex:0 1 auto;flex-wrap:wrap;overflow:visible;min-width:0}
+.fwrap{display:flex;flex-wrap:wrap;gap:0 8px;padding:0 16px;flex:none}
+.fwrap .fc{margin:8px 0}
+/* R3: a snack bar sits bottom left of the list area, never over a control; no Undo on the admin page */
+.snack{left:112px;transform:none;bottom:16px}
+/* R2: a disabled tonal header button */
+.btn-t.dis{background:var(--off-bg);color:var(--off-fg)}
+/* R1: dialog actions are text buttons, 48 px high */
+.acts .btn-x{padding:0 12px;min-width:64px}
+.sheetb .acts .btn-x{height:48px}
+.pfull{padding:12px 16px 16px;display:flex;gap:8px;justify-content:flex-end}
+.pfull .btn-x{flex:1}
+/* R4: a subscription chip and its remove "x" are 48 px high */
+.pchip{height:48px;border-radius:24px}
+.pchip .x{width:48px;height:48px}
+.chip-s{height:32px}
+/* R4: the jump chips of the Status headline are 48 px high; the token's show/hide toggle too */
+.jumps .fc{height:48px;padding:0 16px}
+.jumps{gap:0 8px}
+.vis{width:48px;height:48px;margin-right:-12px}
+/* the traffic tabs fit the phone's 16 px gutter (no sideways scroll at 390) */
+.ph .tabs2{margin:0;padding:0}
+/* a one-line caption under a field that says why it is wrong */
+.nmt{font-size:13px;line-height:18px;color:var(--on-surface-variant)}
+/* a row worth a look but not the headline: outlined chip, no error fill */
+.srow.un .nmx{color:var(--on-surface)}
+.sc.look{border:1px solid var(--outline);color:var(--on-surface)}

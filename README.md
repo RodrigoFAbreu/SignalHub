@@ -30,6 +30,8 @@ See [docs/architecture.md](docs/architecture.md).
 The screens designed for several users (the app and a web page), with the
 design system and a walk-through of the main flows, are in
 [docs/design/users/](docs/design/users/README.md).
+The redesigned operator's admin page, waiting for the maintainer's approval,
+is in [docs/design/admin/](docs/design/admin/README.md).
 
 ## Status
 

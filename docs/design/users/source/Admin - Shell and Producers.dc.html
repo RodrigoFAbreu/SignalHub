@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
+    <script src='./support.js'></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name='design_doc_mode' content='canvas' />
+        <link rel='stylesheet' href='vendor/css/roboto-roboto-mono.css' />
+        <link rel='stylesheet' href='vendor/css/material-symbols-outlined.css' />
+        <link rel='stylesheet' href='./admin-events.css' />
+        <link rel='stylesheet' href='./admin-fix-a.css' />
+      </helmet>
+
+<section class='dv-turn' id='t1' data-screen-label='Turn 1: Shell options: rail with list and detail'><div class='dv-thd'><a class='dv-tid' href='#t1'>1</a><span class='dv-tname'>Shell options: rail with list and detail</span></div>
+<p class='dv-why'>The decision is fixed: a navigation rail on the left (Devices, Users, Producers, Events, Status) and list and detail content, with forms in dialogs or panes, never under a list. Dark first, 1440 px first, usable at 390 px (the P18 to P20 frames). These three options vary the layout inside that decision, each drawn on the Producers section with homelab-monitor selected. Each note says how the option handles 1280 and 1024 px, where Refresh lives, where the server's status shows, how the operator signs out (today the admin page has no way to forget the token) and where the product name and version sit. <b>Chosen: A (owner, 2026-10-11).</b> B and C stay as drawn, for the record. Rules for every admin page: dialog actions are 48 px text buttons (the confirming one in the primary colour, a destructive one in the error colour, never a filled red button); header actions such as New producer are tonal buttons; every control is 48 px high; snack bars sit bottom left of the list area above the pager and carry no Undo; chip rows wrap; lists with no server sort show no sort arrows.</p>
+<div class='dv-opts'><div class='dv-opt' id='A' data-screen-label='A Rail, table and a fixed detail pane' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#A'>A</a>Rail, table and a fixed detail pane</div>
+<div class='br '><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers/homelab-monitor</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div>
+<span class='acct'><span class='av'>A</span></span></div>
+</div>
+<div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Producers</h1><span class='cnt'>10 producers</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Updated 12:41</span><span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='tools'><div class='search'><span class='ms'>search</span>Find a producer</div>
+<div class='fchips'><span class='fc on'><span class='ms ms18'>check</span>All</span><span class='fc'>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span><span class='fc'>Owner: anyone<span class='ms ms18'>arrow_drop_down</span></span></div>
+</div>
+<div class='tbl'><div class='th gA'><span>Producer</span><span>Owner</span><span>Who sees it</span><span>Keys</span><span>Last event</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>ana-reports</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>yesterday</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>backup-jobs</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1</span><span>2 h ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>ci-pipeline</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Public</span><span>2</span><span>4 min ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>family-calendar</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Private · 1 person</span><span>1</span><span>3 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>garage-door</span><span class='tg o'>Disabled</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1 (off)</span><span>12 days ago</span></div>
+<div class='tr gA sel'><span class='nmc'><span class='nm'>homelab-monitor</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private · 2 people</span><span>2</span><span>12 min ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>old-sensor</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>21 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>price-watch</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>R</span>Rui</span><span>Public</span><span>1</span><span>9 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>quarterly-finance-report-generator</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>0</span><span>None stored</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>weather-alerts</span></span><span class='own'><span class='av s'>R</span>Rui</span><span>Public</span><span>1</span><span>3 min ago</span></div>
+</div>
+</div>
+<div class='pane '><div class='phd'><div style='flex:1;min-width:0'><div class='t'>homelab-monitor</div>
+</div>
+<span class='ib' aria-label='Rename'><span class='ms'>edit</span></span><span class='ib' aria-label='Close'><span class='ms'>close</span></span></div>
+<div class='pbody'><div class='kv'><b>Owner</b><span>Rodrigo</span><b>Last event</b><span>12 min ago · <a href='#x' style='color:var(--primary)'>See its events</a></span><b>Created</b><span>25 Sep</span></div>
+<div class='lab'>Keys<span class='cnt'>2 working</span><span class='sp'></span><span class='btn-o'><span class='ms'>add</span>Issue key</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_3f1c0b8e5d2a…</span><span class='t2'>Created 27 Sep · last used 12 min ago</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_9a47c61d0be3…</span><span class='t2'>Created 2 Oct · not used yet</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='lab' style='margin-top:4px'>Who can see it</div>
+<div class='seg'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<div class='lab' style='min-height:40px'>Allowed users</div>
+<div class='pchips'><span class='pchip'><span class='avs'>A</span>Ana<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip'><span class='avs'>R</span>Rui<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip' style='padding:0 12px 0 8px;color:var(--primary)'><span class='ms ms18'>person_add</span>Add user</span></div>
+<div class='act'><span class='btn-o'><span class='ms'>pause_circle</span>Disable</span><span class='t2' style='font-size:14px;line-height:20px'>Its keys stop working. Its events stay.</span></div>
+<div class='fold'><span class='ms'>expand_more</span>Technical details</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>Rail (88 px) with the five sections; the table takes the free width and a fixed 480 px detail pane stays beside it, so the selected row, its keys and its actions are visible together and nothing opens over the list. <b>1280 wide:</b> the pane is 420 px and the Owner column folds into the name's second line. <b>1024 wide:</b> below 1180 px the pane becomes a side sheet over the table (as in C) and the table keeps Producer, Who sees it and Last event. <b>Refresh:</b> an icon button with the time of the last update (“Updated 12:41”) in the section header; the page also refreshes every 30 seconds while it is visible and after every change, so the button is rarely needed. <b>Server status (the one rule, written here once; the other pages refer to it):</b> the rail's bottom button is a dot or icon plus a word (Working, Check, Checking, Unknown) and opens Status. Every 30 seconds the page reads /api/v1/admin/status and /q/health, and shows Check when the database is down, no push service is set up, the waiting pushes are above 20 and not falling over two checks, retries were given up since the page opened, or a part could not be read. It also shows Check when every device with a push address failed its last push; that judgement uses the device list the Devices section already loads, so it appears only once that list has been read (otherwise the other rules decide). <b>Names and structure:</b> the rail is a nav landmark (the current section has aria-current), the section is in main with its title as the h1, and the pane is a region named by the producer with an h2; the table is a grid (one tab stop; Enter opens a row, Space ticks one where rows can be ticked); every repeated action names its object (“Revoke key shpk1_3f1c0b8e5d2a…”, “Remove Rui from the list”, “Close homelab-monitor”); icon buttons have names (Refresh, Rename, Close, Account). <b>Signing out:</b> the account button under it opens a menu with Sign out; it asks first and then forgets the admin token held in the page (see the menus, M1 and M2). <b>Name and version:</b> “Admin” under the logo; “SignalHub 3.8.0” and the commit in the account menu.</p>
+<div class='need'>Needs a server change: rename a producer (the pencil in the pane), as an optional name on the admin producer update; today only visibility and the allow-list can be changed.</div>
+</div>
+<div class='dv-opt' id='B' data-screen-label='B Top bar, rail, two-line list and a wide detail' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#B'>B</a>Top bar, rail, two-line list and a wide detail</div>
+<div class='br '><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers/homelab-monitor</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span style='height:12px'></span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'></div>
+</div>
+<div class='main' style='border-radius:0;margin-top:0'><div class='cols'><div class='left' style='flex:none;width:560px;border-right:1px solid var(--outline-variant)'><div class='mhead' style='padding-right:8px'><h1>Producers</h1><span class='cnt'>10</span><span class='sp'></span><span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='tools' style='padding-right:16px;flex-direction:column;align-items:stretch;gap:0'><div class='search' style='width:auto'><span class='ms'>search</span>Find a producer</div>
+<div class='fchips'><span class='fc on'><span class='ms ms18'>check</span>All</span><span class='fc'>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span><span class='fc'>Owner: anyone<span class='ms ms18'>arrow_drop_down</span></span></div>
+</div>
+<div class='tbl' style='padding:0'><div class='lr'><div class='tx'><span class='nmc'><span class='nm'>ana-reports</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Ana · Public · 1 key · yesterday</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>backup-jobs</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Rodrigo · Private · 1 key · 2 h ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>ci-pipeline</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Rodrigo · Public · 2 keys · 4 min ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>family-calendar</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Ana · Private · 1 person · 1 key · 3 days ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>garage-door</span><span class='tg o'>Disabled</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Rodrigo · Private · 1 key · 12 days ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr' style='background:var(--secondary-container);border-radius:16px;margin:0 8px;padding-left:12px'><div class='tx'><span class='nmc'><span class='nm'>homelab-monitor</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Rodrigo · Private · 2 people · 2 keys · 12 min ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>old-sensor</span><span class='tg'>Quiet</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Ana · Public · 1 key · 21 days ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>price-watch</span><span class='tg'>Quiet</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Rui · Public · 1 key · 9 days ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>quarterly-finance-report-generator</span><span class='tg'>Quiet</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Rodrigo · Private · 0 keys · no events</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>weather-alerts</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Rui · Public · 1 key · 3 min ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+</div>
+</div>
+<div class='pane w' style='width:auto;flex:1;border-radius:0'><div class='phd'><div style='flex:1;min-width:0'><div class='t'>homelab-monitor</div>
+</div>
+<span class='ib' aria-label='Rename'><span class='ms'>edit</span></span><span class='ib' aria-label='Close'><span class='ms'>close</span></span></div>
+<div class='pbody two'><div><div class='kv'><b>Owner</b><span>Rodrigo</span><b>Last event</b><span>12 min ago · <a href='#x' style='color:var(--primary)'>See its events</a></span><b>Created</b><span>25 Sep</span></div>
+<div class='lab'>Keys<span class='cnt'>2 working</span><span class='sp'></span><span class='btn-o'><span class='ms'>add</span>Issue key</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_3f1c0b8e5d2a…</span><span class='t2'>Created 27 Sep · last used 12 min ago</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_9a47c61d0be3…</span><span class='t2'>Created 2 Oct · not used yet</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+</div>
+<div><div class='lab'>Who can see it</div>
+<div class='seg'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<div style='height:8px'></div>
+<div class='lab' style='min-height:40px'>Allowed users</div>
+<div class='pchips'><span class='pchip'><span class='avs'>A</span>Ana<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip'><span class='avs'>R</span>Rui<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip' style='padding:0 12px 0 8px;color:var(--primary)'><span class='ms ms18'>person_add</span>Add user</span></div>
+<div class='act'><span class='btn-o'><span class='ms'>pause_circle</span>Disable</span><span class='t2' style='font-size:14px;line-height:20px'>Its keys stop working. Its events stay.</span></div>
+<div class='fold'><span class='ms'>expand_more</span>Technical details</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>A top bar carries the product name, the version chip and the two global things (server status, account); the rail holds only the five sections. The list uses two-line rows, like the users' web page, and gives the detail about half the width, so the detail can use two columns (keys on the left; visibility, allowed users and Disable on the right). <b>1280 wide:</b> the list is 480 px; the detail is still two columns. <b>1024 wide:</b> the list is 380 px and the detail one column; below 900 the detail replaces the list with a back arrow (the phone layout). <b>Refresh:</b> an icon button in the list's own header (it refreshes the list and the open detail). <b>Server status:</b> a text button in the top bar, dot plus “Working” or “Check”, opens Status (same rule as option A). <b>Signing out:</b> the account button in the top bar opens the same menu as A (Sign out, with a confirmation). <b>Name and version:</b> “SignalHub admin” and the “3.8.0” tag, always visible. Costs 56 px of height on every section.</p>
+</div>
+<div class='dv-opt' id='C' data-screen-label='C Rail, full-width table and a side sheet' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#C'>C</a>Rail, full-width table and a side sheet</div>
+<div class='br '><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers/homelab-monitor</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span><span class='sdot'></span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>logout</span></span>Sign out</div>
+<span class='rcap' style='margin:0 0 4px'>3.8.0</span></div>
+</div>
+<div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Producers</h1><span class='cnt'>10 producers</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Updated 12:41</span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='tools'><div class='search'><span class='ms'>search</span>Find a producer</div>
+<div class='fchips'><span class='fc on'><span class='ms ms18'>check</span>All</span><span class='fc'>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span><span class='fc'>Owner: anyone<span class='ms ms18'>arrow_drop_down</span></span></div>
+</div>
+<div class='tbl'><div class='th gC'><span>Producer</span><span>Owner</span><span>Who sees it</span><span>Keys</span><span>Last event</span><span>Created</span></div>
+<div class='tr gC'><span class='nmc'><span class='nm'>ana-reports</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>yesterday</span><span>1 Oct</span></div>
+<div class='tr gC'><span class='nmc'><span class='nm'>backup-jobs</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1</span><span>2 h ago</span><span>20 Sep</span></div>
+<div class='tr gC'><span class='nmc'><span class='nm'>ci-pipeline</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Public</span><span>2</span><span>4 min ago</span><span>14 Aug</span></div>
+<div class='tr gC'><span class='nmc'><span class='nm'>family-calendar</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Private · 1 person</span><span>1</span><span>3 days ago</span><span>5 Sep</span></div>
+<div class='tr gC'><span class='nmc'><span class='nm'>garage-door</span><span class='tg o'>Disabled</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1 (off)</span><span>12 days ago</span><span>10 Sep</span></div>
+<div class='tr gC sel'><span class='nmc'><span class='nm'>homelab-monitor</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private · 2 people</span><span>2</span><span>12 min ago</span><span>25 Sep</span></div>
+<div class='tr gC'><span class='nmc'><span class='nm'>old-sensor</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>21 days ago</span><span>14 Jul</span></div>
+<div class='tr gC'><span class='nmc'><span class='nm'>price-watch</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>R</span>Rui</span><span>Public</span><span>1</span><span>9 days ago</span><span>2 Oct</span></div>
+<div class='tr gC'><span class='nmc'><span class='nm'>quarterly-finance-report-generator</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>0</span><span>None stored</span><span>4 Oct</span></div>
+<div class='tr gC'><span class='nmc'><span class='nm'>weather-alerts</span></span><span class='own'><span class='av s'>R</span>Rui</span><span>Public</span><span>1</span><span>3 min ago</span><span>2 Oct</span></div>
+</div>
+</div>
+</div>
+<div class='scrim l'><div class='pane sheet'><div class='phd'><div style='flex:1;min-width:0'><div class='t'>homelab-monitor</div>
+</div>
+<span class='ib' aria-label='Rename'><span class='ms'>edit</span></span><span class='ib' aria-label='Close'><span class='ms'>close</span></span></div>
+<div class='pbody'><div class='kv'><b>Owner</b><span>Rodrigo</span><b>Last event</b><span>12 min ago · <a href='#x' style='color:var(--primary)'>See its events</a></span><b>Created</b><span>25 Sep</span></div>
+<div class='lab'>Keys<span class='cnt'>2 working</span><span class='sp'></span><span class='btn-o'><span class='ms'>add</span>Issue key</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_3f1c0b8e5d2a…</span><span class='t2'>Created 27 Sep · last used 12 min ago</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_9a47c61d0be3…</span><span class='t2'>Created 2 Oct · not used yet</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='lab' style='margin-top:4px'>Who can see it</div>
+<div class='seg'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<div class='lab' style='min-height:40px'>Allowed users</div>
+<div class='pchips'><span class='pchip'><span class='avs'>A</span>Ana<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip'><span class='avs'>R</span>Rui<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip' style='padding:0 12px 0 8px;color:var(--primary)'><span class='ms ms18'>person_add</span>Add user</span></div>
+<div class='act'><span class='btn-o'><span class='ms'>pause_circle</span>Disable</span><span class='t2' style='font-size:14px;line-height:20px'>Its keys stop working. Its events stay.</span></div>
+<div class='fold'><span class='ms'>expand_more</span>Technical details</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>The table keeps the whole width and shows two more columns (Created, and Who sees it in full); a selected row opens its detail as a 560 px side sheet over the table (32 % scrim, focus moves into the sheet, Escape or a click on the table closes it and returns focus to the row). <b>1280 and 1024 wide:</b> the same, since the sheet already overlays; below 1180 px the table drops Created and Keys. <b>Refresh:</b> no button. The page refreshes every 30 seconds while visible, on window focus and after every change, and says when (“Updated 12:41”); a failed refresh is a banner with Try again, so the button would only repeat that. <b>Server status:</b> a dot on the Status rail item; the word is on the Status page (same rule as option A). <b>Signing out:</b> a labelled Sign out item at the bottom of the rail (asks first). <b>Name and version:</b> “Admin” under the logo, “3.8.0” under Sign out. Hides the table behind the sheet, so comparing two producers means closing the sheet each time.</p>
+</div>
+</div>
+<p class='dv-why' style='margin:28px 0 0'><b>Recommendation: A.</b> Producers, Users and Devices are lists the operator scans and compares, then acts on one row; A is the only option where the list stays whole and the selected row stays visible next to its actions, with no overlay to close and no half-width list. It costs the least height (no top bar), keeps the status and sign-out in the rail where the operator already looks, and falls back to C's side sheet below 1180 px, so one design covers every width. B's two-line rows hide the owner and visibility columns the operator scans; C hides the list whenever a detail is open. The Producers frames that follow are drawn in A; B and C adapt by moving the same parts (the detail content does not change).</p>
+</section>
+<section class='dv-turn' id='t2' data-screen-label='Turn 2: Shell menus: the account menu and signing out'><div class='dv-thd'><a class='dv-tid' href='#t2'>2</a><span class='dv-tname'>Shell menus: the account menu and signing out</span></div>
+<p class='dv-why'>The same two pieces serve every option: the menu that holds the version and Sign out, and the dialog that confirms it. No server change: forgetting the token is a client-side action.</p>
+<div class='dv-opts'><div class='dv-opt' id='M1' data-screen-label='M1 The account menu (option A)' style='width:640px'><div class='dv-olabel'><a class='dv-oid' href='#M1'>M1</a>The account menu (option A)</div>
+<div class='stg' style='height:560px;width:640px;display:flex'><div style='height:560px;display:flex'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div>
+<span class='acct'><span class='av'>A</span></span></div>
+</div>
+</div>
+<div class='menu' style='position:absolute;left:96px;bottom:12px'><div class='mhead2'><div class='n'>Admin</div>
+<div class='s'>signalhub.example · admin token</div>
+</div>
+<div class='mi'><span class='ms c-var'>info</span>SignalHub 3.8.0<span class='sub'>commit a1b2c3d</span></div>
+<div class='mi'><span class='ms c-var'>dns</span>Server status<span class='sub'>Working</span></div>
+<div style='height:1px;background:var(--outline-variant);margin:4px 0'></div>
+<div class='mi'><span class='ms c-var'>logout</span>Sign out</div>
+</div>
+</div>
+<p class='dv-onote'>Opens from the avatar at the bottom of the rail; 48 px rows. It carries what A keeps out of the rail: the product name, its version and commit (from the server's info page), the server's status as a link to Status, and Sign out. Escape closes it and returns focus to the avatar. In B the same menu opens from the top bar; in C its three lines are Sign out, the version caption and the Status dot, so it needs no menu.</p>
+</div>
+<div class='dv-opt' id='M2' data-screen-label='M2 Sign out, confirmed' style='width:640px'><div class='dv-olabel'><a class='dv-oid' href='#M2'>M2</a>Sign out, confirmed</div>
+<div class='stg' style='height:440px'><div class='fx'><div class='sk' style='width:40%'></div>
+<div class='sk' style='width:80%'></div>
+<div class='sk' style='width:65%'></div>
+<div class='sk' style='width:75%'></div>
+<div class='sk' style='width:55%'></div>
+</div>
+<div class='scrim'><div class='dlg'><h4>Sign out of the admin page?</h4><p>This browser forgets the admin token. To open the page again you need the token.</p>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Sign out</span></div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>Today there is no way to forget the token short of closing the tab. Sign out clears the token held in the page and shows the token screen with “Signed out.”. It is a primary text button, not red: nothing is lost and signing in again takes one paste. Focus starts on Cancel. Nothing is stored in the browser, so closing the tab does the same; Sign out is for a shared screen.</p>
+</div>
+</div>
+</section>
+<section class='dv-turn' id='t3' data-screen-label='Turn 3: Producers: the list, the detail and the states'><div class='dv-thd'><a class='dv-tid' href='#t3'>3</a><span class='dv-tname'>Producers: the list, the detail and the states</span></div>
+<p class='dv-why'>One version, drawn in option A. The list is the whole inventory with a search and filter chips; selecting a row opens its detail in the pane; everything that used to be a form under the list or a browser prompt is now a dialog. Sample data only: signalhub.example, Rodrigo (admin), Ana (mod), Rui (basic). Raw ids appear only in the Technical details fold.</p>
+<div class='dv-opts'><div class='dv-opt' id='P1' data-screen-label='P1 List with a filter chip active, nothing selected' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#P1'>P1</a>List with a filter chip active, nothing selected</div>
+<div class='br '><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers?show=quiet</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div>
+<span class='acct'><span class='av'>A</span></span></div>
+</div>
+<div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Producers</h1><span class='cnt'>3 of 10 producers</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Updated 12:41</span><span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='tools'><div class='search'><span class='ms'>search</span>Find a producer</div>
+<div class='fchips'><span class='fc'>All</span><span class='fc on'><span class='ms ms18'>check</span>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span><span class='fc'>Owner: anyone<span class='ms ms18'>arrow_drop_down</span></span></div>
+</div>
+<div class='tbl'><div class='th gA'><span>Producer</span><span>Owner</span><span>Who sees it</span><span>Keys</span><span>Last event</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>old-sensor</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>21 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>price-watch</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>R</span>Rui</span><span>Public</span><span>1</span><span>9 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>quarterly-finance-report-generator</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>0</span><span>None stored</span></div>
+</div>
+</div>
+<div class='pane'><div class='empty'><span class='ms'>sensors</span><span class='h'>Select a producer</span><span class='p'>Its keys, who can see it and its latest event show here.</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>Search is as-you-type on the name; the chips narrow the list (All, Quiet, Disabled, Public, Private) and a menu chip narrows by owner (Owner: anyone, then Rodrigo, Ana, Rui). Filters are done in the page on the list the management API already returns, and are kept in the address. Quiet means enabled with no event for more than 7 days, or none stored. The count says “3 of 10 producers” while filtered. Order: the page sorts the list by name, A to Z (the API has no sort), so the headers are plain labels with no sort arrows. Columns: name with its tags (Quiet, Disabled), owner, who sees it (“Private · 2 people”), keys (the working ones; “1 (off)” for a disabled producer), last event. With nothing selected the pane says what it will show.</p>
+</div>
+<div class='dv-opt' id='P2' data-screen-label='P2 A disabled producer, technical details open' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#P2'>P2</a>A disabled producer, technical details open</div>
+<div class='br h10'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers/garage-door</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div>
+<span class='acct'><span class='av'>A</span></span></div>
+</div>
+<div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Producers</h1><span class='cnt'>10 producers</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Updated 12:41</span><span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='tools'><div class='search'><span class='ms'>search</span>Find a producer</div>
+<div class='fchips'><span class='fc on'><span class='ms ms18'>check</span>All</span><span class='fc'>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span><span class='fc'>Owner: anyone<span class='ms ms18'>arrow_drop_down</span></span></div>
+</div>
+<div class='tbl'><div class='th gA'><span>Producer</span><span>Owner</span><span>Who sees it</span><span>Keys</span><span>Last event</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>ana-reports</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>yesterday</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>backup-jobs</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1</span><span>2 h ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>ci-pipeline</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Public</span><span>2</span><span>4 min ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>family-calendar</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Private · 1 person</span><span>1</span><span>3 days ago</span></div>
+<div class='tr gA sel'><span class='nmc'><span class='nm'>garage-door</span><span class='tg o'>Disabled</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1 (off)</span><span>12 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>homelab-monitor</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private · 2 people</span><span>2</span><span>12 min ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>old-sensor</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>21 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>price-watch</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>R</span>Rui</span><span>Public</span><span>1</span><span>9 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>quarterly-finance-report-generator</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>0</span><span>None stored</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>weather-alerts</span></span><span class='own'><span class='av s'>R</span>Rui</span><span>Public</span><span>1</span><span>3 min ago</span></div>
+</div>
+</div>
+<div class='pane '><div class='phd'><div style='flex:1;min-width:0'><div class='t'>garage-door</div>
+</div>
+<span class='ib' aria-label='Rename'><span class='ms'>edit</span></span><span class='ib' aria-label='Close'><span class='ms'>close</span></span></div>
+<div class='pbody'><div class='bn neu' style='margin:4px 0 8px'><span class='ms c-var'>pause_circle</span><span class='tx'>Disabled on 29 Sep. Its keys do not work, so it sends nothing. Its events stay.</span></div>
+<div class='kv'><b>Owner</b><span>Rodrigo</span><b>Last event</b><span>12 days ago · <a href='#x' style='color:var(--primary)'>See its events</a></span><b>Created</b><span>10 Sep</span></div>
+<div class='lab'>Keys<span class='cnt'>1 · not working while disabled</span><span class='sp'></span><span class='btn-o'><span class='ms'>add</span>Issue key</span></div>
+<div class='krow' style='opacity:.6'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_b82e5f07c1d4…</span><span class='t2'>Created 10 Sep · last used 12 days ago</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='lab' style='margin-top:4px'>Who can see it</div>
+<div class='seg'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<div class='lab' style='min-height:40px'>Allowed users</div>
+<div class='pchips'><span class='pchip' style='padding:0 12px 0 8px;color:var(--primary)'><span class='ms ms18'>person_add</span>Add user</span></div>
+<div class='t2' style='padding:0 0 8px'>Only its owner, until you add someone.</div>
+<div class='act'><span class='btn-f'><span class='ms'>play_arrow</span>Enable</span><span class='t2' style='font-size:14px;line-height:20px'>Its keys work again.</span></div>
+<div class='fold' style='border-bottom:0'><span class='ms'>expand_less</span>Technical details</div>
+<div class='kv' style='padding-top:0'><b>ID</b><span class='mono' style='font-size:12px'>01997d5e-8a3c-7b1e-9f2a-4c6d8e0f1a2b</span><b>Key IDs</b><span class='mono' style='font-size:12px'>3f1c0b8e-5d2a-4c7e-9b61-0a8d4e2f7c13</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>Disabled shows as an outlined tag, never red (tags are never red); the banner says what it means and the action row becomes Enable (filled, since it brings the producer back), with no confirmation. Its keys stay listed (dimmed, and counted “not working while disabled”, “1 (off)” in the table), because revoking is a separate decision. “Technical details” folds the raw ids; the rest of the page never shows an id. The banner cannot say who disabled it, because the management API does not return that.</p>
+<div class='need'>Needs a server change: who disabled the producer (its owner or an admin), as a field of the admin producer response, so the banner can say “Disabled by its owner” or “Disabled by the host” (server item S2b).</div>
+</div>
+<div class='dv-opt' id='P3' data-screen-label='P3 Quiet, with every key revoked' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#P3'>P3</a>Quiet, with every key revoked</div>
+<div class='br h10'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers/quarterly-finance-report-generator</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div>
+<span class='acct'><span class='av'>A</span></span></div>
+</div>
+<div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Producers</h1><span class='cnt'>10 producers</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Updated 12:41</span><span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='tools'><div class='search'><span class='ms'>search</span>Find a producer</div>
+<div class='fchips'><span class='fc on'><span class='ms ms18'>check</span>All</span><span class='fc'>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span><span class='fc'>Owner: anyone<span class='ms ms18'>arrow_drop_down</span></span></div>
+</div>
+<div class='tbl'><div class='th gA'><span>Producer</span><span>Owner</span><span>Who sees it</span><span>Keys</span><span>Last event</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>ana-reports</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>yesterday</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>backup-jobs</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1</span><span>2 h ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>ci-pipeline</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Public</span><span>2</span><span>4 min ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>family-calendar</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Private · 1 person</span><span>1</span><span>3 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>garage-door</span><span class='tg o'>Disabled</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1 (off)</span><span>12 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>homelab-monitor</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private · 2 people</span><span>2</span><span>12 min ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>old-sensor</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>21 days ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>price-watch</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>R</span>Rui</span><span>Public</span><span>1</span><span>9 days ago</span></div>
+<div class='tr gA sel'><span class='nmc'><span class='nm'>quarterly-finance-report-generator</span><span class='tg'>Quiet</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>0</span><span>None stored</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>weather-alerts</span></span><span class='own'><span class='av s'>R</span>Rui</span><span>Public</span><span>1</span><span>3 min ago</span></div>
+</div>
+</div>
+<div class='pane '><div class='phd'><div style='flex:1;min-width:0'><div class='t'>quarterly-finance-report-generator</div>
+</div>
+<span class='ib' aria-label='Rename'><span class='ms'>edit</span></span><span class='ib' aria-label='Close'><span class='ms'>close</span></span></div>
+<div class='pbody'><div class='bn neu' style='margin:4px 0 8px'><span class='ms c-var'>schedule</span><span class='tx'>No event has been stored for it. A producer is quiet after 7 days without an event.</span></div>
+<div class='bn neu' style='margin:0 0 8px'><span class='ms c-var'>key_off</span><span class='tx'>No working key. Nothing can send events as quarterly-finance-report… until you issue a key.</span></div>
+<div class='kv'><b>Owner</b><span>Rodrigo</span><b>Last event</b><span>None stored · <a href='#x' style='color:var(--primary)'>See its events</a></span><b>Created</b><span>4 Oct</span></div>
+<div class='lab'>Keys<span class='cnt'>0 working</span><span class='sp'></span><span class='btn-o'><span class='ms'>add</span>Issue key</span></div>
+<div class='krow' style='opacity:.55'><span class='ms c-var'>key_off</span><div class='tx'><span class='t1 mono'>shpk1_c3d91a7e4f06…</span><span class='t2'>Created 4 Oct · revoked 7 Oct</span></div>
+</div>
+<div class='krow' style='opacity:.55'><span class='ms c-var'>key_off</span><div class='tx'><span class='t1 mono'>shpk1_d70b2e8a5c19…</span><span class='t2'>Created 5 Oct · revoked 7 Oct</span></div>
+</div>
+<div class='lab' style='margin-top:4px'>Who can see it</div>
+<div class='seg'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<div class='lab' style='min-height:40px'>Allowed users</div>
+<div class='pchips'><span class='pchip' style='padding:0 12px 0 8px;color:var(--primary)'><span class='ms ms18'>person_add</span>Add user</span></div>
+<div class='t2' style='padding:0 0 8px'>Only its owner, until you add someone.</div>
+<div class='act'><span class='btn-o'><span class='ms'>pause_circle</span>Disable</span><span class='t2' style='font-size:14px;line-height:20px'>Its keys stop working. Its events stay.</span></div>
+<div class='fold'><span class='ms'>expand_more</span>Technical details</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>Two notices stack, neutral and quiet: why it is Quiet, and that it has no working key. Key labels are built in the page: shpk1_ plus the key id without its dashes, shortened (the server sends no prefix). Revoked keys stay listed, dimmed and without Revoke, so the history is honest; Issue key stays outlined (it becomes the filled button only when no key works, as in the app). A long name ends with an ellipsis in the list; the tags and columns keep their size. The pane title ends with an ellipsis too, and the full name is in its tooltip and in the notice.</p>
+</div>
+</div>
+</section>
+<section class='dv-turn' id='t4' data-screen-label='Turn 4: Producers: loading, empty, error and feedback'><div class='dv-thd'><a class='dv-tid' href='#t4'>4</a><span class='dv-tname'>Producers: loading, empty, error and feedback</span></div>
+<p class='dv-why'>Every state a list can be in, and how a change reports back. An error never leaves a stale list unexplained.</p>
+<div class='dv-opts'><div class='dv-opt' id='P4' data-screen-label='P4 Loading' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#P4'>P4</a>Loading</div>
+<div class='br h6'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div>
+<span class='acct'><span class='av'>A</span></span></div>
+</div>
+<div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Producers</h1><span class='cnt'>Loading producers…</span><span class='sp'></span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='prog' role='progressbar' aria-label='Loading producers'></div>
+<div class='tools'><div class='search'><span class='ms'>search</span>Find a producer</div>
+<div class='fchips'><span class='fc on'><span class='ms ms18'>check</span>All</span><span class='fc'>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span><span class='fc'>Owner: anyone<span class='ms ms18'>arrow_drop_down</span></span></div>
+</div>
+<div class='tbl'><div class='th gA'><span>Producer</span><span>Owner</span><span>Who sees it</span><span>Keys</span><span>Last event</span></div>
+<div class='sk2'><div class='sk' style='width:260px'></div><span class='sp'></span><div class='sk' style='width:90px'></div><div class='sk' style='width:60px'></div></div>
+<div class='sk2'><div class='sk' style='width:200px'></div><span class='sp'></span><div class='sk' style='width:90px'></div><div class='sk' style='width:60px'></div></div>
+<div class='sk2'><div class='sk' style='width:320px'></div><span class='sp'></span><div class='sk' style='width:90px'></div><div class='sk' style='width:60px'></div></div>
+</div>
+</div>
+<div class='pane'><div class='empty'><span class='ms'>sensors</span><span class='h'>Select a producer</span><span class='p'>Its keys, who can see it and its latest event show here.</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>First load, and again after Sign in: a 4 px indeterminate bar under the header, grey bars where the rows will be, the count replaced by “Loading producers…” (read out as a status). When a list is only being refreshed the old rows stay and the bar shows; nothing jumps. Under reduced motion the bar is still. Actions that create things stay available; Refresh is disabled while loading.</p>
+</div>
+<div class='dv-opt' id='P5' data-screen-label='P5 Empty: no producer exists' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#P5'>P5</a>Empty: no producer exists</div>
+<div class='br h6'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div>
+<span class='acct'><span class='av'>A</span></span></div>
+</div>
+<div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Producers</h1><span class='cnt'>0 producers</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Updated 12:41</span><span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='empty'><span class='ms'>sensors</span><span class='h'>No producers yet</span><span class='p'>A producer is anything that sends events: a script, a CI pipeline, a home server. Create one, then give it the key you are shown once.</span><span class='btn-t' style='margin-top:12px'><span class='ms'>add</span>New producer</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>No pane and no filters: there is nothing to select or narrow. The only action is New producer, repeated in the empty state because the header button is far from the centre of the page.</p>
+</div>
+<div class='dv-opt' id='P6' data-screen-label='P6 Empty: nothing matches' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#P6'>P6</a>Empty: nothing matches</div>
+<div class='br h6'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers?show=quiet&q=greenhouse</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div>
+<span class='acct'><span class='av'>A</span></span></div>
+</div>
+<div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Producers</h1><span class='cnt'>0 of 10 producers</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Updated 12:41</span><span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='tools'><div class='search'><span class='ms'>search</span><span class='q'>greenhouse</span><span class='ms'>close</span></div>
+<div class='fchips'><span class='fc'>All</span><span class='fc on'><span class='ms ms18'>check</span>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span><span class='fc'>Owner: anyone<span class='ms ms18'>arrow_drop_down</span></span></div>
+</div>
+<div class='empty'><span class='ms'>search_off</span><span class='h'>No producers match</span><span class='p'>Nothing is named “greenhouse” with these filters. Check the spelling, or clear the search and filters.</span><span class='btn-t' style='margin-top:12px'>Clear search and filters</span></div>
+</div>
+<div class='pane'><div class='empty'><span class='ms'>sensors</span><span class='h'>Select a producer</span><span class='p'>Its keys, who can see it and its latest event show here.</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>The filters stay where they are so one tap widens them. The search and the chips are never cleared by a refresh.</p>
+</div>
+<div class='dv-opt' id='P7' data-screen-label='P7 The list failed to load, with an older list under it' style='width:1440px'><div class='dv-olabel'><a class='dv-oid' href='#P7'>P7</a>The list failed to load, with an older list under it</div>
+<div class='br h6'><div class='chrome'><div class='dots'><span></span><span></span><span></span></div>
+<div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers</div>
+</div>
+<div class='app'><div class='rail'><span class='rlogo'><span class='ms'>sensors</span></span><span class='rcap'>Admin</span><div class='ri'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='ri'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='ri on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='ri'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='ri'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+<div class='rfoot'><div class='ri'><span class='pill'><span class='ms'>dns</span><span class='sdot'></span></span>Working</div>
+<span class='acct'><span class='av'>A</span></span></div>
+</div>
+<div class='main'><div class='cols'><div class='left'><div class='mhead'><h1>Producers</h1><span class='cnt'>10 producers</span><span class='sp'></span><span class='cnt' style='font-size:12px'>Older list · 12:38</span><span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t'><span class='ms'>add</span>New producer</span></div>
+<div class='tools'><div class='search'><span class='ms'>search</span>Find a producer</div>
+<div class='fchips'><span class='fc on'><span class='ms ms18'>check</span>All</span><span class='fc'>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span><span class='fc'>Owner: anyone<span class='ms ms18'>arrow_drop_down</span></span></div>
+</div>
+<div class='bn err' style='margin:0 24px 8px 32px'><span class='ms'>cloud_off</span><span class='tx'>Could not load the producers. SignalHub answered 500. This is the list from 12:38.</span><span class='btn-x'>Try again</span></div>
+<div class='tbl'><div class='th gA'><span>Producer</span><span>Owner</span><span>Who sees it</span><span>Keys</span><span>Last event</span></div>
+<div class='tr gA dim'><span class='nmc'><span class='nm'>ana-reports</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Public</span><span>1</span><span>yesterday</span></div>
+<div class='tr gA dim'><span class='nmc'><span class='nm'>backup-jobs</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1</span><span>2 h ago</span></div>
+<div class='tr gA dim'><span class='nmc'><span class='nm'>ci-pipeline</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Public</span><span>2</span><span>4 min ago</span></div>
+<div class='tr gA dim'><span class='nmc'><span class='nm'>family-calendar</span></span><span class='own'><span class='av s'>A</span>Ana</span><span>Private · 1 person</span><span>1</span><span>3 days ago</span></div>
+<div class='tr gA dim'><span class='nmc'><span class='nm'>garage-door</span><span class='tg o'>Disabled</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1 (off)</span><span>12 days ago</span></div>
+<div class='tr gA dim'><span class='nmc'><span class='nm'>homelab-monitor</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private · 2 people</span><span>2</span><span>12 min ago</span></div>
+</div>
+</div>
+<div class='pane'><div class='empty'><span class='ms'>sensors</span><span class='h'>Select a producer</span><span class='p'>Its keys, who can see it and its latest event show here.</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>An error is never left unexplained: the banner (errorContainer) says what failed and what the page is showing, the rows are dimmed to 55 % so they do not pass for current, and “Older list · 12:38” replaces the update time. Try again retries; the page also retries by itself every 30 seconds. Actions on the older list are disabled. A rejected token (401) is a different screen: the sign-in with “Wrong admin token.”; a server that is off or unreachable says “Could not reach SignalHub.” in the same banner. The rail's status follows the rule in the note of option A (not a 500 from one call).</p>
+</div>
+<div class='dv-opt' id='P8' data-screen-label='P8 Success: a change confirmed in the pane' style='width:480px'><div class='dv-olabel'><a class='dv-oid' href='#P8'>P8</a>Success: a change confirmed in the pane</div>
+<div style='width:480px;height:790px;display:flex;border-radius:16px;overflow:hidden;border:1px solid #2c2d33'><div class='pane ' style='width:100%'><div class='phd'><div style='flex:1;min-width:0'><div class='t'>homelab-monitor</div>
+</div>
+<span class='ib' aria-label='Rename'><span class='ms'>edit</span></span><span class='ib' aria-label='Close'><span class='ms'>close</span></span></div>
+<div class='pbody'><div class='bn neu' style='margin:4px 0 8px' role='status'><span class='ms c-primary fill'>check_circle</span><span class='tx'>Key revoked. shpk1_9a47c61d0be3… no longer works.</span><span class='ib' aria-label='Dismiss'><span class='ms'>close</span></span></div>
+<div class='kv'><b>Owner</b><span>Rodrigo</span><b>Last event</b><span>12 min ago · <a href='#x' style='color:var(--primary)'>See its events</a></span><b>Created</b><span>25 Sep</span></div>
+<div class='lab'>Keys<span class='cnt'>1 working</span><span class='sp'></span><span class='btn-o'><span class='ms'>add</span>Issue key</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_3f1c0b8e5d2a…</span><span class='t2'>Created 27 Sep · last used 12 min ago</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='krow' style='opacity:.55'><span class='ms c-var'>key_off</span><div class='tx'><span class='t1 mono'>shpk1_9a47c61d0be3…</span><span class='t2'>Created 2 Oct · revoked 11 Oct</span></div>
+</div>
+<div class='lab' style='margin-top:4px'>Who can see it</div>
+<div class='seg'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<div class='lab' style='min-height:40px'>Allowed users</div>
+<div class='pchips'><span class='pchip'><span class='avs'>A</span>Ana<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip'><span class='avs'>R</span>Rui<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip' style='padding:0 12px 0 8px;color:var(--primary)'><span class='ms ms18'>person_add</span>Add user</span></div>
+<div class='act'><span class='btn-o'><span class='ms'>pause_circle</span>Disable</span><span class='t2' style='font-size:14px;line-height:20px'>Its keys stop working. Its events stay.</span></div>
+<div class='fold'><span class='ms'>expand_more</span>Technical details</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>The web has no snackbar: a neutral bar at the top of the pane names what happened in words (“Key revoked.”, “Now public.”, “Disabled.”, “Rui removed from the list.”) with a check, read out as a status, and goes after 8 seconds or on Dismiss. It carries no Undo. The list behind updates at once (the key count, the tags). Creating a producer confirms by opening its key dialog.</p>
+</div>
+<div class='dv-opt' id='P9' data-screen-label='P9 Failure: a change that did not happen, in the pane' style='width:480px'><div class='dv-olabel'><a class='dv-oid' href='#P9'>P9</a>Failure: a change that did not happen, in the pane</div>
+<div style='width:480px;height:790px;display:flex;border-radius:16px;overflow:hidden;border:1px solid #2c2d33'><div class='pane ' style='width:100%'><div class='phd'><div style='flex:1;min-width:0'><div class='t'>homelab-monitor</div>
+</div>
+<span class='ib' aria-label='Rename'><span class='ms'>edit</span></span><span class='ib' aria-label='Close'><span class='ms'>close</span></span></div>
+<div class='pbody'><div class='bn err' style='margin:4px 0 8px' role='alert'><span class='ms'>error</span><span class='tx'>Could not revoke the key. SignalHub answered 500. Nothing changed.</span><span class='btn-x'>Try again</span></div>
+<div class='kv'><b>Owner</b><span>Rodrigo</span><b>Last event</b><span>12 min ago · <a href='#x' style='color:var(--primary)'>See its events</a></span><b>Created</b><span>25 Sep</span></div>
+<div class='lab'>Keys<span class='cnt'>2 working</span><span class='sp'></span><span class='btn-o'><span class='ms'>add</span>Issue key</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_3f1c0b8e5d2a…</span><span class='t2'>Created 27 Sep · last used 12 min ago</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_9a47c61d0be3…</span><span class='t2'>Created 2 Oct · not used yet</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='lab' style='margin-top:4px'>Who can see it</div>
+<div class='seg'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<div class='lab' style='min-height:40px'>Allowed users</div>
+<div class='pchips'><span class='pchip'><span class='avs'>A</span>Ana<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip'><span class='avs'>R</span>Rui<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip' style='padding:0 12px 0 8px;color:var(--primary)'><span class='ms ms18'>person_add</span>Add user</span></div>
+<div class='act'><span class='btn-o'><span class='ms'>pause_circle</span>Disable</span><span class='t2' style='font-size:14px;line-height:20px'>Its keys stop working. Its events stay.</span></div>
+<div class='fold'><span class='ms'>expand_more</span>Technical details</div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>A failed change shows where it was made, not in the list: errorContainer, the one action Try again, and the words “Nothing changed.” when that is true. The control returns to its old state. A conflict reads a sentence the page words from the server's answer, for example “That name is taken. Names are shared by everyone on this server.”</p>
+</div>
+<div class='dv-opt' id='P10' data-screen-label='P10 Keyboard focus' style='width:920px'><div class='dv-olabel'><a class='dv-oid' href='#P10'>P10</a>Keyboard focus</div>
+<div class='card3' style='width:920px'><div class='t2' style='font-size:12px'>Table row (one tab stop; arrow keys move; Enter opens the pane)</div>
+<div style='background:var(--sc-low);border-radius:12px;overflow:hidden'><div class='tr gA'><span class='nmc'><span class='nm'>ci-pipeline</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Public</span><span>2</span><span>4 min ago</span></div>
+<div class='tr gA'><span class='nmc'><span class='nm'>garage-door</span><span class='tg o'>Disabled</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private</span><span>1 (off)</span><span>12 days ago</span></div>
+<div class='tr gA focusin' style='outline:2px solid var(--primary);outline-offset:-2px;border-radius:16px'><span class='nmc'><span class='nm'>homelab-monitor</span></span><span class='own'><span class='av s'>R</span>Rodrigo</span><span>Private · 2 people</span><span>2</span><span>12 min ago</span></div>
+</div>
+<div class='t2' style='font-size:12px'>Filter chip and search</div>
+<div style='display:flex;gap:8px;align-items:center'><div class='search focusring' style='width:260px'><span class='ms'>search</span>Find a producer</div>
+<span class='fchips'><span class='fc'>All</span><span class='fc on focusring'><span class='ms ms18'>check</span>Quiet</span><span class='fc'>Disabled</span></span></div>
+<div class='t2' style='font-size:12px'>Pane buttons</div>
+<div style='display:flex;gap:12px;align-items:center'><span class='btn-o focusring'><span class='ms'>add</span>Issue key</span><span class='btn-x dng focusring'>Revoke</span><span class='btn-t focusring'>Copy</span></div>
+</div>
+<p class='dv-onote'>One 2 px primary ring, 2 px away from the control (inside it on a table row, which is clipped by the list), on every control; never removed, never colour alone against the 3:1 minimum. Order: rail, header actions, search, chips, table (one stop; Up and Down move between rows, Enter opens), the pane (the pane's close button first). Opening the pane moves focus into it; Escape closes it and puts focus back on the row. A dialog traps focus, starts on Cancel (on the name field in New producer) and returns focus to the control that opened it. Every target is 48 px high; chips are 32 px high with a 48 px hit area (8 px of margin above and below).</p>
+</div>
+</div>
+</section>
+<section class='dv-turn' id='t5' data-screen-label='Turn 5: Producers: dialogs'><div class='dv-thd'><a class='dv-tid' href='#t5'>5</a><span class='dv-tname'>Producers: dialogs that replace the browser's own</span></div>
+<p class='dv-why'>The page used the browser's confirm() and prompt(), which cannot be styled or described. These are the in-page dialogs: 480 px, surfaceContainerHigh, radius 28, scrim 62 %, text buttons 48 px high (the confirming one in the primary colour, a destructive one in the error colour, never a filled red button), Escape closes, focus starts on Cancel. New producer replaces the form at the bottom of the page.</p>
+<div class='dv-opts'><div class='dv-opt' id='P11' data-screen-label='P11 New producer: a dialog' style='width:640px'><div class='dv-olabel'><a class='dv-oid' href='#P11'>P11</a>New producer: a dialog</div>
+<div class='stg' style='height:700px'><div class='fx'><div class='sk' style='width:40%'></div>
+<div class='sk' style='width:80%'></div>
+<div class='sk' style='width:65%'></div>
+<div class='sk' style='width:75%'></div>
+<div class='sk' style='width:55%'></div>
+</div>
+<div class='scrim'><div class='dlg'><h4>New producer</h4><p style='margin-bottom:4px'>A producer is anything that sends events: a script, a CI pipeline, a home server. It gets its own key.</p>
+<div class='tf focus'><span class='fl'>Name</span>greenhouse-sensor</div>
+<div class='help'>Letters, numbers and . _ : / - only, up to 100 characters. Names are shared by everyone on this server.</div>
+<div class='tf'><span class='fl'>Owner</span>Rodrigo · Admin<span class='ms'>arrow_drop_down</span></div>
+<div class='help'>The owner sees it in their app and manages its keys.</div>
+<div class='lab' style='margin-top:12px;min-height:32px'>Who can see it</div>
+<div class='seg' style='width:320px'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<p style='font-size:14px;line-height:20px;margin-top:8px'>Only its owner, and users you add later. A public producer can be found and subscribed to by every user.</p>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Create</span></div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>Opens from the header button or the empty state; never under the list. Create stays off (dimmed text) until the name is valid and an owner is chosen. New producers start Private, as in the app. Owner lists the users who are not revoked, “Name · Role”; Rodrigo is first because the operator is usually the owner. Escape and Cancel close it, nothing was created. Pressing Create shows the key dialog (P13).</p>
+</div>
+<div class='dv-opt' id='P12' data-screen-label='P12 New producer: the name is taken' style='width:640px'><div class='dv-olabel'><a class='dv-oid' href='#P12'>P12</a>New producer: the name is taken</div>
+<div class='stg' style='height:700px'><div class='fx'><div class='sk' style='width:40%'></div>
+<div class='sk' style='width:80%'></div>
+<div class='sk' style='width:65%'></div>
+<div class='sk' style='width:75%'></div>
+<div class='sk' style='width:55%'></div>
+</div>
+<div class='scrim'><div class='dlg'><h4>New producer</h4><p style='margin-bottom:4px'>A producer is anything that sends events: a script, a CI pipeline, a home server. It gets its own key.</p>
+<div class='tf err'><span class='fl'>Name</span>ci-pipeline<span class='ms'>error</span></div>
+<div class='help err'>That name is taken. Names are shared by everyone on this server.</div>
+<div class='tf'><span class='fl'>Owner</span>Rodrigo · Admin<span class='ms'>arrow_drop_down</span></div>
+<div class='help'>The owner sees it in their app and manages its keys.</div>
+<div class='lab' style='margin-top:12px;min-height:32px'>Who can see it</div>
+<div class='seg' style='width:320px'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x' style='color:rgba(228,225,233,.38)'>Create</span></div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>The server answers 409 and the field says so under the name (the same sentence appears on Rename, P12b), with the error colour on the border, the label and a trailing icon, so it is never colour alone. A name that breaks the rule says “Use letters, numbers and . _ : / - only, starting with a letter or number.”; an empty one “Give it a name.” after the field is left; one over 100 characters “Use 100 characters or fewer.”. The errors show while typing.</p>
+</div>
+<div class='dv-opt' id='P12b' data-screen-label='P12b Rename producer: the name is taken' style='width:640px'><div class='dv-olabel'><a class='dv-oid' href='#P12b'>P12b</a>Rename producer: the name is taken</div>
+<div class='stg' style='height:700px'><div class='fx'><div class='sk' style='width:40%'></div>
+<div class='sk' style='width:80%'></div>
+<div class='sk' style='width:65%'></div>
+<div class='sk' style='width:75%'></div>
+<div class='sk' style='width:55%'></div>
+</div>
+<div class='scrim'><div class='dlg'><h4>Rename ci-pipeline</h4><p style='margin-bottom:4px'>Names are shared by everyone on this server. Its keys and events stay.</p>
+<div class='tf err'><span class='fl'>Name</span>weather-alerts<span class='ms'>error</span></div>
+<div class='help err'>That name is taken. Names are shared by everyone on this server.</div>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x' style='color:rgba(228,225,233,.38)'>Rename</span></div>
+</div>
+</div>
+</div>
+<div class='need'>Needs a server change (S2a): the admin API cannot rename a producer today (only its owner can, from a device). The dialog is drawn for when it can.</div><p class='dv-onote'>Names are unique across the server, so a name that is taken (409) reads under the field, as when creating. Rename stays off until the name is valid and different. Opened from the pencil in the pane; the pane title changes at once on success.</p>
+</div>
+<div class='dv-opt' id='P13' data-screen-label='P13 The key, shown once' style='width:640px'><div class='dv-olabel'><a class='dv-oid' href='#P13'>P13</a>The key, shown once</div>
+<div class='stg' style='height:700px'><div class='fx'><div class='sk' style='width:40%'></div>
+<div class='sk' style='width:80%'></div>
+<div class='sk' style='width:65%'></div>
+<div class='sk' style='width:75%'></div>
+<div class='sk' style='width:55%'></div>
+</div>
+<div class='scrim'><div class='dlg'><h4>greenhouse-sensor is ready</h4><p style='margin-bottom:12px'>This is its key. Put it where the producer runs; it sends events with it.</p>
+<div class='key'>shpk1_EXAMPLEKEY-not-a-real-key-0000</div>
+<div style='display:flex;gap:8px;margin-top:12px'><span class='btn-t'><span class='ms'>content_copy</span>Copy</span></div>
+<div class='warn'><span class='ms c-var'>visibility_off</span><span>Shown once. You won't see this key again. If you lose it, issue a new key on the producer's page.</span></div>
+<div class='lab' style='padding:4px 0 0;min-height:40px'>To send a test event</div>
+<div class='code' style='margin-top:0'>curl -X POST https://signalhub.example/api/v1/events \
+  -H "Authorization: Bearer shpk1_EXAMPLEKEY-not-a-real-key-0000" \
+  -H "Content-Type: application/json" \
+  -d '{"category":"INFO","severity":"NORMAL","title":"Hello"}'</div>
+<div class='acts'><span class='btn-f'><span class='ms'>content_copy</span>Copy and close</span></div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>Replaces the old panel at the bottom of the page. The key is monospace and wraps at any character; the sample key is plainly not real. Escape and a click outside do nothing until Copy or Copy and close has been used; closing before that asks “Did you copy the key?” / “It's shown once. If you leave now, you'll need to issue a new key for greenhouse-sensor.” with Leave and Stay (Stay is the default). After Copy the button says Copied and the primary button says Done. Issue key on an existing producer opens the same dialog titled “New key for homelab-monitor”, with “This is its new key. Switch the producer to it, then revoke the old one.”</p>
+</div>
+<div class='dv-opt' id='P14' data-screen-label='P14 Confirm: revoke a key' style='width:640px'><div class='dv-olabel'><a class='dv-oid' href='#P14'>P14</a>Confirm: revoke a key (replaces the browser's confirm())</div>
+<div class='stg' style='height:440px'><div class='fx'><div class='sk' style='width:40%'></div>
+<div class='sk' style='width:80%'></div>
+<div class='sk' style='width:65%'></div>
+<div class='sk' style='width:75%'></div>
+<div class='sk' style='width:55%'></div>
+</div>
+<div class='scrim'><div class='dlg'><h4>Revoke this key?</h4><p>shpk1_3f1c0b8e5d2a… stops working at once, and whatever sends with it is turned away. It was last used 12 min ago. This cannot be undone.</p>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x dng'>Revoke</span></div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>Names the key and says when it was last used, so the operator can tell a live key from a stale one. If it is the producer's only working key the title is “Revoke the only key?” and the body adds “Once it is revoked, nothing can send its events until you issue a new key.” The error-coloured text button is only for what cannot be undone.</p>
+</div>
+<div class='dv-opt' id='P15' data-screen-label='P15 Confirm: disable a producer' style='width:640px'><div class='dv-olabel'><a class='dv-oid' href='#P15'>P15</a>Confirm: disable a producer</div>
+<div class='stg' style='height:440px'><div class='fx'><div class='sk' style='width:40%'></div>
+<div class='sk' style='width:80%'></div>
+<div class='sk' style='width:65%'></div>
+<div class='sk' style='width:75%'></div>
+<div class='sk' style='width:55%'></div>
+</div>
+<div class='scrim'><div class='dlg'><h4>Disable old-sensor?</h4><p>Its keys stop working and it sends nothing, so Ana will see it as “Disabled by the host”. Its events stay. You can enable it again.</p>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Disable</span></div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>Reversible, so the action is primary-coloured. It says what the owner will see. Enable needs no confirmation.</p>
+</div>
+<div class='dv-opt' id='P16' data-screen-label='P16 Confirm: public to private' style='width:640px'><div class='dv-olabel'><a class='dv-oid' href='#P16'>P16</a>Confirm: public to private</div>
+<div class='stg' style='height:440px'><div class='fx'><div class='sk' style='width:40%'></div>
+<div class='sk' style='width:80%'></div>
+<div class='sk' style='width:65%'></div>
+<div class='sk' style='width:75%'></div>
+<div class='sk' style='width:55%'></div>
+</div>
+<div class='scrim'><div class='dlg'><h4>Make ci-pipeline private?</h4><p>Only its owner and the users on its list will see it. Everyone else stops getting its events. To get them back they must be added to its list and subscribe again.</p>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x'>Make private</span></div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>The segmented control does not move until this is confirmed. Private to public needs no dialog; the sentence under the control says “Every user can see it and subscribe.”</p>
+</div>
+<div class='dv-opt' id='P17' data-screen-label='P17 Confirm: remove someone from the list' style='width:640px'><div class='dv-olabel'><a class='dv-oid' href='#P17'>P17</a>Confirm: remove someone from the list</div>
+<div class='stg' style='height:440px'><div class='fx'><div class='sk' style='width:40%'></div>
+<div class='sk' style='width:80%'></div>
+<div class='sk' style='width:65%'></div>
+<div class='sk' style='width:75%'></div>
+<div class='sk' style='width:55%'></div>
+</div>
+<div class='scrim'><div class='dlg'><h4>Remove Rui from homelab-monitor?</h4><p>Rui can no longer see this private producer. If they were subscribed, they stop getting its events, and have to subscribe again after being added back.</p>
+<div class='acts'><span class='btn-x'>Cancel</span><span class='btn-x dng'>Remove</span></div>
+</div>
+</div>
+</div>
+<p class='dv-onote'>Today this acts at once with no question. The page sends the whole allowed list each time (it reads the list, changes it and replaces it), so two operators changing one list at once can overwrite each other; Allowed users show only while the producer is private (while it is public the list is kept but has no effect). Adding a user does not need a dialog: the Add user chip opens a menu of users who are not on the list, and choosing one adds them with the pane notice “Rui added to the list.”</p>
+</div>
+</div>
+</section>
+<section class='dv-turn' id='t6' data-screen-label='Turn 6: Producers on a phone: 390 wide'><div class='dv-thd'><a class='dv-tid' href='#t6'>6</a><span class='dv-tname'>Producers on a phone: 390 wide</span></div>
+<p class='dv-why'>No sideways scroll at 390 px. The rail becomes a bottom bar, the table two-line rows, the pane a full screen, a dialog a full-width sheet or screen.</p>
+<div class='dv-opts'><div class='dv-opt' id='P18' data-screen-label='P18 Phone: the list (390 wide)' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#P18'>P18</a>Phone: the list (390 wide)</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers</div>
+</div>
+<div class='pbar'><div class='t'>Producers</div>
+<span class='ib' aria-label='Refresh'><span class='ms'>refresh</span></span><span class='btn-t' style='padding:0 16px 0 12px' aria-label='New producer'><span class='ms'>add</span>New</span></div>
+<div class='search' style='width:auto;margin:0 16px 4px'><span class='ms'>search</span>Find a producer</div>
+<div class='fchips' style='padding:0 16px'><span class='fc on'><span class='ms ms18'>check</span>All</span><span class='fc'>Quiet</span><span class='fc'>Disabled</span><span class='fc'>Public</span><span class='fc'>Private</span></div>
+<div class='pbody2'><div class='lr'><div class='tx'><span class='nmc'><span class='nm'>ana-reports</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Ana · Public · 1 key · yesterday</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>backup-jobs</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Rodrigo · Private · 1 key · 2 h ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>ci-pipeline</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Rodrigo · Public · 2 keys · 4 min ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>family-calendar</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Ana · Private · 1 person · 1 key · 3 days ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>garage-door</span><span class='tg o'>Disabled</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Rodrigo · Private · 1 key · 12 days ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+<div class='lr'><div class='tx'><span class='nmc'><span class='nm'>homelab-monitor</span></span><span class='t2 nm' style='color:var(--on-surface-variant);font-size:14px;line-height:20px'>Rodrigo · Private · 2 people · 2 keys · 12 min ago</span></div>
+<span class='ms c-var'>chevron_right</span></div>
+</div>
+<div class='nav'><div class='nv'><span class='pill'><span class='ms'>devices</span></span>Devices</div>
+<div class='nv'><span class='pill'><span class='ms'>group</span></span>Users</div>
+<div class='nv on'><span class='pill'><span class='ms fill'>sensors</span></span>Producers</div>
+<div class='nv'><span class='pill'><span class='ms'>inbox</span></span>Events</div>
+<div class='nv'><span class='pill'><span class='ms'>monitor_heart</span></span>Status</div>
+</div>
+</div>
+<p class='dv-onote'>The rail becomes a five-item bottom bar (80 px, labels never wrap). New producer is a button in the header, not a floating button, so it never covers a row. The table becomes two-line rows: name and tags, then owner, visibility, keys and last event, ending with an ellipsis. Chips wrap onto a second line, so Disabled and Quiet are never hidden (each has a 48 px hit area). New producer is the plus icon with the word New and the accessible name “New producer”. Refresh is the header icon, and pulling the list down does the same. No sideways scroll on the page. At 360 wide and 200 % text the second line wraps to two lines.</p>
+</div>
+<div class='dv-opt' id='P19' data-screen-label='P19 Phone: the detail, full screen' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#P19'>P19</a>Phone: the detail, full screen</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers/homelab-monitor</div>
+</div>
+<div class='pbar bk'><span class='ib' aria-label='Back'><span class='ms'>arrow_back</span></span><div class='t'>homelab-monitor</div>
+<span class='ib' aria-label='Rename'><span class='ms'>edit</span></span></div>
+<div class='pbody' style='padding:0 16px'><div class='kv'><b>Owner</b><span>Rodrigo</span><b>Last event</b><span>12 min ago · <a href='#x' style='color:var(--primary)'>See its events</a></span><b>Created</b><span>25 Sep</span></div>
+<div class='lab'>Keys<span class='cnt'>2 working</span><span class='sp'></span><span class='btn-o'><span class='ms'>add</span>Issue key</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_3f1c0b8e5d2a…</span><span class='t2'>Created 27 Sep · last used 12 min ago</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='krow'><span class='ms c-var'>key</span><div class='tx'><span class='t1 mono'>shpk1_9a47c61d0be3…</span><span class='t2'>Created 2 Oct · not used yet</span></div>
+<span class='btn-x dng'>Revoke</span></div>
+<div class='lab' style='margin-top:4px'>Who can see it</div>
+<div class='seg'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<div class='lab' style='min-height:40px'>Allowed users</div>
+<div class='pchips'><span class='pchip'><span class='avs'>A</span>Ana<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip'><span class='avs'>R</span>Rui<span class='x'><span class='ms ms18'>close</span></span></span><span class='pchip' style='padding:0 12px 0 8px;color:var(--primary)'><span class='ms ms18'>person_add</span>Add user</span></div>
+<div class='act'><span class='btn-o'><span class='ms'>pause_circle</span>Disable</span><span class='t2' style='font-size:14px;line-height:20px'>Its keys stop working. Its events stay.</span></div>
+<div class='fold'><span class='ms'>expand_more</span>Technical details</div>
+</div>
+</div>
+<p class='dv-onote'>Selecting a row opens the detail over the whole screen with a Back arrow (the address changes, so the browser's back button works too). The bottom bar is hidden here so the actions get the height; the sections are the pane's, stacked, and the page scrolls. Buttons keep 48 px targets; the Revoke buttons sit at the end of each key row. Dialogs become full-width at the bottom edge on this width.</p>
+</div>
+<div class='dv-opt' id='P20' data-screen-label='P20 Phone: New producer, full screen' style='width:390px'><div class='dv-olabel'><a class='dv-oid' href='#P20'>P20</a>Phone: New producer, full screen</div>
+<div class='ph'><div class='phchrome'><div class='url'><span class='ms'>lock</span>signalhub.example/admin/#producers/new</div>
+</div>
+<div class='pbar bk'><span class='ib' aria-label='Close'><span class='ms'>close</span></span><div class='t'>New producer</div>
+</div>
+<div style='padding:0 16px;display:flex;flex-direction:column;gap:0'><p style='font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0 0 4px'>A producer is anything that sends events: a script, a CI pipeline, a home server. It gets its own key.</p>
+<div class='tf focus' style='margin-top:20px'><span class='fl' style='background:var(--surface)'>Name</span>greenhouse-sensor</div>
+<div class='help'>Letters, numbers and . _ : / - only, up to 100 characters.</div>
+<div class='tf' style='margin-top:20px'><span class='fl' style='background:var(--surface)'>Owner</span>Rodrigo · Admin<span class='ms'>arrow_drop_down</span></div>
+<div class='help'>The owner sees it in their app and manages its keys.</div>
+<div class='lab' style='margin-top:12px'>Who can see it</div>
+<div class='seg'><span class='on'><span class='ms ms18'>lock</span>Private</span><span><span class='ms ms18'>public</span>Public</span></div>
+<p style='font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:8px 0 0'>Only its owner, and users you add later.</p>
+</div>
+<div style='flex:1'></div>
+<div style='padding:16px;display:flex'><span class='btn-f' style='flex:1;justify-content:center'>Create</span></div>
+</div>
+<p class='dv-onote'>On a phone the dialog is a full screen with a Close icon at the top left, like the app's New producer; Create is a full-width filled button at the bottom (the one place a filled button is kept: a full-screen phone form, as in the app), off until the name is valid. The key then appears as a full screen too (P13 on a phone: the same content, Copy and close at the bottom).</p>
+</div>
+</div>
+<p class='dv-why' style='margin:28px 0 0'><b>Server changes these drawings need</b> (each also listed in the progress log): <b>1.</b> Rename a producer from the admin API (a name on the producer's update; S2a). <b>2.</b> Who disabled a producer (owner or host) in the admin producer response (S2b). Everything else in the Producers frames (last event, last use of each key, owner, visibility and allow-list, quiet) is already in the management API; filters, search and ordering are done in the page.</p>
+</section>
+    </x-dc>
+    <script type='text/x-dc' data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() {
+          return {};
+        }
+      }
+    </script>
+  </body>
+</html>

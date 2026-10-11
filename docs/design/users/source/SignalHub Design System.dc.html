@@ -176,7 +176,172 @@
           .wn h3{margin:0;font-size:16px;line-height:24px;font-weight:500}
           .wn .fact{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:20px}
           .wn .btn-x{color:var(--on-primary-container)}
-        </style>
+        
+.adm{--err-row:#2a1d1f;--err-row-line:#4a2a2d;--off-bg:rgba(228,225,233,.12);--off-fg:rgba(228,225,233,.38);--off-line:rgba(228,225,233,.12);--busy-fg:rgba(228,225,233,.6);--avs-fg:#ffd8ee;--scrim:rgba(0,0,0,.62);--scrim-l:rgba(0,0,0,.32);--shadow:rgba(0,0,0,.5);--shadow-sheet:rgba(0,0,0,.55);--frame-line:#2c2d33}
+/* the admin components share class names with this page's own (own, tf, t2, fchips, btn-*, av): reset what the page's rules add */
+.adm .own{height:auto;padding:0;margin:0;border-radius:0;background:none;color:inherit;font-size:inherit;font-weight:inherit}
+.adm .tf{margin-left:0;margin-right:0;margin-bottom:0;color:var(--on-surface)}
+.adm .t2{white-space:normal;overflow:visible}
+.adm .fchips{padding:0}
+.adm .ri{font-size:12px;line-height:16px}
+.adm .ms{font-family:'Material Symbols Outlined';font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+.adm .ms.fill{font-variation-settings:'FILL' 1}
+.adm .ms18{font-size:18px;width:18px;height:18px}
+.adm .rlogo{width:40px;height:40px;border-radius:12px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center}
+.adm .ri{width:72px;height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant);border-radius:16px;flex:none}
+.adm .ri .pill{width:56px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+.adm .ri.on{color:var(--on-surface)}
+.adm .ri.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+.adm .sdot{position:absolute;top:3px;right:9px;width:10px;height:10px;border-radius:5px;background:var(--primary);border:2px solid var(--surface);box-sizing:content-box}
+.adm .sdot.bad{background:var(--error)}
+.adm .av{width:40px;height:40px;border-radius:20px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;flex:none;font-size:16px;font-weight:500}
+.adm .av.s{width:24px;height:24px;border-radius:12px;font-size:12px;background:var(--sc-highest);color:var(--on-surface-variant)}
+.adm .sp{flex:1}
+.adm .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+.adm .fchips{display:flex;gap:8px;flex:none;overflow:hidden}
+.adm .fc{height:32px;margin:8px 0;border-radius:8px;border:1px solid var(--outline);display:flex;align-items:center;gap:8px;padding:0 12px;font-size:14px;font-weight:500;color:var(--on-surface-variant);box-sizing:border-box;white-space:nowrap;flex:none}
+.adm .fc.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container);padding-left:8px}
+.adm .gA{display:grid;gap:16px;align-items:center;grid-template-columns:minmax(0,1fr) 128px 148px 64px 120px}
+.adm .th{height:40px;flex:none;padding:0 24px 0 32px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant);border-bottom:1px solid var(--outline-variant)}
+.adm .tr{height:56px;flex:none;padding:0 24px 0 32px;box-sizing:border-box;font-size:14px;color:var(--on-surface-variant)}
+.adm .tr.sel{background:var(--secondary-container);color:var(--on-secondary-container);border-radius:16px;margin:0 8px;padding:0 16px 0 24px}
+.adm .nmc{display:flex;align-items:center;min-width:0}
+.adm .nm{font-size:16px;line-height:24px;color:var(--on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.adm .tr.sel .nm{color:var(--on-surface)}
+.adm .own{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap}
+.adm .tg{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;flex:none;box-sizing:border-box}
+.adm .tr.sel .tg{background:var(--sc-high)}
+.adm .tg.o{background:transparent;border:1px solid var(--outline);padding:0 7px}
+.adm .pane{width:480px;flex:none;display:flex;flex-direction:column;background:var(--sc);border-radius:16px 0 0 0;overflow:hidden;position:relative}
+.adm .pane.w{width:792px}
+.adm .phd{flex:none;display:flex;align-items:center;gap:4px;min-height:72px;padding:12px 8px 0 24px;box-sizing:border-box}
+.adm .phd .t{font-size:22px;line-height:28px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adm .pbody{flex:1;min-height:0;overflow:hidden;padding:4px 24px 16px;display:flex;flex-direction:column;gap:4px}
+.adm .mono{font-family:'Roboto Mono',ui-monospace,monospace}
+.adm .t2{font-size:13px;line-height:18px;color:var(--on-surface-variant)}
+.adm .btn-t,.adm .btn-f,.adm .btn-o,.adm .btn-x{height:48px;border-radius:24px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;box-sizing:border-box;white-space:nowrap;flex:none}
+.adm .btn-t{background:var(--secondary-container);color:var(--on-secondary-container);padding:0 24px 0 16px}
+.adm .btn-f{background:var(--primary);color:var(--on-primary);padding:0 24px 0 16px}
+.adm .btn-f.dis{background:var(--off-bg);color:var(--off-fg)}
+.adm .btn-o{border:1px solid var(--outline);color:var(--primary);padding:0 24px 0 16px}
+.adm .btn-x{color:var(--primary);padding:0 12px}
+.adm .btn-x.dng{color:var(--error)}
+.adm .btn-t .ms,.adm .btn-f .ms,.adm .btn-o .ms,.adm .btn-x .ms{font-size:18px;width:18px;height:18px}
+.adm .pchip{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 4px 0 8px;border:1px solid var(--outline);border-radius:22px;font-size:14px;font-weight:500;box-sizing:border-box}
+.adm .pchip .x{width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant)}
+.adm .fold{display:flex;align-items:center;gap:12px;min-height:48px;border-top:1px solid var(--outline-variant);font-size:14px;font-weight:500;color:var(--on-surface-variant)}
+.adm .dlg{background:var(--sc-high);border-radius:28px;padding:24px;width:480px;max-width:100%;box-sizing:border-box}
+.adm .dlg h4{margin:0 0 16px;font-size:24px;line-height:32px;font-weight:400}
+.adm .dlg p{margin:0;font-size:16px;line-height:24px;color:var(--on-surface-variant)}
+.adm .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:24px}
+.adm .tf{border:1px solid var(--outline);border-radius:4px;height:56px;display:flex;align-items:center;padding:0 16px;font-size:16px;position:relative;box-sizing:border-box;margin-top:16px}
+.adm .tf.focus{border:2px solid var(--primary);padding:0 15px}
+.adm .tf .fl{position:absolute;top:-9px;left:12px;padding:0 4px;background:var(--sc-high);font-size:12px;line-height:16px;color:var(--on-surface-variant)}
+.adm .tf.focus .fl{color:var(--primary)}
+.adm .tf .ms{margin-left:auto}
+.adm .cb{width:18px;height:18px;border:2px solid var(--on-surface-variant);border-radius:2px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;flex:none}
+.adm .cb.on{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.adm .cb .ms{font-size:16px;width:16px;height:16px}
+.adm .cbc{width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex:none}
+.adm .gE{display:grid;gap:12px;align-items:center;grid-template-columns:40px minmax(0,1fr) 140px 108px 128px 76px}
+.adm .ud{width:8px;height:8px;border-radius:4px;background:var(--primary);flex:none;margin-right:8px}
+.adm .tr.unr .nm{font-weight:500}
+.adm .tr.gE:not(.unr) .nm{color:var(--on-surface-variant)}
+.adm .s-high{color:var(--error)}
+.adm .cic{margin-right:12px}
+.adm .sv{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px 0 4px;border-radius:8px;font-size:12px;font-weight:500;box-sizing:border-box;white-space:nowrap;color:var(--on-surface-variant);flex:none}
+.adm .sv .ms{font-size:16px;width:16px;height:16px}
+.adm .sv.high{border:1px solid var(--error);color:var(--error)}
+.adm .pgr{height:56px;flex:none;display:flex;align-items:center;gap:8px;padding:0 24px 0 32px;border-top:1px solid var(--outline-variant);font-size:14px;color:var(--on-surface-variant)}
+.adm .btn-o.sm,.adm .btn-t.sm,.adm .btn-f.sm{height:40px}
+.adm .btn-o.dis{color:var(--off-fg);border-color:var(--off-line)}
+.adm .btn-f.dng{background:var(--error);color:var(--on-error)}
+.adm .bulk{display:flex;align-items:center;gap:8px;margin:4px 24px 4px 32px;height:48px;border-radius:24px;background:var(--secondary-container);color:var(--on-secondary-container);padding:0 8px 0 8px;flex:none;font-size:14px;font-weight:500;box-sizing:border-box}
+.adm .bulk .btn-x{color:inherit;height:40px}
+.adm .bulk .btn-x.dng{color:var(--error)}
+.adm .seg3{display:flex;border-bottom:1px solid var(--outline-variant);flex:none;padding:0 24px}
+.adm .seg3>span{flex:1;height:48px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;color:var(--on-surface-variant);border-bottom:3px solid transparent;margin-bottom:-1px;box-sizing:border-box}
+.adm .seg3>.on{color:var(--primary);border-bottom-color:var(--primary)}
+.adm .pfoot{flex:none;display:flex;align-items:center;gap:8px;padding:12px 16px 16px 24px;border-top:1px solid var(--outline-variant)}
+.adm .tech{font-family:'Roboto Mono',ui-monospace,monospace;font-size:12px;line-height:18px;background:var(--sc-lowest);border-radius:12px;padding:10px 12px;color:var(--on-surface-variant);margin:4px 0 8px;white-space:pre-wrap;word-break:break-all}
+.adm .fpanel{margin:0 24px 8px 32px;background:var(--sc);border-radius:16px;padding:12px 16px 4px;flex:none}
+.adm .menu2{position:absolute;background:var(--sc-high);border-radius:12px;padding:8px 0;width:300px;box-shadow:0 4px 16px var(--shadow);z-index:4}
+.adm .msel{display:flex;align-items:center;gap:12px;height:48px;padding:0 16px;font-size:14px}
+.adm .gD{display:grid;gap:16px;align-items:center;grid-template-columns:minmax(0,1fr) 104px 92px 216px}
+.adm .tr.rev .nm,.adm .tr.rev{color:var(--outline)}
+.adm .menu2.s{width:260px}
+.adm .sic{width:440px;box-sizing:border-box;background:var(--sc);border-radius:28px;padding:32px;display:flex;flex-direction:column}
+.adm .sic h2{margin:16px 0 8px;font-size:28px;line-height:36px;font-weight:400}
+.adm .sic p{margin:0;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+.adm .sic .tf{margin-top:24px}
+.adm .sic .tf .fl{background:var(--sc)}
+.adm .sic .tf.dis{opacity:.5}
+.adm .sic .acts{margin-top:20px}
+.adm .sic .acts>*{flex:1}
+.adm .vis{width:40px;height:40px;display:flex;align-items:center;justify-content:center;margin-right:-8px;color:var(--on-surface-variant)}
+.adm .tf .vis{margin-left:auto}
+.adm .sic .tf .ms{margin-left:auto}
+.adm .btn-f.go{justify-content:center}
+.adm .srow{display:grid;grid-template-columns:28px 232px minmax(0,1fr) 168px;gap:4px 16px;align-items:start;padding:10px 24px 10px 32px;border-top:1px solid var(--outline-variant);flex:none;box-sizing:border-box}
+.adm .srow .nmx{font-size:15px;line-height:24px;font-weight:500;color:var(--on-surface)}
+.adm .srow .vl{font-size:14px;line-height:24px;color:var(--on-surface);min-width:0}
+.adm .srow .do{display:block;font-size:13px;line-height:18px;color:var(--on-surface-variant)}
+.adm .srow .do b{font-weight:500;color:var(--on-surface)}
+.adm .srow .vl a{color:var(--primary)}
+.adm .srow.bad{background:var(--err-row);border-top-color:var(--err-row-line);box-shadow:inset 3px 0 0 var(--error)}
+.adm .srow.bad .do b{color:var(--on-error-container)}
+.adm .sc{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px 0 6px;border-radius:14px;font-size:13px;font-weight:500;white-space:nowrap;justify-self:end;box-sizing:border-box;color:var(--on-surface-variant)}
+.adm .sc .ms{font-size:18px;width:18px;height:18px}
+.adm .sc.ok{color:var(--primary)}
+.adm .sc.bad{background:var(--error-container);color:var(--on-error-container)}
+.adm .sc.un{border:1px solid var(--outline)}
+.adm .srow.ok>.ms{color:var(--primary)}
+.adm .srow.bad>.ms{color:var(--error)}
+.adm .srow.un>.ms{color:var(--on-surface-variant)}
+.adm .sdot.un{background:var(--outline)}
+.adm .ri.bad{color:var(--error)}
+.adm .ri.bad .pill .ms{color:var(--error)}
+.adm .ri.un{color:var(--on-surface-variant)}
+.adm .rbtn{display:flex;gap:40px;flex-wrap:wrap}
+.adm .rbtn .cell{width:200px;background:var(--surface);border-radius:16px;border:1px solid var(--frame-line);padding:12px 0 16px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.adm .rbtn .cell .cap{font-size:12px;line-height:16px;color:var(--canvas-note);text-align:center;padding:0 10px}
+.adm .btn-o.sm,.adm .btn-t.sm,.adm .btn-f.sm,.adm .bulk .btn-x{height:48px}
+.adm .bulk{height:56px}
+.adm .cbc{width:48px;height:48px;margin:0 -4px}
+.adm .pchip{height:48px;padding:0 0 0 12px;border-radius:24px}
+.adm .pchip .x{width:48px;height:48px}
+.adm .fchips{flex-wrap:wrap;overflow:visible}
+.adm .pp{display:inline-flex;align-items:center;gap:4px;flex:none;margin-left:8px;height:24px;padding:0 8px 0 4px;border-radius:8px;border:1px solid var(--error);color:var(--error);font-size:12px;font-weight:500;white-space:nowrap}
+.adm .pp .ms{font-size:16px;width:16px;height:16px}
+.adm .pre{display:flex;flex-wrap:wrap;gap:0 8px;margin-top:4px}
+.adm .pre .fc{margin:0;height:32px}
+.adm .pdates{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.adm .fchips{flex:0 1 auto;flex-wrap:wrap;overflow:visible;min-width:0}
+.adm .btn-t.dis{background:var(--off-bg);color:var(--off-fg)}
+.adm .acts .btn-x{padding:0 12px;min-width:64px}
+.adm .pchip{height:48px;border-radius:24px}
+.adm .pchip .x{width:48px;height:48px}
+.adm .vis{width:48px;height:48px;margin-right:-12px}
+.adm .srow.un .nmx{color:var(--on-surface)}
+.adm .sc.look{border:1px solid var(--outline);color:var(--on-surface)}
+/* specimens of this section */
+.adm .astage{background:var(--sc-low);border:1px solid var(--outline-variant);border-radius:16px;padding:20px;position:relative;overflow:hidden}
+.adm .rbtn{gap:16px}
+.adm .cap2{font-size:12px;line-height:16px;color:var(--on-surface-variant);text-align:center;padding:0 10px}
+.adm .tbox{display:flex;flex-direction:column;padding-bottom:8px}
+.adm .wire{position:relative;height:150px;background:var(--sc-low);border:1px solid var(--outline-variant);border-radius:12px;overflow:hidden;display:flex;box-sizing:border-box}
+.adm .wl{flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--on-surface-variant)}
+.adm .wp{background:var(--sc);border-left:1px solid var(--outline-variant);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;text-align:center}
+.adm .wscrim{position:absolute;inset:0;background:var(--scrim-l)}
+.adm .wsheet{position:absolute;right:0;top:0;bottom:0;width:230px;background:var(--sc);box-shadow:0 4px 24px var(--shadow-sheet);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;text-align:center}
+.adm .wpg{height:44px;border-top:1px solid var(--outline-variant);display:flex;align-items:center;justify-content:flex-end;padding:0 16px;font-size:12px;color:var(--on-surface-variant);flex:none}
+.adm .wsn{position:absolute;left:12px;bottom:52px;background:var(--inv-surface);color:var(--on-inv);border-radius:4px;padding:0 16px;height:36px;display:flex;align-items:center;font-size:13px}
+.adm .rcell{display:flex;flex-direction:column;gap:10px;background:var(--sc);border-radius:16px;padding:16px;min-width:0}
+.adm .rcell p{margin:0;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+.adm .rcell b{font-size:15px;font-weight:500}
+.adm .rtag{align-self:flex-start;font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:var(--sc-highest);border-radius:5px}
+.adm .t48{display:inline-flex;align-items:center;justify-content:center;height:48px;min-width:48px;box-sizing:border-box;border:1px dashed var(--outline);border-radius:8px;padding:0 12px;font-size:14px}
+</style>
       </helmet>
       <div class="doc">
         <header class="sec" data-screen-label="Intro">
@@ -677,6 +842,110 @@
             </div>
           </div>
         </section>
+
+        <section class="sec adm" data-screen-label="Admin page">
+  <h2 class="h2">Admin page</h2>
+  <p class="note">The operator's page at <span class="mono">/admin/</span>, drawn in <span class="mono">Admin - Shell and Producers</span>, <span class="mono">Admin - Events</span> (and its states and dialogs), <span class="mono">Admin - Devices</span>, <span class="mono">Admin - Users</span>, <span class="mono">Admin - Status</span> and <span class="mono">Admin - Status and sign-in</span>, with the light theme in <span class="mono">Admin - Light theme check</span>. It uses the same tokens, type, shapes and wording as the users' web page; this section lists the components it adds and the rules its pages share. Desktop first: the rail is 88 px, the list takes the rest, the detail pane is 480 px. Below 1180 px the pane becomes a side sheet; at 390 px the rail is a bottom bar and a detail is a full screen. A text-only operator page: no Undo, no floating buttons, no sort arrows.</p>
+
+  <div class="spec"><h2 class="h2" style="font-size:16px;line-height:24px">Rail and the status button</h2>
+    <p class="note">Five destinations (Devices, Users, Producers, Events, Status) and, at the foot, the status button and the account avatar. The button reads <span class="mono">/api/v1/admin/status</span> and <span class="mono">/q/health</span> every 30 seconds (the rule is written once in the shell page's note). Each state differs by icon and word, never by colour alone. Pressing it opens Status.</p>
+    <div class="astage"><div class="rbtn">
+      <div class="cell"><div class="ri on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><span class="cap2">Selected destination: a secondary-container pill and an on-surface label.</span></div>
+      <div class="cell"><div class="ri"><span class="pill"><span class="ms">dns</span><span class="sdot"></span></span>Working</div><span class="cap2">Working: server icon, primary dot.</span></div>
+      <div class="cell"><div class="ri bad"><span class="pill"><span class="ms fill">warning</span></span>Check</div><span class="cap2">Needs attention: warning icon, the word Check in error.</span></div>
+      <div class="cell"><div class="ri un"><span class="pill"><span class="ms">dns</span><span class="sdot un"></span></span>Checking</div><span class="cap2">First check running: outline-colour dot.</span></div>
+      <div class="cell"><div class="ri un"><span class="pill"><span class="ms">help</span></span>Unknown</div><span class="cap2">Could not be read: question mark.</span></div>
+    </div></div></div>
+
+  <div class="spec"><h2 class="h2" style="font-size:16px;line-height:24px">Table rows and their states</h2>
+    <p class="note">A 56 px row: name (16 px, on-surface), then plain cells in on-surface-variant. The header cells are plain labels: the API has no sort, so Events say &ldquo;Newest first&rdquo; and other lists are ordered by the page, said in the page's note. A selected row is a secondary container with a 16 px radius; its detail opens in the pane. State is always a word or tag as well as colour.</p>
+    <div class="astage"><div class="tbox">
+      <div class="th gA"><span>Producer</span><span>Owner</span><span>Who sees it</span><span>Keys</span><span>Last event</span></div>
+      <div class="tr gA"><span class="nmc"><span class="nm">ana-reports</span></span><span class="own"><span class="av s">A</span>Ana</span><span>Public</span><span>1</span><span>yesterday</span></div>
+      <div class="tr gA sel"><span class="nmc"><span class="nm">homelab-monitor</span></span><span class="own"><span class="av s">R</span>Rodrigo</span><span>Private &middot; 2 people</span><span>2</span><span>12 min ago</span></div>
+      <div class="tr gA"><span class="nmc"><span class="nm">garage-door</span><span class="tg o">Disabled</span></span><span class="own"><span class="av s">R</span>Rodrigo</span><span>Private</span><span>1 (off)</span><span>12 days ago</span></div>
+      <div class="tr gA"><span class="nmc"><span class="nm">old-sensor</span><span class="tg">Quiet</span></span><span class="own"><span class="av s">A</span>Ana</span><span>Public</span><span>1</span><span>21 days ago</span></div>
+      <div class="tr gD rev"><span class="nmc"><span class="nm">Ana - Tablet</span><span class="tg">Revoked</span></span><span>Android</span><span>Revoked</span><span>last used 9 Oct</span></div>
+      <div class="tr gE unr"><span class="cbc"><span class="cb"></span></span><span class="nmc"><span class="ud"></span><span class="ms cic s-high">block</span><span class="nm">Build 1842 failed on main</span><span class="pp"><span class="ms">error</span>Push problems</span></span><span class="nm" style="font-size:14px;color:var(--on-surface-variant)">ci-pipeline</span><span><span class="sv high"><span class="ms">warning</span>High</span></span><span>Blocked</span><span>4 min</span></div>
+    </div>
+    <p class="cap">Rows: normal, selected, Disabled (outlined tag, its keys not working), Quiet (plain tag; no event for a week), Revoked (dimmed, with its tag; text stays 4.5 : 1 in both themes), and an unread event with the Push problems marker (an error outline with an icon and words).</p></div></div>
+
+  <div class="spec"><h2 class="h2" style="font-size:16px;line-height:24px">Detail pane and side sheet</h2>
+    <p class="note">At 1180 px and wider the pane is fixed at 480 px beside the list: header with a 22 px title and a close button, tabs only when the thing has them (Event, Pushes), a body that scrolls, and a foot with the actions that belong to the whole thing. Below 1180 px the same content is a side sheet 560 px wide from the right edge, over a 32% scrim and a shadow, closed by its button, Escape or the scrim. At 390 px it is a full screen with a back arrow.</p>
+    <div class="astage" style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+      <div class="wire" style="width:560px"><div class="wl">List</div><div class="wp" style="width:200px">Pane 480 px<br><span class="mono">&ge; 1180</span></div></div>
+      <div class="wire" style="width:420px"><div class="wl">List, full width</div><div class="wscrim"></div><div class="wsheet">Side sheet 560 px<br><span class="mono">&lt; 1180</span></div></div>
+    </div>
+    <div class="astage"><div class="pane" style="width:480px;border-radius:16px;height:280px">
+      <div class="phd"><div style="flex:1;min-width:0"><div class="t">Build 1842 failed on main</div></div><span class="ib" aria-label="Close"><span class="ms">close</span></span></div>
+      <div class="seg3"><span><span class="ms ms18">description</span>Event</span><span class="on"><span class="ms ms18">notifications</span>Pushes<span class="tg o" style="border-color:var(--error);color:var(--error)">2 problems</span></span></div>
+      <div class="pbody"><div class="t2">The pane's body: sections, key facts, lists.</div></div>
+      <div class="pfoot"><span class="btn-t"><span class="ms">mark_email_read</span>Mark read</span><span class="sp"></span><span class="btn-x dng"><span class="ms">delete</span>Delete event</span></div>
+    </div></div></div>
+
+  <div class="spec"><h2 class="h2" style="font-size:16px;line-height:24px">Bulk bar</h2>
+    <p class="note">Ticking a row's checkbox replaces nothing: the bar appears under the filter chips, 56 px high, in secondary container, with the count and the actions that apply to every selected row. Delete is an error text button; it opens a confirmation that names the count. Clear selection is the first action. Every button is 48 px high.</p>
+    <div class="astage"><div class="bulk"><span class="ib" aria-label="Clear selection"><span class="ms">close</span></span>3 selected<span class="sp"></span><span class="btn-x"><span class="ms">mark_email_read</span>Mark read</span><span class="btn-x"><span class="ms">mark_email_unread</span>Mark unread</span><span class="btn-x dng"><span class="ms">delete</span>Delete</span></div></div></div>
+
+  <div class="spec"><h2 class="h2" style="font-size:16px;line-height:24px">Filter chips, their menu and the date range</h2>
+    <p class="note">One 32 px outlined chip per filter; a chip with a choice is secondary container with a check and its value. Producer, Category and Severity choose several values, so their menu has checkboxes and stays open until closed; Read state and the push-problems chip are single choice or on/off. Received opens a panel with a from and a before date (the API takes both) and presets. A chosen filter is also in the address. Chip rows wrap onto a second line (R6): no chip is ever hidden.</p>
+    <div class="astage" style="position:relative;min-height:300px"><div class="fchips" style="flex-wrap:wrap"><span class="fc">Read state<span class="ms ms18">arrow_drop_down</span></span><span class="fc on"><span class="ms ms18">check</span>Severity: High, Critical<span class="ms ms18">arrow_drop_down</span></span><span class="fc">Push problems</span><span class="fc">Producer<span class="ms ms18">arrow_drop_down</span></span><span class="fc">Category<span class="ms ms18">arrow_drop_down</span></span></div>
+      <div class="menu2" style="left:240px;top:68px;width:240px"><div class="msel"><span class="cb on"><span class="ms">check</span></span>Critical</div><div class="msel"><span class="cb on"><span class="ms">check</span></span>High</div><div class="msel"><span class="cb"></span>Normal</div><div class="msel"><span class="cb"></span>Low</div></div>
+      <div class="fpanel" style="position:absolute;left:510px;top:68px;width:340px;margin:0;z-index:4;box-shadow:0 4px 16px var(--shadow)"><div class="pdates"><div class="tf focus" style="margin-top:12px"><span class="fl" style="background:var(--sc)">From</span>3 Oct 2026</div><div class="tf" style="margin-top:12px"><span class="fl" style="background:var(--sc)">Before</span>11 Oct 2026</div></div><div class="pre" style="padding-bottom:8px"><span class="fc">Today</span><span class="fc">Last 7 days</span><span class="fc">Last 30 days</span></div></div>
+    </div></div>
+
+  <div class="spec"><h2 class="h2" style="font-size:16px;line-height:24px">Technical details, status rows, sign-in and pager</h2>
+    <p class="note">Technical details is a fold, closed by default, that holds raw ids, check names and values in monospace with a Copy action; nothing in it is secret. A Status row says a part, its value, one line on what to do, and a chip with an icon and a word (Working, Needs attention, Look, Could not read); problem rows have an error edge and tint. The sign-in card is one field for the admin token (kept in the page only), a show toggle and one button. The pager is Newer and Older, since the list is cursor based.</p>
+    <div class="astage" style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+      <div style="width:460px;background:var(--sc);border-radius:16px;padding:0 16px 8px"><div class="fold" style="border-top:0"><span class="ms">expand_less</span>Technical details<span class="sp"></span><span class="btn-x"><span class="ms">content_copy</span>Copy</span></div><div class="tech" style="margin:0 0 8px">GET /q/info   signalhub.version  3.8.0
+              signalhub.revision a1b2c3d4e5f6</div></div>
+      <div style="width:640px;background:var(--sc-low);border-radius:16px;overflow:hidden">
+        <div class="srow ok" style="grid-template-columns:28px 160px minmax(0,1fr) 168px"><span class="ms">database</span><span class="nmx">Database</span><div class="vl">Connected.<span class="do">If it goes wrong: check the database container.</span></div><span class="sc ok"><span class="ms">check_circle</span>Working</span></div>
+        <div class="srow bad" style="grid-template-columns:28px 160px minmax(0,1fr) 168px"><span class="ms">notification_important</span><span class="nmx">Push service</span><div class="vl">Every device failed its last push.<span class="do"><b>What to do:</b> read each failure on Devices.</span></div><span class="sc bad"><span class="ms fill">error</span>Needs attention</span></div>
+        <div class="srow un" style="grid-template-columns:28px 160px minmax(0,1fr) 168px"><span class="ms">phonelink_erase</span><span class="nmx">Devices whose last push failed</span><div class="vl">3 devices &middot; <a>Open Devices</a></div><span class="sc look"><span class="ms">info</span>Look</span></div>
+      </div>
+      <div class="sic" style="width:340px;padding:24px"><span class="rlogo"><span class="ms">sensors</span></span><h2 style="font-size:22px;line-height:28px">SignalHub admin</h2><div class="tf focus"><span class="fl">Admin token</span>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;<span class="vis"><span class="ms">visibility</span></span></div><div class="acts"><span class="btn-f go">Sign in</span></div></div>
+    </div>
+    <div class="astage" style="padding:0"><div class="pgr" style="margin:0"><span>Newest 25 events</span><span class="sp"></span><span class="btn-o sm dis"><span class="ms">chevron_left</span>Newer</span><span class="btn-o sm" style="padding:0 16px 0 24px">Older<span class="ms">chevron_right</span></span></div></div></div>
+
+  <div class="spec"><h2 class="h2" style="font-size:16px;line-height:24px">Rules every admin page follows (R1 to R6)</h2>
+    <div class="astage" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:24px">
+      <div class="rcell"><div class="rtag">R1</div><b>Dialog actions are text buttons</b><p>48 px high; the confirming one in primary, a destructive one in error. Never a filled red button, and form dialogs follow the same rule.</p>
+        <div class="dlg" style="width:100%"><h4 style="font-size:20px;line-height:28px;margin-bottom:8px">Revoke this device?</h4><p style="font-size:14px;line-height:20px">It stops working and stays listed.</p><div class="acts"><span class="btn-x">Cancel</span><span class="btn-x dng">Revoke</span></div></div></div>
+      <div class="rcell"><div class="rtag">R2</div><b>Header actions are tonal</b><p>New producer, Connect a device, Invite a user, Send a test event: secondary container, on the admin page and on the web page. Filled is for the one primary action of a form.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap"><span class="btn-t"><span class="ms">add</span>New producer</span><span class="btn-t"><span class="ms">science</span>Send a test event</span><span class="btn-f">Sign in</span></div></div>
+      <div class="rcell"><div class="rtag">R3</div><b>Snack bars never cover a control, and carry no Undo</b><p>Bottom left of the list area, above the pager and the pane's foot, which stay reachable; gone after 8 seconds or on Dismiss. The page confirms instead of offering Undo. Retry is allowed on a failure.</p>
+        <div class="wire" style="width:100%;height:150px;flex-direction:column"><div class="wl" style="height:92px">List area</div><div class="wpg">Newer &nbsp; Older</div><div class="wsn">Key revoked</div></div></div>
+      <div class="rcell"><div class="rtag">R4</div><b>Every control is 48 px high</b><p>Pager and bulk buttons, row checkbox hit area, the chip's remove x, the snack action, the token toggle. The visible shape can be smaller (a 18 px box, a 32 px chip); the target is not.</p>
+        <div style="display:flex;gap:16px;align-items:center"><span class="t48"><span class="cb"></span></span><span class="pchip" style="border-radius:24px">Ana<span class="x"><span class="ms ms18">close</span></span></span><span class="t48 w">Dismiss</span></div></div>
+      <div class="rcell"><div class="rtag">R6</div><b>Chip rows wrap</b><p>On the admin page and on the web page the chip row goes onto a second line at narrow widths, so the Disabled chip is never hidden (the app's chips still scroll sideways).</p>
+        <div class="fchips" style="flex-wrap:wrap;width:260px"><span class="fc on"><span class="ms ms18">check</span>All</span><span class="fc">Quiet</span><span class="fc">Disabled</span><span class="fc">Public</span><span class="fc">Private</span><span class="fc">Owner: anyone</span></div></div>
+    </div>
+    <table class="tbl"><tr><th>R5 wording</th><th>Use</th><th>Meaning</th></tr>
+      <tr><td>Create</td><td>&ldquo;Create&rdquo; in a create dialog</td><td>Never &ldquo;Create producer&rdquo;.</td></tr>
+      <tr><td>Could not</td><td>&ldquo;Could not save the name&rdquo;</td><td>Never a contraction.</td></tr>
+      <tr><td>Send a test event</td><td>Everywhere, the same words</td><td>An event sent as an existing producer.</td></tr>
+      <tr><td>Revoke</td><td>A device, a browser, a key or a user</td><td>Stops working and stays listed.</td></tr>
+      <tr><td>Delete</td><td>Only revoked devices, and events</td><td>Gone for good.</td></tr>
+      <tr><td>Disable, Enable</td><td>A producer</td><td>Its keys stop or start working; its events stay.</td></tr>
+      <tr><td>Remove</td><td>One entry out of a list (an allowed user)</td><td>Ends that person's subscription.</td></tr>
+      <tr><td>Unsubscribe</td><td>A subscription</td><td>That producer's events are hidden, old ones too.</td></tr>
+      <tr><td>People</td><td>Their name or &ldquo;they&rdquo;</td><td>No he or she.</td></tr></table>
+    <p class="note">Two older lines of this page are changed by these rules for the web page and the admin page only: <b>Undo or confirm</b> (a snackbar with Undo, for subscribe and unsubscribe) holds in the app; on the web and admin pages the page confirms instead; and <b>chips that never wrap</b> holds in the app; on the web and admin pages chips wrap (R6, the owner's choice of web option A). They are updated in <span class="mono">DESIGN.md</span> at export.</p></div>
+
+  <div class="spec"><h2 class="h2" style="font-size:16px;line-height:24px">Motion on the admin page</h2>
+    <p class="note">Short and quiet: this is a tool for operating. Entering things ease out (decelerate) so they answer at once; leaving things are faster than entering; nothing starts from scale 0; only opacity and transform change. Row selection and tab changes do not animate. Everything is interruptible: a new action reverses the one running.</p>
+    <table class="tbl"><tr><th>What</th><th>Enter</th><th>Leave</th><th>Easing</th></tr>
+      <tr><td>Detail pane (&ge; 1180 px)</td><td>200 ms: slides 24 px from the right and fades in</td><td>150 ms fade</td><td><span class="mono">cubic-bezier(.05,.7,.1,1)</span> (emphasized decelerate)</td></tr>
+      <tr><td>Side sheet (&lt; 1180 px)</td><td>250 ms from the right edge; the scrim fades in over the same 250 ms</td><td>150 ms, then the scrim</td><td>decelerate in, <span class="mono">cubic-bezier(.3,0,.8,.15)</span> out</td></tr>
+      <tr><td>Dialog</td><td>200 ms: fades and scales from 0.9 to 1 around its centre</td><td>100 ms fade</td><td>decelerate in, accelerate out</td></tr>
+      <tr><td>Filter menu and date panel</td><td>100 ms: fades and scales from 0.95, from the chip it belongs to</td><td>80 ms fade</td><td>decelerate</td></tr>
+      <tr><td>Bulk bar</td><td>150 ms cross-fade with the space it takes (the table does not jump)</td><td>100 ms</td><td>decelerate</td></tr>
+      <tr><td>Snack bar</td><td>200 ms: fades and rises 8 px</td><td>150 ms fade, after 8 s or on Dismiss</td><td>decelerate</td></tr>
+      <tr><td>Row selected, tab changed, Technical details folded</td><td>No animation (the content changes at once)</td><td>&mdash;</td><td>&mdash;</td></tr>
+      <tr><td>Loading bar and the sign-in spinner</td><td>Looping; a still bar and a still ring when motion is reduced</td><td>&mdash;</td><td>linear</td></tr>
+      <tr><td>Reduced motion</td><td>No slide and no scale: opacity only, 100 ms at most</td><td>Opacity only</td><td>linear</td></tr></table></div>
+</section>
 
         <section class="sec" data-screen-label="Contrast">
           <h2 class="h2">Contrast, checked</h2>
