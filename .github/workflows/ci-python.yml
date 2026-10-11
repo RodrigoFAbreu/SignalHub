@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   python:
-    name: Python (lint + test)
+    name: Python and workflows (lint + test)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -46,6 +46,9 @@ jobs:
         run: |
           python3.10 -m pip install ./sdk/python
           python3.10 -m unittest discover --start-directory sdk/python/tests --top-level-directory sdk/python
+      # The script that measures a run of this workflow (docs/development.md#measuring-a-run).
+      - name: Test the CI measuring script
+        run: python -m unittest discover --start-directory scripts/ci --verbose
       # The helpers of the container tests, which the container jobs then run
       # against a stack (container-tests/README.md).
       - name: Test the helpers of the container tests
@@ -56,13 +59,11 @@ jobs:
           shellcheck examples/*/*.sh scripts/release/*.sh scripts/ci/*.sh
           python -m unittest discover --start-directory examples/tests --verbose
 
-  workflows:
-    name: GitHub Actions lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
+      # The workflows themselves, after the Python checks so that both are reported.
       # The actionlint image bundles shellcheck, so `run:` scripts are checked too.
       # It is pinned in .github/tools/actionlint/Dockerfile for Dependabot.
       # The example workflow of examples/github-actions is checked with the repository's own.
-      - run: docker build --quiet --tag actionlint .github/tools/actionlint
-      - run: docker run --rm --volume "$PWD:/repo" --workdir /repo actionlint -color .github/workflows/*.yml examples/github-actions/*.yml
+      - if: ${{ !cancelled() }}
+        run: docker build --quiet --tag actionlint .github/tools/actionlint
+      - if: ${{ !cancelled() }}
+        run: docker run --rm --volume "$PWD:/repo" --workdir /repo actionlint -color .github/workflows/*.yml examples/github-actions/*.yml

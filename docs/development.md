@@ -158,7 +158,7 @@ Pull requests build the image the same way on both platforms (the image
 part of CI, `Backend image (release build)`), with the test version `0.0.0-ci`,
 and run the same checks, without pushing; the jobs that start a stack load that
 build instead of making their own (see
-[Continuous integration](#continuous-integration)). The `Python (lint + test)`
+[Continuous integration](#continuous-integration)). The `Python and workflows (lint + test)`
 job builds the SDK's files with `sdk_files.py` and the test version `0.0.0+ci`
 (a version Python packaging accepts). The Android build of the app part builds
 and checks the app with `app_files.py` and the test version `0.0.0-ci`
@@ -1163,7 +1163,7 @@ filters, producers and keys, people and devices for each role, every server
 value rendered as text (an event, a name and a link full of markup), the policy
 headers of every file, that no request leaves the page's origin and no script
 or policy violation happens on any screen, framing, focus order, dialogs and
-the light theme. The "Web page (browser tests)" job runs them in CI. Tests that mean a
+the light theme. The `Stacks (web page, ...)` job runs them in CI. Tests that mean a
 working clipboard get the permission from `useSession` (a headless Chromium
 refuses a copy otherwise); the refused-copy test removes it. When the CI job
 fails it uploads `web-tests/.results` (traces) and `web-tests/playwright-report`.
@@ -1202,12 +1202,11 @@ be run alone, from the *Actions* tab (*Run workflow*, on a branch) or with
 
 | Part (workflow) | What it checks |
 |---|---|
-| `ci-python.yml` | `ruff`, the release scripts, the device-review script, the Python SDK (also on its oldest Python), the integration examples, the container tests' helpers, and the workflows themselves (*GitHub Actions lint*) |
+| `ci-python.yml` | One job: `ruff`, the release scripts, the device-review script, the Python SDK (also on its oldest Python), the integration examples, the container tests' helpers, and the workflows themselves (*GitHub Actions lint*) |
 | `ci-backend.yml` | `./mvnw verify` in `backend/`: build, tests against real PostgreSQL, format and SpotBugs |
 | `ci-app.yml` | The app: format, analysis and tests; the release's Android build, signed with a throwaway key; the iOS build |
 | `ci-image.yml` | The release's build of the backend image on x86-64 and natively on ARM64, and its checks. The only place CI builds the image |
-| `ci-web.yml` | The users' web page in a browser (`web-tests/`) against the stack |
-| `ci-containers.yml` | The Compose stack on both architectures, the upgrades, the fresh install of [deployment.md](deployment.md#setup) and the end-to-end path of an event, all checked by `container-tests/` |
+| `ci-containers.yml` | Everything that starts the backend as a container, in four jobs: the users' web page in a browser (`web-tests/`), the Compose stack on both architectures, the upgrades, the fresh install of [deployment.md](deployment.md#setup) and the end-to-end path of an event, all but the first checked by `container-tests/` |
 
 **Less repeated work.** The image part builds the backend image once per
 architecture, the way the release builds it (`signalhub-backend:check`, version
@@ -1221,13 +1220,40 @@ downloads and pip's are cached by `setup-java` and `setup-python`. Stacks come
 up with readiness checks (`docker compose up --wait`, `wait_until` in the
 tests), never fixed waits.
 
-**Required checks.** The ruleset *Main Protected* requires each check below by
-name. A job of a called workflow is reported as `<caller job> / <job>`, so the
-`required` job of `ci.yml` reports each required name itself, passing only when
-the part that holds its job passed. A part that fails therefore fails the names
-of all its jobs; the failing job itself is listed above them. Adding a job
-whose result must gate merging means adding its name to the matrix of
-`required` and to the ruleset (see [Repository settings](#repository-settings-github)).
+**One required check.** The ruleset *Main Protected* requires `CI passed` and
+`Conventional Commit title`, and nothing else. `CI passed` is the last job of
+`ci.yml`: it needs every part, runs even when one failed, and fails unless every
+part succeeded (a part that was skipped or cancelled does not pass it either), so
+no check is less checked for being reported by one name. The failing job itself is
+listed above it. A new job needs no change to the ruleset: it belongs to a part
+the aggregate already needs. A new part is added to the aggregate's `needs`.
+
+**Few runners at once.** The free plan shares 20 runners (5 on macOS) between all
+of the maintainer's repositories, so a pull request's CI holds few of them at the
+same time rather than many for a short while: at most 6 Linux jobs and 1 macOS
+job at once, in about the time it took with many more. Short jobs that fit within
+the longest one run one after another in one job (the Python checks and the
+workflow lint; the stack tests of `ci-containers.yml`, in lanes of about the
+same length, each test a composite action `.github/actions/stack-*` that leaves no
+stack, file or setting for the next, and that does not stop the others when it
+fails), and parts start in stages: the two that start a stack wait for the images
+of the image part (`needs`). Add a test to the lane that keeps the run no longer;
+measure it (below) before and after.
+
+### Measuring a run
+
+`scripts/ci/run_stats.py` reports a run's jobs, the peak number running at once
+(Linux and macOS apart), the runner-minutes (exact, and rounded up per job as
+GitHub bills them), the longest wait for a runner and the wall time, from the
+jobs API (it needs the `gh` command, signed in):
+
+```sh
+scripts/ci/run_stats.py <run id> [<run id> ...]    # e.g. from `gh run list --workflow ci.yml`
+python -m unittest discover --start-directory scripts/ci --verbose   # its tests (CI runs them)
+```
+
+A pull request that changes CI gives these numbers for a few runs before and
+after.
 
 ### Container tests
 
@@ -1239,12 +1265,12 @@ against a local `docker compose up`:
 
 | Pattern | Stack it needs | CI job |
 |---|---|---|
-| `test_helpers.py` | none (a throwaway server) | *Python (lint + test)* |
-| `test_compose_*.py` | Compose, with the `proxy` profile (some tests are skipped without it) | *Compose smoke test* |
-| `test_operations_*.py` | the same stack; they stop PostgreSQL, restart the backend and **replace the database from a backup, removing its volume** | *Compose smoke test*, after the others |
-| `test_e2e.py` | FCM push enabled against `scripts/e2e/fake_fcm.py`, see the job | *End-to-end* |
-| `test_install.py` | the fresh install of the deployment files, see the job | *Deployment (fresh install ...)* |
-| `test_upgrade.py` | an earlier release's stack, upgraded in place, see the job | *Backend container (upgrade from ...)* |
+| `test_helpers.py` | none (a throwaway server) | *Python and workflows (lint + test)* |
+| `test_compose_*.py` | Compose, with the `proxy` profile (some tests are skipped without it) | *Stacks (Compose smoke test ...)* |
+| `test_operations_*.py` | the same stack; they stop PostgreSQL, restart the backend and **replace the database from a backup, removing its volume** | *Stacks (Compose smoke test ...)*, after the others |
+| `test_e2e.py` | FCM push enabled against `scripts/e2e/fake_fcm.py`, see the job | *Stacks (end-to-end ...)* |
+| `test_install.py` | the fresh install of the deployment files, see the job | *Stacks (... fresh install ...)* |
+| `test_upgrade.py` | an earlier release's stack, upgraded in place, see the job | *Stacks (... upgrade from ...)* |
 
 Against a stack of your own (never one that holds data you care about: the tests
 create users, producers, devices and events with random names, and the
@@ -1370,16 +1396,9 @@ repository:
   description). Without this, a single-commit PR uses its commit message
   instead of the validated PR title.
 - Protect `main` (the ruleset *Main Protected*): require a pull request, and
-  require every CI check by name, the 14 that the `required` job of
-  `.github/workflows/ci.yml` reports and `Conventional Commit title`:
-  `Python (lint + test)`, `GitHub Actions lint`, `Backend (build + test)`,
-  `Client (analyze + test + Android build)`, `Client (iOS build)`,
-  `Backend image (release build)`, `Backend image (release build, ARM64)`,
-  `Web page (browser tests)`, `Backend container (Compose smoke test)`,
-  `Backend container (Compose smoke test, ARM64)`, `Backend container (upgrade
-  from the latest release)`, `Backend container (upgrade from v0.13.0)`,
-  `End-to-end (producer to push and client inbox)` and `Deployment (fresh
-  install from docs/deployment.md)`. Require branches to be up to date before
+  require two checks by name, `CI passed` (the aggregate job of
+  `.github/workflows/ci.yml`, which fails unless every part of CI succeeded) and
+  `Conventional Commit title`. Require branches to be up to date before
   merging.
 - Actions workflow permissions must allow `contents: write` for the release
   job (it requests this explicitly).

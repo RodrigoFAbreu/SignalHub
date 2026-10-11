@@ -1,0 +1,98 @@
+name: Fresh install test
+description: >-
+  A fresh install that follows docs/deployment.md#setup to the letter, from a
+  release's deployment files, with the FCM key and resource limits it points to,
+  then the tightest secret setup and a restart of Docker, as after a host reboot.
+  The image built for this commit, and the deployment files naming it, stand in
+  for what its release will publish and attach. Needs the images loaded and the
+  Python SDK installed. Removes the development image, so it runs after the tests
+  that start it (the job's order). Leaves no stack, file or setting for the next
+  test of the same job.
+
+runs:
+  using: composite
+  steps:
+    # So that nothing runs the development build by mistake.
+    - shell: bash
+      run: |
+        docker image rm signalhub-backend:local || true
+        echo "SIGNALHUB_COMPOSE_DIR=$RUNNER_TEMP/signalhub" >> "$GITHUB_ENV"
+    - name: Pack what the release attaches
+      shell: bash
+      run: |
+        mkdir "$RUNNER_TEMP/release"
+        python scripts/release/deployment_files.py signalhub-backend:check 0.0.0-ci "$RUNNER_TEMP/release"
+        (cd "$RUNNER_TEMP/release" && sha256sum signalhub-0.0.0-ci-deployment.tar.gz > SHA256SUMS)
+    - name: Get the deployment files as documented
+      shell: bash
+      run: |
+        mkdir "$SIGNALHUB_COMPOSE_DIR"
+        cd "$SIGNALHUB_COMPOSE_DIR"
+        # Stands in for the download from the release.
+        cp "$RUNNER_TEMP"/release/* .
+        sha256sum --check --ignore-missing SHA256SUMS
+        tar --extract --file signalhub-0.0.0-ci-deployment.tar.gz
+    # .env from the example, with generated secrets and mode 600.
+    - uses: ./.github/actions/prepare-env
+      with:
+        directory: ${{ env.SIGNALHUB_COMPOSE_DIR }}
+    - name: Set up the proxy, the FCM key and the resource limits as documented
+      shell: bash
+      working-directory: ${{ env.SIGNALHUB_COMPOSE_DIR }}
+      env:
+        DOMAIN: signalhub.home.arpa
+      run: |
+        # The name clients use resolves to this host.
+        echo "127.0.0.1 $DOMAIN" | sudo tee --append /etc/hosts
+        printf '%s\n' COMPOSE_PROFILES=proxy "SIGNALHUB_DOMAIN=$DOMAIN" SIGNALHUB_TLS=internal >> .env
+        # A throwaway service account key outside the repository; nothing is
+        # sent, so it never reaches Google.
+        key_file="$RUNNER_TEMP/fcm-service-account.json"
+        openssl genpkey -quiet -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$RUNNER_TEMP/fcm-key.pem"
+        jq --null-input --rawfile key "$RUNNER_TEMP/fcm-key.pem" '{
+            type: "service_account", project_id: "signalhub-fresh-install", private_key_id: "ci",
+            private_key: $key, client_email: "signalhub@signalhub-fresh-install.iam.gserviceaccount.com",
+            token_uri: "https://oauth2.googleapis.com/token"}' > "$key_file"
+        # The permissions of docs/deployment.md#secrets.
+        chmod 400 "$key_file" && sudo chown 10001 "$key_file"
+        # docs/development.md#firebase-cloud-messaging and architecture.md#resources.
+        cat > compose.override.yaml <<YAML
+        services:
+          backend:
+            mem_limit: 512m
+            cpus: 1
+            environment:
+              SIGNALHUB_PUSH_FCM_CREDENTIALS_FILE: /run/secrets/fcm.json
+            volumes:
+              - $key_file:/run/secrets/fcm.json:ro
+          postgres:
+            mem_limit: 256m
+        YAML
+    - name: Start the stack
+      shell: bash
+      working-directory: ${{ env.SIGNALHUB_COMPOSE_DIR }}
+      run: docker compose up --wait
+    - name: The install's checks, then the tightest setup and a restart of Docker
+      shell: bash
+      env:
+        SIGNALHUB_URL: http://localhost:8080
+        SIGNALHUB_PROXY_URL: https://signalhub.home.arpa
+        SIGNALHUB_EXPECT_IMAGE: signalhub-backend:check
+        SIGNALHUB_EXPECT_RELEASE: 0.0.0-ci
+        SIGNALHUB_EXPECT_FCM_PROJECT: signalhub-fresh-install
+        SIGNALHUB_ALLOW_DOCKER_RESTART: "1"
+      run: python -m unittest discover --start-directory container-tests --pattern 'test_install.py' --verbose
+    - if: failure()
+      shell: bash
+      working-directory: ${{ env.SIGNALHUB_COMPOSE_DIR }}
+      run: docker compose logs
+    - if: always()
+      shell: bash
+      working-directory: ${{ env.SIGNALHUB_COMPOSE_DIR }}
+      run: docker compose down --volumes
+    - if: always()
+      shell: bash
+      run: |
+        sudo rm -rf "$SIGNALHUB_COMPOSE_DIR" "$RUNNER_TEMP/release" "$RUNNER_TEMP/fcm-service-account.json" "$RUNNER_TEMP/fcm-key.pem"
+        # An empty setting is an unset one to the tests.
+        echo "SIGNALHUB_COMPOSE_DIR=" >> "$GITHUB_ENV"
