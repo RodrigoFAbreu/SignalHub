@@ -210,8 +210,6 @@ jobs:
               | grep --quiet "^$postgres"
           fi
           docker compose up --wait --wait-timeout 180
-          # As docs/deployment.md#upgrades says: Caddy reads its configuration at start.
-          if [ -n "$SIGNALHUB_PROXY_URL" ]; then docker compose restart proxy; fi
           # The proxy has no health check.
           docker compose ps --format '{{.Service}}: {{.Health}}' | grep --invert-match '^proxy: ' | sort | tee "$RUNNER_TEMP/health"
           test "$(cat "$RUNNER_TEMP/health")" = "$(printf 'backend: healthy\npostgres: healthy')"
