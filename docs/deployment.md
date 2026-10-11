@@ -345,6 +345,7 @@ not tested.
    ```sh
    docker compose pull
    docker compose up --wait
+   docker compose restart proxy   # only with the proxy profile
    docker image prune --force   # removes the images the upgrade replaced
    ```
 
@@ -355,6 +356,12 @@ not tested.
    errors (the `signalhub` command exits with status 3, a temporary
    failure) and should retry; pushes that were pending are sent once it is
    back. Nothing that was acknowledged is lost.
+
+   Caddy reads `proxy/Caddyfile` only when it starts, and Compose does not
+   notice that the file changed, so `docker compose restart proxy` puts the
+   release's configuration in effect (a moment without TLS; certificates
+   are kept). CI checks it on every change (the upgrade jobs, which also
+   upgrade a stack of v3.5.0 whose proxy does not forward `/app/`).
 5. **Check** that every service is healthy and the startup summary is as
    expected (see [Health monitoring](#health-monitoring)):
 
@@ -362,6 +369,18 @@ not tested.
    docker compose ps --format '{{.Service}}: {{.Health}}'
    docker compose logs backend | grep 'Configuration:'
    ```
+
+### A proxy that still answers 404 for /app/
+
+Upgrades up to v3.6.3 did not restart the proxy, which keeps the
+configuration it started with: an install that upgraded from v3.5.x or
+earlier to v3.6.0 or later, using the proxy profile, answers `404` for
+`/app/` and the users' page. Restart the proxy once; later upgrades do it
+in step 4:
+
+```sh
+docker compose restart proxy
+```
 
 ### From a clone of the repository
 

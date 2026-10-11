@@ -2482,6 +2482,27 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   and the container tests themselves in the container jobs. Measurements are
   in the pull request. Compatible (`ci`)
 
+### R71 - An upgrade puts the proxy's new configuration in effect
+
+- **built**: the upgrade steps of `docs/deployment.md` restart the proxy
+  (`docker compose restart proxy`, with the proxy profile), and the
+  documentation says how an install already on 3.6.0 or later restarts it
+  once. The upgrade jobs run the proxy: they upgrade the latest release and
+  v3.5.0 (whose `proxy/Caddyfile` does not forward `/app/`) and check
+  through the proxy that `/app/` answers and the admin paths do not, then
+  replace `proxy/Caddyfile` alone and check that the restart puts it in
+  effect. The new test fails without the restart (shown in the pull request)
+- **decided**: Compose hashes neither a bind-mounted file's content nor a
+  `configs` file's, so `up --wait` never recreates the proxy for a changed
+  Caddyfile. A restart is enough: Docker resolves a bind mount's path again
+  each time a container starts, so the restarted proxy reads the new file
+  (CI proves it with a file replaced as extraction does), and no change to
+  `compose.yaml` is needed. Caddy's `--watch` would need its admin API,
+  which the proxy keeps off. The new job is reported by the `containers`
+  part of `required`, so no required name changed
+- tests: `container-tests/test_upgrade.py` (`ProxyAfterUpgrade`,
+  `ProxyAfterConfigChange`) in the upgrade jobs. Compatible (`fix`)
+
 ---
 
 ## 4. Planned roadmap
@@ -3071,7 +3092,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 58    | R65 - Users in the app                                                                           | Increment (`feat(client)`)             | Done (see section 3)                                                             |
 | 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 60    | R70 - CI in reusable workflows, container checks as tests, and faster                            | Increment (`ci`)                       | Done (see section 3)                                                             |
-| 61    | R71 - An upgrade puts the proxy's new configuration in effect                                    | Increment (`fix`)                      | Next                                                                             |
+| 61    | R71 - An upgrade puts the proxy's new configuration in effect                                    | Increment (`fix`)                      | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -5768,7 +5789,7 @@ lower, or why one could not be lowered.
 
 ### R71 - An upgrade puts the proxy's new configuration in effect
 
-Status: next. Added by the maintainer (2026-10-11).
+Status: done (see section 3). Added by the maintainer (2026-10-11).
 
 Goal: an upgrade done as `docs/deployment.md` says always runs the proxy
 with the release's `proxy/Caddyfile`, so what a release forwards (such as
@@ -5945,8 +5966,8 @@ updates), R68 (people's details for admins in the client API) and R69
 maintainer approved the designs at G4, and R65 (users in the app) is
 done, and so is R66 (users' web page) with the app's *Sign in a browser*.
 So is R70 (CI in reusable workflows, container checks as tests, and
-faster). **R71 (an upgrade puts the proxy's new configuration in
-effect) is next.** A new item is added only by the maintainer, in a
+faster), and R71 (an upgrade puts the proxy's new configuration in
+effect). **No increment is queued.** A new item is added only by the maintainer, in a
 reviewed pull request; the deferred candidates of section 5 are not
 started without that.
 
