@@ -225,11 +225,9 @@ class AdminPageTest {
             "id=\"status-button\" href=\"#status\" aria-label=\"Server status: checking\""));
     assertTrue(page.contains("id=\"account\" class=\"acct\" aria-label=\"Account\""));
     assertTrue(page.contains("<main id=\"main\" class=\"main\">"));
-    // Users is in the new shell with its earlier content until it is rebuilt; Events is rebuilt.
-    assertTrue(
-        page.contains(
-            "<div id=\"section-users\" class=\"legacy-section\" data-section=\"users\" hidden>"));
-    assertFalse(page.contains("section-events"));
+    // Every section is drawn by its module into the one container.
+    assertTrue(page.contains("<div id=\"sect\" class=\"sect\"></div>"));
+    assertFalse(page.contains("section-"));
     var router = source("router.js");
     assertTrue(
         router.contains(
@@ -446,7 +444,8 @@ class AdminPageTest {
           "list.js",
           "events.js",
           "event-pane.js",
-          "event-dialogs.js"
+          "event-dialogs.js",
+          "users.js"
         }) {
       var script = source(path);
       // The words of a button or a message: a comment may say there is none.
@@ -485,51 +484,48 @@ class AdminPageTest {
 
   @Test
   void thePageManagesUsersWithTheManagementApiAndAsksBeforeWhatCannotBeUndone() {
-    var script = given().get("/admin/js/users.js").then().statusCode(200).extract().asString();
+    var script = source("users.js");
     assertTrue(source("api.js").contains("export const USERS = \"/api/v1/admin/users\";"));
     // Inviting, renaming, setting the role (admin included) and revoking go through the API.
-    assertTrue(
-        script.contains(
-            "await call(\"POST\", USERS, { name: $(\"invite-name\").value.trim(), role:"
-                + " $(\"invite-role\").value });"));
+    assertTrue(script.contains("call(\"POST\", USERS, { name: value, role })"));
     assertTrue(script.contains("call(\"PATCH\", `${USERS}/${user.id}`, { role })"));
-    assertTrue(script.contains("call(\"PATCH\", `${USERS}/${user.id}`, { name: name.trim() })"));
-    // Making a user an admin and revoking a user each ask first.
+    assertTrue(script.contains("call(\"PATCH\", `${USERS}/${user.id}`, { name })"));
+    assertTrue(script.contains("call(\"POST\", `${USERS}/${user.id}/revoke`)"));
+    // Subscribing is harmless and needs no question; unsubscribing hides events, so it asks.
     assertTrue(
-        Pattern.compile(
-                "if \\(!confirm\\(question\\)\\) return;\\s*"
-                    + "changeUser\\(\\(\\) => call\\(\"PATCH\", `\\$\\{USERS\\}/\\$\\{user\\.id\\}`, \\{ role \\}\\)\\);")
-            .matcher(script)
-            .find());
+        script.contains("call(\"PUT\", `${USERS}/${user.id}/subscriptions/${producer.id}`)"));
     assertTrue(
-        Pattern.compile(
-                "if \\(!confirm\\(question\\)\\) return;\\s*"
-                    + "changeUser\\(\\(\\) => call\\(\"POST\", `\\$\\{USERS\\}/\\$\\{user\\.id\\}/revoke`\\)\\);")
-            .matcher(script)
-            .find());
-    // A device is connected to a user, in the Devices section's dialog with the user chosen.
-    assertTrue(script.contains("openConnect({ user });"));
+        script.contains("call(\"DELETE\", `${USERS}/${user.id}/subscriptions/${producer.id}`)"));
+    assertTrue(script.contains("title: `Unsubscribe ${user.name} from ${producer.name}?`"));
+    // A role change and a revoke are confirmations, never the browser's confirm().
+    assertTrue(script.contains("return confirmDialog({\n    title,\n    message,"));
+    assertTrue(script.contains("title: `Revoke ${user.name}?`"));
+    // The server has no last-admin guard: the page warns, then goes ahead.
+    assertTrue(
+        script.contains("Nobody will be an admin in the app. The admin token still works here."));
+    // A device is connected to a user in the pairing dialog, the user already chosen; a new user
+    // is taken to it as the second step.
+    assertTrue(script.contains("connectDevice({ user: made, invited: true"));
     assertTrue(
         source("pairing.js")
             .contains("call(\"POST\", PAIRINGS, { name: deviceName, userId: owner.id })"));
     assertFalse(source("pairing.js").contains("admin: "));
-    // The role is only ever changed from this page, through the admin token.
+    // Nothing of the earlier page is left: the markup and its helper module are gone.
     var page = given().get("/admin/").then().extract().asString();
-    assertTrue(page.contains("Making someone an admin"));
-    assertTrue(page.contains("id=\"invite-role\""));
+    assertFalse(page.contains("legacy"));
+    given().get("/admin/js/legacy.js").then().statusCode(404);
   }
 
   @Test
-  void aUserShowsItsTrafficWhenAskedForAsTextWithLinksToItsEvents() {
-    var script = given().get("/admin/js/users.js").then().statusCode(200).extract().asString();
-    // Read only when opened, with the admin token like every other request.
+  void aUserShowsItsTrafficAsTextWithLinksToItsEvents() {
+    var script = source("users.js");
+    // Read when the user is opened, with the admin token like every other request.
     assertTrue(script.contains("await call(\"GET\", `${USERS}/${user.id}/traffic`)"));
-    assertTrue(script.contains("item.append(trafficOf(user));"));
     // An event is linked by its ID in the page's own address, a title and a name set as text.
-    assertTrue(script.contains("link.href = `#events/${e.id}`;"));
-    assertTrue(script.contains("link.href = `#events/${d.eventId}`;"));
-    assertTrue(script.contains("const link = element(\"a\", null, e.title);"));
-    assertTrue(script.contains("element(\"strong\", null, d.clientName)"));
+    assertTrue(script.contains("href: `#events/${event.id}`"));
+    assertTrue(script.contains("href: `#events/${record.eventId}`"));
+    assertTrue(script.contains("href: `#events?user=${user.id}`"));
+    assertTrue(script.contains("el(\"span\", { class: \"nm2\", text: event.title })"));
     assertFalse(script.contains("innerHTML"));
   }
 

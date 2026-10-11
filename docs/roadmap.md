@@ -2661,7 +2661,7 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   pane, push words, Connect a device with its pairing code, the open codes
   listed and cancelled, rename, revoke, delete), with their dialogs,
   states and phone frames; *Events* and *Users* work inside the new shell
-  with their earlier content (R79 rebuilds them); *See its events* opens
+  with their earlier content (R79 rebuilt them); *See its events* opens
   Events filtered to a producer
 - `AdminPageTest`, headless browser tests in `web-tests/tests/admin-*.spec.mjs`
   and the drawings' frames in `web-tests/visual/admin-frames.mjs`
@@ -2676,6 +2676,32 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
 ## 4. Planned roadmap
 
 Roadmap items are ordered by dependency, but each item may be split into smaller releasable increments if implementation evidence shows that doing so is safer or more reviewable.
+
+### R79 - The admin page: Events and Users
+
+- *Events* (first pull request), rebuilt as drawn (Events A): a dense
+  table, newest first and 25 a page by the listing's cursor, with R76's
+  total ("25 of 1,284"), no sort arrows, the *Push problems* row marker;
+  filter chips (several values for severity, category and producer, read
+  state, user with their producers, a received range, *Push problems*)
+  kept in the address; the fixed pane with *Event* and *Pushes* tabs (each
+  delivery in plain words, *Gave up after N tries* only from R75's `final`
+  marker, codes under Technical details); selection with the bulk bar;
+  deleting one, a selection or by rule (presets, dry-run count); sending a
+  test event; every state and the phone frames
+- *Users* (second pull request): the list with its chips and counts and
+  the pane (role as a radio group with a question before every change, devices,
+  producers, subscriptions with subscribe and unsubscribe, recent traffic,
+  rename, revoke), inviting with the first-device step, the last-admin
+  warning, every state and dialog and the phone frames; the earlier
+  markup and `legacy.js` are gone
+- `AdminPageTest`, `web-tests/tests/admin-events.spec.mjs` and
+  `admin-users.spec.mjs`, and the drawings' frames in
+  `web-tests/visual/admin-frames.mjs`
+- deliberate differences: native date fields; the drawings' sample rows
+  are fewer than the page's real ones; the phone's subscribe choice is a
+  menu, not a sheet
+- the admin page only, so a minor release (`feat`)
 
 ### R5 - Event inbox/query API
 
@@ -3852,6 +3878,7 @@ advance; they follow from the queue.
 | R76           | minor (`feat`)                                                                                                                                        | additions to the events listing with the admin token: `total` and each event's `push`, and a `push` filter  |
 | R77           | minor (`feat`)                                                                                                                                        | the web page's New producer button in the list header; no API change                                       |
 | R78           | minor (`feat`)                                                                                                                                        | the admin page's new layout, signing in, Status, Producers and Devices; no API change                       |
+| R79           | minor (`feat`)                                                                                                                                        | the admin page's Events and Users; no API change                                                            |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6319,8 +6346,7 @@ approved flows of these sections at desktop width and at 390 px.
 
 ### R79 - The admin page: Events and Users
 
-Status: next, in two pull requests as the item allows: *Events* is built (the first pull request), *Users* is
-what is left. Added at the maintainer's approval of the
+Status: complete (see section 3), in two pull requests: *Events*, then *Users*. Added at the maintainer's approval of the
 admin page designs (G6, 2026-10-11).
 
 Goal: the admin page's *Events* and *Users* sections are rebuilt as
@@ -6497,8 +6523,8 @@ G6, and R75 to R79 were queued. R75 (small additions to the admin API
 for the admin page) is done, and so is R76 (the events list's total count
 and how each event's pushes went), and so is R77 (the web page's New
 producer button), and so is R78 (the admin page's new layout, signing in,
-Status, Producers and Devices). **Next is R79 (the admin page: Events and
-Users); the queue ends after R79.** A new item is added only by the maintainer, in a reviewed pull
+Status, Producers and Devices), and so is R79 (the admin page's Events and
+Users). **The queue ended with R79: nothing is Next.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 

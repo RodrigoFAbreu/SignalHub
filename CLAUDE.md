@@ -60,7 +60,8 @@ through `/api/v1/admin/clients` and `/api/v1/client`, or by a device
 redeeming a one-time pairing code from `/api/v1/admin/pairings` at
 `/api/v1/pairing`, made in a browser on the operator's admin page
 `/admin/` on the backend's own port (rebuilt as approved: a navigation rail with a status button and the account menu, a table with a fixed detail pane that is a side sheet below 1180 px, sign-in with the admin token, light and dark themes; in sections, *Devices*, *Users*,
-*Producers*, *Events* and *Status*, kept in the address; *Status* answers
+*Producers*, *Events* and *Status*, kept in the address, each a table with a filter chips row and a fixed pane
+(*Events* with its tabs, bulk bar and delete by rule; *Users* with roles, subscriptions and traffic), as drawn; *Status* answers
 whether SignalHub is working, from `/q/info`, `/q/health`, the management
 API and `/api/v1/admin/status`), which also lists every device to
 rename it, revoke it, or delete it once

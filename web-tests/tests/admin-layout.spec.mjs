@@ -270,21 +270,3 @@ test.describe("themes and motion", () => {
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim())).not.toBe("");
   });
 });
-
-test.describe("Users keeps working in the new shell", () => {
-  test("Users lists the users with their devices and producers, and Connect a device opens the new dialog with the user chosen", async ({ page }) => {
-    const person = await createPerson("MOD");
-    await adminSignIn(page, "#users");
-    await expect(page.getByRole("heading", { name: "Users", level: 1 })).toBeVisible();
-    const card = page.locator("#user-list li", { hasText: person.name }).first();
-    await expect(card).toContainText(person.deviceName);
-    await card.getByRole("button", { name: "Connect a device" }).click();
-    const dialog = page.getByRole("dialog", { name: "Connect a device" });
-    await expect(dialog.getByLabel("User")).toBeDisabled();
-    await expect(dialog.getByLabel("User")).toHaveText(`${person.name} · Mod`);
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await page.getByLabel("Name", { exact: true }).fill(unique("invited"));
-    await page.getByRole("button", { name: "Invite user" }).click();
-    await expect(page.locator("#user-list li").first()).toBeVisible();
-  });
-});

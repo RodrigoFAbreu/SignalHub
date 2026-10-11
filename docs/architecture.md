@@ -1686,8 +1686,7 @@ which below 1180 px is a side sheet and on a phone a screen of its own; forms an
 are dialogs, never the browser's `confirm()` and `prompt()`; a change is confirmed in words and
 never offers Undo. The filters and the open item are kept in the address
 (`#producers/<id>?f=quiet&q=text`). Its fonts and icons are the files the users' page bundles
-under `/app/fonts/`, so nothing is fetched from another server. *Users* keeps its earlier content
-inside the shell until it is rebuilt (R79).
+under `/app/fonts/`, so nothing is fetched from another server.
 
 **Events** is a dense table of the events, newest first and 25 a page by the listing's own cursor
 (*Older* and *Newer* go back through the cursors already read; on a phone the older events are
@@ -1758,23 +1757,20 @@ expired code stays blurred until a new one is created, and the page stops
 asking. The device list is also read again after every change and with
 **Refresh**.
 
-**Users.** Every user, active ones first, with their role, devices (and how
-many are revoked), the producers they own, the producers they are subscribed
-to, when they were invited (and revoked) and their ID. Per active user:
-**Connect a device** asks for the device's name and shows a pairing code for
-that user in *Devices* (this, after **Invite a user**, is how a person is
-invited: the device that redeems the code belongs to them), **Rename**, the
-**role** (`Basic`, `Mod` or `Admin`) with **Set role**, which asks first when
-it makes or unmakes an admin, **Revoke** (after a confirmation: all their
-devices are revoked and their producers disabled, at once and for good), and
-**Subscribe** to a producer they can see or **Unsubscribe** from one. **Invite
-a user** takes a name and a role. This is the only place a user is made an
-admin or no longer one.
-
-Each user also has **Show traffic** (revoked ones too), which reads their
-[traffic](#traffic-by-user) when opened and again with **Refresh traffic**:
-their newest events, each linking to the event, and the pushes to their
-devices (device, how it went, the event it was for), newest first.
+**Users** lists every user (search and chips: Admin, Mod, Basic, Revoked, and No device yet with
+its count), active ones first, by name, with their role, devices, producers, subscriptions and when
+they were last active (from the devices' own times). A user opens in the pane: *Role* is a radio
+group (Basic, Mod, Admin) that changes only after a question saying what happens (to Admin in the
+error colour; away from the last admin it adds that nobody will be an admin in the app, then goes
+ahead, as the server has no last-admin guard), their devices (each linking to Devices, with *Connect*
+for a pairing code), the producers they own, their subscriptions (*Subscribe* offers the producers
+open to them; *Unsubscribe* asks first, since it hides events, old ones too), their recent traffic
+([traffic by user](#traffic-by-user): events and pushes, newest 20, each event linking to Events),
+*Rename* and *Revoke* (after a confirmation with the counts: devices revoked and producers disabled,
+for good; the name stays taken). A user with no device is told so and offered the first device.
+*Invite a user* is a dialog (name, and a role with what it can do; names are unique ignoring case)
+that leads to a second step, the user's first device and its pairing code. A revoked user's pane is
+read-only. This is the only place a user is made an admin or no longer one.
 
 **Producers.** Every producer, by name, with its owner and who sees it
 (every user, or its owner and the users allowed on it), whether it is

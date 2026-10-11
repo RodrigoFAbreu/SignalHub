@@ -46,45 +46,6 @@
       <main id="main" class="main">
         <div id="view" class="view">
           <div id="sect" class="sect"></div>
-<div id="section-users" class="legacy-section" data-section="users" hidden>
-          <div class="mhead"><h1>Users</h1></div>
-          <div class="legacy"><div class="wrap">
-          <section aria-label="Users">
-            <div class="heading">
-              <button type="button" id="refresh-users" class="secondary">Refresh</button>
-            </div>
-            <p class="lead">
-              A user has devices, producers and subscriptions, and receives only the events of the
-              producers they are subscribed to. Basic users manage no devices; mods manage their own;
-              admins manage everyone's that are not admins' and invite users. Making someone an admin
-              is done only here.
-            </p>
-            <p id="users-error" class="error" role="alert" hidden></p>
-            <ul id="user-list" class="cards"></ul>
-          </section>
-
-          <section aria-labelledby="invite-title">
-            <h2 id="invite-title">Invite a user</h2>
-            <form id="invite" autocomplete="off">
-              <label for="invite-name">Name</label>
-              <input id="invite-name" type="text" required maxlength="100" />
-              <label for="invite-role">Role</label>
-              <select id="invite-role">
-                <option value="BASIC" selected>Basic</option>
-                <option value="MOD">Mod</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-              <button type="submit">Invite user</button>
-              <p id="invite-error" class="error" role="alert" hidden></p>
-            </form>
-            <p class="lead">
-              Inviting creates the user. Then use <em>Connect a device</em> on their card to make
-              them a pairing code; the device that uses it belongs to them.
-            </p>
-          </section>
-        </div></div>
-        </div>
-
         </div>
       </main>
 

@@ -7,7 +7,7 @@
 //                                            SignalHub to serve the page's files)
 
 import { BASE } from "../support/server.mjs";
-import { NOW, ana, clients, deliveries, eventClients, events, health, mockAdmin, otherDeliveries, producers, rodrigo, rui, status, users } from "./admin-sample.mjs";
+import { NOW, drawnUsers, ana, clients, deliveries, eventClients, events, health, mockAdmin, otherDeliveries, producers, rodrigo, rui, status, users } from "./admin-sample.mjs";
 
 const SHELL = "Admin - Shell and Producers";
 const SIGN_IN = "Admin - Status and sign-in";
@@ -16,6 +16,8 @@ const STATUS_STATES = "Admin - Status states";
 const DEVICES = "Admin - Devices";
 const DEVICE_DIALOGS = "Admin - Devices dialogs";
 const LIGHT = "Admin - Light theme check";
+const USERS = "Admin - Users";
+const USER_DIALOGS = "Admin - Users dialogs";
 const EVENTS = "Admin - Events";
 const EVENT_STATES = "Admin - Events states";
 const EVENT_DIALOGS = "Admin - Events dialogs";
@@ -24,7 +26,7 @@ const url = (hash = "") => `${BASE}/admin/${hash}`;
 const TOKEN = "x".repeat(40);
 
 /** A piece of the page on its own: the detail pane, at the height of its drawing. */
-const pane = (height) => ({ drawingSelector: ".st2", size: { width: 1440, height: height + 8 }, shot: (page) => page.locator(".pane:not(.prompt)").screenshot() });
+const pane = (height, selector = ".st2") => ({ drawingSelector: selector, size: { width: 1440, height: height + 8 }, shot: (page) => page.locator(".pane:not(.prompt)").screenshot() });
 
 export const producer = (name) => producers.find((candidate) => candidate.name === name);
 export const device = (name) => clients.find((candidate) => candidate.name === name);
@@ -299,6 +301,79 @@ export const adminFrames = [
     await box.getByLabel("Received before").fill("2026-10-01");
     await box.getByRole("button", { name: "Count events" }).click();
     await page.waitForSelector(".dlg .warn");
+  }, dialog({ drawingSelector: ".dlg" })),
+
+  // ---- Users -----------------------------------------------------------------------------------
+  frame("U1", USERS, "U1", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, `#users/${drawnUsers[0].id}`, ".pane h2");
+    await page.waitForSelector(".tabs2");
+  }),
+  frame("U3", USERS, "U3", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, `#users/${drawnUsers[1].id}`, ".pane h2");
+  }, pane(640, ".pst")),
+  frame("U4", USERS, "U4", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, `#users/${drawnUsers[2].id}`, ".pane h2");
+  }, pane(640, ".pst")),
+  frame("US1", USERS, "US1", async (page) => {
+    await mockAdmin(page, { users: () => new Promise(() => {}) });
+    await signedIn(page, "#users", ".skeletons");
+  }, { size: { width: 1440, height: 600 } }),
+  frame("US2", USERS, "US2", async (page) => {
+    await mockAdmin(page, { users: [] });
+    await signedIn(page, "#users", ".empty");
+  }, { size: { width: 1440, height: 600 } }),
+  frame("US3", USERS, "US3", async (page) => {
+    await mockAdmin(page, { users: drawnUsers.slice(0, 1).concat(drawnUsers.slice(2, 4)), traffic: { __status: 500, body: { title: "Boom" } } });
+    await signedIn(page, `#users/${drawnUsers[0].id}`, ".pane h2");
+  }, { size: { width: 1440, height: 600 } }),
+  frame("PU1", USERS, "PU1", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, "#users", ".tr");
+  }),
+  frame("PU2", USERS, "PU2", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, `#users/${drawnUsers[0].id}`, ".pane h2");
+  }),
+  frame("UD1", USER_DIALOGS, "UD1", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, "#users", ".tr");
+    await page.getByRole("button", { name: "Invite a user" }).first().click();
+    await page.getByRole("dialog").getByLabel("Name").fill("Marta");
+  }, dialog({ drawingSelector: ".dlg" })),
+  frame("UD1b", USER_DIALOGS, "UD1b", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, "#users", ".tr");
+    await page.getByRole("button", { name: "Invite a user" }).first().click();
+    await page.getByRole("dialog").getByLabel("Name").fill("Marta");
+    await page.getByRole("radio", { name: /^Admin/ }).click();
+  }, dialog({ drawingSelector: ".dlg" })),
+  frame("UC1", USER_DIALOGS, "UC1", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, `#users/${drawnUsers[3].id}`, ".pane h2");
+    await page.getByRole("radio", { name: "Mod" }).click();
+  }, dialog({ drawingSelector: ".dlg" })),
+  frame("UC2", USER_DIALOGS, "UC2", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, `#users/${drawnUsers[0].id}`, ".pane h2");
+    await page.getByRole("radio", { name: "Admin" }).click();
+  }, dialog({ drawingSelector: ".dlg" })),
+  frame("UC4", USER_DIALOGS, "UC4", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, `#users/${drawnUsers[0].id}`, ".pane h2");
+    await page.getByRole("button", { name: "Unsubscribe Ana from ci-pipeline" }).click();
+  }, dialog({ drawingSelector: ".dlg" })),
+  frame("UC6", USER_DIALOGS, "UC6", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, `#users/${drawnUsers[0].id}`, ".pane h2");
+    await page.getByRole("button", { name: "Revoke Ana" }).click();
+  }, dialog({ drawingSelector: ".dlg" })),
+  frame("UC7", USER_DIALOGS, "UC7", async (page) => {
+    await mockAdmin(page, { users: drawnUsers });
+    await signedIn(page, `#users/${drawnUsers[0].id}`, ".pane h2");
+    await page.getByRole("button", { name: "Rename Ana" }).click();
   }, dialog({ drawingSelector: ".dlg" })),
 ];
 

@@ -17,21 +17,27 @@ const LOW_SECONDS = 60;
  * Opens the dialog. `user` fixes the user (when it is opened from a user); `onChange` is told when
  * a code was made, used or cancelled, so the lists behind it can be read again.
  */
-export function connectDevice({ user = null, onChange = () => {} } = {}) {
-  const name = textField({ label: "Device name", value: "New device", hint: "Up to 100 characters. The device can be renamed later.", maxlength: 100 });
+export function connectDevice({ user = null, onChange = () => {}, invited = false } = {}) {
+  // Right after inviting someone, the same dialog is the second step: their first device.
+  const name = invited
+    ? textField({ label: "Name for the first device", value: `${user.name} - Phone`, hint: `The device belongs to ${user.name}. It can be renamed later.`, maxlength: 100 })
+    : textField({ label: "Device name", value: "New device", hint: "Up to 100 characters. The device can be renamed later.", maxlength: 100 });
   const choice = selectField({ label: "User", options: [], hint: "The device belongs to this user." });
   const adminNote = el("div", { class: "warn", hidden: true }, icon("admin_panel_settings"), el("div", {}, el("b", { text: "It will be an admin device." }), el("br"), "An admin device connects and revokes other devices and invites users. It is one exactly when its user is an admin."));
   let users = [];
   let create = null;
 
-  const content = el(
-    "div",
-    {},
-    el("p", { class: "p small-p", text: "Make a one-time pairing code. The device redeems it in the SignalHub app, or the user scans it." }),
-    name.node,
-    choice.node,
-    adminNote,
-  );
+  const content = invited
+    ? el("div", {}, el("div", { class: "okbox first" }, icon("check_circle"), el("div", { text: `${user.name} (${ROLES[user.role] ?? user.role}) now exists. ${user.name} cannot receive anything until a device is connected.` })), name.node, choice.node, adminNote)
+    : el(
+        "div",
+        {},
+        el("p", { class: "p small-p", text: "Make a one-time pairing code. The device redeems it in the SignalHub app, or the user scans it." }),
+        name.node,
+        choice.node,
+        adminNote,
+      );
+  if (invited) choice.node.hidden = true;
 
   const showAdmin = () => {
     const chosen = users.find((candidate) => candidate.id === choice.select.value);
@@ -44,12 +50,12 @@ export function connectDevice({ user = null, onChange = () => {} } = {}) {
   };
 
   const dialog = openDialog({
-    title: "Connect a device",
+    title: invited ? `${user.name} is invited` : "Connect a device",
     content,
     variant: "full",
     focusNode: name.input,
     actions: [
-      { label: "Cancel", value: false, className: "cancel" },
+      { label: invited ? "Later" : "Cancel", value: false, className: "cancel" },
       {
         label: "Create pairing code",
         value: true,
