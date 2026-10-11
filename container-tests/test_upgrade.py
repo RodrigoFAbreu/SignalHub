@@ -31,9 +31,11 @@ from signalhub_stack import (
     create_producer,
     host,
     postgres_sql,
+    proxy,
     publish,
     published_id,
     required,
+    wait_until,
 )
 
 ROOT = Path(os.environ.get("SIGNALHUB_REPO") or Path(__file__).resolve().parent.parent)
@@ -111,6 +113,38 @@ class AfterUpgrade(StackTestCase):
         info = self.ok(host().get("/q/info"))["signalhub"]
         self.assertEqual(required("SIGNALHUB_EXPECT_RELEASE"), info["version"])
         self.assertEqual(required("SIGNALHUB_EXPECT_REVISION"), info["revision"])
+
+
+class ProxyAfterUpgrade(StackTestCase):
+    """The proxy of an upgraded stack runs the release's proxy/Caddyfile.
+
+    Needs SIGNALHUB_PROXY_URL. A path only the new configuration forwards
+    answers, and what must stay hidden still does not.
+    """
+
+    def test_the_users_web_page_is_forwarded(self):
+        def forwarded() -> bool:
+            return proxy().get("/app/").status == 200
+
+        wait_until(forwarded, "the proxy to forward /app/", timeout=30)
+
+    def test_the_admin_page_and_the_management_api_are_not(self):
+        self.assertStatus(proxy().get("/admin/"), 404)
+        self.assertStatus(proxy().get("/api/v1/admin/producers"), 404)
+
+
+class ProxyAfterConfigChange(StackTestCase):
+    """A changed proxy/Caddyfile alone is in effect after the documented restart."""
+
+    def test_the_changed_configuration_answers(self):
+        def answers() -> bool:
+            return proxy().get("/ci-probe").status == 200
+
+        wait_until(answers, "the proxy to run the changed configuration", timeout=30)
+
+    def test_the_rest_is_as_before(self):
+        self.assertStatus(proxy().get("/app/"), 200)
+        self.assertStatus(proxy().get("/admin/"), 404)
 
 
 class AfterRollback(StackTestCase):
