@@ -16,7 +16,7 @@ class AdminPage(StackTestCase):
         return response.text
 
     def test_the_admin_page_is_served(self):
-        self.assertIn("SignalHub admin", self.page())
+        self.assertIn("<title>Admin - SignalHub</title>", self.page())
 
     def test_the_admin_page_has_its_sections(self):
         page = self.page()
