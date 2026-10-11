@@ -344,6 +344,9 @@ matches any of its values (OR), e.g. `severity=HIGH&severity=CRITICAL`.
 | `userId` | **Admin token only** (a client key gets `400`): events of the producers this user owns or is subscribed to, as the operator's view of that user's traffic; revoked users included, `404` for an unknown one. See [Traffic by user](#traffic-by-user). |
 | `relation` | With `userId` (else `400`): `OWNED`, only the producers the user owns, or `SUBSCRIBED`, only those they are subscribed to (an owner is subscribed to their own producer from its creation, so these include theirs). Absent: either. |
 
+| `push` | **Admin token only** (a client key gets `400`): events whose pushes went as this says, one of the [push summaries](#push-summary-and-total-of-the-operators-listing). Repeatable, so `push=FAILED&push=GAVE_UP` is the page's *Push problems*. |
+| `total` | **Admin token only** (a client key gets `400`): `true` also returns how many events match the filters in all. Anything else than `true` or `false` is `400`. See [the total](#push-summary-and-total-of-the-operators-listing). |
+
 Timestamps follow the same rules as in request bodies: ISO-8601 with an
 explicit offset. In a URL, write a `+` offset as `%2B`, or use `Z`. Filters
 use only generic fields; there is no filtering on `context`, metadata, or
@@ -383,6 +386,46 @@ same per page however many events are read.
   storing the event, so one could become visible a moment after a newer one.
   Serializing costs throughput only with many producers publishing at once,
   far beyond one owner's events.
+
+#### Push summary and total of the operator's listing
+
+Two additions that only the admin token's listing has; a client key's
+listing is unchanged (the additions are the operator's tools, and a client
+key's `push` or `total` is a `400` rather than ignored, as `userId` is).
+
+- **`push` on each event.** Each event of the admin listing says how its
+  pushes went, from its [delivery records](#delivery-records), as the worst
+  thing that happened to any device, judged by each device's latest record:
+  `GAVE_UP` (a temporary failure on the last allowed attempt, a record with
+  `final` and `TRANSIENT_FAILURE`), `FAILED` (`PERMANENT_FAILURE`,
+  `INVALID_TARGET` or `UNSUPPORTED_PROVIDER`), `WAITING_FOR_RETRY` (a
+  temporary failure with attempts left), `SENT` (the provider accepted a
+  push), `NOT_SENT` (every device was filtered by its preferences or has no
+  push target), `PENDING` (the push waits in the outbox, with no record
+  yet) and `NOBODY_TO_REACH` (dispatched, and no device was considered;
+  events from before delivery records have none either). The first that
+  holds wins, in that order. The words are the deliveries': *Sent*,
+  *Waiting for a retry*, *Failed*, *Gave up*, *Not sent*. The field is
+  absent from every other response (an event read by ID, a producer's
+  response), which has no delivery records at hand.
+- **Filtering by it.** `push` takes the same values, and an event matches
+  the summary it would show, so the filter combines with every other filter
+  and with paging (it is part of the cursor's filters like the rest). The
+  *Push problems* chip is `push=FAILED&push=GAVE_UP`. It is a condition on
+  the event's delivery records (the `event_id` index of V16), checked for
+  each event in listing order until the page is full: **measured** on 500,000
+  events with a million records, the *Push problems* page took 27 ms when 2% of
+  the events had a problem and 1.5 s when 35 of them did, the worst case,
+  which a partial index would cut to 0.5 s; judged not worth a migration
+  for a page only the operator opens, so there is none.
+- **`total`.** With `total=true` the page carries `total`, the number of
+  events matching all the filters (the cursor and `limit` aside, so it is
+  the same on every page), and nothing when it is not asked for. It counts
+  the matching rows, so it is asked only when the number is shown: measured
+  on the same 500,000 events, counting all of them took about 150 to 220 ms
+  (a parallel scan), and a producer's or a read-state filter is cheaper in
+  proportion to what it leaves. Paging itself stays cursor based and
+  costs the same however deep it is.
 
 Invalid parameters get `400` with one violation per problem, naming the
 parameter in `field` (e.g. `limit`, `category`, `cursor`). An unknown

@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.event;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
@@ -14,7 +15,14 @@ public record EventPage(
                     + " the same filters. Null when there are no more events.",
             examples = "MToxNzkwMzM3NzgxNDgyMTEzOjAxOTk3ZDVlLThhM2MtN2IxZS05ZjJhLTRjNmQ4ZTBmMWEyYg",
             nullable = true)
-        String nextCursor) {
+        String nextCursor,
+    @Schema(
+            description =
+                "How many events match the filters in all, whatever the page, when the admin"
+                    + " token asked for it with total=true; absent otherwise.",
+            examples = "1284")
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Long total) {
 
   public EventPage {
     items = List.copyOf(items);

@@ -76,7 +76,7 @@ also sees each user's role, device count and producers, all under
 `/api/v1/client/devices`, with a push naming it (none for a deletion), and
 creates pairing codes at `/api/v1/client/pairings`; whoever
 created a pairing asks whether it was used, and by which device, at
-`/api/v1/admin/pairings/{id}` or `/api/v1/client/pairings/{id}`) (the operator also lists the open admin-created codes, never a code, at `/api/v1/admin/pairings` and cancels an unused one, which can never then be redeemed; the admin API renames a producer, says whether its owner or an admin disabled it, gives the server's start time in `/api/v1/admin/status` and marks each delivery record `final`) with
+`/api/v1/admin/pairings/{id}` or `/api/v1/client/pairings/{id}`) (the operator also lists the open admin-created codes, never a code, at `/api/v1/admin/pairings` and cancels an unused one, which can never then be redeemed; the admin API renames a producer, says whether its owner or an admin disabled it, gives the server's start time in `/api/v1/admin/status` and marks each delivery record `final`; its event listing with the admin token counts the matching events on request, `total=true`, and says how each event's pushes went, `push`, and filters by it) with
 per-client push preferences (pause, minimum severity, muted categories and producers) and
 each client's last push results in the management API, when each client last made a
 request and each producer key last published (to within a minute) and the server's version

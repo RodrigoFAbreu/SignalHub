@@ -29,6 +29,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -208,7 +209,9 @@ public class EventResource {
               + " when the listing is started again. Requires a client key, which lists its user's"
               + " events, or the admin token, which lists every event and may also filter by"
               + " user (userId, relation): the events of the producers that user owns or is"
-              + " subscribed to.")
+              + " subscribed to, by how their pushes went (push), and may ask for the number of"
+              + " matching events (total). Its events each carry push, a summary of their delivery"
+              + " records.")
   @APIResponse(
       responseCode = "200",
       description = "A page of events.",
@@ -279,6 +282,23 @@ public class EventResource {
           @QueryParam("relation")
           String relation,
       @Parameter(
+              description =
+                  "Only events whose pushes went as this says: GAVE_UP, FAILED, WAITING_FOR_RETRY,"
+                      + " SENT, NOT_SENT, PENDING or NOBODY_TO_REACH (see each event's push)."
+                      + " Repeatable: push=FAILED&push=GAVE_UP lists the events with a push"
+                      + " problem. Admin token only: a client key is refused with 400.",
+              schema = @Schema(type = SchemaType.ARRAY, implementation = PushSummary.class))
+          @QueryParam("push")
+          List<String> push,
+      @Parameter(
+              description =
+                  "With true, the page also says how many events match the filters in all"
+                      + " (total). Counting walks every matching event, so ask only when the number"
+                      + " is shown. Admin token only: a client key is refused with 400.",
+              schema = @Schema(type = SchemaType.BOOLEAN, defaultValue = "false"))
+          @QueryParam("total")
+          String total,
+      @Parameter(
               description = "The nextCursor of the previous page. Omit for the first page.",
               schema = @Schema(type = SchemaType.STRING))
           @QueryParam("cursor")
@@ -308,10 +328,33 @@ public class EventResource {
             createdBefore,
             userId,
             relation,
+            push,
+            total,
             cursor,
             limit);
+    checkAdminOnly(query);
     checkUserFilter(query);
     return events.list(query, user());
+  }
+
+  /** How events' pushes went, and the total, are the operator's: a client key may not ask. */
+  private void checkAdminOnly(EventQuery query) {
+    if (user().isEmpty()) {
+      return;
+    }
+    var violations = new ArrayList<ApiError.Violation>();
+    if (!query.push().isEmpty()) {
+      violations.add(new ApiError.Violation("push", "is available with the admin token only"));
+    }
+    if (query.total()) {
+      violations.add(new ApiError.Violation("total", "is available with the admin token only"));
+    }
+    if (!violations.isEmpty()) {
+      throw new BadRequestException(
+          Response.status(Response.Status.BAD_REQUEST)
+              .entity(new ApiError("Invalid request", 400, violations))
+              .build());
+    }
   }
 
   /**

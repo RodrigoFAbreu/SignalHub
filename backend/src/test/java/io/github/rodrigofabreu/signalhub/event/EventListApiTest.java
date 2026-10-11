@@ -78,7 +78,10 @@ class EventListApiTest {
             .jsonPath();
 
     assertEquals(1, page.getList("items").size());
-    assertEquals(newest.getMap("$"), page.getMap("items[0]"));
+    // The operator's listing adds how the event's push went; nothing has dispatched it yet.
+    var expected = new java.util.HashMap<>(newest.getMap("$"));
+    expected.put("push", "PENDING");
+    assertEquals(expected, page.getMap("items[0]"));
     assertEquals(producer.name(), page.getString("items[0].producer.name"));
     assertEquals(7, page.getInt("items[0].metadata.run"));
     assertNotNull(page.getString("nextCursor"));

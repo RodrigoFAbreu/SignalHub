@@ -120,12 +120,31 @@ class OpenApiTest {
                 "createdBefore",
                 "userId",
                 "relation",
+                "push",
+                "total",
                 "cursor",
                 "limit"))
         .body(
             EVENTS + ".get.parameters.find { it.name == 'category' }.schema.type", equalTo("array"))
         .body(EVENTS + ".get.parameters.find { it.name == 'limit' }.schema.maximum", equalTo(100))
         .body(EVENTS + ".get.parameters.find { it.name == 'read' }.schema.type", equalTo("boolean"))
+        .body(EVENTS + ".get.parameters.find { it.name == 'push' }.schema.type", equalTo("array"))
+        .body(
+            EVENTS + ".get.parameters.find { it.name == 'total' }.schema.type", equalTo("boolean"))
+        .body(SCHEMAS + ".EventPage.properties", hasKey("total"))
+        .body(SCHEMAS + ".EventPage.required", not(hasItems("total")))
+        .body(SCHEMAS + ".Event.properties", hasKey("push"))
+        .body(SCHEMAS + ".Event.required", not(hasItems("push")))
+        .body(
+            SCHEMAS + ".PushSummary.enum",
+            containsInAnyOrder(
+                "GAVE_UP",
+                "FAILED",
+                "WAITING_FOR_RETRY",
+                "SENT",
+                "NOT_SENT",
+                "PENDING",
+                "NOBODY_TO_REACH"))
         .body(EVENTS + ".get.responses", hasKey("200"))
         .body(EVENTS + ".get.responses", hasKey("400"))
         .body(EVENTS + ".get.responses", hasKey("401"))

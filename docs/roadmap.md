@@ -2604,6 +2604,26 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
 - additions only, so a minor release (`feat`); the admin page itself is
   R78 and R79
 
+### R76 - The events list: a total count, and how each event's pushes went
+
+- **a total count**: `GET /api/v1/events` with the admin token takes
+  `total=true` and then carries `total`, how many events match the
+  filters in all (the cursor and `limit` aside); absent unless asked, so
+  the common page costs what it did. Measured on 500,000 events: counting
+  all took 150 to 220 ms
+- **push outcomes**: each event of that listing carries `push`, how its
+  pushes went (`GAVE_UP`, `FAILED`, `WAITING_FOR_RETRY`, `SENT`,
+  `NOT_SENT`, `PENDING` or `NOBODY_TO_REACH`, the worst of the devices'
+  latest delivery records, "gave up" from R75's `final` rule), and `push`
+  (repeatable) filters by it, so *Push problems* is `push=FAILED&push=GAVE_UP`;
+  it combines with every filter and with paging. A migration or index
+  was measured and not needed: the *Push problems* page took 27 ms with
+  2% of events affected and 1.5 s at worst (35 of 500,000)
+- the client key's listing is unchanged, and `push` or `total` in it is a
+  `400`, as `userId` is; no schema change
+- additions only, so a minor release (`feat`); the admin page's use of
+  them is R79
+
 ---
 
 ## 4. Planned roadmap
@@ -3200,8 +3220,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 65    | R73 - Designs for the admin page, and the web page's New producer button                         | Increment (`docs`)                     | Done (see section 3)                                                             |
 | 66    | G6 - The maintainer approves the admin page designs                                              | Human gate                             | Passed (2026-10-11, approved without changes)                                    |
 | 67    | R75 - Small additions to the admin API for the admin page                                        | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 68    | R76 - The events list: a total count, and how each event's pushes went                           | Increment (`feat`)                     | Next                                                                             |
-| 69    | R77 - The web page's New producer button                                                         | Increment (`feat`)                     | Queued (after R76)                                                               |
+| 68    | R76 - The events list: a total count, and how each event's pushes went                           | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 69    | R77 - The web page's New producer button                                                         | Increment (`feat`)                     | Next                                                                             |
 | 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Queued (after R77)                                                               |
 | 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Queued (after R78)                                                               |
 
@@ -3782,6 +3802,7 @@ advance; they follow from the queue.
 | R73           | patch (`docs`)                                                                                                                                        | drawings only                                                                                              |
 | R74           | patch (`ci`)                                                                                                                                          | CI only; nothing a user, producer or operator sees                                                         |
 | R75           | minor (`feat`)                                                                                                                                        | additions to the admin API: open pairings and cancelling one, renaming a producer, `disabledBy`, `startedAt`, `final` |
+| R76           | minor (`feat`)                                                                                                                                        | additions to the events listing with the admin token: `total` and each event's `push`, and a `push` filter  |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6154,7 +6175,7 @@ need; the same additions in the client API.
 
 ### R76 - The events list: a total count, and how each event's pushes went
 
-Status: next. Added at the maintainer's approval of the
+Status: complete (see section 3). Added at the maintainer's approval of the
 admin page designs (G6, 2026-10-11).
 
 Goal: the admin page's Events section can say how many events match its
@@ -6184,7 +6205,7 @@ Non-goals: facet counts (option C was not chosen); the admin page itself
 
 ### R77 - The web page's New producer button
 
-Status: queued (after R76). Added at the maintainer's approval of the
+Status: next. Added at the maintainer's approval of the
 admin page designs (G6, 2026-10-11).
 
 Goal: the users' web page's *New producer* action never covers a
@@ -6423,9 +6444,9 @@ polish from the maintainer's testing of 3.6.0). The maintainer gave the
 go-ahead at G5, and R73 (designs for the admin page and the web page's
 *New producer* action) is done. The maintainer approved the designs at
 G6, and R75 to R79 were queued. R75 (small additions to the admin API
-for the admin page) is done. **Next is R76 (the events list: a total
-count, and how each event's pushes went), then R77, R78 and R79; the
-queue ends after R79.** A new item is added only by the maintainer, in a reviewed pull
+for the admin page) is done, and so is R76 (the events list's total count
+and how each event's pushes went). **Next is R77 (the web page's New
+producer button), then R78 and R79; the queue ends after R79.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 

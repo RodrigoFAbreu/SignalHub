@@ -85,12 +85,12 @@ class EventService {
         if (!sameRequest(stored.get(), event)) {
           throw new IdempotencyKeyReusedException();
         }
-        return new Published(toResponse(stored.get(), producer, null), false);
+        return new Published(toResponse(stored.get(), producer, null, null), false);
       }
     }
     repository.persist(event);
     dispatches.add(event);
-    return new Published(toResponse(event, producer, null), true);
+    return new Published(toResponse(event, producer, null, null), true);
   }
 
   /**
@@ -152,7 +152,8 @@ class EventService {
                     producerOf(event),
                     user.isPresent()
                         ? reads.readAt(user.get(), List.of(id)).get(id)
-                        : event.readAt()));
+                        : event.readAt(),
+                    null));
   }
 
   private boolean receivedBy(EventEntity event, Optional<UUID> user) {
@@ -173,6 +174,8 @@ class EventService {
     var readAt =
         user.map(u -> reads.readAt(u, page.stream().map(EventEntity::id).toList()))
             .orElse(Map.of());
+    // The operator's listing says how each event's pushes went; a user's does not.
+    var summaries = user.isPresent() ? Map.<UUID, PushSummary>of() : pushSummaries(page);
     var items =
         page.stream()
             .map(
@@ -180,14 +183,25 @@ class EventService {
                     toResponse(
                         e,
                         producersById.get(e.producerId()),
-                        user.isPresent() ? readAt.get(e.id()) : e.readAt()))
+                        user.isPresent() ? readAt.get(e.id()) : e.readAt(),
+                        summaries.get(e.id())))
             .toList();
     String nextCursor = null;
     if (rows.size() > page.size()) {
       var last = page.get(page.size() - 1);
       nextCursor = new EventCursor(last.createdAt(), last.id()).encode();
     }
-    return new EventPage(items, nextCursor);
+    var total = query.total() ? repository.countListed(query, viewer, userProducers(query)) : null;
+    return new EventPage(items, nextCursor, total);
+  }
+
+  /** How each of the events' pushes went, in two queries for the whole page. */
+  private Map<UUID, PushSummary> pushSummaries(List<EventEntity> page) {
+    if (page.isEmpty()) {
+      return Map.of();
+    }
+    var ids = page.stream().map(EventEntity::id).toList();
+    return PushSummary.of(ids, repository.deliveryRecords(ids), repository.pendingPushes(ids));
   }
 
   /**
@@ -334,7 +348,7 @@ class EventService {
   }
 
   private static EventResponse toResponse(
-      EventEntity event, ProducerIdentity producer, Instant readAt) {
+      EventEntity event, ProducerIdentity producer, Instant readAt, PushSummary push) {
     return new EventResponse(
         event.id(),
         new EventResponse.Producer(producer.id(), producer.name()),
@@ -347,6 +361,7 @@ class EventService {
         event.link(),
         event.occurredAt(),
         event.createdAt(),
-        readAt);
+        readAt,
+        push);
   }
 }
