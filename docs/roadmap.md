@@ -2522,9 +2522,9 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   before those that remove it; a test that fails does not stop the others of
   its lane. Where each former check runs: *Python (lint + test)* and *GitHub
   Actions lint* in `python / Python and workflows (lint + test)`; *Compose
-  smoke test* (x86-64) and *upgrade from the latest release* in one stack job,
-  *Compose smoke test, ARM64* in another; *Web page (browser tests)* and
-  *upgrade from v3.5.0* in a third; *End-to-end*, *Deployment (fresh install)*
+  smoke test* (x86-64) and the *upgrades from the latest release and from
+  v3.5.0* in one stack job, *Compose smoke test, ARM64* in another; *Web page
+  (browser tests)* in a third; *End-to-end*, *Deployment (fresh install)*
   and *upgrade from v0.13.0* in a fourth; the others keep their jobs. The
   ruleset drops the 14 names of R70 and adds `CI passed`
 - tests: the measuring script's, in the Python job; the whole of CI is the
