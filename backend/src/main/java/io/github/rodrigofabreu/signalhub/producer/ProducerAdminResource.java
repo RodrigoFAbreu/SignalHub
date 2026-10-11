@@ -134,9 +134,10 @@ public class ProducerAdminResource {
   @Path("/{id}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(
-      summary = "Change who sees a producer",
+      summary = "Rename a producer or change who sees it",
       description =
-          "Sets the producer's visibility, replaces its allow-list, or both. A subscriber who"
+          "Sets the producer's name, its visibility, replaces its allow-list, or any of them. Its"
+              + " keys keep working and its events stay its own. A subscriber who"
               + " no longer sees a private producer (neither its owner nor allowed) is"
               + " unsubscribed.")
   @APIResponse(
@@ -150,14 +151,19 @@ public class ProducerAdminResource {
               + " exist or are revoked.",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @APIResponse(responseCode = "404", description = "No producer has this ID.")
+  @APIResponse(
+      responseCode = "409",
+      description = "Another producer has this name.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
   public ProducerResponse update(
       @PathParam("id") UUID id, @NotNull @Valid UpdateProducerRequest request) {
     if (request.changesNothing()) {
-      throw badRequest("", "must give visibility, allowedUserIds or both");
+      throw badRequest("", "must give name, visibility or allowedUserIds");
     }
     return switch (orNotFound(
-        producers.update(id, request.visibility(), request.allowedUserIds()))) {
+        producers.update(id, request.name(), request.visibility(), request.allowedUserIds()))) {
       case ProducerService.Update.Updated updated -> updated.producer();
+      case ProducerService.Update.NameTaken taken -> throw nameTaken();
       case ProducerService.Update.UnknownUsers unknown ->
           throw badRequest("allowedUserIds", "names unknown or revoked users: " + unknown.ids());
     };
@@ -248,6 +254,17 @@ public class ProducerAdminResource {
     return new ClientErrorException(
         Response.status(Response.Status.CONFLICT)
             .entity(new ApiError(title, 409, List.of()))
+            .build());
+  }
+
+  private static ClientErrorException nameTaken() {
+    return new ClientErrorException(
+        Response.status(Response.Status.CONFLICT)
+            .entity(
+                new ApiError(
+                    "Producer name already exists",
+                    409,
+                    List.of(new ApiError.Violation("name", "is already taken"))))
             .build());
   }
 

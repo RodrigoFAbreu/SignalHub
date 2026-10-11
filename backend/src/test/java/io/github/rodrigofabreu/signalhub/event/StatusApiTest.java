@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.agroal.api.AgroalDataSource;
 import io.github.rodrigofabreu.signalhub.TestClients;
@@ -20,6 +21,8 @@ import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
 import jakarta.inject.Inject;
 import java.sql.SQLException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -74,10 +77,22 @@ class StatusApiTest {
                 "pendingDispatches",
                 "pendingRetries",
                 "abandonedRetries",
-                "eventRetentionSeconds"))
+                "eventRetentionSeconds",
+                "startedAt"))
         .body("pushProviders", equalTo(List.of(FakePushProvider.NAME)))
         .body("pushClientOptions", nullValue())
         .body("eventRetentionSeconds", nullValue());
+  }
+
+  @Test
+  void theStatusSaysWhenTheServerStartedAndItDoesNotChange() {
+    var first = status().getString("startedAt");
+    var startedAt = Instant.parse(first);
+
+    assertTrue(startedAt.isBefore(Instant.now()));
+    assertTrue(startedAt.isAfter(Instant.now().minus(Duration.ofDays(1))));
+    assertEquals(0, startedAt.getNano());
+    assertEquals(first, status().getString("startedAt"));
   }
 
   @Test

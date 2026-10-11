@@ -34,7 +34,9 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
@@ -435,6 +437,125 @@ class PairingApiTest {
   @ValueSource(strings = {"{}", "{\"name\": \" \"}", "{\"name\": \"a\\u0000b\"}", "{\"x\": 1}"})
   void invalidPairingsAreRejected(String body) {
     asAdmin().contentType(ContentType.JSON).body(body).post(PAIRINGS).then().statusCode(400);
+  }
+
+  @Test
+  void theOpenPairingsAreTheUnusedUnexpiredOnesTheOperatorCreatedWithoutTheirCodes()
+      throws SQLException {
+    var open = createPairing("Open phone").extract();
+    var used = createPairing("Used open phone").extract();
+    redeem(used.path("code")).statusCode(201);
+    var expired = createPairing("Expired open phone").extract();
+    expire(expired.path("code"));
+    var admin = TestClients.registerAs("ADMIN", "device-with-open-pairing");
+    String byDevice =
+        asClient(admin.clientKey())
+            .contentType(ContentType.JSON)
+            .body(Map.of("name", "Device made phone"))
+            .post(CLIENT + "/pairings")
+            .then()
+            .statusCode(201)
+            .extract()
+            .path("id");
+
+    var list = asAdmin().get(PAIRINGS).then().statusCode(200).extract();
+
+    var ids = list.<List<String>>path("items.id");
+    assertTrue(ids.contains(open.path("id")));
+    assertFalse(ids.contains(used.path("id")));
+    assertFalse(ids.contains(expired.path("id")));
+    assertFalse(ids.contains(byDevice));
+    var item = list.<Map<String, Object>>path("items.find { it.id == '" + open.path("id") + "' }");
+    assertEquals(Set.of("id", "name", "user", "expiresAt"), item.keySet());
+    assertEquals("Open phone", item.get("name"));
+    assertEquals(open.path("expiresAt"), item.get("expiresAt"));
+    assertEquals(open.path("user.id"), ((Map<?, ?>) item.get("user")).get("id"));
+    assertFalse(list.asString().contains(open.<String>path("code")));
+    assertFalse(list.asString().contains(open.<String>path("code").substring(6)));
+  }
+
+  @Test
+  void theOpenPairingsAreListedSoonestToExpireFirst() throws SQLException {
+    var later = createPairing("Later phone").extract();
+    var sooner = createPairing("Sooner phone").extract();
+    expire(sooner.path("code"), Duration.ofMinutes(5));
+
+    var ids =
+        asAdmin().get(PAIRINGS).then().statusCode(200).extract().<List<String>>path("items.id");
+
+    assertTrue(ids.indexOf(sooner.<String>path("id")) < ids.indexOf(later.<String>path("id")));
+  }
+
+  @Test
+  void listingOpenPairingsNeedsTheAdminToken() {
+    given().get(PAIRINGS).then().statusCode(401);
+    var client = TestClients.register("list-pairings-client");
+    asClient(client.clientKey()).get(PAIRINGS).then().statusCode(401);
+  }
+
+  @Test
+  void aCancelledCodeNeverRedeems() throws SQLException {
+    var pairing = createPairing("Cancelled phone").extract();
+    String id = pairing.path("id");
+    String code = pairing.path("code");
+
+    asAdmin().delete(PAIRINGS + "/" + id).then().statusCode(204);
+
+    redeem(code).statusCode(401).body("title", equalTo("Unauthorized"));
+    assertEquals(0, clientsNamed("Cancelled phone"));
+    assertEquals(0, pairingsWith(code));
+    status(id).statusCode(404);
+    asAdmin().get(PAIRINGS).then().body("items.id", not(hasItem(id)));
+  }
+
+  @Test
+  void aUsedOrExpiredOrUnknownPairingCannotBeCancelled() throws SQLException {
+    var used = createPairing("Cancel used phone").extract();
+    redeem(used.path("code")).statusCode(201);
+    asAdmin()
+        .delete(PAIRINGS + "/" + used.<String>path("id"))
+        .then()
+        .statusCode(409)
+        .body("title", equalTo("The pairing was already used"))
+        .body("status", equalTo(409));
+    status(used.path("id")).body("state", equalTo("REDEEMED"));
+
+    var expired = createPairing("Cancel expired phone").extract();
+    expire(expired.path("code"));
+    asAdmin()
+        .delete(PAIRINGS + "/" + expired.<String>path("id"))
+        .then()
+        .statusCode(409)
+        .body("title", equalTo("The pairing has expired"));
+    status(expired.path("id")).body("state", equalTo("EXPIRED"));
+
+    asAdmin().delete(PAIRINGS + "/" + UUID.randomUUID()).then().statusCode(404);
+    asAdmin().delete(PAIRINGS + "/not-a-uuid").then().statusCode(404);
+  }
+
+  @Test
+  void cancellingNeedsTheAdminTokenAndLeavesADevicesPairingAlone() {
+    var pairing = createPairing("Protected phone").extract();
+    String id = pairing.path("id");
+    given().delete(PAIRINGS + "/" + id).then().statusCode(401);
+    var admin = TestClients.registerAs("ADMIN", "device-cancel-pairing");
+    asClient(admin.clientKey()).delete(PAIRINGS + "/" + id).then().statusCode(401);
+    status(id).body("state", equalTo("PENDING"));
+
+    String byDevice =
+        asClient(admin.clientKey())
+            .contentType(ContentType.JSON)
+            .body(Map.of("name", "Device cancel phone"))
+            .post(CLIENT + "/pairings")
+            .then()
+            .statusCode(201)
+            .extract()
+            .path("id");
+    asAdmin().delete(PAIRINGS + "/" + byDevice).then().statusCode(404);
+    asClient(admin.clientKey())
+        .get(CLIENT + "/pairings/" + byDevice)
+        .then()
+        .body("state", equalTo("PENDING"));
   }
 
   @Test

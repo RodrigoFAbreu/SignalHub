@@ -525,11 +525,12 @@ never forwards it) sums it up:
 
 | Method and path | Result |
 |---|---|
-| `GET /api/v1/admin/status` | `200` with the push configuration, the push backlog and the retention setting (`ServiceStatus`). |
+| `GET /api/v1/admin/status` | `200` with the push configuration, the push backlog, the retention setting and when the server started (`ServiceStatus`). |
 
 ```json
 {"pushProviders": ["fcm"], "pushClientOptions": "fcm", "pendingDispatches": 0,
- "pendingRetries": 0, "abandonedRetries": 0, "eventRetentionSeconds": 31536000}
+ "pendingRetries": 0, "abandonedRetries": 0, "eventRetentionSeconds": 31536000,
+ "startedAt": "2026-10-11T08:00:00Z"}
 ```
 
 - `pushProviders`: the [push providers](#push-delivery) enabled, by name
@@ -540,6 +541,9 @@ never forwards it) sums it up:
   rows, **decided: read from the database at each request** (two counts),
   so the panel is current even between dispatcher runs, unlike the
   metrics' gauges.
+- `startedAt`: when the running server started (the JVM's start, to the
+  second), for the page's *Running since*; every restart or upgrade
+  changes it.
 - `abandonedRetries`: pushes given up after their last attempt, **since
   the backend started** (the `signalhub_push_retries_abandoned_total`
   counter, which is in memory), so it goes back to 0 with a restart.
@@ -696,7 +700,7 @@ for curl examples.
 | `GET /api/v1/admin/producers/{id}` | One producer with its key records. |
 | `POST /api/v1/admin/producers/{id}/keys` | Issues an additional key. `201` with `keyId` and `apiKey`. |
 | `POST /api/v1/admin/producers/{id}/keys/{keyId}/revoke` | Revokes a key, immediately and permanently. Idempotent. |
-| `POST /api/v1/admin/producers/{id}/disable` | Disables the producer: none of its keys authenticate. Idempotent. Events are kept. |
+| `POST /api/v1/admin/producers/{id}/disable` | Disables the producer: none of its keys authenticate. Idempotent. Events are kept. Every producer response says who did: `disabledBy` is `OWNER` (from a device) or `ADMIN` (the admin token, or the revoking of its owner), absent while enabled; it comes from `disabled_by_owner` (V18), so producers disabled before it was reported are already right. |
 | `POST /api/v1/admin/producers/{id}/enable` | Re-enables it: its unrevoked keys work again. |
 | `POST /api/v1/admin/producers/{id}/events` | Publishes an event as the producer: see [Test events](#test-events). |
 
@@ -946,7 +950,7 @@ devices, pairing codes or producers.
 | `GET /api/v1/admin/users/{id}/traffic` | The user's newest 20 events (of the producers they own or are subscribed to) and newest 20 delivery records of their devices. See [Traffic by user](#traffic-by-user). |
 | `PUT`, `DELETE /api/v1/admin/users/{id}/subscriptions/{producerId}` | Subscribes the user to a producer they can see (`409` if they cannot), or unsubscribes them. Idempotent. |
 | `POST /api/v1/admin/producers` | Registers a producer for `ownerId` (the oldest admin who is not revoked when omitted: the owner of the instance) with a `visibility`. |
-| `PATCH /api/v1/admin/producers/{id}` | Sets `visibility`, replaces the allow-list (`allowedUserIds`, existing users who are not revoked), or both. |
+| `PATCH /api/v1/admin/producers/{id}` | Renames the producer (`name`, validated as when registering; `409 Producer name already exists` with a `name` violation when another producer has it; its own name is fine), sets `visibility`, replaces the allow-list (`allowedUserIds`, existing users who are not revoked), or any of them; at least one. Its keys keep working and its events show the new name. A name taken leaves the rest of the request undone. |
 
 Requests that name no user (registering a client, creating a pairing or a
 producer with the admin token) act for **the oldest admin who is not
@@ -1333,6 +1337,8 @@ connected and get ready for the next one:
 | Method and path | Credential | Result |
 |---|---|---|
 | `GET /api/v1/admin/pairings/{id}` | admin token | A pairing the operator created: `200` with its `PairingStatus`. |
+| `GET /api/v1/admin/pairings` | admin token | The operator's open pairings (unused, unexpired), soonest to expire first: `200` with `{"items": [{"id", "name", "user", "expiresAt"}]}` (`OpenPairingList`). Never a code: it is shown once, when the pairing is created. A device's pairings are not listed. |
+| `DELETE /api/v1/admin/pairings/{id}` | admin token | Cancels an unused, unexpired pairing the operator created: `204`, and the pairing is deleted, so its code never redeems and its status is `404` from then on. `409` (`The pairing was already used` or `The pairing has expired`) for a used or expired one, `404` for an unknown one or a device's. A redemption in flight holds the pairing's lock, so it wins or loses cleanly. |
 | `GET /api/v1/client/pairings/{id}` | client key of a mod or an admin | A pairing this device created: `200` with its `PairingStatus`. |
 
 ```json
@@ -1958,6 +1964,7 @@ suppressed push is simply not sent to that client.
 | `POST /api/v1/admin/clients/{id}/revoke` | admin token | Revokes the client and removes its push target. Idempotent. |
 | `DELETE /api/v1/admin/clients/{id}` | admin token | Deletes a revoked client with its push results, retries and unused pairing codes; events stay. `204`; `409` if it is not revoked; `404` for an unknown ID. See [Deleting a revoked client](#deleting-a-revoked-client). |
 | `POST /api/v1/admin/pairings` | admin token | Creates a pairing for a new client of a user (`{"name": ..., "userId": ...}`, `userId` optional). `201` with `{"id", "name", "admin", "user", "code", "expiresAt", "uri"}`; see [Pairing](#pairing). |
+| `GET /api/v1/admin/pairings` and `DELETE /api/v1/admin/pairings/{id}` | admin token | The operator's open pairings, and cancelling an unused one: see [Whether a code was used](#whether-a-code-was-used). |
 | `GET /api/v1/admin/pairings/{id}` | admin token | Whether a pairing created with the admin token was used, and by which client (`PairingStatus`); `404` for an unknown ID or a device's pairing. See [Whether a code was used](#whether-a-code-was-used). |
 | `POST /api/v1/pairing` | pairing code | Redeems the code: registers the client. `201` with the client and `clientKey`, `Location` `/api/v1/client`. |
 | `POST /api/v1/client/pairings` | client key of a mod or an admin | Creates a pairing for a new client (`{"name": ..., "userId": ...}`, `userId` optional: this device's own user; only an admin may name another). `201` as `POST /api/v1/admin/pairings`; `403` for a basic user. See [Pairing from a device](#pairing-from-a-device). |
@@ -2319,14 +2326,15 @@ management API:
   {"clientId": "01997d4a-...", "clientName": "Pixel 9",
    "userId": "01997d40-...", "userName": "Anna", "attempt": 1,
    "outcome": "TRANSIENT_FAILURE", "detail": "HTTP 503 UNAVAILABLE",
-   "at": "2026-09-30T09:12:40.654321Z"},
+   "at": "2026-09-30T09:12:40.654321Z", "final": false},
   {"clientId": "01997d4a-...", "clientName": "Pixel 9",
    "userId": "01997d40-...", "userName": "Anna", "attempt": 2,
-   "outcome": "DELIVERED", "detail": null, "at": "2026-09-30T09:13:10.123456Z"},
+   "outcome": "DELIVERED", "detail": null, "at": "2026-09-30T09:13:10.123456Z",
+   "final": true},
   {"clientId": "01997d4b-...", "clientName": "Tablet",
    "userId": "01997d41-...", "userName": "Ben", "attempt": 1,
    "outcome": "FILTERED", "detail": "below the minimum severity",
-   "at": "2026-09-30T09:12:40.654400Z"}
+   "at": "2026-09-30T09:12:40.654400Z", "final": true}
 ],
  "users": [
   {"id": "01997d40-...", "name": "Anna", "owner": true},
@@ -2341,6 +2349,12 @@ management API:
   means "subscribed"**, which is what decides who gets an event; a user
   who unsubscribed since still has their records, shown by the page as no
   longer subscribed.
+- **Final.** `final` is `true` when no further attempt will be made for
+  that client: the push was sent, was not to be sent (filtered, no
+  target), failed for good, or failed temporarily on the last allowed
+  attempt (the fifth). It is `false` only for a `TRANSIENT_FAILURE`
+  before that, while a retry is still due; it is computed from the
+  record, so it needs no column.
 - **One record per attempt.** The first dispatch is attempt 1 and each
   [retry](#push-dispatch) one more, so a push that failed temporarily and
   then arrived has two records. An event dispatched again after the

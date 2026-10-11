@@ -2584,6 +2584,26 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   changes on the web page: chip rows wrap, and no snackbar covers a
   control). Documentation only (`docs`)
 
+### R75 - Small additions to the admin API for the admin page
+
+- **open pairing codes**: `GET /api/v1/admin/pairings` lists the unused,
+  unexpired pairings created with the admin token (id, client name, user,
+  expiry; never a code), and `DELETE /api/v1/admin/pairings/{id}` cancels
+  one, so its code can never be redeemed (`409` for a used or expired one,
+  `404` for an unknown one or a device's)
+- **renaming a producer**: an optional `name` on
+  `PATCH /api/v1/admin/producers/{id}`, validated as when registering,
+  with the owner's name-taken `409`
+- **who disabled a producer**: `disabledBy` (`OWNER` or `ADMIN`, absent
+  while enabled) in the admin producer response, from the
+  `disabled_by_owner` column that already existed (V18), so no migration:
+  every producer disabled before reports what the server already knew
+- **when the server started**: `startedAt` in `/api/v1/admin/status`
+- **a delivery that gave up**: `final` on each delivery record of
+  `/api/v1/admin/events/{id}/deliveries`
+- additions only, so a minor release (`feat`); the admin page itself is
+  R78 and R79
+
 ---
 
 ## 4. Planned roadmap
@@ -3179,8 +3199,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 64    | G5 - The maintainer's go-ahead for the admin page redesign                                       | Human gate                             | Passed (2026-10-11, go-ahead given)                                              |
 | 65    | R73 - Designs for the admin page, and the web page's New producer button                         | Increment (`docs`)                     | Done (see section 3)                                                             |
 | 66    | G6 - The maintainer approves the admin page designs                                              | Human gate                             | Passed (2026-10-11, approved without changes)                                    |
-| 67    | R75 - Small additions to the admin API for the admin page                                        | Increment (`feat`)                     | Next                                                                             |
-| 68    | R76 - The events list: a total count, and how each event's pushes went                           | Increment (`feat`)                     | Queued (after R75)                                                               |
+| 67    | R75 - Small additions to the admin API for the admin page                                        | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 68    | R76 - The events list: a total count, and how each event's pushes went                           | Increment (`feat`)                     | Next                                                                             |
 | 69    | R77 - The web page's New producer button                                                         | Increment (`feat`)                     | Queued (after R76)                                                               |
 | 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Queued (after R77)                                                               |
 | 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Queued (after R78)                                                               |
@@ -3761,6 +3781,7 @@ advance; they follow from the queue.
 | R72           | minor (`feat`)                                                                                                                                        | app and web page fixes, producer list order and filter; no API change                                      |
 | R73           | patch (`docs`)                                                                                                                                        | drawings only                                                                                              |
 | R74           | patch (`ci`)                                                                                                                                          | CI only; nothing a user, producer or operator sees                                                         |
+| R75           | minor (`feat`)                                                                                                                                        | additions to the admin API: open pairings and cancelling one, renaming a producer, `disabledBy`, `startedAt`, `final` |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6094,7 +6115,7 @@ starts. An orchestrator stops here and never answers it.
 
 ### R75 - Small additions to the admin API for the admin page
 
-Status: next. Added at the maintainer's approval of the admin page
+Status: complete (see section 3). Added at the maintainer's approval of the admin page
 designs (G6, 2026-10-11).
 
 Goal: the management API gives the admin page what its approved designs
@@ -6133,7 +6154,7 @@ need; the same additions in the client API.
 
 ### R76 - The events list: a total count, and how each event's pushes went
 
-Status: queued (after R75). Added at the maintainer's approval of the
+Status: next. Added at the maintainer's approval of the
 admin page designs (G6, 2026-10-11).
 
 Goal: the admin page's Events section can say how many events match its
@@ -6401,9 +6422,10 @@ effect), and R74 (CI holds fewer runners at once), and R72 (fixes and
 polish from the maintainer's testing of 3.6.0). The maintainer gave the
 go-ahead at G5, and R73 (designs for the admin page and the web page's
 *New producer* action) is done. The maintainer approved the designs at
-G6, and R75 to R79 were queued. **Next is R75 (small additions to the
-admin API for the admin page), then R76, R77, R78 and R79; the queue ends
-after R79.** A new item is added only by the maintainer, in a reviewed pull
+G6, and R75 to R79 were queued. R75 (small additions to the admin API
+for the admin page) is done. **Next is R76 (the events list: a total
+count, and how each event's pushes went), then R77, R78 and R79; the
+queue ends after R79.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 

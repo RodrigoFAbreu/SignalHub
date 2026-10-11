@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.event;
 
+import java.time.Instant;
 import java.util.List;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
@@ -51,7 +52,14 @@ public record ServiceStatus(
                 "How long events are kept, in seconds (SIGNALHUB_EVENTS_RETENTION); null when"
                     + " they are kept forever.",
             examples = "31536000")
-        Long eventRetentionSeconds) {
+        Long eventRetentionSeconds,
+    @Schema(
+            required = true,
+            description =
+                "When the running server started, to the second; it changes with every restart or"
+                    + " upgrade.",
+            examples = "2026-10-11T08:00:00Z")
+        Instant startedAt) {
 
   public ServiceStatus {
     pushProviders = List.copyOf(pushProviders);

@@ -4,6 +4,7 @@ import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,6 +25,19 @@ class PairingRepository implements PanacheRepositoryBase<PairingEntity, UUID> {
   /** The pairing with this ID the operator created, with the admin token. */
   Optional<PairingEntity> findByOperator(UUID id) {
     return find("id = ?1 and createdBy is null", id).firstResultOptional();
+  }
+
+  /** As {@link #findByOperator}, holding its row lock, so it cannot be redeemed meanwhile. */
+  Optional<PairingEntity> findByOperatorForUpdate(UUID id) {
+    return find("id = ?1 and createdBy is null", id)
+        .withLock(LockModeType.PESSIMISTIC_WRITE)
+        .firstResultOptional();
+  }
+
+  /** The operator's pairings not redeemed and not expired at this time, soonest to expire first. */
+  List<PairingEntity> openByOperator(Instant time) {
+    return list(
+        "createdBy is null and redeemedAt is null and expiresAt > ?1 order by expiresAt, id", time);
   }
 
   /** The pairing with this ID this admin device created. */

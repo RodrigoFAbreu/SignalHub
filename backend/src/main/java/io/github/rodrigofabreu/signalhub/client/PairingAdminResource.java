@@ -6,6 +6,7 @@ import io.github.rodrigofabreu.signalhub.producer.ProducerAdminResource;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
@@ -81,6 +82,53 @@ public class PairingAdminResource {
             .create(request.name(), user.id())
             .orElseThrow(() -> OperatorUsers.conflict("User is revoked"));
     return Response.status(Response.Status.CREATED).entity(pairing).build();
+  }
+
+  @GET
+  @Operation(
+      summary = "List the open pairings",
+      description =
+          "The pairings created with the admin token whose codes are unused and unexpired, soonest"
+              + " to expire first: their ID, the client's name, the user and when they expire."
+              + " Never a code, which was shown only when the pairing was created. Pairings"
+              + " devices created are not listed.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The open pairings, in items.",
+      content = @Content(schema = @Schema(implementation = OpenPairingList.class)))
+  public OpenPairingList list() {
+    return pairings.open();
+  }
+
+  @DELETE
+  @Path("/{id}")
+  @Operation(
+      summary = "Cancel an unused pairing",
+      description =
+          "Deletes a pairing created with the admin token whose code is unused and unexpired, so"
+              + " the code can never be redeemed. Its status is unknown from then on.")
+  @APIResponse(responseCode = "204", description = "The pairing is cancelled.")
+  @APIResponse(
+      responseCode = "404",
+      description =
+          "No pairing has this ID, it was deleted after it expired or was cancelled already, or a"
+              + " device created it.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "409",
+      description = "The pairing was used or has expired, so there is nothing to cancel.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public void cancel(@PathParam("id") UUID id) {
+    switch (pairings.cancel(id)) {
+      case CANCELLED -> {}
+      case UNKNOWN ->
+          throw new NotFoundException(
+              Response.status(Response.Status.NOT_FOUND)
+                  .entity(new ApiError("Not found", 404, List.of()))
+                  .build());
+      case USED -> throw OperatorUsers.conflict("The pairing was already used");
+      case EXPIRED -> throw OperatorUsers.conflict("The pairing has expired");
+    }
   }
 
   @GET

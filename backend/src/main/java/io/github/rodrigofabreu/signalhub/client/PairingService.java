@@ -1,5 +1,7 @@
 package io.github.rodrigofabreu.signalhub.client;
 
+import static java.util.stream.Collectors.toSet;
+
 import io.github.rodrigofabreu.signalhub.producer.ApiKeys;
 import io.github.rodrigofabreu.signalhub.user.Role;
 import io.github.rodrigofabreu.signalhub.user.UserDirectory;
@@ -127,6 +129,48 @@ public class PairingService {
     record Created(IssuedPairing pairing) implements DevicePairing {}
 
     record Refused(ClientService.Refusal refusal) implements DevicePairing {}
+  }
+
+  /** The operator's pairings whose codes still work, soonest to expire first. */
+  @Transactional
+  OpenPairingList open() {
+    var open = pairings.openByOperator(now());
+    var people = users.find(open.stream().map(PairingEntity::userId).collect(toSet()));
+    return new OpenPairingList(
+        open.stream()
+            .map(
+                p -> new OpenPairing(p.id(), p.clientName(), people.get(p.userId()), p.expiresAt()))
+            .toList());
+  }
+
+  /**
+   * Cancels the operator's unused, unexpired pairing, so its code never redeems: the pairing is
+   * deleted, and its status is unknown from then on. Locks it, so a redemption in flight finishes
+   * first and the pairing is then used.
+   */
+  @Transactional
+  Cancellation cancel(UUID id) {
+    var pairing = pairings.findByOperatorForUpdate(id);
+    if (pairing.isEmpty()) {
+      return Cancellation.UNKNOWN;
+    }
+    if (pairing.get().redeemedAt() != null) {
+      return Cancellation.USED;
+    }
+    if (!pairing.get().expiresAt().isAfter(now())) {
+      return Cancellation.EXPIRED;
+    }
+    pairings.delete(pairing.get());
+    LOG.infof("Cancelled pairing %s", id);
+    return Cancellation.CANCELLED;
+  }
+
+  /** What {@link #cancel} did. */
+  enum Cancellation {
+    CANCELLED,
+    UNKNOWN,
+    USED,
+    EXPIRED
   }
 
   /** Whether the operator's pairing was used; empty if it is unknown or a device's. */

@@ -124,15 +124,19 @@ public class ProducerService {
   }
 
   /**
-   * Sets the producer's visibility and replaces its allow-list; a null leaves that as it is. Users
-   * who no longer see a private producer stop receiving it. Empty if no producer has this ID.
+   * Renames the producer, sets its visibility and replaces its allow-list; a null leaves that as it
+   * is. Users who no longer see a private producer stop receiving it. Empty if no producer has this
+   * ID.
    */
   @Transactional
-  Optional<Update> update(UUID id, Visibility visibility, List<UUID> allowedUserIds) {
+  Optional<Update> update(UUID id, String name, Visibility visibility, List<UUID> allowedUserIds) {
     return producers
         .findForUpdate(id)
         .<Update>map(
             producer -> {
+              if (name != null && !name.equals(producer.name()) && producers.nameTaken(name, id)) {
+                return new Update.NameTaken();
+              }
               if (allowedUserIds != null) {
                 var unknown =
                     allowedUserIds.stream()
@@ -145,6 +149,10 @@ public class ProducerService {
                 access.setAllowed(
                     id,
                     allowedUserIds.stream().filter(u -> !u.equals(producer.ownerId())).toList());
+              }
+              if (name != null && !name.equals(producer.name())) {
+                producer.rename(name);
+                LOG.infof("Renamed producer %s", id);
               }
               if (visibility != null) {
                 producer.setVisibility(visibility);
@@ -159,6 +167,9 @@ public class ProducerService {
   /** What {@link #update} did to a producer that exists. */
   sealed interface Update {
     record Updated(ProducerResponse producer) implements Update {}
+
+    /** Another producer has the new name. */
+    record NameTaken() implements Update {}
 
     /** The allow-list names users that do not exist or are revoked. */
     record UnknownUsers(List<UUID> ids) implements Update {
@@ -582,6 +593,7 @@ public class ProducerService {
         producer.name(),
         producer.createdAt(),
         producer.disabledAt(),
+        producer.disabledBy(),
         lastEventAt,
         keys.stream()
             .map(

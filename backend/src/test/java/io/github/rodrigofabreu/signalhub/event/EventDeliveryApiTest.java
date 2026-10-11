@@ -158,6 +158,10 @@ class EventDeliveryApiTest {
     assertRecord(items, invalid.id(), 1, "INVALID_TARGET", "HTTP 404 UNREGISTERED");
     assertRecord(
         items, unsupported.id(), 1, "UNSUPPORTED_PROVIDER", "no otherprovider provider configured");
+    // Nothing more is tried after a refusal, a rejected target or a missing provider.
+    for (var record : items) {
+      assertEquals(true, record.get("final"));
+    }
     assertFalse(body.asString().contains(permanentToken));
     assertFalse(body.asString().contains(invalidToken));
   }
@@ -183,10 +187,36 @@ class EventDeliveryApiTest {
         List.of("TRANSIENT_FAILURE", "TRANSIENT_FAILURE", "DELIVERED"),
         records.stream().map(r -> r.get("outcome")).toList());
     assertEquals("HTTP 503 UNAVAILABLE", records.get(0).get("detail"));
+    // A retry is still due after each temporary failure; the delivery is the last word.
+    assertEquals(List.of(false, false, true), records.stream().map(r -> r.get("final")).toList());
     // Oldest first.
     assertTrue(
         Instant.parse((String) records.get(1).get("at"))
             .isAfter(Instant.parse((String) records.get(0).get("at"))));
+  }
+
+  @Test
+  void aTemporaryFailureOnTheLastAllowedAttemptIsFinal() throws SQLException {
+    var client = TestClients.register("gave-up");
+    setTarget(client, FakePushProvider.NAME, "deliveries-" + UUID.randomUUID());
+    fake.answer((to, message) -> TEMPORARY);
+    var eventId = publish("NORMAL", "INFO");
+    dispatcher.dispatchPending();
+    for (var attempt = 2; attempt <= EventPushDispatcher.MAX_ATTEMPTS; attempt++) {
+      makeRetriesDue(eventId);
+      dispatcher.dispatchPending();
+    }
+
+    var records = recordsOf(items(eventId), client.id());
+
+    assertEquals(EventPushDispatcher.MAX_ATTEMPTS, records.size());
+    for (var record : records) {
+      assertEquals("TRANSIENT_FAILURE", record.get("outcome"));
+    }
+    var finals = records.stream().map(r -> r.get("final")).toList();
+    assertEquals(
+        EventPushDispatcher.MAX_ATTEMPTS - 1, finals.stream().filter(f -> !(boolean) f).count());
+    assertEquals(true, finals.get(finals.size() - 1));
   }
 
   @Test

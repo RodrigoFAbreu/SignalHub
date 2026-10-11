@@ -2,7 +2,9 @@ package io.github.rodrigofabreu.signalhub.producer;
 
 import static java.util.Collections.unmodifiableList;
 
+import io.github.rodrigofabreu.signalhub.api.Identifiers;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,9 +15,18 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(
     name = "UpdateProducerRequest",
     description =
-        "What to change on a producer: who sees it, the users allowed on it, or both. A field that"
-            + " is omitted or null stays as it is; at least one must be given.")
+        "What to change on a producer: its name, who sees it, the users allowed on it, or any of"
+            + " them. A field that is omitted or null stays as it is; at least one must be"
+            + " given.")
 public record UpdateProducerRequest(
+    @Schema(
+            description =
+                "The new name, as when registering. Its keys keep working and its events keep"
+                    + " their producer; they show the new name.",
+            examples = "ci-build-runner")
+        @Size(max = 100)
+        @Pattern(regexp = Identifiers.PATTERN, message = Identifiers.MESSAGE)
+        String name,
     @Schema(
             description =
                 "PUBLIC: every user may see the producer and subscribe. PRIVATE: only its owner"
@@ -37,6 +48,6 @@ public record UpdateProducerRequest(
   }
 
   boolean changesNothing() {
-    return visibility == null && allowedUserIds == null;
+    return name == null && visibility == null && allowedUserIds == null;
   }
 }

@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.rodrigofabreu.signalhub.TestProducers;
+import io.github.rodrigofabreu.signalhub.TestUsers;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
@@ -184,6 +185,101 @@ class ProducerAdminApiTest {
     asAdmin().post(path + "/enable").then().statusCode(200).body("disabledAt", nullValue());
     // Disabling does not revoke keys.
     asAdmin().get(path).then().body("keys[0].revokedAt", nullValue());
+  }
+
+  @Test
+  void anAdminRenamesAProducerWithTheSameRulesAsItsOwner() {
+    var producer = TestProducers.register("admin-rename");
+    var other = TestProducers.register("admin-rename-other");
+    var path = ADMIN + "/" + producer.id();
+    var renamed = "admin-renamed-" + UUID.randomUUID();
+    var key = producer.apiKey();
+    publish(producer);
+
+    patch(path, "{\"name\": \"" + renamed + "\"}")
+        .statusCode(200)
+        .body("id", equalTo(producer.id().toString()))
+        .body("name", equalTo(renamed))
+        .body("visibility", equalTo("PRIVATE"));
+
+    asAdmin().get(path).then().body("name", equalTo(renamed));
+    // Its keys keep working, and its events keep their producer.
+    TestProducers.asProducer(key)
+        .contentType(ContentType.JSON)
+        .body("{\"category\": \"INFO\", \"severity\": \"LOW\", \"title\": \"After\"}")
+        .post("/api/v1/events")
+        .then()
+        .statusCode(201)
+        .body("producer.name", equalTo(renamed));
+    asAdmin().get(path).then().body("lastEventAt", notNullValue());
+
+    // Its own name is fine, with or without another change; another's name is taken.
+    patch(path, "{\"name\": \"" + renamed + "\"}").statusCode(200);
+    patch(path, "{\"name\": \"" + renamed + "\", \"visibility\": \"PUBLIC\"}")
+        .statusCode(200)
+        .body("visibility", equalTo("PUBLIC"));
+    patch(path, "{\"name\": \"" + other.name() + "\"}")
+        .statusCode(409)
+        .body("title", equalTo("Producer name already exists"))
+        .body("violations[0].field", equalTo("name"))
+        .body("violations[0].message", equalTo("is already taken"));
+    asAdmin().get(path).then().body("name", equalTo(renamed));
+  }
+
+  @Test
+  void aNameTakenLeavesTheRestOfTheUpdateUndone() {
+    var producer = TestProducers.register("admin-rename-atomic");
+    var other = TestProducers.register("admin-rename-atomic-other");
+    var path = ADMIN + "/" + producer.id();
+
+    patch(path, "{\"name\": \"" + other.name() + "\", \"visibility\": \"PUBLIC\"}").statusCode(409);
+
+    asAdmin().get(path).then().body("visibility", equalTo("PRIVATE"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\"\"", "\"has space\"", "42"})
+  void aBadNewNameIsRejected(String name) {
+    var producer = TestProducers.register("admin-rename-bad");
+
+    patch(ADMIN + "/" + producer.id(), "{\"name\": " + name + "}")
+        .statusCode(400)
+        .body("violations[0].field", equalTo("name"));
+    patch(ADMIN + "/" + producer.id(), "{\"name\": \"" + "n".repeat(101) + "\"}").statusCode(400);
+    patch(ADMIN + "/" + producer.id(), "{}").statusCode(400);
+  }
+
+  @Test
+  void aProducerDisabledByTheAdminSaysSoAndAnEnabledOneSaysNothing() {
+    var producer = TestProducers.register("admin-disabled-by");
+    var path = ADMIN + "/" + producer.id();
+    asAdmin().get(path).then().body("disabledBy", nullValue());
+
+    asAdmin().post(path + "/disable").then().statusCode(200).body("disabledBy", equalTo("ADMIN"));
+    asAdmin().get(path).then().body("disabledBy", equalTo("ADMIN"));
+    asAdmin()
+        .get(ADMIN)
+        .then()
+        .body("items.find { it.id == '" + producer.id() + "' }.disabledBy", equalTo("ADMIN"));
+
+    asAdmin().post(path + "/enable").then().statusCode(200).body("disabledBy", nullValue());
+  }
+
+  @Test
+  void aRevokedOwnersProducersAreDisabledByAnAdmin() {
+    var owner = TestUsers.create("revoked-owner-" + UUID.randomUUID(), "BASIC");
+    var producer = TestProducers.register("admin-owner-revoked", owner.id(), "PRIVATE");
+    asAdmin().post("/api/v1/admin/users/" + owner.id() + "/revoke").then().statusCode(200);
+
+    asAdmin()
+        .get(ADMIN + "/" + producer.id())
+        .then()
+        .body("disabledAt", notNullValue())
+        .body("disabledBy", equalTo("ADMIN"));
+  }
+
+  private static ValidatableResponse patch(String path, String body) {
+    return asAdmin().contentType(ContentType.JSON).body(body).patch(path).then();
   }
 
   @Test

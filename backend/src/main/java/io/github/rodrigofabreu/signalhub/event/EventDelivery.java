@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.event;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -47,4 +48,15 @@ public record EventDelivery(
                     + " preference that filtered the event out; null otherwise.",
             examples = "HTTP 503 UNAVAILABLE")
         String detail,
-    @Schema(required = true, examples = "2026-09-25T12:00:00.123456Z") Instant at) {}
+    @Schema(required = true, examples = "2026-09-25T12:00:00.123456Z") Instant at,
+    @Schema(
+            name = "final",
+            required = true,
+            description =
+                "True when no further attempt will be made for this client: the push was sent, was"
+                    + " not to be sent, failed for good, or failed temporarily on the last allowed"
+                    + " attempt. False while a retry is still due (TRANSIENT_FAILURE before the"
+                    + " last attempt).",
+            examples = "true")
+        @JsonProperty("final")
+        boolean isFinal) {}

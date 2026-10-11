@@ -23,6 +23,13 @@ public record ProducerResponse(
         Instant disabledAt,
     @Schema(
             description =
+                "Who disabled the producer: OWNER from a device, or ADMIN with the admin token (or"
+                    + " by revoking its owner). Absent while enabled. Producers disabled before"
+                    + " this was reported are ADMIN unless their owner disabled them: the server"
+                    + " already kept the difference.")
+        DisabledBy disabledBy,
+    @Schema(
+            description =
                 "When SignalHub received the producer's most recent event that is still stored;"
                     + " null when none is (it never published, or retention deleted its events).",
             examples = "2026-09-30T08:15:00.123456Z")
