@@ -137,7 +137,6 @@ test("connecting a device: a dialog with the user chosen as Name · Role, the ad
 
   const code = page.getByRole("dialog", { name: `Pairing code for ${deviceName}` });
   await expect(code).toBeVisible();
-  await expect(code).toContainText(`For ${mod.name} (Mod).`);
   await expect(code).toContainText(/Expires in \d:\d\d\. It works once\./);
   await expect(code).toContainText("Waiting for the device to use it…");
   await expect(code).toContainText(`Anyone with this code`);
@@ -145,6 +144,7 @@ test("connecting a device: a dialog with the user chosen as Name · Role, the ad
   const pairingCode = text.match(/shpc1_[A-Za-z0-9_-]+/)?.[0];
   expect(pairingCode, "the code, in the link or on its own").toBeTruthy();
   if (await code.locator("canvas").count()) {
+    await expect(code).toContainText(`For ${mod.name} (Mod).`);
     await expect(code.getByRole("img", { name: "Pairing QR code" })).toBeVisible();
     await code.getByRole("button", { name: "Copy link" }).click();
     await expect(code.getByText("Link copied.")).toBeVisible();
