@@ -575,6 +575,15 @@ ul {
   padding-bottom: 88px;
 }
 
+/* The Producers list has no floating button to clear, and its chips sit 4 px closer to the search (the drawing's 9a). */
+.listp.no-fab .search {
+  margin-bottom: 4px;
+}
+
+.listp.no-fab .list-host {
+  padding-bottom: 8px;
+}
+
 .phead {
   height: 64px;
   flex: none;
@@ -586,6 +595,10 @@ ul {
 
 .phead.has-back {
   padding-left: 4px;
+}
+
+.phead .btn-t {
+  margin-left: auto;
 }
 
 .phead .t {
@@ -922,11 +935,10 @@ ul {
 
 .fchips {
   display: flex;
-  gap: 8px;
-  padding: 0 16px;
   flex: none;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  padding: 0 16px 4px;
 }
 
 .fc {

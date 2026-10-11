@@ -77,8 +77,7 @@ export function mountProducers(container, route, { wide }) {
   const header = el("div", { class: "head-host" });
   const searchHost = el("div", { class: "search-host" });
   const listHost = el("div", { class: "list-host" });
-  const fab = el("a", { class: "fab", href: "#producers/new" }, icon("add"), el("span", { text: "New producer" }));
-  const listPane = el("section", { class: "listp", "aria-label": "Producers" }, header, searchHost, bannerSlot(), listHost, fab);
+  const listPane = el("section", { class: "listp no-fab", "aria-label": "Producers" }, header, searchHost, bannerSlot(), listHost);
   const detail = el("section", { class: "detp prod", "aria-label": "Producer" });
   setLayout();
   replace(container, listPane, detail);
@@ -152,8 +151,13 @@ export function mountProducers(container, route, { wide }) {
 
   // ---- The list -------------------------------------------------------------------------
 
+  // A link, so Enter opens the form and it is the pane's first tab stop.
+  function newProducerLink() {
+    return el("a", { class: "btn btn-t", href: "#producers/new" }, icon("add"), el("span", { class: "btn-label", text: "New producer" }));
+  }
+
   function paintHeader() {
-    replace(header, paneHeader({ title: "Producers", account: !wide }));
+    replace(header, paneHeader({ title: "Producers", actions: [newProducerLink()], account: !wide }));
     const input = el("input", { type: "search", class: "search-input", placeholder: "Find a producer", "aria-label": "Find a producer", autocomplete: "off", spellcheck: "false" });
     input.value = query;
     input.addEventListener("input", () => {
@@ -169,7 +173,7 @@ export function mountProducers(container, route, { wide }) {
       input.focus();
     });
     clearButton.hidden = !query;
-    const chips = el("div", { class: "fchips", role: "radiogroup", "aria-label": "Show" });
+    const chips = el("div", { class: "fchips", role: "radiogroup", "aria-label": "Filter producers" });
     for (const filter of FILTERS) {
       chips.append(chip({ label: filter.label, on: filter.id === filterId, role: "radio", onClick: () => { filterId = filter.id; paintHeader(); paintList(); } }));
     }
@@ -183,7 +187,6 @@ export function mountProducers(container, route, { wide }) {
   }
 
   function paintList() {
-    fab.hidden = false;
     if (phase === "loading") {
       replace(listHost, skeletonRows(5, { circle: true }));
       return;

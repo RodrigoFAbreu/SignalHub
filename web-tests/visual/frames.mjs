@@ -6,6 +6,7 @@ import { BASE } from "../support/server.mjs";
 const SIGN_IN = "Web - Sign in";
 const INBOX = "Web - Inbox and producers";
 const SETTINGS = "Web - Settings, people and states";
+const NEW_PRODUCER = "Web - New producer action";
 
 const url = (hash = "") => `${BASE}/app/${hash}`;
 const NONE = "00000000-0000-7000-8000-000000000000";
@@ -77,6 +78,38 @@ async function endedWhileUsing(page, { expired }) {
   await mockSignIn(page);
   await page.goto(url("#inbox"));
 }
+
+// ---- The web page: the New producer action (9) -----------------------------------------------------
+
+// The drawing's 13 producers (name, summary source, yours, subscribed, disabled), served in place of
+// the sample world's so the list has the length the drawing shows.
+const NINE = [
+  ["backup-jobs", "Rodrigo", 1, 1, 0], ["ci-pipeline", "Rodrigo", 1, 1, 0], ["homelab-monitor", "Rodrigo", 1, 1, 0],
+  ["ana-reports", "Ana", 0, 1, 0], ["family-calendar", "Ana", 0, 1, 0], ["price-watch", "Rui", 0, 1, 0],
+  ["door-sensor", "Ana", 0, 0, 0], ["garden-sensors", "Ana", 0, 0, 0], ["nas-health", "Rui", 0, 0, 0],
+  ["rui-notes", "Rui", 0, 0, 0], ["weather-alerts", "Rui", 0, 0, 0], ["old-cron-jobs", "Rodrigo", 1, 1, 1], ["speedtest-logger", "Rui", 0, 0, 1],
+];
+
+async function thirteenProducers(page) {
+  const id = (n) => `01997d5e-0000-7000-8000-0000000009${String(n).padStart(2, "0")}`;
+  const json = (body) => (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  const recently = new Date(Date.now() - 3_600_000).toISOString();
+  await page.route("**/api/v1/client/visible-producers", json({ items: NINE.map(([name, owner, yours, subscribed, disabled], n) => ({ id: id(n), name, owner: { id: id(100 + n), name: owner }, visibility: n % 2 ? "PRIVATE" : "PUBLIC", disabled: Boolean(disabled), subscribed: Boolean(subscribed) })) }));
+  await page.route("**/api/v1/client/producers", json({ items: NINE.map(([name, , yours, subscribed, disabled], n) => yours && { id: id(n), name, visibility: n % 2 ? "PRIVATE" : "PUBLIC", subscribed: Boolean(subscribed), disabledAt: disabled ? recently : null, disabledByOperator: false, keys: [{ prefix: "shpk1_xxxx", revokedAt: null }], allowedUsers: [], lastEventAt: recently }).filter(Boolean) }));
+}
+
+async function producersEnd(page) {
+  await thirteenProducers(page);
+  await open(page, "#producers", ".prow");
+  await page.locator(".list-host").evaluate((node) => { node.scrollTop = node.scrollHeight; });
+}
+
+const producersFrames = [
+  { id: "9a-1", file: NEW_PRODUCER, option: "9a", index: 0, persona: "rodrigo", setup: producersEnd },
+  { id: "9a-2", file: NEW_PRODUCER, option: "9a", index: 1, persona: "rodrigo", setup: producersEnd },
+  { id: "9d-1", file: NEW_PRODUCER, option: "9d", index: 0, persona: "rodrigo", scheme: "light", setup: producersEnd },
+  { id: "9d-2", file: NEW_PRODUCER, option: "9d", index: 1, persona: "rodrigo", scheme: "light", setup: producersEnd },
+];
 
 export const frames = [
   // ---- Sign in (6) --------------------------------------------------------------------------------
@@ -418,4 +451,5 @@ export const frames = [
   { id: "8g-1", file: SETTINGS, option: "8g", index: 0, persona: "rui", setup: (page) => open(page, "#inbox", ".event-row") },
   { id: "8g-2", file: SETTINGS, option: "8g", index: 1, persona: "rui", setup: (page) => open(page, `#inbox/${NONE}`, ".empty") },
   { id: "8h", file: SETTINGS, option: "8h", persona: "rui", setup: (page) => open(page, "#people", ".empty") },
+  ...producersFrames,
 ];

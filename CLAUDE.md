@@ -98,7 +98,8 @@ the browser is a client of the user under an `HttpOnly`, `Secure`,
 `SameSite=Strict` cookie for a fixed 30 days, with CSRF protection, listed and
 revoked like a device, and any role signs out its own browsers) with the users'
 web page at `/app/` (separate from the admin page, under a strict content
-security policy with its own fonts and icons, and tested in a headless browser
+security policy with its own fonts and icons, its Producers list headed by a
+*New producer* button with filter chips that wrap, and tested in a headless browser
 from `web-tests/`), an optional Caddy TLS reverse proxy in
 Compose that exposes only the product API and that page, and the upgrade procedure
 (tested from the latest release and from v0.13.0) and health monitoring (`docs/deployment.md`),

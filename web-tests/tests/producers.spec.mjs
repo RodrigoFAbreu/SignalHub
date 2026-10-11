@@ -261,3 +261,67 @@ test("a producer that is not there, or not the person's to see, is the not-here 
   await expect(page.getByRole("heading", { name: "This isn't here" })).toBeVisible();
   void asDevice;
 });
+
+test("New producer is a button in the list header, the first stop, and opens the form", async ({ context, page }) => {
+  await signedIn(context, page, "BASIC");
+  const header = page.locator(".listp .phead");
+  const button = header.getByRole("link", { name: "New producer" });
+  await expect(button).toBeVisible();
+  // Nothing floats over the list any more.
+  await expect(page.locator(".listp .fab")).toHaveCount(0);
+  // The first stop of the pane, before the search box, the chips and the rows.
+  await page.locator(".rail, body").first().evaluate(() => document.activeElement?.blur());
+  await button.focus();
+  await expect(button).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("searchbox", { name: "Find a producer" })).toBeFocused();
+  await button.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#producers\/new$/);
+  await expect(page.getByLabel("Name")).toBeVisible();
+});
+
+for (const [width, height] of [[390, 844], [1440, 900]]) {
+  test(`with 13 producers the last is fully visible and the chips wrap, at ${width} px`, async ({ context, page }) => {
+    await page.setViewportSize({ width, height });
+    const viewer = await createPerson("BASIC");
+    await useSession(context, await browserSession(viewer));
+    const made = [];
+    for (let i = 0; i < 13; i += 1) made.push(await createProducer(viewer, unique(`p${String(i).padStart(2, "0")}`), "PRIVATE"));
+    // Disabled producers sort last, with their two-line "Disabled by you" text.
+    await asDevice(viewer, "POST", `/api/v1/client/producers/${made[0].id}/disable`);
+    await page.goto("/app/#producers");
+    // The server is shared with other tests, so the list can hold more than these 13.
+    await expect(page.locator(".prow-item", { hasText: made[0].name })).toBeVisible();
+    expect(await page.locator(".prow-item").count()).toBeGreaterThanOrEqual(13);
+
+    const list = page.locator(".list-host");
+    await list.evaluate((node) => { node.scrollTop = node.scrollHeight; });
+    const last = page.locator(".prow-item").last();
+    const row = await last.boundingBox();
+    const host = await list.boundingBox();
+    expect(row.y).toBeGreaterThanOrEqual(host.y);
+    expect(row.y + row.height).toBeLessThanOrEqual(host.y + host.height + 0.5);
+    // Nothing is drawn over the row's centre.
+    const covered = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest(".prow-item") !== null, { x: row.x + row.width / 2, y: row.y + row.height - 4 });
+    expect(covered).toBe(true);
+
+    // The chips wrap: the last one, Disabled, is inside the pane and nothing scrolls sideways.
+    const chips = page.getByRole("radiogroup", { name: "Filter producers" });
+    const disabled = await chips.getByRole("radio", { name: "Disabled" }).boundingBox();
+    const box = await chips.boundingBox();
+    expect(disabled.x + disabled.width).toBeLessThanOrEqual(box.x + box.width);
+    expect(await chips.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    if (width === 390) {
+      const tops = new Set();
+      for (const chip of await chips.getByRole("radio").all()) tops.add(Math.round((await chip.boundingBox()).y));
+      expect(tops.size).toBeGreaterThan(1);
+      // Title, button and avatar share one row.
+      const centre = async (loc) => { const b = await loc.boundingBox(); return b.y + b.height / 2; };
+      const header = page.locator(".listp .phead");
+      const y = await centre(header.getByRole("heading", { name: "Producers" }));
+      expect(Math.abs((await centre(header.getByRole("link", { name: "New producer" }))) - y)).toBeLessThan(2);
+      expect(Math.abs((await centre(header.locator("button").last())) - y)).toBeLessThan(2);
+    }
+  });
+}

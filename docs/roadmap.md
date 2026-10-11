@@ -2624,6 +2624,22 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
 - additions only, so a minor release (`feat`); the admin page's use of
   them is R79
 
+### R77 - The web page's New producer button
+
+- the tonal *New producer* button sits in the Producers list's header
+  (a link to `#producers/new`, the pane's first tab stop) and replaces the
+  floating one at every width; at 390 px the title, the button and the
+  avatar share one row
+- the producer filter chips (the group is named *Filter producers*) wrap
+  onto a second line instead of scrolling sideways, so *Disabled* is never
+  hidden, and the list ends 8 px under its last producer instead of
+  leaving room for a floating button
+- tests in `web-tests/` (the button by keyboard, the last of 13 producers
+  fully visible at 390 and 1440 px, the chips wrapping) and the drawing's
+  frames 9a and 9d in `web-tests/visual/`; the app's *New producer*, the
+  admin page and the API are unchanged
+- web page only, so a minor release (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -3221,8 +3237,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 66    | G6 - The maintainer approves the admin page designs                                              | Human gate                             | Passed (2026-10-11, approved without changes)                                    |
 | 67    | R75 - Small additions to the admin API for the admin page                                        | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 68    | R76 - The events list: a total count, and how each event's pushes went                           | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 69    | R77 - The web page's New producer button                                                         | Increment (`feat`)                     | Next                                                                             |
-| 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Queued (after R77)                                                               |
+| 69    | R77 - The web page's New producer button                                                         | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Next                                                                             |
 | 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Queued (after R78)                                                               |
 
 How an autonomous run uses it:
@@ -3803,6 +3819,7 @@ advance; they follow from the queue.
 | R74           | patch (`ci`)                                                                                                                                          | CI only; nothing a user, producer or operator sees                                                         |
 | R75           | minor (`feat`)                                                                                                                                        | additions to the admin API: open pairings and cancelling one, renaming a producer, `disabledBy`, `startedAt`, `final` |
 | R76           | minor (`feat`)                                                                                                                                        | additions to the events listing with the admin token: `total` and each event's `push`, and a `push` filter  |
+| R77           | minor (`feat`)                                                                                                                                        | the web page's New producer button in the list header; no API change                                       |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6205,7 +6222,7 @@ Non-goals: facet counts (option C was not chosen); the admin page itself
 
 ### R77 - The web page's New producer button
 
-Status: next. Added at the maintainer's approval of the
+Status: complete (see section 3). Added at the maintainer's approval of the
 admin page designs (G6, 2026-10-11).
 
 Goal: the users' web page's *New producer* action never covers a
@@ -6226,7 +6243,7 @@ Non-goals: the app (its *New producer* stays as it is); the admin page.
 
 ### R78 - The admin page: the new layout, signing in, Status, Producers and Devices
 
-Status: queued (after R77). Added at the maintainer's approval of the
+Status: next. Added at the maintainer's approval of the
 admin page designs (G6, 2026-10-11).
 
 Goal: the operator's admin page is rebuilt as approved: the navigation
@@ -6445,8 +6462,9 @@ go-ahead at G5, and R73 (designs for the admin page and the web page's
 *New producer* action) is done. The maintainer approved the designs at
 G6, and R75 to R79 were queued. R75 (small additions to the admin API
 for the admin page) is done, and so is R76 (the events list's total count
-and how each event's pushes went). **Next is R77 (the web page's New
-producer button), then R78 and R79; the queue ends after R79.** A new item is added only by the maintainer, in a reviewed pull
+and how each event's pushes went), and so is R77 (the web page's New
+producer button). **Next is R78 (the admin page: the new layout, signing
+in, Status, Producers and Devices), then R79; the queue ends after R79.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 
