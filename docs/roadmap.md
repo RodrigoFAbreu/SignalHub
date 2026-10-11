@@ -2503,6 +2503,34 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
 - tests: `container-tests/test_upgrade.py` (`ProxyAfterUpgrade`,
   `ProxyAfterConfigChange`) in the upgrade jobs. Compatible (`fix`)
 
+### R74 - CI holds fewer runners at once
+
+- **built**: `CI passed`, the last job of `ci.yml`, needs every part and
+  fails unless each succeeded (it runs even when one failed, and a skipped or
+  cancelled part does not pass it), replacing the 14 reporting jobs; the
+  ruleset requires it and *Conventional Commit title* only. The Python
+  checks and the workflow lint are one job. `ci-web.yml` is gone: the web
+  page's browser tests, the Compose smoke test, the end-to-end test, the
+  fresh install and the three upgrades are composite actions
+  (`.github/actions/stack-*`, each leaving no stack, file or setting behind)
+  that four jobs of `ci-containers.yml` run one after another, sharing the
+  checkout, the loaded images and Python; the stack jobs wait for the images
+  (`needs`). `scripts/ci/run_stats.py` reports a run's jobs, the peak of jobs
+  at once (Linux and macOS apart), runner-minutes, waits and wall time
+  (`docs/development.md`, *Measuring a run*), with tests run by the Python job
+- **decided**: the lanes keep the tests that start the development image
+  before those that remove it; a test that fails does not stop the others of
+  its lane. Where each former check runs: *Python (lint + test)* and *GitHub
+  Actions lint* in `python / Python and workflows (lint + test)`; *Compose
+  smoke test* (x86-64) and *upgrade from the latest release* in one stack job,
+  *Compose smoke test, ARM64* in another; *Web page (browser tests)* and
+  *upgrade from v3.5.0* in a third; *End-to-end*, *Deployment (fresh install)*
+  and *upgrade from v0.13.0* in a fourth; the others keep their jobs. The
+  ruleset drops the 14 names of R70 and adds `CI passed`
+- tests: the measuring script's, in the Python job; the whole of CI is the
+  test of the rest. Measured numbers are in the pull request. Compatible
+  (`ci`)
+
 ---
 
 ## 4. Planned roadmap
@@ -3093,8 +3121,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 59    | R66 - Users' web page                                                                            | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 60    | R70 - CI in reusable workflows, container checks as tests, and faster                            | Increment (`ci`)                       | Done (see section 3)                                                             |
 | 61    | R71 - An upgrade puts the proxy's new configuration in effect                                    | Increment (`fix`)                      | Done (see section 3)                                                             |
-| 62    | R74 - CI holds fewer runners at once                                                             | Increment (`ci`)                       | Next                                                                             |
-| 63    | R72 - Fixes and polish from the maintainer's testing of 3.6.0                                    | Increment (`feat`)                     | Queued (after R74)                                                               |
+| 62    | R74 - CI holds fewer runners at once                                                             | Increment (`ci`)                       | Done (see section 3)                                                             |
+| 63    | R72 - Fixes and polish from the maintainer's testing of 3.6.0                                    | Increment (`feat`)                     | Next                                                                             |
 | 64    | G5 - The maintainer's go-ahead for the admin page redesign                                       | Human gate                             | Waiting for the maintainer                                                       |
 | 65    | R73 - Designs for the admin page, and the web page's New producer button                         | Increment (`docs`)                     | Blocked by G5                                                                    |
 
@@ -5891,7 +5919,7 @@ Non-goals: the admin page and the web page's *New producer* button
 
 ### R74 - CI holds fewer runners at once
 
-Status: next. Added by the maintainer (2026-10-11).
+Status: done (see section 3). Added by the maintainer (2026-10-11).
 
 Goal: a pull request's CI holds few runners at the same time, so the 20
 runners GitHub's free plan shares between all of the maintainer's
@@ -6114,8 +6142,8 @@ maintainer approved the designs at G4, and R65 (users in the app) is
 done, and so is R66 (users' web page) with the app's *Sign in a browser*.
 So is R70 (CI in reusable workflows, container checks as tests, and
 faster), and R71 (an upgrade puts the proxy's new configuration in
-effect). **R74 (CI holds fewer runners at once) is next, then R72
-(fixes and polish from the maintainer's testing of 3.6.0); G5 waits for
+effect), and R74 (CI holds fewer runners at once). **R72 (fixes and
+polish from the maintainer's testing of 3.6.0) is next; G5 waits for
 the maintainer's go-ahead before R73 (designs for the admin page) can
 start.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
