@@ -96,7 +96,7 @@ class OwnProducerView extends StatelessWidget {
           const _TopNotice(
             icon: Icons.pause_circle_outline,
             message:
-                "Paused by you. Its keys don't work, so it sends nothing. Its "
+                "Disabled by you. Its keys don't work, so it sends nothing. Its "
                 'events stay.',
           ),
         if (noKeyBanner != null)

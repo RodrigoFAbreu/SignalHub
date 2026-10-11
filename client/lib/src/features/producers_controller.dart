@@ -44,7 +44,7 @@ class ProducerRow {
   /// say which, so only the owner's own can be told apart.
   bool get disabled => own?.isDisabled ?? producer.disabled;
 
-  bool get pausedByYou =>
+  bool get disabledByYou =>
       (own?.isDisabled ?? false) && !own!.disabledByOperator;
   bool get disabledByHost =>
       (own?.isDisabled ?? false) && own!.disabledByOperator;
@@ -70,7 +70,7 @@ class ProducerRow {
     if (own.isDisabled) {
       return own.disabledByOperator
           ? 'Disabled by the host · ask the host'
-          : 'Paused by you · its keys do not work';
+          : 'Disabled by you · its keys do not work';
     }
     final isPrivate = producer.visibility == ProducerVisibility.private;
     final people = own.allowedUsers.length;
@@ -155,7 +155,8 @@ class ProducersController extends ChangeNotifier {
 
   /// Every producer as a row, in the list's order: the user's own, then the
   /// ones they are subscribed to, then the ones they can subscribe to, each
-  /// A to Z.
+  /// A to Z; the disabled ones (by their owner or by the host) follow in the
+  /// same order, at the bottom.
   List<ProducerRow> get rows {
     final visible = list.value ?? const <VisibleProducer>[];
     final seen = {for (final p in visible) p.id};
@@ -165,7 +166,8 @@ class ProducersController extends ChangeNotifier {
       for (final own in _own.values)
         if (!seen.contains(own.id)) ProducerRow(_visibleFromOwn(own), own),
     ];
-    int group(ProducerRow r) => r.isYours ? 0 : (r.subscribed ? 1 : 2);
+    int group(ProducerRow r) =>
+        (r.disabled ? 3 : 0) + (r.isYours ? 0 : (r.subscribed ? 1 : 2));
     rows.sort((a, b) {
       final byGroup = group(a).compareTo(group(b));
       if (byGroup != 0) return byGroup;

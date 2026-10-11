@@ -19,7 +19,8 @@ enum ProducerFilter {
   all('All'),
   yours('Yours'),
   subscribed('Subscribed'),
-  canSubscribe('Can subscribe');
+  canSubscribe('Can subscribe'),
+  disabled('Disabled');
 
   const ProducerFilter(this.label);
 
@@ -30,6 +31,7 @@ enum ProducerFilter {
     yours => row.isYours,
     subscribed => row.subscribed,
     canSubscribe => !row.subscribed,
+    disabled => row.disabled,
   };
 }
 
@@ -340,6 +342,15 @@ class _ProducersTabState extends State<ProducersTab> {
         body:
             'Subscribe with the bell on a producer, and its events show '
             'up in your inbox.',
+        actionLabel: 'Show all',
+        onAction: showAll,
+      ),
+      ProducerFilter.disabled => _Empty(
+        icon: Icons.check_circle_outline,
+        title: 'No disabled producers',
+        body:
+            'A producer you disable, or the host disables, is listed here '
+            'and at the bottom of the list.',
         actionLabel: 'Show all',
         onAction: showAll,
       ),

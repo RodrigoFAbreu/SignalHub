@@ -377,6 +377,34 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
     });
 
+    testWidgets('with an action is gone after six seconds, unused', (
+      tester,
+    ) async {
+      var undone = 0;
+      await show(tester, actionLabel: 'Undo', onAction: () => undone++);
+      expect(find.text('Undo'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.byType(SnackBar), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+      expect(undone, 0);
+    });
+
+    testWidgets('with an action can be swiped away without undoing', (
+      tester,
+    ) async {
+      var undone = 0;
+      await show(tester, actionLabel: 'Undo', onAction: () => undone++);
+
+      await tester.drag(find.byType(SnackBar), const Offset(0, 200));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnackBar), findsNothing);
+      expect(undone, 0);
+    });
+
     testWidgets('a newer message replaces an older one', (tester) async {
       await show(tester);
       showAppSnackBar(tester.element(find.text('open')), 'Second');

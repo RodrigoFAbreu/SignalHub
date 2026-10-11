@@ -257,7 +257,7 @@
               <div class="fab"><span class="ms">add</span>New producer</div>
               <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
             </div>
-            <p class="dv-onote">Top to bottom: yours and public; yours and paused by you; yours and disabled by the host (the summary in error color, #ba1a1a on #fbf8ff is 6.1:1); someone's producer you are subscribed to and have muted on this device; a private producer shared with you; disabled, which says only Disabled because the server does not tell who disabled someone else's producer; not subscribed. The tags (Yours) are 7.2:1; the avatars' pause and block icons are state, backed by the words in the summary.</p>
+            <p class="dv-onote">Top to bottom: yours and public; yours and disabled by you; yours and disabled by the host (the summary in error color, #ba1a1a on #fbf8ff is 6.1:1); someone's producer you are subscribed to and have muted on this device; a private producer shared with you; disabled, which says only Disabled because the server does not tell who disabled someone else's producer; not subscribed. The tags (Yours) are 7.2:1; the avatars' pause and block icons are state, backed by the words in the summary.</p>
           </div>
 
           <div class="dv-opt" id="5f" data-screen-label="5f Confirmation dialog, light">
@@ -457,7 +457,7 @@
           ];
           const states = [
             mk('ci-pipeline', 'Public · 2 keys · last event 01:19', yours),
-            mk('garage-door', 'Paused by you · its keys do not work', Object.assign({ av: 'pause_circle' }, yours)),
+            mk('garage-door', 'Disabled by you · its keys do not work', Object.assign({ av: 'pause_circle' }, yours)),
             mk('old-sensor', 'Disabled by the host · ask the host', Object.assign({ av: 'block', subcls: 'e' }, yours)),
             mk('ana-reports', 'Ana · Public · Muted on this device'),
             mk('family-calendar', 'Ana · Private, shared with you'),

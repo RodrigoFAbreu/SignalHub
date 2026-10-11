@@ -2531,6 +2531,33 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   test of the rest. Measured numbers are in the pull request. Compatible
   (`ci`)
 
+### R72 - Fixes and polish from the maintainer's testing of 3.6.0
+
+- **built**: in the app, `showAppSnackBar` sets `persist: false`, so a
+  snack bar with Undo or Retry (subscribing and unsubscribing among them)
+  goes after six seconds and can be swiped away without undoing. The two
+  sheets that padded only for the keyboard (the browser sign-in
+  confirmation and *Paste link*) leave room for the larger of the keyboard
+  and the navigation bar (`sheetBottomInset`); the other sheets and
+  bottom bars already sat inside a `SafeArea` or a `Scaffold` bar. The
+  Producers list puts the disabled ones (by their owner or by the host)
+  after the others, in the same order, in the app and on the web page, and
+  a *Disabled* chip shows only them (nothing new from the server: the
+  list's `disabled` flags). A producer its owner disabled reads *Disabled by
+  you* everywhere (app, web page, `DESIGN.md`, `WALKTHROUGH.md`, the
+  drawings' text, `docs/architecture.md`)
+- **decided**: the web page has no snack bars (it announces a subscription
+  to screen readers and shows a failed one as a banner with *Retry*, which
+  stays until it is used or the change is retried), so there was nothing to
+  fix there. The chip is named *Disabled* and comes last, after *Can
+  subscribe*; its empty state reads *No disabled producers*. The widget
+  tests for the snack bar and the two sheets fail without the fixes (shown
+  in the pull request)
+- tests: `widgets_test.dart`, `setup_screen_test.dart`,
+  `sign_in_browser_test.dart`, `producers_controller_test.dart`,
+  `producers_tab_test.dart` and `web-tests/tests/producers.spec.mjs`.
+  Compatible (`feat`)
+
 ---
 
 ## 4. Planned roadmap
@@ -3122,7 +3149,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 60    | R70 - CI in reusable workflows, container checks as tests, and faster                            | Increment (`ci`)                       | Done (see section 3)                                                             |
 | 61    | R71 - An upgrade puts the proxy's new configuration in effect                                    | Increment (`fix`)                      | Done (see section 3)                                                             |
 | 62    | R74 - CI holds fewer runners at once                                                             | Increment (`ci`)                       | Done (see section 3)                                                             |
-| 63    | R72 - Fixes and polish from the maintainer's testing of 3.6.0                                    | Increment (`feat`)                     | Next                                                                             |
+| 63    | R72 - Fixes and polish from the maintainer's testing of 3.6.0                                    | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 64    | G5 - The maintainer's go-ahead for the admin page redesign                                       | Human gate                             | Waiting for the maintainer                                                       |
 | 65    | R73 - Designs for the admin page, and the web page's New producer button                         | Increment (`docs`)                     | Blocked by G5                                                                    |
 
@@ -5883,7 +5910,7 @@ upgrade done by the documented steps keeps `/app/` working.
 
 ### R72 - Fixes and polish from the maintainer's testing of 3.6.0
 
-Status: next. Added by the maintainer (2026-10-11), from testing the
+Status: done (see section 3). Added by the maintainer (2026-10-11), from testing the
 app and the web page on 3.6.0.
 
 Goal: what the maintainer found while testing the users' app and web
@@ -6142,10 +6169,10 @@ maintainer approved the designs at G4, and R65 (users in the app) is
 done, and so is R66 (users' web page) with the app's *Sign in a browser*.
 So is R70 (CI in reusable workflows, container checks as tests, and
 faster), and R71 (an upgrade puts the proxy's new configuration in
-effect), and R74 (CI holds fewer runners at once). **R72 (fixes and
-polish from the maintainer's testing of 3.6.0) is next; G5 waits for
-the maintainer's go-ahead before R73 (designs for the admin page) can
-start.** A new item is added only by the maintainer, in a reviewed pull
+effect), and R74 (CI holds fewer runners at once), and R72 (fixes and
+polish from the maintainer's testing of 3.6.0). **Next is G5, a human
+gate: the queue stops there until the maintainer gives the go-ahead
+before R73 (designs for the admin page) can start.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 

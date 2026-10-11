@@ -93,6 +93,28 @@ test("the producers list: search, chips, Yours tag, summary and the bell that su
   await expect(row.getByRole("button", { name: /Not subscribed/ })).toBeVisible();
 });
 
+test("a producer its owner disabled goes to the bottom, and the Disabled chip shows only it", async ({ context, page }) => {
+  const viewer = await createPerson("BASIC");
+  await useSession(context, await browserSession(viewer));
+  // Named so that A to Z alone would put the disabled one first.
+  const off = await createProducer(viewer, unique("a-off"), "PRIVATE");
+  const on = await createProducer(viewer, unique("z-on"), "PRIVATE");
+  await asDevice(viewer, "POST", `/api/v1/client/producers/${off.id}/disable`);
+  await page.goto("/app/#producers");
+
+  // The server is shared with other tests, so only these two rows are looked at.
+  const onRow = page.locator(".prow-item", { hasText: on.name });
+  const offRow = page.locator(".prow-item", { hasText: off.name });
+  await expect(offRow).toContainText("Disabled by you · its keys do not work");
+  await expect(onRow).toBeVisible();
+  const top = async (row) => (await row.boundingBox()).y;
+  expect(await top(offRow)).toBeGreaterThan(await top(onRow));
+
+  await page.getByRole("radio", { name: "Disabled", exact: true }).click();
+  await expect(offRow).toBeVisible();
+  await expect(onRow).toHaveCount(0);
+});
+
 test("a failed subscribe says so, with Retry", async ({ context, page }) => {
   const owner = await createPerson("BASIC");
   const mine = await createProducer(owner, unique("flaky"), "PUBLIC");
@@ -224,7 +246,7 @@ test("an owner renames, changes who can see it, adds and removes people, and man
   // Disable and enable.
   await page.getByRole("button", { name: /^Disable/ }).click();
   await page.getByRole("dialog", { name: `Disable ${renamed}?` }).getByRole("button", { name: "Disable" }).click();
-  await expect(page.getByText("Paused by you. Its keys don't work, so it sends nothing. Its events stay.")).toBeVisible();
+  await expect(page.getByText("Disabled by you. Its keys don't work, so it sends nothing. Its events stay.")).toBeVisible();
   const refused = await fetch(`${BASE}/api/v1/events`, { method: "POST", headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" }, body: JSON.stringify({ category: "INFO", severity: "NORMAL", title: "x" }) });
   expect(refused.status).toBe(401);
   await page.getByRole("button", { name: /^Enable/ }).click();

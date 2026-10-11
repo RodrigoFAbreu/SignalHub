@@ -193,16 +193,40 @@ void main() {
       expect(await summaryOf('private-key'), 'Private · 1 key · no events yet');
     });
 
+    test('puts disabled producers last, in the same order', () async {
+      server
+        ..addVisible('a', 'weather-alerts', subscribed: false)
+        ..addVisible('b', 'zebra-reports')
+        ..addVisible('c', 'dead-feed', disabled: true)
+        ..addOwn('d', 'quarterly')
+        ..addOwn('e', 'Backup-jobs', paused: true)
+        ..addOwn('f', 'old-sensor', disabledByHost: true);
+
+      final producers = await loaded();
+
+      expect(producers.rows.map((r) => r.name), [
+        'quarterly',
+        'zebra-reports',
+        'weather-alerts',
+        'Backup-jobs',
+        'old-sensor',
+        'dead-feed',
+      ]);
+    });
+
     test('of a producer that is paused or disabled', () async {
       server
         ..addOwn('1', 'paused', paused: true)
         ..addOwn('2', 'host', disabledByHost: true);
       await loaded();
 
-      expect(await summaryOf('paused'), 'Paused by you · its keys do not work');
+      expect(
+        await summaryOf('paused'),
+        'Disabled by you · its keys do not work',
+      );
       expect(await summaryOf('host'), 'Disabled by the host · ask the host');
       expect(
-        app.producers.rows.firstWhere((r) => r.name == 'paused').pausedByYou,
+        app.producers.rows.firstWhere((r) => r.name == 'paused').disabledByYou,
         isTrue,
       );
       expect(

@@ -156,6 +156,20 @@ void main() {
       );
     });
 
+    testWidgets('the paste sheet\'s button clears the navigation bar', (
+      tester,
+    ) async {
+      await setup(tester);
+      useEdgeToEdgePhone(tester);
+      mockClipboard(tester);
+
+      await tester.tap(byKey('pasteLink'));
+      await tester.pumpAndSettle();
+
+      expect(byKey('pair'), findsOneWidget);
+      expectClearOfNavigationBar(tester, byKey('pair'));
+    });
+
     testWidgets('a pasted link that is not an invitation says so', (
       tester,
     ) async {

@@ -5,6 +5,7 @@ import '../connection/web_sign_in_link.dart';
 import '../features/web_sign_in_controller.dart';
 import 'pairing_scanner_screen.dart';
 import 'widgets/banners.dart';
+import 'widgets/sheet_inset.dart';
 import 'widgets/busy_button.dart';
 
 /// _Settings › Sign in a browser_, for every role: the camera reads the code a
@@ -359,12 +360,7 @@ class _ConfirmSheet extends StatelessWidget {
       final approving = controller.step == SignInStep.approving;
       final failure = controller.failure;
       return Padding(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          0,
-          24,
-          24 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
+        padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + sheetBottomInset(context)),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

@@ -54,7 +54,9 @@ first subscription. Screens before the app is connected have no bottom bar.
    - Nothing under Yours: [4g](images/first-run/4g-producers-nothing-under-yours.webp)
    - Nothing under Can subscribe: [4h](images/first-run/4h-producers-nothing-under-can-subscribe.webp)
 6. **Subscribing.** With producers, the list is grouped Yours, Subscribed, Can
-   subscribe, each A to Z. The bell subscribes in place. ![1d: Producers: search and filter chips](images/producers/1d-producers-search-filter-chips.webp)
+   subscribe, each A to Z, and the producers disabled by their owner or by the
+   host follow at the bottom in the same order. A Disabled chip shows only them.
+   The bell subscribes in place. ![1d: Producers: search and filter chips](images/producers/1d-producers-search-filter-chips.webp)
    - The row in each state: [1g](images/producers/1g-row-each-state.webp)
    - In flight: [1h](images/producers/1h-subscribing-flight.webp)
    - It failed (snackbar with Retry): [1i](images/producers/1i-subscribing-it-failed.webp)
@@ -237,7 +239,7 @@ the person signs out in another tab.
 | Choice | Picked | Alternatives | Why (from the comparison pages) |
 | --- | --- | --- | --- |
 | Navigation | **A: a bottom bar** (Inbox, Producers, Settings; People for an admin) | **B:** today's app bar with the gear, Producers as a pushed screen, and Settings rows for Producers, People and Devices | The owner chose A. Producers and People are used often, so they are one tap away. B kept the app as it is but buried them. The design system's old "no bottom navigation" pattern was replaced. |
-| Producers | **1d: search plus filter chips** (All, Yours, Subscribed, Can subscribe) | **1b:** a segmented button (Subscribed, Mine, Browse). **1c:** one list in sections (Yours, Subscribed, You can subscribe to) with a New producer button | The owner chose 1d. One list serves a few producers and many. Search and chips scale to many. The empty states stay the same shape as producers arrive. |
+| Producers | **1d: search plus filter chips** (All, Yours, Subscribed, Can subscribe, Disabled) | **1b:** a segmented button (Subscribed, Mine, Browse). **1c:** one list in sections (Yours, Subscribed, You can subscribe to) with a New producer button | The owner chose 1d. One list serves a few producers and many. Search and chips scale to many. The empty states stay the same shape as producers arrive. |
 | The key shown once | **2b: a full screen** with Copy, Share and a send example, plus 2c's *Copy and close* button | **2c:** a bottom sheet. **2d:** a card on the producer's screen that stays until hidden | The owner chose 2b. A key that cannot be seen again should not sit in a dismissible sheet. A full screen you leave on purpose cannot be lost by a stray tap. *Copy and close* comes from 2c. |
 | People | **3b: sections by role**, each explaining the role | **3a:** a flat list with role tags and an Invite button. **3c:** folding groups with the role control and devices in place | The owner chose 3b. The section label teaches what each role can do in place, and the web page uses the same words. |
 | Web sign-in | **6a: the page shows a QR code that the app scans** | **6b:** a short code typed in the app. **6c:** type your name and approve a push with number matching | The owner chose 6a. The code lives on the page, so only someone holding the phone and looking at the screen can approve it. 6c is riskier on a public page. 6b stays as the typed-code path (6a5, 6d). |
@@ -273,7 +275,9 @@ After the review, the owner accepted six recommendations.
 2. **The undo-or-confirm table is as drawn.** See `DESIGN.md`, section 4.1.
 3. **Device notices open the Devices screen.** An event push still opens the
    event. Every role has a Devices screen, read only for a Basic user.
-4. **Producers are grouped Yours, Subscribed, Can subscribe**, each A to Z.
+4. **Producers are grouped Yours, Subscribed, Can subscribe**, each A to Z;
+   disabled ones (by their owner or by the host) go to the bottom in the same
+   order, and a Disabled chip shows only them.
 5. **Someone else's disabled producer shows `Disabled`**, not "Paused by its
    owner". The app cannot tell who disabled it.
 6. **The full web page works at phone width**, with the app's layout and bottom
