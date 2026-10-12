@@ -3297,6 +3297,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 69    | R77 - The web page's New producer button                                                         | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 72    | R80 - Web sign-in codes follow the server's clock                                                | Increment (`fix`)                      | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3813,6 +3814,11 @@ G1 → G2 → R19 v1.0.0
   *New producer* button (R77), small and independent; then the admin
   page in two items, so each stays reviewable: R78 the layout, signing
   in, *Status*, *Producers* and *Devices*, and R79 *Events* and *Users*.
+- **R80 was added by the maintainer on 2026-10-12**, after R79: the
+  release run of #164 failed because the web page timed sign-in codes by
+  the browser's clock (the server sends no `Date` header), which also
+  breaks signing in from a computer whose clock is fast. The maintainer
+  chose to fix it at once rather than defer it.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -6377,6 +6383,45 @@ Non-goals: anything not in the approved designs.
 Exit criteria: on the owner's server, the owner does the approved flows
 of *Events* and *Users* at desktop width and at 390 px.
 
+### R80 - Web sign-in codes follow the server's clock
+
+Status: next. Added by the maintainer (2026-10-12).
+
+Goal: the users' web page counts a sign-in code's three minutes by the
+server's clock, as it was meant to, so a computer whose clock is off
+still gets codes that last their three minutes.
+
+Found when the release run of #164 failed: the page reads how long a new
+code lives from the response's `Date` header (`app/js/signin.js`, "the
+page's clock may be off"), but the server sends no `Date` header, so the
+page falls back to the browser's own clock. A browser clock more than
+three minutes fast makes every new code look expired at once: the page
+asks for five codes in a row and then says it stopped waiting. The test
+of the refreshing codes moves the page's clock forward, and failed the
+same way when its timing let it. The same test also ended once while a
+response body was still being read (`response.json: Test ended`).
+
+Scope:
+
+- the fix: the server tells the page the time it set the code's expiry
+  from, for example a `Date` header from the same instant on starting a
+  sign-in, so the page needs no correct clock; decided in the increment
+  and recorded in `docs/architecture.md`
+- a test that fails without the fix: the page with its clock minutes
+  ahead of the server still shows a fresh code's full three minutes and
+  asks for one new code when it runs out, not five; and a backend test
+  for whatever the server now sends
+- the refreshing-codes test made deterministic (the late response body
+  read no longer fails it)
+- the admin Devices test of a push problem made independent of the
+  time of day: it expects "3 h ago" for a push three hours old, which
+  the page rightly words "yesterday" between midnight and 03:00 (found
+  failing a PR's CI at 00:04 UTC on 2026-10-12)
+
+Compatible (`fix`, patch): no change to the API's fields or the schema.
+
+Non-goals: other uses of the browser's clock on the page; the app.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -6524,7 +6569,8 @@ for the admin page) is done, and so is R76 (the events list's total count
 and how each event's pushes went), and so is R77 (the web page's New
 producer button), and so is R78 (the admin page's new layout, signing in,
 Status, Producers and Devices), and so is R79 (the admin page's Events and
-Users). **The queue ended with R79: nothing is Next.** A new item is added only by the maintainer, in a reviewed pull
+Users). The maintainer then added R80 (web sign-in codes follow the server's
+clock). **Next is R80; the queue ends after it.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 
