@@ -105,7 +105,8 @@ export function mountSignIn(container, { mode, onSignedIn }) {
     }
     if (stopped || mine !== generation) return;
     const { result, date } = started;
-    // The server's own clock says how long the codes live; the page's clock may be off.
+    // The server's Date header is the instant it set expiresAt from, so the codes' life is
+    // measured by the server's clock alone; the page's clock may be off, and is only a fallback.
     const serverNow = date ? Date.parse(date) : Date.now();
     deadline = performance.now() + (Date.parse(result.expiresAt) - serverNow);
     current = result;

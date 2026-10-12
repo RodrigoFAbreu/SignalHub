@@ -15,6 +15,8 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -140,8 +142,10 @@ public class WebSignInResource {
       description =
           "Called by the page, with no credential and no body. Gives the codes it shows for a"
               + " device to scan or type, and the secret it polls with. The browser is named"
-              + " from its User-Agent. The codes live three minutes; the page asks again when"
-              + " they run out. At most 200 sign-ins wait at once.")
+              + " from its User-Agent. The response's Date header is the instant the codes' expiry"
+              + " was set from, so a page counts their life by the server's clock. The codes live"
+              + " three minutes; the page asks again when they run out. At most 200 sign-ins wait"
+              + " at once.")
   @APIResponse(
       responseCode = "201",
       description = "Started.",
@@ -163,6 +167,12 @@ public class WebSignInResource {
                             .build()));
     return Response.status(Response.Status.CREATED)
         .header(HttpHeaders.CACHE_CONTROL, "no-store")
+        // The instant expiresAt was set from, so a page counts the code's life by the server's
+        // clock and needs no correct clock of its own.
+        .header(
+            HttpHeaders.DATE,
+            DateTimeFormatter.RFC_1123_DATE_TIME.format(
+                started.startedAt().atOffset(ZoneOffset.UTC)))
         .entity(
             new Started(
                 started.id(),

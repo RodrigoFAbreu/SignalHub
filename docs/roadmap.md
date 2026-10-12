@@ -2671,6 +2671,25 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   `admin-frames.mjs` were checked by eye
 - the admin page only, so a minor release (`feat`)
 
+### R80 - Web sign-in codes follow the server's clock
+
+- the response that starts a web sign-in (`POST /api/v1/web/sign-ins`) now
+  carries a `Date` header from the same instant `expiresAt` was set from
+  (whole seconds, never later than that instant), and the page counts the
+  code's three minutes from the gap between the two, so a browser whose
+  clock is minutes off still shows a code's full three minutes and asks for
+  one new code when it runs out; the body and the schema are unchanged, and
+  the optional proxy passes the header through
+- `WebSignInApiTest` checks the header; `web-tests/tests/signin.spec.mjs`
+  runs the page with its clock ten minutes ahead of the server (it failed
+  without the header: every new code looked expired at once), and its
+  refreshing-codes test reads each new code with `page.waitForResponse`, so
+  no response body is still being read when it ends
+- the admin Devices test of a push problem sets the page's clock to midday
+  and builds its sample times from it, so "3 h ago" no longer reads
+  "yesterday" between midnight and 03:00
+- a fix only, so a patch release (`fix`)
+
 ---
 
 ## 4. Planned roadmap
@@ -3297,7 +3316,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 69    | R77 - The web page's New producer button                                                         | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 72    | R80 - Web sign-in codes follow the server's clock                                                | Increment (`fix`)                      | Next                                                                             |
+| 72    | R80 - Web sign-in codes follow the server's clock                                                | Increment (`fix`)                      | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -3885,6 +3904,7 @@ advance; they follow from the queue.
 | R77           | minor (`feat`)                                                                                                                                        | the web page's New producer button in the list header; no API change                                       |
 | R78           | minor (`feat`)                                                                                                                                        | the admin page's new layout, signing in, Status, Producers and Devices; no API change                       |
 | R79           | minor (`feat`)                                                                                                                                        | the admin page's Events and Users; no API change                                                            |
+| R80           | patch (`fix`)                                                                                                                                         | web sign-in codes follow the server's clock: a `Date` header on starting a sign-in; no field or schema change |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6385,7 +6405,7 @@ of *Events* and *Users* at desktop width and at 390 px.
 
 ### R80 - Web sign-in codes follow the server's clock
 
-Status: next. Added by the maintainer (2026-10-12).
+Status: complete (see section 3). Added by the maintainer (2026-10-12).
 
 Goal: the users' web page counts a sign-in code's three minutes by the
 server's clock, as it was meant to, so a computer whose clock is off
@@ -6570,7 +6590,7 @@ and how each event's pushes went), and so is R77 (the web page's New
 producer button), and so is R78 (the admin page's new layout, signing in,
 Status, Producers and Devices), and so is R79 (the admin page's Events and
 Users). The maintainer then added R80 (web sign-in codes follow the server's
-clock). **Next is R80; the queue ends after it.** A new item is added only by the maintainer, in a reviewed pull
+clock), and R80 is done. **Nothing is Next: the queue has ended.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 

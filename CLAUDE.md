@@ -97,7 +97,7 @@ an optional event retention period, signing a browser in from a device
 (no passwords: the page's QR or typed code is approved in the app by any role;
 the browser is a client of the user under an `HttpOnly`, `Secure`,
 `SameSite=Strict` cookie for a fixed 30 days, with CSRF protection, listed and
-revoked like a device, and any role signs out its own browsers) with the users'
+revoked like a device, and any role signs out its own browsers; the page counts a code's three minutes by the server's clock, from the `Date` header of the response that starts the sign-in) with the users'
 web page at `/app/` (separate from the admin page, under a strict content
 security policy with its own fonts and icons, its Producers list headed by a
 *New producer* button with filter chips that wrap, and tested in a headless browser
