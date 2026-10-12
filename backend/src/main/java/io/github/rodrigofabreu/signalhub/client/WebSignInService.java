@@ -73,6 +73,7 @@ public class WebSignInService {
       String code,
       String scanCode,
       String uri,
+      Instant startedAt,
       Instant expiresAt,
       String browserName) {
 
@@ -116,6 +117,7 @@ public class WebSignInService {
             WebSignInCodes.display(typed),
             scan,
             uris.signIn(scan).orElse(null),
+            now,
             signIn.expiresAt(),
             name));
   }

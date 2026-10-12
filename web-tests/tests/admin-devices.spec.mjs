@@ -78,9 +78,15 @@ test("each device and browser is a row with its user, last activity and how its 
 });
 
 test("a device with a push problem says what is wrong in words; the codes and ids are only under Technical details", async ({ page }) => {
+  // The page says "3 h ago" only when the push is on the same calendar day, and "yesterday"
+  // otherwise, so the page's clock stands at midday and the sample times are built from it.
+  const midday = new Date();
+  midday.setHours(12, 0, 0, 0);
+  await page.clock.install({ time: midday });
+  const before = (ms) => new Date(midday.getTime() - ms).toISOString();
   const eventId = crypto.randomUUID();
   const goneId = crypto.randomUUID();
-  const retrying = sample("Retrying tab", { pushStatus: { lastSuccess: { at: ago(3 * 3_600_000), eventId: goneId }, lastFailure: failure("TRANSIENT_FAILURE", { at: ago(40 * 60_000), eventId }), pendingRetries: 2 } });
+  const retrying = sample("Retrying tab", { pushStatus: { lastSuccess: { at: before(3 * 3_600_000), eventId: goneId }, lastFailure: failure("TRANSIENT_FAILURE", { at: before(40 * 60_000), eventId }), pendingRetries: 2 } });
   const gaveUp = sample("Gave up tab", { pushStatus: { lastSuccess: null, lastFailure: failure("TRANSIENT_FAILURE"), pendingRetries: 0 } });
   await mockList(page, [retrying, gaveUp]);
   await page.route(`**/api/v1/events/${eventId}`, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: eventId, title: "Build 1842 failed on main" }) }));

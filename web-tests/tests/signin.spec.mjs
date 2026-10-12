@@ -59,17 +59,19 @@ test("at phone width the page shows a typed code and an Open the app link instea
   await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible({ timeout: 10_000 });
 });
 
+const isSignIn = (response) => response.url().endsWith("/api/v1/web/sign-ins") && response.request().method() === "POST";
+
 test("a code that runs out is replaced by a new one, and after five refreshes the page stops", async ({ page }) => {
   await page.clock.install();
-  const codes = [];
-  page.on("response", async (response) => {
-    if (response.url().endsWith("/api/v1/web/sign-ins") && response.request().method() === "POST") codes.push((await response.json()).code);
-  });
+  const first = page.waitForResponse(isSignIn);
   await page.goto("/app/");
+  const codes = [(await (await first).json()).code];
   await expect(page.getByRole("img", { name: /Sign-in QR code/ })).toBeVisible();
   for (let refresh = 1; refresh <= 5; refresh += 1) {
+    // Each body is read before the test moves on, so none is still being read when it ends.
+    const next = page.waitForResponse(isSignIn);
     await page.clock.runFor(181_000);
-    await expect.poll(() => codes.length, { timeout: 10_000 }).toBe(refresh + 1);
+    codes.push((await (await next).json()).code);
     await expect(page.getByText(/Waiting for your phone · [0-3]:\d\d/)).toBeVisible();
   }
   expect(new Set(codes).size).toBe(6);
@@ -77,6 +79,25 @@ test("a code that runs out is replaced by a new one, and after five refreshes th
   await expect(page.getByRole("heading", { name: "Still waiting for your phone" })).toBeVisible();
   await page.getByRole("button", { name: "Show a new code" }).click();
   await expect(page.getByRole("img", { name: /Sign-in QR code/ })).toBeVisible();
+});
+
+test("a page whose clock is minutes ahead of the server still shows a code's full three minutes and asks for one new code when it runs out", async ({ page }) => {
+  // The server's clock decides how long a code lives, not the browser's: a clock ten minutes
+  // fast must not make every new code look expired at once.
+  await page.clock.install({ time: new Date(Date.now() + 10 * 60_000) });
+  let asked = 0;
+  page.on("request", (request) => {
+    if (request.url().endsWith("/api/v1/web/sign-ins") && request.method() === "POST") asked += 1;
+  });
+  await page.goto("/app/");
+  // Nearly the whole three minutes remain, not the near-zero a fast clock would leave.
+  await expect(page.getByText(/Waiting for your phone · (2:5\d|3:00)/)).toBeVisible();
+  expect(asked).toBe(1);
+  const next = page.waitForResponse(isSignIn);
+  await page.clock.runFor(181_000);
+  await next;
+  await expect(page.getByText(/Waiting for your phone · (2:5\d|3:00)/)).toBeVisible();
+  expect(asked).toBe(2);
 });
 
 test("a cancel in the app is noticed by the page", async ({ page }) => {

@@ -28,6 +28,8 @@ import jakarta.inject.Inject;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -65,6 +67,27 @@ class WebSignInApiTest {
         .body("pollSecret", matchesPattern("shsp1_[A-Za-z0-9_-]{43}"))
         .body("uri", matchesPattern("signalhub://signin\\?server=https%3A%2F%2F.*&code=shsc1_.*"))
         .body("browserName", equalTo("Firefox on Linux"));
+  }
+
+  @Test
+  void theResponseDatesTheInstantTheExpiryWasSetFrom() {
+    var response =
+        given()
+            .header("User-Agent", FIREFOX_ON_LINUX)
+            .when()
+            .post(WEB + "/sign-ins")
+            .then()
+            .statusCode(201)
+            .extract();
+
+    var date = ZonedDateTime.parse(response.header("Date"), DateTimeFormatter.RFC_1123_DATE_TIME);
+    var expiresAt = Instant.parse(response.path("expiresAt"));
+    // The header has whole seconds, so it may trail the instant by less than one.
+    var life = Duration.between(date.toInstant(), expiresAt);
+    assertTrue(
+        life.compareTo(Duration.ofMinutes(3)) >= 0
+            && life.compareTo(Duration.ofMinutes(3).plusSeconds(1)) < 0,
+        "the codes live three minutes from the Date header, not " + life);
   }
 
   @Test

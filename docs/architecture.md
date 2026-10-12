@@ -1488,6 +1488,12 @@ not show:
    and a `pollSecret` it keeps in memory and never shows. The browser is named
    from its `User-Agent` (`Firefox on Linux`, `Safari on iPhone`; `Browser` if
    unknown). **decided: a label for people, never used to decide anything.**
+   The `201` carries a `Date` header from the same instant `expiresAt` was set
+   from (whole seconds, never later than that instant), and the page counts the
+   code's three minutes from the gap between the two, not from its own clock.
+   **decided: the standard `Date` header rather than a new field**, so the API's
+   body is unchanged; the optional proxy passes it through untouched. A browser
+   whose clock is minutes off still shows a code's full three minutes.
 2. A device looks the code up (`POST /api/v1/client/web-sign-ins/lookup`, the
    typed code in any case with or without the dash, or the scan code) and
    becomes the only device that may approve or cancel that sign-in; the page
