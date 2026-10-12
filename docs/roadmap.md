@@ -3296,7 +3296,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 68    | R76 - The events list: a total count, and how each event's pushes went                           | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 69    | R77 - The web page's New producer button                                                         | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Next                                                                             |
+| 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
