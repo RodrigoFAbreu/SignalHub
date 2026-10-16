@@ -3317,6 +3317,11 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 72    | R80 - Web sign-in codes follow the server's clock                                                | Increment (`fix`)                      | Done (see section 3)                                                             |
+| 73    | G7 - The maintainer's go-ahead for replies and notification actions                              | Human gate                             | Waiting for the maintainer                                                       |
+| 74    | R81 - Designs for replying to an event and notification actions                                  | Increment (`docs`)                     | Blocked by G7                                                                    |
+| 75    | G8 - The maintainer approves the reply and notification action designs                           | Human gate                             | Blocked by R81                                                                   |
+| 76    | R82 - Replying to an event                                                                       | Increment (`feat`)                     | Blocked by G8                                                                    |
+| 77    | R83 - Notification action buttons                                                                | Increment (`feat`)                     | Blocked by G8                                                                    |
 
 How an autonomous run uses it:
 
@@ -3838,6 +3843,13 @@ G1 → G2 → R19 v1.0.0
   the browser's clock (the server sends no `Date` header), which also
   breaks signing in from a computer whose clock is fast. The maintainer
   chose to fix it at once rather than defer it.
+- **G7, R81, G8, R82 and R83 were added by the maintainer on
+  2026-10-16**, after R80, from the deferred candidates "a reply to an
+  event" and "notification action buttons", which the maintainer expects
+  to use soon. They are on hold: nothing of them starts before the
+  maintainer's go-ahead at G7. They follow the admin page redesign's
+  model (G5, R73, G6): designs first, approved at a gate, then the
+  building items, which may be split or reworded at that approval.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -6442,6 +6454,98 @@ Compatible (`fix`, patch): no change to the API's fields or the schema.
 
 Non-goals: other uses of the browser's clock on the page; the app.
 
+### G7 - The maintainer's go-ahead for replies and notification actions
+
+Status: waiting for the maintainer. A human gate.
+
+The maintainer wants a producer to be able to ask the owner something and
+read the answer, and wants the owner to act on a push from the
+notification itself, and expects to use both soon. Nothing of R81, R82 or
+R83 starts until the maintainer gives the go-ahead here. An orchestrator
+stops here and never answers it.
+
+### R81 - Designs for replying to an event and notification actions
+
+Status: blocked by G7. Added by the maintainer (2026-10-16).
+
+Goal: one generic design for answering an event, from the app, the web
+page and the notification, that keeps the core producer-agnostic, agreed
+before any code.
+
+How it is made: as R73 was, in the Claude Design project by local design
+workers that the orchestrator plans and reviews, from the existing design
+system (`docs/design/users/DESIGN.md`), which is extended, not replaced;
+and, for the server, a written proposal of the API and schema changes.
+
+Scope, what is designed and decided:
+
+- the contract: how a producer asks for a reply on an event (generic
+  fields only, for example a question with a few choices, or free text),
+  how it reads the answer with its own key (polling the event, a feed of
+  answers, or a callback; the smallest that serves a producer such as the
+  workflow controller's orchestrator), and what a reply records (who
+  answered, when, what)
+- who may answer an event that reached several users, and what happens
+  after the first answer, an answer that comes late, and an event that is
+  deleted
+- answering in the app and on the web page: in the event's detail, and
+  how an unanswered question stands out in the inbox
+- the notification's action buttons on Android: the event's choices,
+  a typed answer where the event asks for free text, and generic actions
+  such as *Mark as read* and *Open link*; how they behave when the app is
+  closed, on the lock screen and with the critical alert
+- exported like R73, then approved by the maintainer at G8
+
+Compatible (`docs`, patch): drawings and a proposal only.
+
+Non-goals: building it (R82, R83); iOS (no iOS builds are distributed);
+conversations or threads; a rules engine.
+
+### G8 - The maintainer approves the reply and notification action designs
+
+Status: blocked by R81. A human gate.
+
+The maintainer reviews R81's drawings and proposal and approves them,
+with or without changes. At the approval, R82 and R83 are confirmed,
+split or reworded to match, and any server item the designs need is
+queued with them. Until then nothing of them starts. An orchestrator
+stops here and never answers it.
+
+### R82 - Replying to an event
+
+Status: blocked by G8. Added by the maintainer (2026-10-16).
+
+Goal: a producer can ask for a reply on an event, the owner answers it in
+the app or on the web page, and the producer reads the answer, as R81
+designs it.
+
+Scope (settled at G8): the event schema's and API's additions for asking
+and reading a reply, stored durably with the event; answering in the app
+and on the web page; the admin page shows an event's reply; an example in
+`examples/` and the Python SDK and command read replies.
+
+Compatible (`feat`, minor): additive fields and endpoints; an event that
+asks for nothing behaves as today.
+
+Non-goals: the notification's buttons (R83); iOS.
+
+### R83 - Notification action buttons
+
+Status: blocked by G8. Added by the maintainer (2026-10-16).
+
+Goal: the owner acts on a push from the notification itself, without
+opening the app: answering an event's question with its choices or a typed
+answer, and generic actions such as *Mark as read* and *Open link*, as R81
+designs them.
+
+Scope (settled at G8): the Android notification's actions, working when
+the app is closed and on the lock screen as designed, with the critical
+alert; an answer from the notification is recorded as if made in the app.
+
+Compatible (`feat`, minor): the app only, with any API it needs from R82.
+
+Non-goals: iOS; actions on the web page (it receives no pushes).
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -6473,8 +6577,7 @@ itself.
 | Notification grouping on the device                                                                       | Event volume is low, and Android already bundles an app's notifications once several arrive; considered with R30 to R33 and left here | Bursts of pushes that Android's own bundling does not make readable, seen on a device.                                |
 | Rate limiting and brute-force resistance                                                                  | Keys and pairing codes make guessing infeasible; the management API is not forwarded (`docs/architecture.md#security-limitations`)    | Abusive or heavy traffic seen in logs or metrics; the proxy is the first place to limit.                              |
 | Key expiry, key scopes, a separate management port                                                        | One owner; rotation and revocation exist; the documented mitigations hold                                                             | A producer that must be restricted, or managing from another host.                                                    |
-| Richer metadata rendering, notification action buttons, several or labelled links, attachments and images | Metadata is opaque by principle; actions need generic semantics in the event schema; one link per event is scheduled as R30 and R31   | Several unrelated producers needing the same generic capability, with a design that keeps the core producer-agnostic. |
-| A reply to an event                                                                                       | No producer reads answers yet; the workflow controller will raise its need                                                            | A producer that must read the owner's answer to an event, such as an orchestrator's escalation question.              |
+| Richer metadata rendering, several or labelled links, attachments and images                              | Metadata is opaque by principle; one link per event is scheduled as R30 and R31; action buttons are R83                               | Several unrelated producers needing the same generic capability, with a design that keeps the core producer-agnostic. |
 | Distributed iOS builds, APNs directly                                                                     | iOS builds need the owner's Apple team; FCM already relays to APNs                                                                    | An iOS user of released builds.                                                                                       |
 | The SDK on PyPI                                                                                           | The release's wheel (R22) and installing from a tag suffice                                                                           | Producers that cannot install from GitHub.                                                                            |
 | SDKs in more languages                                                                                    | `curl`, the command and Python cover the examples' producers                                                                          | A producer ecosystem where plain HTTP is a real burden.                                                               |
@@ -6590,7 +6693,9 @@ and how each event's pushes went), and so is R77 (the web page's New
 producer button), and so is R78 (the admin page's new layout, signing in,
 Status, Producers and Devices), and so is R79 (the admin page's Events and
 Users). The maintainer then added R80 (web sign-in codes follow the server's
-clock), and R80 is done. **Nothing is Next: the queue has ended.** A new item is added only by the maintainer, in a reviewed pull
+clock), and R80 is done. The maintainer then added replying to an event
+and notification action buttons (G7, R81, G8, R82, R83), on hold:
+**nothing is Next; the queue waits at G7, the maintainer's go-ahead.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 
