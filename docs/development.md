@@ -1362,8 +1362,17 @@ this section in the PR that introduces it.
 ## Dependency updates
 
 Every dependency and tool version is pinned, and Dependabot
-(`.github/dependabot.yml`) proposes updates weekly as PRs with Conventional
+(`.github/dependabot.yml`) proposes updates as PRs with Conventional
 Commit titles, which go through CI like any other:
+
+- **Security updates** open as soon as a published advisory affects a
+  pinned version, one PR per dependency (enabled in the repository
+  settings, see [below](#repository-settings-github)). These are the ones
+  that matter most: the backend and its images face the internet.
+- **Version updates** come once a month, grouped into one PR per row
+  below, so routine bumps of build and test tools cost one release a month
+  at most rather than one each.
+
 
 | What | Where it is pinned | Dependabot ecosystem |
 |---|---|---|
@@ -1375,6 +1384,7 @@ Commit titles, which go through CI like any other:
 | The SDK's build backend (setuptools) | `sdk/python/pyproject.toml` | `pip` |
 | ruff and build (the SDK's release files) | `.github/tools/requirements.txt` | `pip` |
 | actionlint (and its shellcheck) | `.github/tools/actionlint/Dockerfile` | `docker` |
+| The web page's browser tests (Playwright) | `web-tests/package.json`, `web-tests/package-lock.json` | `npm` |
 
 Two versions have to follow others by hand:
 
@@ -1416,6 +1426,9 @@ repository:
   merging.
 - Actions workflow permissions must allow `contents: write` for the release
   job (it requests this explicitly).
+- **Dependabot alerts** and **Dependabot security updates** on
+  (*Settings → Advanced Security*), for the security updates of
+  [Dependency updates](#dependency-updates).
 - The Android release key (decision D6) in four repository secrets
   (*Settings → Secrets and variables → Actions*), which only the release
   workflow's `app` job reads: `ANDROID_RELEASE_KEYSTORE_BASE64` (the

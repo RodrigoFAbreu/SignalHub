@@ -1,4 +1,7 @@
 version: 2
+# Routine version updates come once a month, one PR per entry below. Security
+# updates (enabled in the repository settings) are not grouped and open as soon
+# as an advisory affects a pinned version.
 updates:
   - package-ecosystem: github-actions
     # The workflows, and the composite actions they use.
@@ -8,31 +11,51 @@ updates:
       - /.github/actions/prepare-env
       - /.github/actions/setup-flutter
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      monthly:
+        applies-to: version-updates
+        patterns: ["*"]
     commit-message:
       prefix: ci # keeps Dependabot PR titles valid Conventional Commits
   - package-ecosystem: maven
     directory: /backend
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      monthly:
+        applies-to: version-updates
+        patterns: ["*"]
     commit-message:
       prefix: build
   - package-ecosystem: docker
     directory: /backend
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      monthly:
+        applies-to: version-updates
+        patterns: ["*"]
     commit-message:
       prefix: build
   - package-ecosystem: docker-compose
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      monthly:
+        applies-to: version-updates
+        patterns: ["*"]
     commit-message:
       prefix: build
   - package-ecosystem: pub
     directory: /client
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      monthly:
+        applies-to: version-updates
+        patterns: ["*"]
     commit-message:
       prefix: build
   # The SDK's build backend (sdk/python/pyproject.toml) and ruff, which CI
@@ -42,19 +65,31 @@ updates:
       - /sdk/python
       - /.github/tools
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      monthly:
+        applies-to: version-updates
+        patterns: ["*"]
     commit-message:
       prefix: build
   - package-ecosystem: docker
     directory: /.github/tools/actionlint
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      monthly:
+        applies-to: version-updates
+        patterns: ["*"]
     commit-message:
       prefix: ci
   # The users' web page's browser tests (Playwright); test tooling, never shipped.
   - package-ecosystem: npm
     directory: /web-tests
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      monthly:
+        applies-to: version-updates
+        patterns: ["*"]
     commit-message:
       prefix: ci
