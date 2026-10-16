@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="stylesheet" href="vendor/css/roboto-roboto-mono.css" />
+        <link rel="stylesheet" href="vendor/css/material-symbols-outlined.css" />
+        <style>
+          :root{--primary:#bac3ff;--on-primary:#222c61;--primary-container:#394379;--on-primary-container:#dee0ff;--secondary-container:#434659;--on-secondary-container:#e0e1f9;--tertiary-container:#5d3c55;--error:#ffb4ab;--on-error:#690005;--error-container:#93000a;--surface:#121318;--on-surface:#e4e1e9;--on-surface-variant:#c7c5d0;--sc-lowest:#0d0e13;--sc-low:#1b1b21;--sc:#1f1f25;--sc-high:#29292f;--sc-highest:#34343a;--outline:#90909a;--outline-variant:#46464f;--inv-surface:#e4e1e9;--on-inv:#2f3036;--inv-primary:#515b92;--fr-chrome:#1b1c21;--fr-url:#0f1014;--fr-line:#2c2d33;--fr-dot:#3a3b42}
+          .light{--primary:#515b92;--on-primary:#ffffff;--primary-container:#dee0ff;--on-primary-container:#394379;--secondary-container:#e0e1f9;--on-secondary-container:#434659;--tertiary-container:#ffd7f1;--error:#ba1a1a;--on-error:#ffffff;--surface:#fbf8ff;--on-surface:#1b1b21;--on-surface-variant:#46464f;--sc-lowest:#ffffff;--sc-low:#f5f2fa;--sc:#efedf4;--sc-high:#e9e7ef;--sc-highest:#e4e1e9;--outline:#767680;--outline-variant:#c7c5d0;--inv-surface:#303036;--on-inv:#f2eff7;--inv-primary:#bac3ff;--fr-chrome:#e9e7ef;--fr-url:#ffffff;--fr-line:#c7c5d0;--fr-dot:#c7c5d0;color:var(--on-surface)}
+          body{margin:0;background:#0b0c10;font-family:Roboto,system-ui,sans-serif;color:var(--on-surface);-webkit-font-smoothing:antialiased}
+          a{color:var(--primary)}a:hover{color:var(--on-primary-container)}
+          .dv-turn{padding:40px 44px 32px;background:#0b0c10;border-bottom:1px solid rgba(255,255,255,.08)}
+          .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+          .dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#e4e1e9;color:#121318;border-radius:4px;text-decoration:none}
+          .dv-tname{font:600 14px/1.2 Roboto,sans-serif;color:#e4e1e9}
+          .dv-why{font:14px/20px Roboto,sans-serif;color:#c7c5d0;max-width:1000px;margin:0 0 24px}
+          .dv-opts{display:flex;flex-direction:column;gap:56px;align-items:flex-start}
+          .dv-opt{display:flex;flex-direction:column;gap:10px}
+          .dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#e4e1e9;border-radius:5px;text-decoration:none}
+          .dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 13px/1.3 Roboto,sans-serif;color:#e4e1e9}
+          .dv-onote{font:13px/19px Roboto,sans-serif;color:#9a98a3;margin:0;max-width:1000px;text-wrap:pretty}
+          .dv-opt:target .dv-oid{background:#bac3ff;color:#222c61}
+          .pair{display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap}
+          .pcol{display:flex;flex-direction:column;gap:10px;width:390px}
+          .ms{font-family:"Material Symbols Outlined";font-weight:400;font-size:24px;line-height:1;display:inline-block;width:24px;height:24px;overflow:hidden;flex:none}
+          .ms.fill{font-variation-settings:"FILL" 1}
+          .ms18{font-size:18px;width:18px;height:18px}
+          .br{width:1280px;height:820px;background:var(--surface);border-radius:12px;border:1px solid var(--fr-line);overflow:hidden;display:flex;flex-direction:column;flex:none}
+          .br.tall{height:1010px}.br.short{height:620px}
+          .chrome{height:40px;flex:none;background:var(--fr-chrome);display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid var(--fr-line)}
+          .dots{display:flex;gap:6px}.dots span{width:10px;height:10px;border-radius:5px;background:var(--fr-dot)}
+          .url{flex:1;height:26px;border-radius:13px;background:var(--fr-url);display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;color:#9a98a3;white-space:nowrap;overflow:hidden;min-width:0}
+          .url .ms{font-size:14px;width:14px;height:14px}
+          .app{flex:1;display:flex;min-height:0;position:relative}
+          .rail{width:88px;flex:none;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0;background:var(--surface)}
+          .rlogo{width:40px;height:40px;border-radius:12px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+          .ri{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:500;color:var(--on-surface-variant)}
+          .ri .pill{width:56px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .ri.on{color:var(--on-surface)}
+          .ri.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .acct{margin-top:auto;width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center}
+          .acct .av{background:var(--primary-container);color:var(--on-primary-container);font-size:16px;font-weight:500}
+          .nbadge{position:absolute;top:2px;left:32px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:var(--on-error);font-size:11px;line-height:16px;text-align:center;box-sizing:border-box}
+          .listp{width:420px;flex:none;display:flex;flex-direction:column;background:var(--sc-low);border-radius:16px 0 0 0;margin-top:8px;position:relative;overflow:hidden}
+          .detp{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--sc-low);margin:8px 8px 0 1px;border-radius:0 16px 0 0;padding:20px 40px 28px;gap:16px;overflow:hidden}
+          .detp.prod{padding:16px 40px;gap:8px}
+          .phead{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px 0 20px}
+          .phead .t{font-size:22px;line-height:28px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--on-surface-variant);border-radius:24px;flex:none}
+          .lt{display:flex;align-items:center;gap:16px;padding:12px 24px 12px 16px;min-height:56px;box-sizing:border-box}
+          .lt.sel{background:var(--secondary-container);border-radius:16px;margin:0 8px;padding-left:8px;padding-right:16px}
+          .lt.top{align-items:flex-start}
+          .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+          .t1{font-size:16px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t1b{font-size:16px;line-height:24px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2n{font-size:14px;line-height:20px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .t2w{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .meta{display:flex;gap:12px;font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .meta .m1{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .dot{width:10px;height:10px;border-radius:5px;background:var(--primary);flex:none;margin-top:7px}
+          .nodot{width:10px;flex:none}
+          .c-primary{color:var(--primary)}.c-error{color:var(--error)}.c-var{color:var(--on-surface-variant)}
+          .lab{font-size:14px;line-height:20px;font-weight:500;color:var(--primary);padding:8px 0 0}
+          .h{font-size:28px;line-height:36px;margin:0;font-weight:400;max-width:62ch}
+          .chips{display:flex;gap:8px;flex-wrap:wrap}
+          .chip{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 16px 0 8px;border:1px solid var(--outline);border-radius:8px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .chip .ms{font-size:18px;width:18px;height:18px}
+          .body{font-size:16px;line-height:24px;max-width:66ch;margin:0;text-wrap:pretty}
+          .kv{display:grid;grid-template-columns:120px 1fr;gap:8px 16px;font-size:14px;line-height:20px;max-width:640px}
+          .kv b{font-weight:500;color:var(--on-surface-variant)}
+          .btn-t{height:48px;border-radius:24px;background:var(--secondary-container);color:var(--on-secondary-container);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-f{height:48px;border-radius:24px;background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-f.w{width:100%}
+          .btn-f.dis{background:rgba(228,225,233,.12);color:rgba(228,225,233,.38)}
+          .btn-o{height:48px;border-radius:24px;border:1px solid var(--outline);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 24px 0 16px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .btn-x{height:48px;min-width:48px;border-radius:24px;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500;box-sizing:border-box;flex:none}
+          .btn-x.er{color:var(--error)}
+          .btn-x.dis{color:rgba(228,225,233,.38)}
+          .btn-t .ms,.btn-o .ms,.btn-x .ms,.btn-f .ms{font-size:18px;width:18px;height:18px}
+          .focusring{outline:2px solid var(--primary);outline-offset:2px}
+          .row{display:flex;gap:8px;align-items:center}
+          .av{width:40px;height:40px;border-radius:20px;background:var(--sc-highest);color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;flex:none;font-size:16px;font-weight:500}
+          .avs{width:24px;height:24px;border-radius:12px;background:var(--tertiary-container);color:#ffd8ee;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+          .tbtn{width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;flex:none}
+          .tbtn.on{color:var(--on-secondary-container)}.tbtn.off{color:var(--on-surface-variant)}
+          .own{display:inline-flex;align-items:center;height:20px;padding:0 8px;margin-left:8px;border-radius:6px;background:var(--sc-highest);color:var(--on-surface-variant);font-size:12px;font-weight:500;vertical-align:middle}
+          .lt.sel .own{background:var(--sc-high)}
+          .search{margin:0 16px 8px;height:48px;border-radius:24px;background:var(--sc-high);display:flex;align-items:center;gap:12px;padding:0 16px;color:var(--on-surface-variant);font-size:16px;flex:none}
+          .fchips{display:flex;gap:8px;padding:0 16px;flex:none;overflow:hidden}
+          .fc{height:32px;margin:8px 0;border-radius:8px;border:1px solid var(--outline);display:flex;align-items:center;gap:8px;padding:0 16px;font-size:14px;font-weight:500;color:var(--on-surface-variant);box-sizing:border-box;white-space:nowrap;flex:none}
+          .fc.on{background:var(--secondary-container);border-color:var(--secondary-container);color:var(--on-secondary-container);padding-left:8px}
+          .fc b{font-weight:500;color:var(--primary)}
+          .fc.on b{color:var(--on-secondary-container)}
+          .fc .ms{font-size:18px;width:18px;height:18px}
+          .seg{display:flex;border:1px solid var(--outline);border-radius:24px;overflow:hidden;height:48px;width:320px;box-sizing:border-box;flex:none}
+          .seg>span{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;border-left:1px solid var(--outline)}
+          .seg>span:first-child{border-left:0}
+          .seg>.on{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .pchip{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 12px 0 8px;border:1px solid var(--outline);border-radius:22px;font-size:14px;font-weight:500;box-sizing:border-box}
+          .keyrow{display:flex;align-items:center;gap:16px;max-width:640px;min-height:56px;padding:4px 0;border-top:1px solid var(--outline-variant)}
+          .arow{display:flex;align-items:center;gap:16px;max-width:640px;min-height:56px;padding:4px 0}
+          .mono{font-family:"Roboto Mono",monospace}
+          .sw{width:52px;height:32px;border-radius:16px;background:var(--primary);position:relative;flex:none}
+          .sw.off{background:var(--sc-highest);box-shadow:inset 0 0 0 2px var(--outline)}
+          .sw.off::after{right:auto;left:8px;top:8px;width:16px;height:16px;border-radius:8px;background:var(--outline)}
+          .sw::after{content:"";position:absolute;right:4px;top:4px;width:24px;height:24px;border-radius:12px;background:var(--on-primary)}
+          .p{font-size:14px;line-height:20px;color:var(--on-surface-variant);margin:0;text-wrap:pretty}
+          /* the answer card */
+          .acard{background:var(--sc);border-radius:16px;padding:16px 20px 20px;display:flex;flex-direction:column;gap:4px;max-width:560px;box-sizing:border-box;width:100%}
+          .ahead{font-size:16px;line-height:24px;font-weight:500}
+          .rr{display:flex;align-items:center;gap:16px;min-height:48px;font-size:16px;line-height:24px;margin:0 -8px;padding:0 8px;border-radius:8px}
+          .rr.d{align-items:flex-start;padding-top:12px;padding-bottom:12px}
+          .rr.ring{outline:2px solid var(--primary);outline-offset:0}
+          .rt{display:flex;flex-direction:column;min-width:0}
+          .rd{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .rb{width:20px;height:20px;border-radius:10px;border:2px solid var(--on-surface-variant);box-sizing:border-box;flex:none;margin:2px;position:relative}
+          .rb.on{border-color:var(--primary)}
+          .rb.on::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--primary)}
+          .cb{width:18px;height:18px;border-radius:2px;border:2px solid var(--on-surface-variant);flex:none;margin:3px;box-sizing:border-box}
+          .cb.on{background:var(--primary);border-color:var(--primary);color:var(--on-primary);display:flex;align-items:center;justify-content:center}
+          .cb .ms{font-size:16px;width:16px;height:16px}
+          .dim{opacity:.55}
+          .tf{border:1px solid var(--outline);border-radius:4px;min-height:56px;display:flex;align-items:center;padding:0 16px;font-size:16px;position:relative;box-sizing:border-box;color:var(--on-surface-variant)}
+          .tf.ta{align-items:flex-start;padding-top:16px;min-height:88px;line-height:24px}
+          .tf.focus{border:2px solid var(--primary);padding:0 15px}
+          .tf.ta.focus{padding-top:15px}
+          .tf.err{border:2px solid var(--error);padding:0 15px}
+          .tf.ta.err{padding-top:15px}
+          .tf .fl{position:absolute;top:-9px;left:12px;padding:0 4px;background:var(--sc);font-size:12px;line-height:16px;color:var(--on-surface-variant)}
+          .tf.focus .fl{color:var(--primary)}
+          .tf.err .fl{color:var(--error)}
+          .tf.v{color:var(--on-surface)}
+          .help{font-size:12px;line-height:16px;color:var(--on-surface-variant);padding:4px 16px 0;display:flex;justify-content:space-between;gap:12px}
+          .help.err{color:var(--error)}
+          .perr{display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--error);padding-top:4px}
+          .perr .ms{font-size:16px;width:16px;height:16px}
+          .res{display:flex;gap:16px;align-items:flex-start}
+          .t2{font-size:14px;line-height:20px;color:var(--on-surface-variant)}
+          .closes{display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;color:var(--on-surface-variant);padding-bottom:4px}
+          .closes.soon{color:var(--error);font-weight:500}
+          .spin{display:inline-block;animation:spin 1s linear infinite}
+          @keyframes spin{to{transform:rotate(360deg)}}
+          @media (prefers-reduced-motion:reduce){.spin{animation:none}}
+          .ql{display:flex;align-items:center;gap:6px;font-size:14px;line-height:20px;font-weight:500;color:var(--primary);padding-top:2px}
+          .ql.v{color:var(--on-surface-variant);font-weight:400}
+          .ql .ms{font-size:18px;width:18px;height:18px}
+          .snack{position:absolute;left:521px;bottom:16px;width:340px;min-height:48px;box-sizing:border-box;border-radius:4px;background:var(--inv-surface);color:var(--on-inv);display:flex;align-items:center;gap:8px;padding:6px 8px 6px 16px;font-size:14px;line-height:20px;z-index:4}
+          .snack span:first-child{flex:1}
+          .snack b{font-weight:500;color:var(--inv-primary);min-height:48px;min-width:48px;display:flex;align-items:center;justify-content:center;padding:0 8px;box-sizing:border-box}
+          .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 40px 80px;text-align:center}
+          .empty>.ms{font-size:48px;width:48px;height:48px;color:var(--outline)}
+          .empty .pb{font-size:22px;line-height:28px}
+          .scrim{position:absolute;inset:0;background:rgba(0,0,0,.6);z-index:5}
+          .dlgw{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:6;padding:16px}
+          .dlg{width:480px;max-width:100%;background:var(--sc-high);border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box}
+          .dlg h4{margin:0;font-size:24px;line-height:32px;font-weight:400}
+          .dlg .acts{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+          .prow{display:flex;align-items:center;gap:16px;min-height:56px;padding:0 8px;margin:0 -8px;font-size:16px}
+          .menu{position:absolute;background:var(--sc-high);border-radius:12px;padding:8px 0;width:260px;box-shadow:0 4px 16px rgba(0,0,0,.5);z-index:3}
+          /* phone */
+          .ph{width:390px;height:844px;background:var(--surface);border-radius:28px;border:1px solid #2c2d33;overflow:hidden;display:flex;flex-direction:column;flex:none;position:relative}
+          .ph.m{height:1040px}.ph.s{height:700px}
+          .phchrome{height:52px;flex:none;background:#1b1c21;display:flex;align-items:center;padding:16px 14px 8px;box-sizing:border-box}
+          .phchrome .url{height:30px;border-radius:15px}
+          .pbody{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+          .pform{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:16px;padding:8px 16px}
+          .nav{height:80px;flex:none;background:var(--sc);display:flex;padding:12px 8px 16px;box-sizing:border-box}
+          .nv{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--on-surface-variant)}
+          .nv .pill{width:64px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative}
+          .nv.on{color:var(--on-surface)}
+          .nv.on .pill{background:var(--secondary-container);color:var(--on-secondary-container)}
+          .nv .nbadge{left:36px}
+          .mini{width:32px;height:32px;border-radius:16px;background:var(--primary-container);color:var(--on-primary-container);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500}
+          .ph .snack{left:8px;right:8px;width:auto;bottom:96px}
+          .ph .acard{max-width:none}
+          .ph .h{font-size:24px;line-height:32px}
+          .ph .detm{display:flex;flex-direction:column;gap:16px;padding:8px 16px 0;overflow:hidden}
+        </style>
+      </helmet>
+
+      <!-- ===================== Turn 1: the event pane ===================== -->
+      <section class="dv-turn" id="t1" data-screen-label="Turn 1: answering on a desktop">
+        <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Answering an event on the web page: the event pane with the answer card</span></div>
+        <p class="dv-why">The app's option A (the owner's pick), laid out like 7a of <code>Web - Inbox and producers</code>: navigation rail, the list, and the open event beside it. The question is an answer card under the message, headed <b>Your answer</b>: select, then <b>Send answer</b>. Choosing is not sending, so the button is the confirmation and there is no extra dialog (DESIGN.md 4.1: an answer goes to a producer and cannot be taken back). A choice may have a description (at most 200 characters), shown under its label in the secondary text color and not at all when empty. The same event in every frame unless it says otherwise: <b>Merge R82 into main?</b> from ci-pipeline, a single choice, <b>Merge</b> (&ldquo;Squash-merge now; CI passed.&rdquo;) or <b>Hold</b> (no description), with an optional note. Signed in as Rodrigo (Admin), the producer's owner. The wording is the app's, word for word; what differs on the web is said in each note. The card is at most 560 px wide, so it never stretches across a wide pane. The web page does not notify, so a question reaches a browser only as a row in the inbox: the card is the only place to answer. The page re-reads an open event when its tab regains focus, and after any 409, so a card that went stale turns into the current state by itself. When a question is answered, closed or deleted, the notification on every phone it reached is removed, never replaced (the app's pages show that); the web page only has to show the result.</p>
+        <div class="dv-opts">
+          <sc-for list="{{ t1 }}" as="f" hint-placeholder-count="3">
+            <div class="dv-opt" id="{{ f.id }}" data-screen-label="{{ f.screen }}">
+              <div class="dv-olabel"><a class="dv-oid" href="#{{ f.id }}">{{ f.id }}</a>{{ f.label }}</div>
+              <div class="br {{ f.size }}">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox/01997d5e-8a3c-7b1e…</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri on"><span class="pill"><span class="ms fill">inbox</span><span class="nbadge">2</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div><span class="acct" role="button" aria-label="Account menu, Rodrigo"><span class="av">R</span></span></div>
+                  <div class="listp">
+                    <div class="phead"><div class="t">Inbox</div><span class="ib" role="button" aria-label="Filter events"><span class="ms">filter_list</span></span><span class="ib" role="button" aria-label="Mark all as read"><span class="ms">done_all</span></span></div>
+                    <div class="fchips"><span class="fc">Unread</span><span class="fc on"><sc-if value="{{ f.chipOn }}"><span class="ms">check</span></sc-if>To answer <b>{{ f.toCount }}</b></span></div>
+                    <sc-for list="{{ f.rows }}" as="e">
+                      <div class="lt top {{ e.sel }}"><span class="ms {{ e.tone }}" style="margin-top:2px">{{ e.icon }}</span><div class="tx"><span class="{{ e.tcls }}">{{ e.title }}</span><div class="meta"><span class="m1">{{ e.meta }}</span><span>{{ e.time }}</span></div><sc-if value="{{ e.q }}"><div class="ql {{ e.qv }}"><span class="ms">{{ e.qi }}</span>{{ e.q }}</div></sc-if></div><span class="{{ e.dot }}"></span></div>
+                    </sc-for>
+                  </div>
+                  <div class="detp">
+                    <div class="row" style="justify-content:flex-end"><span class="btn-x"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+                    <h1 class="h">{{ f.title }}</h1>
+                    <div class="chips"><span class="chip"><span class="ms">pan_tool</span>Action required</span><span class="chip"><span class="ms c-error">priority_high</span>{{ f.sev }}</span></div>
+                    <p class="body">{{ f.msg }}</p>
+                    <div class="acard">
+                      <sc-if value="{{ f.isPick }}">
+                        <sc-if value="{{ f.closes }}"><div class="closes {{ f.closesCls }}"><span class="ms ms18">schedule</span>{{ f.closes }}</div></sc-if>
+                        <div class="ahead">Your answer</div>
+                        <div class="p">{{ f.help }}</div>
+                        <div class="{{ f.dimCls }}">
+                          <div role="group" aria-label="Your answer">
+                            <sc-for list="{{ f.choices }}" as="c">
+                              <div class="rr {{ c.rowCls }}"><span class="{{ c.ctl }}"><sc-if value="{{ c.chk }}"><span class="ms">check</span></sc-if></span><div class="rt"><span>{{ c.label }}</span><sc-if value="{{ c.desc }}"><span class="rd">{{ c.desc }}</span></sc-if></div></div>
+                            </sc-for>
+                          </div>
+                          <sc-if value="{{ f.pickErr }}"><div class="perr" role="alert"><span class="ms">error</span><span>{{ f.pickErr }}</span></div></sc-if>
+                          <div style="padding-top:12px"><div class="tf {{ f.fieldCls }}"><span class="fl">{{ f.fieldLabel }}</span>{{ f.fieldText }}</div><div class="help {{ f.helpCls }}"><span>{{ f.helpL }}</span><span>{{ f.count }}</span></div></div>
+                        </div>
+                        <div style="padding-top:8px"><span class="btn-f {{ f.btnCls }}"><sc-if value="{{ f.sending }}"><span class="ms spin">progress_activity</span></sc-if>{{ f.btn }}</span></div>
+                      </sc-if>
+                      <sc-if value="{{ f.isRes }}">
+                        <div class="res" role="status"><span class="ms {{ f.resFill }} {{ f.resCls }}">{{ f.resIcon }}</span><div class="tx"><span class="ahead">{{ f.resTitle }}</span><sc-if value="{{ f.res2 }}"><span class="t2">{{ f.res2 }}</span></sc-if><sc-if value="{{ f.res3 }}"><span class="t2">{{ f.res3 }}</span></sc-if></div></div>
+                      </sc-if>
+                    </div>
+                    <sc-if value="{{ f.link }}"><div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div></sc-if>
+                    <div class="kv"><b>Producer</b><span>ci-pipeline</span><b>Received</b><span>2026-10-16 18:50</span></div>
+                  </div>
+                  <sc-if value="{{ f.snack }}"><div class="snack" role="status"><span>{{ f.snack }}</span><b>Retry</b></div></sc-if>
+                </div>
+              </div>
+              <p class="dv-onote">{{ f.note }}</p>
+              <sc-if value="{{ f.note2 }}"><p class="dv-onote">{{ f.note2 }}</p></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- ===================== Turn 2: the inbox list ===================== -->
+      <section class="dv-turn" id="t2" data-screen-label="Turn 2: the inbox on a desktop">
+        <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">The inbox list: the To answer line, the To answer chip and its empty state</span></div>
+        <p class="dv-why">The web inbox has no chips row today (its filters sit behind the Filter icon). Questions add one, as the app's inbox has (the chips are added by R81 and are the only chips of the inbox): <b>Unread</b> and <b>To answer</b> above the list, 48 px hit areas (the chip is 32 px, with margin). <b>Unread</b> is the same switch as the unread-only option of the Filter dialog, which keeps producer, category and severity. A row of a question adds one line under the usual meta line, in words, so the state is never only an icon or a color: <b>To answer</b> in primary (with the closing time when there is one) for a question this person may answer now; <b>You answered · Merge</b>, <b>Ana answered · Hold</b> or <b>Closed · nobody answered</b> in grey once decided. A question this person may not answer shows <b>Waiting for Rodrigo</b> in grey (the names from whoCanAnswer, owner first: <b>Waiting for Rodrigo or Ana</b>, <b>Waiting for Rodrigo, Ana or Rui</b>), so the row never looks finished. An open question stays in <b>To answer</b> whatever its read state. <b>Mark all as read</b> marks it read like any event; it stays in <b>To answer</b> until it is answered or closed. The unread dot is read state only. Rows use the short form <b>Closed · nobody answered</b>; the card uses the full <b>Closed · nobody answered in time</b>.</p>
+        <div class="dv-opts">
+          <sc-for list="{{ t2 }}" as="f" hint-placeholder-count="3">
+            <div class="dv-opt" id="{{ f.id }}" data-screen-label="{{ f.screen }}">
+              <div class="dv-olabel"><a class="dv-oid" href="#{{ f.id }}">{{ f.id }}</a>{{ f.label }}</div>
+              <div class="br {{ f.size }}">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#inbox</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri on"><span class="pill"><span class="ms fill">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="ri"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div><span class="acct" role="button" aria-label="Account menu, Rodrigo"><span class="av">R</span></span></div>
+                  <div class="listp">
+                    <div class="phead"><div class="t">Inbox</div><span class="ib" role="button" aria-label="Filter events"><span class="ms">filter_list</span></span><span class="ib" role="button" aria-label="Mark all as read"><span class="ms">done_all</span></span></div>
+                    <div class="fchips"><span class="fc">Unread</span><span class="fc {{ f.chipCls }}"><sc-if value="{{ f.chipOn }}"><span class="ms">check</span></sc-if>To answer<sc-if value="{{ f.toCount }}"> <b>{{ f.toCount }}</b></sc-if></span></div>
+                    <sc-for list="{{ f.rows }}" as="e">
+                      <div class="lt top {{ e.sel }}"><span class="ms {{ e.tone }}" style="margin-top:2px">{{ e.icon }}</span><div class="tx"><span class="{{ e.tcls }}">{{ e.title }}</span><div class="meta"><span class="m1">{{ e.meta }}</span><span>{{ e.time }}</span></div><sc-if value="{{ e.q }}"><div class="ql {{ e.qv }}"><span class="ms">{{ e.qi }}</span>{{ e.q }}</div></sc-if></div><span class="{{ e.dot }}"></span></div>
+                    </sc-for>
+                    <sc-if value="{{ f.empty }}"><div class="empty"><span class="ms">task_alt</span><div class="pb">Nothing to answer</div><p class="p">Questions you can answer show up here until someone answers them or they close.</p><span class="btn-t" style="margin-top:8px">Show all events</span></div></sc-if>
+                  </div>
+                  <div class="detp">
+                    <sc-if value="{{ f.pane }}">
+                      <div class="row" style="justify-content:flex-end"><span class="btn-x"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+                      <h1 class="h">Merge R82 into main?</h1>
+                      <div class="chips"><span class="chip"><span class="ms">pan_tool</span>Action required</span><span class="chip"><span class="ms c-error">priority_high</span>High</span></div>
+                      <p class="body">CI passed on all 3 checks. 3 files changed.</p>
+                      <div class="acard"><div class="ahead">Your answer</div><div class="p">Pick one. It goes to ci-pipeline and can't be changed once sent.</div><div class="rr d"><span class="rb on"></span><div class="rt"><span>Merge</span><span class="rd">Squash-merge now; CI passed.</span></div></div><div class="rr"><span class="rb"></span>Hold</div></div>
+                    </sc-if>
+                  </div>
+                </div>
+              </div>
+              <p class="dv-onote">{{ f.note }}</p>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- ===================== Turn 3: the phone ===================== -->
+      <section class="dv-turn" id="t3" data-screen-label="Turn 3: the phone">
+        <div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">At phone width: the inbox with the chip, the event screen with the card, the answered state</span></div>
+        <p class="dv-why">Below about 840 px wide the rail becomes the bottom bar and an open event takes the whole screen, as in 7c. The chip row and the card are the app's, at the web page's width (390 here; the card fills the width minus the 16 px gutters). The bottom bar stays under the event screen, as in the app's 1a. Touch targets stay 48 px. Nothing here scrolls sideways.</p>
+        <div class="pair">
+          <sc-for list="{{ t3 }}" as="f" hint-placeholder-count="3">
+            <div class="pcol" id="{{ f.id }}" data-screen-label="{{ f.screen }}">
+              <div class="dv-olabel"><a class="dv-oid" href="#{{ f.id }}">{{ f.id }}</a>{{ f.label }}</div>
+              <div class="ph {{ f.size }}">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>{{ f.url }}</div></div>
+                <sc-if value="{{ f.isList }}">
+                  <div class="phead" style="padding-left:16px"><div class="t">SignalHub</div><span class="ib" role="button" aria-label="Filter events"><span class="ms">filter_list</span></span><span class="ib" role="button" aria-label="Mark all as read"><span class="ms">done_all</span></span><span class="ib" role="button" aria-label="Account menu, Rodrigo"><span class="mini">R</span></span></div>
+                  <div class="fchips"><span class="fc">Unread</span><span class="fc {{ f.chipCls }}"><sc-if value="{{ f.chipOn }}"><span class="ms">check</span></sc-if>To answer<sc-if value="{{ f.toCount }}"> <b>{{ f.toCount }}</b></sc-if></span></div>
+                  <div class="pbody">
+                    <sc-for list="{{ f.rows }}" as="e">
+                      <div class="lt top {{ e.sel }}"><span class="ms {{ e.tone }}" style="margin-top:2px">{{ e.icon }}</span><div class="tx"><span class="{{ e.tcls }}">{{ e.title }}</span><div class="meta"><span class="m1">{{ e.meta }}</span><span>{{ e.time }}</span></div><sc-if value="{{ e.q }}"><div class="ql {{ e.qv }}"><span class="ms">{{ e.qi }}</span>{{ e.q }}</div></sc-if></div><span class="{{ e.dot }}"></span></div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ f.isEvent }}">
+                  <div class="phead" style="padding-left:4px"><span class="ib" role="button" aria-label="Back"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="ib" role="button" aria-label="Mark as unread"><span class="ms">mark_email_unread</span></span></div>
+                  <div class="pbody"><div class="detm">
+                    <h1 class="h">{{ f.title }}</h1>
+                    <div class="chips"><span class="chip"><span class="ms">pan_tool</span>Action required</span><span class="chip"><span class="ms c-error">priority_high</span>{{ f.sev }}</span></div>
+                    <p class="body">{{ f.msg }}</p>
+                    <div class="acard">
+                      <sc-if value="{{ f.isPick }}">
+                        <div class="ahead">Your answer</div>
+                        <div class="p">{{ f.help }}</div>
+                        <div class="{{ f.dimCls }}">
+                          <div role="group" aria-label="Your answer">
+                            <sc-for list="{{ f.choices }}" as="c">
+                              <div class="rr {{ c.rowCls }}"><span class="{{ c.ctl }}"><sc-if value="{{ c.chk }}"><span class="ms">check</span></sc-if></span><div class="rt"><span>{{ c.label }}</span><sc-if value="{{ c.desc }}"><span class="rd">{{ c.desc }}</span></sc-if></div></div>
+                            </sc-for>
+                          </div>
+                          <div style="padding-top:12px"><div class="tf {{ f.fieldCls }}"><span class="fl">{{ f.fieldLabel }}</span>{{ f.fieldText }}</div><div class="help {{ f.helpCls }}"><span>{{ f.helpL }}</span><span>{{ f.count }}</span></div></div>
+                        </div>
+                        <div style="padding-top:8px"><span class="btn-f w {{ f.btnCls }}">{{ f.btn }}</span></div>
+                      </sc-if>
+                      <sc-if value="{{ f.isRes }}">
+                        <div class="res" role="status"><span class="ms {{ f.resFill }} {{ f.resCls }}">{{ f.resIcon }}</span><div class="tx"><span class="ahead">{{ f.resTitle }}</span><sc-if value="{{ f.res2 }}"><span class="t2">{{ f.res2 }}</span></sc-if><sc-if value="{{ f.res3 }}"><span class="t2">{{ f.res3 }}</span></sc-if></div></div>
+                      </sc-if>
+                    </div>
+                    <sc-if value="{{ f.link }}"><div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div></sc-if>
+                  </div></div>
+                </sc-if>
+                <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span><span class="nbadge">2</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+                <sc-if value="{{ f.snack }}"><div class="snack" role="status"><span>{{ f.snack }}</span><b>Retry</b></div></sc-if>
+              </div>
+              <p class="dv-onote">{{ f.note }}</p>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- ===================== Turn 4: who can answer ===================== -->
+      <section class="dv-turn" id="t4" data-screen-label="Turn 4: who can answer">
+        <div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">Who can answer: the setting on your producer's page</span></div>
+        <p class="dv-why">The app's 4a to 4d on the web page. A <b>Who can answer</b> section in the pane of your own producer (7b), between the people it is shared with and Keys, in the app's order. You are always the first row and can't be removed. Adding opens a dialog like the app's picker (checkbox rows, names only), listing only people who can see the producer: on a Private producer the people it is shared with, on a Public one everyone on the server. The owner never learns who has subscribed, so the dialog says they need to be. Removing is confirmed because it changes what someone else can do (DESIGN.md 4.1). The section is shown to the owner only. Accessible names: <b>Remove Ana</b> (the close button of a row), <b>Add people who can answer</b>. Changes take effect at once; a person removed from Who can see it, or revoked, leaves the list in the same moment (the server does it) and answers they already gave stay.</p>
+        <div class="dv-opts">
+          <sc-for list="{{ t4 }}" as="f" hint-placeholder-count="3">
+            <div class="dv-opt" id="{{ f.id }}" data-screen-label="{{ f.screen }}">
+              <div class="dv-olabel"><a class="dv-oid" href="#{{ f.id }}">{{ f.id }}</a>{{ f.label }}</div>
+              <div class="br {{ f.size }}">
+                <div class="chrome"><div class="dots"><span></span><span></span><span></span></div><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers/01997d60-2f4b-7c3a…</div></div>
+                <div class="app">
+                  <div class="rail"><span class="rlogo"><span class="ms">sensors</span></span><div class="ri"><span class="pill"><span class="ms">inbox</span><span class="nbadge">3</span></span>Inbox</div><div class="ri on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="ri"><span class="pill"><span class="ms">group</span></span>People</div><div class="ri"><span class="pill"><span class="ms">settings</span></span>Settings</div><span class="acct" role="button" aria-label="Account menu, Rodrigo"><span class="av">R</span></span></div>
+                  <div class="listp">
+                    <div class="phead"><div class="t">Producers</div></div>
+                    <div class="search"><span class="ms">search</span>Find a producer</div>
+                    <div class="fchips"><span class="fc on"><span class="ms">check</span>All</span><span class="fc">Yours</span><span class="fc">Subscribed</span><span class="fc">Can subscribe</span></div>
+                    <sc-for list="{{ producers }}" as="p">
+                      <div class="lt {{ p.sel }}"><span class="av"><span class="ms">sensors</span></span><div class="tx"><span class="t1">{{ p.name }}<span class="{{ p.own }}">{{ p.ownText }}</span></span><span class="t2n">{{ p.sub }}</span></div><span class="tbtn {{ p.bell }}"><span class="ms {{ p.fill }}">{{ p.icon }}</span></span></div>
+                    </sc-for>
+                  </div>
+                  <div class="detp prod">
+                    <div class="row"><h1 class="h">homelab-monitor</h1><span class="ib" role="button" aria-label="Rename homelab-monitor"><span class="ms">edit</span></span></div>
+                    <span class="t2n">Last event 00:36</span>
+                    <sc-if value="{{ f.sub }}"><div class="arow" style="min-height:48px"><span class="ms c-primary">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2w">Its events are in your inbox</span></div><span class="sw" role="switch" aria-checked="true"></span></div></sc-if>
+                    <sc-if value="{{ f.unsub }}"><div class="arow" style="min-height:48px"><span class="ms c-var">notifications</span><div class="tx"><span class="t1">Not subscribed</span><span class="t2w">Its events are not in your inbox</span></div><span class="sw off" role="switch" aria-checked="false"></span></div>
+                    <div class="res" role="status" style="padding:4px 0 8px"><span class="ms ms18 c-var" style="margin-top:2px">info</span><div class="tx"><span class="t1b">Stay subscribed to answer</span><span class="t2w">While you're unsubscribed, homelab-monitor's questions don't reach you, and you can't answer them.</span></div></div></sc-if>
+                    <div class="lab">Who can see it</div>
+                    <div class="seg"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div>
+                    <span class="t2n">Shared with 2 people</span>
+                    <div class="chips"><span class="pchip"><span class="avs">A</span>Ana<span class="ms ms18 c-var">close</span></span><span class="pchip"><span class="avs">R</span>Rui<span class="ms ms18 c-var">close</span></span><span class="pchip" style="color:var(--primary)"><span class="ms ms18">person_add</span>Add people</span></div>
+                    <div class="lab">Who can answer</div>
+                    <div class="arow"><span class="av">R</span><div class="tx"><span class="t1">Rodrigo (you)</span><span class="t2n">Owner · can always answer</span></div></div>
+                    <sc-if value="{{ f.nobody }}"><div class="p" style="padding:0 0 4px 56px">Only you can answer this producer's questions.</div></sc-if>
+                    <sc-if value="{{ f.hasAna }}"><div class="arow"><span class="av">A</span><div class="tx"><span class="t1">Ana</span><span class="t2n">Can answer its questions</span></div><span class="ib" role="button" aria-label="Remove Ana"><span class="ms">close</span></span></div></sc-if>
+                    <div class="arow" style="min-height:48px"><span class="btn-x" style="padding-left:0"><span class="ms">person_add</span>Add people who can answer</span></div>
+                    <div class="lab">Keys</div>
+                    <div class="keyrow"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 27 Sep · last used 00:36</span></div><span class="btn-x">Revoke</span></div>
+                    <div class="row"><span class="btn-o"><span class="ms">add</span>New key</span></div>
+                    <div class="keyrow"><span class="ms c-var">filter_list</span><div class="tx"><span class="t1">See its events</span></div><span class="ms c-var">chevron_right</span></div>
+                    <div class="keyrow"><span class="ms c-var">pause_circle</span><div class="tx"><span class="t1">Disable</span><span class="t2w">Its keys stop working. Its events stay.</span></div></div>
+                  </div>
+                  <sc-if value="{{ f.picker }}">
+                    <div class="scrim"></div>
+                    <div class="dlgw"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="pk">
+                      <h4 id="pk">Who can answer</h4>
+                      <div class="p">Only people who can see homelab-monitor are listed. They also need to be subscribed to get its questions.</div>
+                      <div>
+                        <div class="prow"><span class="av">A</span><span style="flex:1">Ana</span><span class="cb on"><span class="ms">check</span></span></div>
+                        <div class="prow"><span class="av">R</span><span style="flex:1">Rui</span><span class="cb on focusring" style="outline-offset:6px"><span class="ms">check</span></span></div>
+                      </div>
+                      <div class="acts"><span class="btn-x">Cancel</span><span class="btn-x">Save</span></div>
+                    </div></div>
+                  </sc-if>
+                  <sc-if value="{{ f.remove }}">
+                    <div class="scrim"></div>
+                    <div class="dlgw"><div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="rm" aria-describedby="rmd">
+                      <h4 id="rm">Remove Ana?</h4>
+                      <div class="p" id="rmd">Ana won't be able to answer homelab-monitor's questions any more. Answers Ana already gave stay as they are.</div>
+                      <div class="acts"><span class="btn-x focusring">Cancel</span><span class="btn-x er">Remove</span></div>
+                    </div></div>
+                  </sc-if>
+                </div>
+              </div>
+              <p class="dv-onote">{{ f.note }}</p>
+            </div>
+          </sc-for>
+          <div class="pair">
+            <div class="pcol" id="4e" data-screen-label="4e Who can answer, phone">
+              <div class="dv-olabel"><a class="dv-oid" href="#4e">4e</a>Your producer at phone width, one person added</div>
+              <div class="ph m">
+                <div class="phchrome"><div class="url"><span class="ms">lock</span>signalhub.example/app/#producers/01997d60-2f4b-7c3a…</div></div>
+                <div class="phead" style="padding-left:4px"><span class="ib" role="button" aria-label="Back"><span class="ms">arrow_back</span></span><div class="t">homelab-monitor</div><span class="ib" role="button" aria-label="Rename homelab-monitor"><span class="ms">edit</span></span></div>
+                <div class="pform" style="gap:8px">
+                  <span class="t2n">Last event 00:36</span>
+                  <div class="arow" style="min-height:48px"><span class="ms c-primary">notifications_active</span><div class="tx"><span class="t1">Subscribed</span><span class="t2w">Its events are in your inbox</span></div><span class="sw" role="switch" aria-checked="true"></span></div>
+                  <div class="lab">Who can see it</div>
+                  <div class="seg" style="width:100%"><span class="on"><span class="ms ms18">lock</span>Private</span><span><span class="ms ms18">public</span>Public</span></div>
+                  <span class="t2n">Shared with 2 people</span>
+                  <div class="chips"><span class="pchip"><span class="avs">A</span>Ana<span class="ms ms18 c-var">close</span></span><span class="pchip"><span class="avs">R</span>Rui<span class="ms ms18 c-var">close</span></span><span class="pchip" style="color:var(--primary)"><span class="ms ms18">person_add</span>Add people</span></div>
+                  <div class="lab">Who can answer</div>
+                  <div class="arow"><span class="av">R</span><div class="tx"><span class="t1">Rodrigo (you)</span><span class="t2n">Owner · can always answer</span></div></div>
+                  <div class="arow"><span class="av">A</span><div class="tx"><span class="t1">Ana</span><span class="t2n">Can answer its questions</span></div><span class="ib" role="button" aria-label="Remove Ana"><span class="ms">close</span></span></div>
+                  <div class="arow" style="min-height:48px"><span class="btn-x" style="padding-left:0"><span class="ms">person_add</span>Add people who can answer</span></div>
+                  <div class="lab">Keys</div>
+                  <div class="keyrow"><span class="ms c-var">key</span><div class="tx"><span class="t1 mono" style="font-size:14px">shpk1_EXAMPLE…</span><span class="t2n">Created 27 Sep · last used 00:36</span></div><span class="btn-x">Revoke</span></div>
+                </div>
+                <div class="nav"><div class="nv"><span class="pill"><span class="ms">inbox</span></span>Inbox</div><div class="nv on"><span class="pill"><span class="ms fill">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">group</span></span>People</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
+              </div>
+              <p class="dv-onote">The same section, in the same place, in the app's layout. The dialogs (4c, 4d) become full-width at this size, with the same words and buttons; at 390 wide they are inset 16 px each side.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{ "$preview": { "width": 1500, "height": 1200 } }'>
+      class Component extends DCLogic {
+        renderVals() {
+          const mk = (icon, tone, title, meta, time, unread, line, sel) => {
+            const l = {
+              open: ["To answer · Closes 09:00", "", "question_answer"],
+              open2: ["To answer", "", "question_answer"],
+              you: ["You answered · Merge", "v", "check"],
+              other: ["Ana answered · Hold", "v", "check"],
+              closed: ["Closed · nobody answered", "v", "lock_clock"],
+              waitRA: ["Waiting for Rodrigo or Ana", "v", "hourglass_top"],
+              waitA: ["Waiting for Ana", "v", "hourglass_top"],
+              youT: ["You answered · ‘after lunch’", "v", "check"],
+              none: ["", "", ""]
+            }[line || "none"];
+            return { icon, tone, title, meta, time, tcls: unread ? "t1b" : "t1", dot: unread ? "dot" : "nodot", q: l[0], qv: l[1], qi: l[2], sel: sel ? "sel" : "" };
+          };
+          // The open event's row first (read: opening marks it read), then the same rows in every frame.
+          const rows = (title, meta, mode, tone) => [
+            mk("pan_tool", tone || "c-error", title, meta, "18:50", false, mode, true),
+            mk("block", "c-error", "Which backup should I restore?", "Blocked · High · backup-jobs", "18:20", false, "open2"),
+            mk("pan_tool", "c-primary", "Merge R81 into main?", "Action required · Normal · ci-pipeline", "17:40", false, "you"),
+            mk("pan_tool", "c-primary", "Restart the proxy?", "Action required · Normal · homelab-monitor", "16:05", false, "other"),
+            mk("pan_tool", "c-primary", "Deploy window for R80?", "Action required · Normal · ci-pipeline", "Yesterday", false, "closed"),
+            mk("check_circle", "c-var", "Nightly backup finished", "Completed · Low · backup-jobs", "Yesterday", true),
+            mk("info", "c-primary", "Weekly report is ready", "Info · Normal · ana-reports", "Mon", true),
+            mk("pan_tool", "c-primary", "Publish the weekly report?", "Action required · Normal · ana-reports", "Sun", false, "waitA")
+          ];
+          const MERGE_META = "Action required · High · ci-pipeline";
+          const choice = (c, multi, ring) => ({
+            label: c.label, desc: c.desc || "", rowCls: (c.desc ? "d" : "") + (ring === c.label ? " ring" : ""),
+            ctl: (multi ? "cb" : "rb") + (c.on ? " on" : ""), chk: multi && c.on ? "check" : ""
+          });
+          const merge = [{ label: "Merge", desc: "Squash-merge now; CI passed.", on: true }, { label: "Hold" }];
+          const none = [{ label: "Merge", desc: "Squash-merge now; CI passed." }, { label: "Hold" }];
+          const checks = [
+            { label: "Unit tests", desc: "About 2 minutes.", on: true },
+            { label: "Integration tests", desc: "Starts the database; about 8 minutes.", on: true },
+            { label: "Lint" },
+            { label: "Security scan", desc: "Checks dependencies against known advisories. Runs after the other checks." }
+          ];
+          const HELP1 = "Pick one. It goes to ci-pipeline and can't be changed once sent.";
+          const HELPN = "Pick one or more. It goes to ci-pipeline and can't be changed once sent.";
+          const HELPT = "Type your answer. It goes to ci-pipeline and can't be changed once sent.";
+          // One frame of the event pane. Defaults: the open Merge question, Merge picked, empty note.
+          const F = (id, label, o, note, note2) => {
+            const multi = !!o.multi;
+            const lst = o.choices === undefined ? merge : o.choices;
+            const res = o.res || null;
+            return Object.assign({
+              id, screen: id + " " + label, label, note, note2: note2 || "", size: o.size || "",
+              title: o.title || "Merge R82 into main?", sev: o.sev || "High", msg: o.msg || "CI passed on all 3 checks. 3 files changed.", link: o.link !== false,
+              rows: rows(o.rowTitle || "Merge R82 into main?", o.rowMeta || MERGE_META, o.rowMode || "open").filter((r, i) => i === 0 || r.title !== (o.rowTitle || "Merge R82 into main?")),
+              toCount: (o.rowMode || "open") === "open" ? "2" : "1", chipOn: false,
+              isPick: !res, isRes: !!res, help: multi ? HELPN : lst.length ? HELP1 : HELPT,
+              closes: "", closesCls: "", dimCls: "", pickErr: "", snack: "",
+              choices: lst.map((c) => choice(c, multi, o.ring)),
+              fieldCls: "", fieldLabel: lst.length ? "Note (optional)" : "Your answer", fieldText: lst.length ? "Add a note for ci-pipeline" : "", helpCls: "", helpL: "", count: "0 / 1000",
+              btn: "Send answer", btnCls: "", sending: false,
+              resIcon: res ? res.icon : "", resFill: res && res.fill ? "fill" : "", resCls: res ? res.cls : "", resTitle: res ? res.title : "", res2: res ? res.l2 || "" : "", res3: res ? res.l3 || "" : ""
+            }, o.over || {});
+          };
+          const t1 = [
+            F("1a", "The question: a single choice with a description, an optional note", { size: "" },
+              "The card sits under the message and above the Open link button, the same place the answered result will take. The desktop pane keeps the 7a anatomy: Mark as unread at the top right, the title, the chips, the message. The selected row in the list is the open event; it is read (opening marked it read) and still carries To answer, because a question is not finished by reading it. Radio rows are the whole 48 px row, not the 20 px control; the Merge row is taller because its description wraps under its label. Hold has no description and nothing is drawn where one would be. The note is a single-line field labelled Note (optional), 1 to 1000 characters, with its counter at the right; Enter in it does nothing (1n). The button is a filled Send answer, left-aligned and not stretched, because a wide pane would make a full-width button a long reach.",
+              "Producer-agnostic by construction: the card shows only the ask's own title, choices, descriptions and text rule. Descriptions are plain text (never links or markup) and are part of a row's accessible name, for example \"Merge, Squash-merge now; CI passed., selected, 1 of 2\"."),
+            F("1b", "Multiple choice with descriptions", {
+              multi: true, choices: checks, title: "Which checks should run on R82?", sev: "Normal", msg: "Pick what to include in this run.", link: false, rowTitle: "Which checks should run on R82?", rowMeta: "Action required · Normal · ci-pipeline", rowMode: "open",
+              over: { fieldLabel: "Note (optional)" }
+            }, "Checkboxes instead of radios and the words Pick one or more (the server needs at least 2 choices for this kind). Nothing is checked until the person picks; Send answer with none checked says Pick at least one answer. (1m). Accessible names: \"Unit tests, About 2 minutes., checked\", \"Lint, not checked\". Each checkbox is its own tab stop and Space toggles it; the group is announced as Your answer. Lint has no description and stays one line."),
+            F("1c", "A typed question only", {
+              choices: [], title: "What should the R82 release notes say?", sev: "Normal", msg: "Write one or two lines for the changelog.", link: false, rowTitle: "What should the R82 release notes say?", rowMeta: "Action required · Normal · ci-pipeline", rowMode: "open",
+              over: { fieldCls: "ta focus v", fieldLabel: "Your answer", fieldText: "Answers can now carry a note. Sending twice is harmless.", helpL: "", count: "58 / 1000", help: HELPT }
+            }, "No choices, so the field is required: its label is Your answer (not Note (optional)), 1 to 1000 characters, with a counter. It is a multi-line text area that grows with the text up to 6 lines and then scrolls inside itself, so Enter adds a line here and sends nothing; the button is the only way to send. The field has focus here (2 px primary border and label)."),
+            F("1d", "Sending", { rowMode: "open", over: { dimCls: "dim", btn: "Sending", btnCls: "dis", sending: true, fieldCls: "v", fieldText: "After lunch", count: "11 / 1000" } },
+              "The choices and the note are dimmed and can't be changed; the button shows a progress ring, reads Sending and is announced \"Sending answer\" in a polite live region. It can't be pressed twice. Navigating away does not cancel the send; the answer shows when the event is next opened. The ring stops turning for people who prefer reduced motion, and stays visible. Sending turns into the result without animation: the card swaps and the result is announced once in a polite live region (reduced motion: the same)."),
+            F("1e", "You answered", { rowMode: "you", res: { icon: "check_circle", fill: true, cls: "c-primary", title: "You answered · Merge · 19:02", l2: "Note: After lunch", l3: "Sent to ci-pipeline." } },
+              "The card keeps its place and becomes a result, announced as one line of text. The note line shows only when a note was sent; several choices read \"You answered · Unit tests, Lint · 19:02\". The row in the list now says You answered · Merge, in grey, and the To answer count drops by one. It is also what a second tab or device sees after a doubled press, or on reopening the event: the same answer sent again is accepted (200). Its notification is removed on every phone it reached, and nothing replaces it."),
+            F("1f", "Someone else answered", { rowMode: "other", res: { icon: "check_circle", fill: true, cls: "c-var", title: "Ana answered · Hold · 18:55", l2: "Sent to ci-pipeline. Nobody else can answer now." } },
+              "What every other person the event reached sees, read-only. The name is the name kept with the answer, even if the person is renamed later. The icon is grey, not primary, so \"You answered\" (1e) stands apart. The page re-reads an open event when its tab regains focus, so a card that was open when the answer came turns into this by itself; a 409 on Send does the same (1j). Its notification is removed on every phone it reached."),
+            F("1g", "Closed with no answer", { rowMode: "closed", link: false, title: "Deploy window for R80?", sev: "Normal", msg: "Open until 09:00.", rowTitle: "Deploy window for R80?", rowMeta: "Action required · Normal · ci-pipeline", res: { icon: "lock_clock", cls: "c-var", title: "Closed · nobody answered in time", l2: "It closed on 17 Oct at 09:00. ci-pipeline got no answer." } },
+              "After the closing time nobody can answer (the server answers 409 closed). No warning color: nothing is wrong, it just ran out. The same card shows to people who may not answer. A question that closes while someone is choosing turns into this card on the next 409 (or when the tab regains focus), with their choice and note dropped. Its notification is removed on every phone it reached."),
+            F("1h", "Open, but you may not answer", { rowMode: "waitRA", res: { icon: "lock", cls: "c-var", title: "Rodrigo or Ana can answer", l2: "You can read the question. Choices: Merge (Squash-merge now; CI passed.), Hold." } },
+              "For a person who is not the owner and not an answerer: no radios, no button, nothing that looks pressable. The title names who can answer, built from ask.whoCanAnswer with the owner first: one person \"Rodrigo answers this\", two \"Rodrigo or Ana can answer\" (drawn), three or more \"Rodrigo, Ana or Rui can answer\"; never \"an admin\" or \"the operator\". The choices are listed with their descriptions, as on the answer card, so the context is not lost; there is no control. The row in the list says Waiting for Rodrigo or Ana (same names), in grey with an hourglass, and the question is not counted in To answer. When the answer comes, the card turns into 1f when the tab regains focus. An admin sees this card too if the admin is not the owner or an answerer: the operator (the admin token) never answers, and a signed-in browser acts for its user only. The rail's account button is the sample's (Rodrigo) in every frame; read this frame as drawn for a viewer who is neither the owner nor an answerer, such as Rui."),
+            F("1i", "Send failed", { size: "tall", over: { snack: "Answer not sent", fieldCls: "v", fieldText: "After lunch", count: "11 / 1000" } },
+              "The page's failed-change pattern: a snackbar at the bottom of the pane with Retry (48 px), and the choice and the note are kept exactly as typed. Send answer works again by itself, so Retry and the button do the same. It covers offline and server errors. A 401 is not this: the session ended and the page shows its sign-in. A doubled send is harmless: the server accepts the same answer twice. Nothing was sent, so there is nothing to undo. Offline before the tap: the page's offline banner covers it and Send answer fails the same way; no separate frame. A 403 is not this either: see 1p."),
+            F("1j", "Someone answered first", { rowMode: "other", res: { icon: "info", fill: true, cls: "c-var", title: "Ana answered first: Hold", l2: "18:55. Your answer wasn't sent, and ci-pipeline has Ana's." } },
+              "Pressing Send answer got 409 with the winner's answer, so the card swaps to the result at once, with no error color and no retry. The person's own choice and note are dropped. If the winner was the same person on another device or tab, the card reads \"You answered · Merge · 19:02\" (1e); if the same person had answered differently, the line is \"You already answered: Merge. Your new answer wasn't sent.\". The result is announced in the same live region."),
+            F("1k", "It closes soon", { over: { closes: "Closes at 09:00 · in 12 min", closesCls: "soon" }, title: "Deploy window for R80?", sev: "Normal", msg: "Open until 09:00.", rowTitle: "Deploy window for R80?", rowMeta: "Action required · Normal · ci-pipeline", link: false, choices: [{ label: "Deploy now", on: true }, { label: "Deploy tomorrow" }] },
+              "With a closing time, the first line of the card says Closes at 09:00, grey; in the last hour it adds \"in 12 min\" and turns to the error color with a clock icon (the words say it, so color is not the only signal). A date other than today reads \"Closes 17 Oct at 09:00\". The countdown is updated by the page each minute and is not announced. A question with no closing time shows no line."),
+            F("1l", "Field error: the text is too long", {
+              choices: [], title: "What should the R82 release notes say?", sev: "Normal", msg: "Write one or two lines for the changelog.", link: false, rowTitle: "What should the R82 release notes say?", rowMeta: "Action required · Normal · ci-pipeline",
+              over: { fieldCls: "ta err v", fieldLabel: "Your answer", fieldText: "Answers can now carry a note. Sending twice is harmless. Keys can be revoked at any time and the owner can add people who answer. The closing time is optional and at most 30 days ahead…", helpCls: "err", helpL: "Too long: 43 characters over the limit.", count: "1043 / 1000", help: HELPT }
+            }, "The error shows as soon as the text passes 1000 characters, the border and the counter turn the error color, and the text is never cut. Send answer stays pressable and, pressed, only moves focus to the field and says the same error again; nothing is sent. The line is tied to the field with aria-describedby and is announced when it appears. The same line applies to a note on a choice question."),
+            F("1m", "Field error: nothing picked", { choices: none, over: { pickErr: "Pick an answer to send." } },
+              "Shown when Send answer is pressed with no choice. Exact words: single choice \"Pick an answer to send.\"; multiple choice \"Pick at least one answer.\"; typed-only question \"Type an answer to send.\" The message sits under the list with an icon, so color is not the only signal, and is read out when it appears (role alert). Focus moves to the first choice (the radio group's tab stop)."),
+            F("1n", "Keyboard: the focus ring and the keys", { ring: "Merge", over: { fieldCls: "v", fieldText: "After lunch", count: "11 / 1000" } },
+              "The focus ring (2 px primary, never removed) is drawn on the checked radio row, the group's one tab stop. Keys: Tab enters the group on the checked choice (the first when none is checked) and leaves it on the next Tab; the arrow keys move to the next or previous choice and check it, wrapping at the ends (the standard radio group, so a screen reader reads \"Hold, 2 of 2, checked\"); Space checks the focused choice. In a multiple choice each checkbox is its own tab stop and Space toggles it. Tab goes on to the note, then to Send answer. Enter in the note field does not send (it is a single-line field and has no default action; the answer is only ever sent by the button, because it can't be taken back), and Enter on the focused button sends. Escape does nothing. There is no shortcut that sends. Hover and pressed use the design system's 8 % and 10 % state layers on the whole row."),
+            F("1o", "1a in the light theme", { size: "light" },
+              "The key screen of this page in the light theme, with the tokens of the existing light frames (the Admin and Web light checks): primary #515b92, surface #fbf8ff, the card on surface-container #efedf4, selected row #e0e1f9, error #ba1a1a. Nothing else changes: same layout, words and 48 px targets. The Send answer button is white on #515b92; the radio and the focus ring are primary."),
+            F("1p", "A 403 on Send: the page re-reads and shows the read-only card", { rowMode: "waitRA", res: { icon: "lock", cls: "c-var", title: "Rodrigo or Ana can answer", l2: "You can read the question. Choices: Merge (Squash-merge now; CI passed.), Hold.", l3: "Your answer wasn't sent." } },
+              "Send answer got 403: the person may no longer answer (for example the owner removed them from Who can answer while the card was open), or the request was refused for another reason. The page re-reads the event at once. If canAnswer is now false it shows this card, in the read-only layout of 1h, with the one extra line \"Your answer wasn't sent.\" and nothing to retry. If canAnswer is still true, it shows the failed-send snackbar of 1i, \"Answer not sent\" with Retry."),
+            F("1q", "You answered a typed question", { choices: [], title: "What should the R82 release notes say?", sev: "Normal", msg: "Write one or two lines for the changelog.", link: false, rowTitle: "What should the R82 release notes say?", rowMeta: "Action required · Normal · ci-pipeline", rowMode: "youT", res: { icon: "check_circle", fill: true, cls: "c-primary", title: "You answered · ‘after lunch’", l2: "19:02 · Sent to ci-pipeline." } },
+              "A question with no choices, answered with text only. The title carries the text in typographic quotes. Text that does not fit on a line wraps and is never cut (up to 1000 characters). Someone else's typed answer reads \"Ana answered · ‘after lunch’\" with \"Sent to ci-pipeline. Nobody else can answer now.\" under it, as in 1f. The list row says the same in grey.")
+          ];
+          // Turn 2: the inbox list.
+          const lst = rows("Merge R82 into main?", MERGE_META, "open");
+          lst[0].tcls = "t1b"; lst[0].dot = "dot";
+          const t2 = [
+            { id: "2a", screen: "2a Inbox with questions", label: "Inbox: a question to answer, answered, closed, waiting (an admin's rail)", size: "tall", chipCls: "", chipOn: false, toCount: "2", rows: lst.map((r, i) => Object.assign({}, r, { sel: i === 0 ? "sel" : "" })), empty: false, pane: true,
+              note: "Rows 1 and 2 are open questions this person may answer; 3 to 5 are decided (You answered, Ana answered, Closed); 6 and 7 are events with no question, unchanged; row 8 is an open question this person can only read (Waiting for Ana). Row 1 is selected and still unread-bold here because it has not been opened yet. The To answer chip carries the number of open questions this person may answer (accessible name \"To answer, 2\"); Unread has none. The chip is shown while that number is above 0 or while it is switched on, so a person who never receives questions never sees it. Keyboard: arrow keys move through the list, Enter opens, as in 7a." },
+            { id: "2b", screen: "2b To answer filter on", label: "The To answer chip on", size: "", chipCls: "on", chipOn: true, toCount: "2", rows: lst.slice(0, 2).map((r, i) => Object.assign({}, r, { sel: i === 0 ? "sel" : "" })), empty: false, pane: true,
+              note: "The chip is on (check mark, secondary container), like the Producers filter chips, and the address keeps it (#inbox?toAnswer). Only open questions the person may answer are listed. A question leaves the list when it is answered or closes, on the next re-read (the tab regaining focus, or a 409). It combines with the Filter dialog's producer, category and severity. The Filter icon keeps its name \"Filter events\"." },
+            { id: "2c", screen: "2c Nothing to answer", label: "The To answer chip on, nothing left", size: "", chipCls: "on", chipOn: true, toCount: "", rows: [], empty: true, pane: false,
+              note: "The count disappears at zero. A neutral empty state like the other filtered lists: no error color, one button, Show all events, that switches the chip off. The detail pane is empty, as in 8g's nothing-selected layout." }
+          ];
+          // Turn 3: phone.
+          const p = (o) => Object.assign({ size: "", isList: false, isEvent: false, snack: "" }, o);
+          const evp = (id, label, note, o) => {
+            const f = F(id, label, o || {}, note);
+            return p(Object.assign({}, f, { isEvent: true, url: "signalhub.example/app/#inbox/01997d5e-8a3c…" }));
+          };
+          const t3 = [
+            p({ id: "3a", screen: "3a Phone inbox", label: "Inbox with the chip and the question lines", isList: true, url: "signalhub.example/app/#inbox", chipCls: "", chipOn: false, toCount: "2",
+              rows: lst.map((r, i) => Object.assign({}, r, { sel: "" })).slice(0, 6),
+              note: "The app's 3a at the web page's width: the Unread and To answer chips under the app bar, the account button where 7c puts it, and the question line under each row's meta line. Rows keep a 48 px height or more; the chip has a 48 px hit area. The line is part of the row's name: \"Merge R82 into main?, Action required, High, ci-pipeline, 18:50, To answer, closes 09:00, unread\"." }),
+            evp("3b", "The event screen with the answer card", "The question screen: back, the event, the card under the message, filling the width between 16 px gutters. The choices and the note are the same rows as on a desktop; the button is full width here because it is the screen's one action. The Open link button and the rest follow the card. The bottom bar stays visible, as in the app's 1a. Error and sending states are the desktop's, unchanged, with the snackbar above the bar.", { size: "m", rowMode: "open" }),
+            evp("3c", "The answered state", "The same screen once answered: the card becomes the result and stays where it was. Someone else's answer, closed and read-only are the desktop's 1f, 1g and 1h at this width, with the same words.", { size: "s", rowMode: "you", res: { icon: "check_circle", fill: true, cls: "c-primary", title: "You answered · Merge · 19:02", l2: "Note: After lunch", l3: "Sent to ci-pipeline." } })
+          ];
+          // Turn 4: Who can answer.
+          const pr = (name, sub, own, bell, sel) => ({ name, sub, bell: bell ? "on" : "off", fill: bell ? "fill" : "", icon: bell ? "notifications_active" : "notifications", own: own ? "own" : "", ownText: own ? "Yours" : "", sel: sel ? "sel" : "" });
+          const producers = [
+            pr("ci-pipeline", "Public · 2 keys · last event 01:19", true, true, false),
+            pr("homelab-monitor", "Private · 2 people · last event 00:36", true, true, true),
+            pr("ana-reports", "Ana · Public", false, true, false),
+            pr("family-calendar", "Ana · Private", false, true, false),
+            pr("weather-alerts", "João · Public", false, false, false)
+          ];
+          const t4 = [
+            { id: "4a", screen: "4a Who can answer", label: "Your producer: Who can answer, one person added", size: "tall", sub: true, unsub: false, nobody: false, hasAna: true, picker: false, remove: false,
+              note: "The owner's row has no control and its second line says why. Each added person's row has a 48 px close button named \"Remove Ana\". Add people who can answer is a text button at the end of the section. The section is shown to the owner only, between Shared with and Keys, and appears on a Public producer too (it does not depend on who can see it)." },
+            { id: "4b", screen: "4b Nobody added", label: "Nobody added yet", size: "tall", sub: true, unsub: false, nobody: true, hasAna: false, picker: false, remove: false,
+              note: "Exact hint: \"Only you can answer this producer's questions.\" It sits under the owner's row and shows only while nobody is added, the way \"Only you\" does for sharing. If nobody else can see the producer, the add button stays and the dialog says so (see 4c)." },
+            { id: "4c", screen: "4c Add people who can answer", label: "Add people who can answer: the dialog", size: "tall", sub: true, unsub: false, nobody: false, hasAna: true, picker: true, remove: false,
+              note: "The app's picker as a dialog, 480 px wide: names only, each whole row a 48 px or taller target, text buttons Cancel and Save (R1). Save is off until the selection changes. You are not listed (you always can). Focus goes to the first checkbox when it opens, is kept inside, and returns to Add people who can answer on close; Escape and Cancel leave without saving, and with unsaved changes ask \"Discard changes?\" as the app does. Rui is being added (checked) and the focus ring is drawn on Rui's checkbox here. If nobody else can see the producer, the list is replaced by the plain line \"Nobody else can see homelab-monitor. Add people under Who can see it first.\"" },
+            { id: "4d", screen: "4d Remove confirmation", label: "Removing a person: the confirmation", size: "tall", sub: true, unsub: false, nobody: false, hasAna: true, picker: false, remove: true,
+              note: "A confirm and not an Undo, because it changes what someone else can do (DESIGN.md 4.1; the web page has no Undo snackbar). Text buttons, Remove in the error color; focus starts on Cancel, so Enter cannot remove by accident. If the removal fails, the list stays as it was and a snackbar says \"Not removed\" with Retry." }
+            ,{ id: "4f", screen: "4f Stay subscribed to answer", label: "Your producer, unsubscribed: Stay subscribed to answer", size: "tall", sub: false, unsub: true, nobody: false, hasAna: true, picker: false, remove: false,
+              note: "An owner who unsubscribed from their own producer can't read its events, so they can't answer its questions. The producer's page says so where the switch is, in words with an icon and no error color: \"Stay subscribed to answer. While you're unsubscribed, homelab-monitor's questions don't reach you, and you can't answer them.\" The line shows only to a person who is the owner or an answerer of the producer, and only while they are unsubscribed. An unsubscribed owner can't open the event at all, so this page is the only place for the explanation. Turning the switch on removes the line." }
+          ];
+          return { t1, t2, t3, t4, producers };
+        }
+      }
+    </script>
+  </body>
+</html>

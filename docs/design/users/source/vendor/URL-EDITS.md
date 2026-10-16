@@ -1,4 +1,4 @@
-# URL edits (before -> after), 52 replacements
+# URL edits (before -> after), 62 replacements
 - Admin - Devices dialogs.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
 - Admin - Devices dialogs.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - Admin - Devices.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
@@ -11,6 +11,8 @@
 - Admin - Events.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - Admin - Light theme check.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
 - Admin - Light theme check.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
+- Admin - Questions and answers.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
+- Admin - Questions and answers.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - Admin - Shell and Producers.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
 - Admin - Shell and Producers.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - Admin - Status and sign-in.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
@@ -23,6 +25,8 @@
 - Admin - Users dialogs.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - Admin - Users.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
 - Admin - Users.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
+- App - Answering an event.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
+- App - Answering an event.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - App - First run and empty states.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
 - App - First run and empty states.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - App - Light theme check.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap` -> `vendor/css/roboto-roboto-mono-400-500.css`
@@ -31,6 +35,8 @@
 - App - Navigation and Producers.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - App - New producer and key.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
 - App - New producer and key.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
+- App - Notification actions.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
+- App - Notification actions.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - App - People and devices.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
 - App - People and devices.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - Prototype - App.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
@@ -40,6 +46,8 @@
 - SignalHub Design System.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
 - SignalHub Design System.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - SignalHub Design System.dc.html (1x): `href="https://fonts.googleapis.com"` -> `href="vendor/"`
+- Web - Answering an event.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
+- Web - Answering an event.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - Web - Inbox and producers.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
 - Web - Inbox and producers.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - Web - New producer action.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
@@ -48,6 +56,8 @@
 - Web - Settings, people and states.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - Web - Sign in.dc.html (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap` -> `vendor/css/roboto-roboto-mono-400-500.css`
 - Web - Sign in.dc.html (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
+- admin-answers.css (1x): `https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap` -> `vendor/css/roboto-roboto-mono.css`
+- admin-answers.css (1x): `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block` -> `vendor/css/material-symbols-outlined.css`
 - support.js (1x): `https://unpkg.com/react@18.3.1/umd/react.production.min.js` -> `vendor/js/react.production.min.js`
 - support.js (1x): `https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js` -> `vendor/js/react-dom.production.min.js`
 - support.js (1x): `https://unpkg.com/@babel/standalone@7.29.0/babel.min.js` -> `vendor/js/babel.min.js`

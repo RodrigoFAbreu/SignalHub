@@ -2692,6 +2692,34 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
 
 ---
 
+### R81 - Designs for answering an event
+
+- **made** after the maintainer's go-ahead (G7) as R73 was: in the same
+  Claude Design project by local Sonnet workers that the orchestrator
+  planned and reviewed, from an inventory of today's event screens, push
+  payload and API; then a design review and a review of every statement
+  against the proposal, their fixes, and a light frame for each page
+- **chosen by the maintainer**: the producer's owner answers, and may let
+  chosen subscribers of the producer answer too; the first answer wins; a
+  producer reads the answer by waiting on it; single choice (more than
+  three allowed), multiple choice and a typed answer, each choice with an
+  optional description; three options only for answering in the event
+  screen, of which an answer card under the message (A); no action
+  buttons on notifications, and a question's notification is removed once
+  answered, closed or deleted
+- **a written proposal** of the API and schema changes
+  (`docs/design/answers/API-PROPOSAL.md`): the event's optional `ask`, who
+  may answer, answering, a producer's long-polling read, what clients see,
+  pushes, the SDK and command, and the edge cases; approved or changed at
+  G8, where R82 and R83 are settled
+- **exported** to `docs/design/answers/`: an image of every screen and
+  state (WebP), `WALKTHROUGH.md` and `README.md`; the drawings' sources
+  beside the others in `docs/design/users/source/`; and section 10 of
+  `docs/design/users/DESIGN.md` (the answer card, the read-only card,
+  wording, the inbox's chips and lines, the notification's line and its
+  removal, the answerers setting and the admin page). Documentation only
+  (`docs`)
+
 ## 4. Planned roadmap
 
 Roadmap items are ordered by dependency, but each item may be split into smaller releasable increments if implementation evidence shows that doing so is safer or more reviewable.
@@ -3317,9 +3345,9 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 70    | R78 - The admin page: the new layout, signing in, Status, Producers and Devices                  | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 71    | R79 - The admin page: Events and Users                                                           | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 72    | R80 - Web sign-in codes follow the server's clock                                                | Increment (`fix`)                      | Done (see section 3)                                                             |
-| 73    | G7 - The maintainer's go-ahead for replies and notification actions                              | Human gate                             | Waiting for the maintainer                                                       |
-| 74    | R81 - Designs for replying to an event and notification actions                                  | Increment (`docs`)                     | Blocked by G7                                                                    |
-| 75    | G8 - The maintainer approves the reply and notification action designs                           | Human gate                             | Blocked by R81                                                                   |
+| 73    | G7 - The maintainer's go-ahead for replies and notification actions                              | Human gate                             | Passed (2026-10-16, go-ahead given)                                              |
+| 74    | R81 - Designs for replying to an event and notification actions                                  | Increment (`docs`)                     | Done (see section 3)                                                             |
+| 75    | G8 - The maintainer approves the reply and notification action designs                           | Human gate                             | Waiting for the maintainer                                                       |
 | 76    | R82 - Replying to an event                                                                       | Increment (`feat`)                     | Blocked by G8                                                                    |
 | 77    | R83 - Notification action buttons                                                                | Increment (`feat`)                     | Blocked by G8                                                                    |
 
@@ -3917,6 +3945,7 @@ advance; they follow from the queue.
 | R78           | minor (`feat`)                                                                                                                                        | the admin page's new layout, signing in, Status, Producers and Devices; no API change                       |
 | R79           | minor (`feat`)                                                                                                                                        | the admin page's Events and Users; no API change                                                            |
 | R80           | patch (`fix`)                                                                                                                                         | web sign-in codes follow the server's clock: a `Date` header on starting a sign-in; no field or schema change |
+| R81           | patch (`docs`)                                                                                                                                        | drawings and a proposal only                                                                                  |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6456,7 +6485,8 @@ Non-goals: other uses of the browser's clock on the page; the app.
 
 ### G7 - The maintainer's go-ahead for replies and notification actions
 
-Status: waiting for the maintainer. A human gate.
+Status: passed. The maintainer gave the go-ahead on 2026-10-16. A human
+gate.
 
 The maintainer wants a producer to be able to ask the owner something and
 read the answer, and wants the owner to act on a push from the
@@ -6466,7 +6496,7 @@ stops here and never answers it.
 
 ### R81 - Designs for replying to an event and notification actions
 
-Status: blocked by G7. Added by the maintainer (2026-10-16).
+Status: done (see section 3). Added by the maintainer (2026-10-16).
 
 Goal: one generic design for answering an event, from the app, the web
 page and the notification, that keeps the core producer-agnostic, agreed
@@ -6503,7 +6533,15 @@ conversations or threads; a rules engine.
 
 ### G8 - The maintainer approves the reply and notification action designs
 
-Status: blocked by R81. A human gate.
+Status: waiting for the maintainer. A human gate.
+
+R81's designs (`docs/design/answers/`) carry the maintainer's choices made
+while drawing: no action buttons on notifications, so every question is
+answered by opening the event, and a question's notification is removed
+once it is answered, closed or deleted. The proposal
+(`docs/design/answers/API-PROPOSAL.md`) therefore suggests dropping R83 and
+splitting R82 in two (the server with the SDK, then the app, the web page
+and the admin page); both are decided here.
 
 The maintainer reviews R81's drawings and proposal and approves them,
 with or without changes. At the approval, R82 and R83 are confirmed,
@@ -6694,8 +6732,10 @@ producer button), and so is R78 (the admin page's new layout, signing in,
 Status, Producers and Devices), and so is R79 (the admin page's Events and
 Users). The maintainer then added R80 (web sign-in codes follow the server's
 clock), and R80 is done. The maintainer then added replying to an event
-and notification action buttons (G7, R81, G8, R82, R83), on hold:
-**nothing is Next; the queue waits at G7, the maintainer's go-ahead.** A new item is added only by the maintainer, in a reviewed pull
+and notification action buttons (G7, R81, G8, R82, R83). The maintainer
+gave the go-ahead at G7, and R81 (designs for answering an event) is done.
+**Next is G8: the maintainer approves the designs and the proposal, and
+settles R82 and R83.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 

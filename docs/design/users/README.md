@@ -22,6 +22,10 @@ drawn in the same project and the same `source/` folder. Their previews,
 walkthrough and server items are in [../admin/](../admin/README.md). Their rules
 and components are in [DESIGN.md](DESIGN.md#9-the-admin-page-r73).
 
+Answering an event (R81), in the app, its notification, the web page and the
+admin page, is drawn there too. Its previews, walkthrough and API proposal are
+in [../answers/](../answers/README.md). Its rules are in [DESIGN.md](DESIGN.md#10-questions-and-answers-r81).
+
 The designs were made in a Claude Design project, with a design system page,
 nine screen pages and two clickable prototypes:
 <https://claude.ai/design/p/17711c15-5ce6-495c-9841-de8eb831a828>
