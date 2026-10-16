@@ -21,7 +21,7 @@
     <surefire-plugin.version>3.6.0</surefire-plugin.version>
     <spotless-plugin.version>3.10.3</spotless-plugin.version>
     <google-java-format.version>1.36.1</google-java-format.version>
-    <spotbugs-plugin.version>4.10.4.1</spotbugs-plugin.version>
+    <spotbugs-plugin.version>4.10.5.0</spotbugs-plugin.version>
     <qrcode-generator.version>2.0.4</qrcode-generator.version>
   </properties>
 
