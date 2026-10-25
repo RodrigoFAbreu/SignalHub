@@ -6579,7 +6579,7 @@ Scope:
   read with a held wait of up to 60 s, and its close (sections 3, 4, 4b)
 - what clients see (`ask`, `answer`, `answerState`, `canAnswer`, `whoCanAnswer`,
   the `toAnswer` filter; section 5) and the admin events list's `answerState`
-  filter
+  filter, and `asking` in the bulk delete's count (Q3b)
 - pushes (section 6): the notification tag, the "Tap to answer" line per
   recipient, the data-only `answered`, `closed` and `deleted` notices, and the
   close due at `closesAt`
@@ -6611,6 +6611,12 @@ lines; the answerers setting; Ctrl+Enter on the web page; refresh on focus or
 resume; the app's receiver removing a question's notification on a notice; the
 admin page's Event tab, list markers, *Question* filter, test-event section and
 delete warnings; and the *Action required* icon `pending_actions` everywhere.
+
+Before R82b starts, the riskiest of the frames not yet drawn are drawn in the
+design project and exported: the *Other* row on the app and on the web page,
+the card of a question its producer closed, and a 1000-character description
+(the maintainer, 2026-10-25, after reviewing the designs). Everything else is
+built from section 10 of `docs/design/users/DESIGN.md`.
 
 Compatible (`feat`, minor): the screens only, on R82a's API.
 

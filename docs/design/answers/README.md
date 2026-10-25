@@ -3,8 +3,9 @@
 These are the designs R81 made for a producer asking a question in an event and
 a person answering it: in the app, from the Android notification, on the users'
 web page, and as the operator reads it on the admin page. The server and the
-clients are built from them in later items (R82). The owner approves them at
-the design gate (G8).
+clients are built from them in R82a (the server, the SDK and the command) and
+R82b (the screens). The owner approved them at the design gate (G8,
+2026-10-25).
 
 Everything is sample data. The host is `signalhub.example`. The people are
 Rodrigo (admin and the producers' owner), Ana (mod) and Rui (basic). The
@@ -21,10 +22,10 @@ choices and text that SignalHub shows and never interprets.
 | File | What it is |
 | --- | --- |
 | [WALKTHROUGH.md](WALKTHROUGH.md) | Six flows step by step, with each step linked to its frame, the server changes the designs need, and what was left out. |
-| [API-PROPOSAL.md](API-PROPOSAL.md) | The API the designs assume: the `ask` field, who may answer, answering, reading the answer as a producer, the pushes, the SDK and the command. A proposal for the maintainer's approval. |
+| [API-PROPOSAL.md](API-PROPOSAL.md) | The API the designs assume: the `ask` field, who may answer, answering, reading the answer as a producer, the pushes, the SDK and the command. Approved at G8, with the changes of its section 10. |
 | `images/` | One preview per frame: 97 images in WebP, in 4 folders. |
 | [../users/DESIGN.md](../users/DESIGN.md#10-questions-and-answers-r81) | The design system. Section 10 holds the answer card, its states and exact copy, the inbox lines and chips, the notification line, the answerers setting, the admin markers and the accessibility rules. |
-| [../users/source/](../users/source/README.md) | **The drawings themselves**, the source of truth: `App - Answering an event`, `App - Notification actions`, `Web - Answering an event`, `Admin - Questions and answers` and `admin-answers.css`. They live with the users' and the admin drawings because it is one design project and one `vendor/` folder. The images here are previews of them. |
+| [../users/source/](../users/source/README.md) | **The drawings themselves**, the source of truth: `App - Answering an event`, `App - Notification actions`, `Web - Answering an event`, `Admin - Questions and answers` and `admin-answers.css`. They live with the users' and the admin drawings because it is one design project and one `vendor/` folder. The images here are previews of them. Where [DESIGN.md section 10](../users/DESIGN.md#10-questions-and-answers-r81) or the G8 section below says otherwise, they win: the drawings still show the older limits and the raised hand. |
 
 The designs were made in the same Claude Design project as the users' and the
 admin designs:
@@ -55,11 +56,11 @@ admin designs:
 | --- | --- | --- |
 | Who answers (2026-10-16) | The producer's owner, and the users the owner names as answerers of that producer. The first answer wins and closes the question. Everyone else the event reached sees it read-only, with who answered and what. The operator never answers. | Nothing else was drawn. |
 | How the producer reads it | Ask and wait: the producer reads the answer with its own key and may wait on it for a while. | Nothing else was drawn (no callback URL). |
-| Kinds of reply | One choice, several choices, a typed answer, and a choice with an optional note. Up to 10 choices. | Nothing else was drawn. |
+| Kinds of reply | One choice, several choices, a typed answer, and a choice with an optional note or an *Other* row (decided at G8). Up to 10 choices. | Nothing else was drawn. |
 | Answering in the event | **A**: an answer card under the message. Select, then *Send answer*. The owner's reason: it is closest to Claude Code's prompt. | [B](images/app-answering/1b-option-b-an-answer-button-that.webp), an *Answer* button that opens a bottom sheet ([1b1](images/app-answering/1b1-option-b-the-sheet-after-tapping.webp)). [C](images/app-answering/1c-option-c-a-sticky-area-here.webp), a sticky area below the event with one button per choice, which falls back to one *Answer* button when a choice has a description, there are more than 3 choices, it is a multiple choice or it takes text ([1c2](images/app-answering/1c2-option-c-direct-buttons-no-descriptions.webp), [1c1](images/app-answering/1c1-option-c-the-confirmation-after-tapping.webp)). |
 | Notification buttons | **None.** A notification is answered by opening the event. It gains a last line, *Tap to answer*. This made the planned notification-buttons item unnecessary. | Choice buttons in the notification. They were planned and dropped before anything was drawn. |
 | When a question is answered, closed or deleted | **The notification is removed**, not replaced. A replacement would pop up again, sound again and bring back a card the person swiped away. The outcome shows in the inbox and the event. See [1d](images/notification/1d-answered-the-notification-goes.webp), [1e](images/notification/1e-closed-the-notification-goes.webp), [1e2](images/notification/1e2-deleted-the-notification-goes.webp). | Replacing the notification in place. |
-| Choice descriptions | A choice may have an optional description of at most 200 characters. It shows under the label in the app and on the web page, and not at all when empty. Never in the notification. | Nothing else was drawn. |
+| Choice descriptions | A choice may have an optional description of at most 1000 characters (G8; 200 before). It shows under the label in the app and on the web page, and not at all when empty. Never in the notification. | Nothing else was drawn. |
 
 ### Not chosen
 
@@ -83,6 +84,40 @@ the producer chooses; the producer closes a question answered elsewhere;
 Ctrl+Enter sends on the web page; the *Question* filter on the admin page;
 `pending_actions` for *Action required* everywhere. The notification line stays
 within 80 characters, and the *Unread* and *To answer* chips are approved.
+
+## Frames superseded by the text
+
+Some frames were drawn before G8 and are not redrawn yet. Where a frame and
+[DESIGN.md section 10](../users/DESIGN.md#10-questions-and-answers-r81)
+disagree, section 10 wins. Until they are redrawn, read them this way:
+
+- **Every app and web frame with *Action required*** (app 1a to 1c2, 2b to 2q
+  but not 2i and 2m, 3a, 3b, 5a; web 1a to 1q, 2a, 2b, 3a to 3c): the raised
+  hand is `pending_actions` (DESIGN.md 3.1).
+- **App 1a, 1b1, 2c, 2d, 2k, 2n, 2p, 5a; web 1a to 1d, 1i, 1k to 1o, 3b:** a
+  counter `/ 1000` is `/ 3000`; too long reads `3043 / 3000`, and a caption's
+  1000 for a typed answer is 3000.
+- **App 2a, 2p; notification 1b2; admin D1b:** labels are up to 100 characters
+  (not 40) and descriptions up to 1000 (not 200), with the dialog's counters
+  `n / 100` and `n / 1000`. The 80-character line of 1b2 is settled, not a guess.
+- **Web 1n:** "There is no shortcut that sends" is out of date: Ctrl+Enter
+  (Cmd+Enter on a Mac) sends, Enter alone does not (10.8).
+- **Web 1h, 1p:** the read-only card is the disabled list of 10.2, as in app 2h,
+  not a sentence.
+- **Web 1a to 1q:** the filled *To answer* chip is an unselected chip; a selected
+  chip has a check and filters the list (10.4).
+- **Web 2a, 2b:** the answer card is cut off; it is the full card of web 1a, with
+  the note, *Send answer* and *Open link*.
+- **Admin L1, D2c, G1:** the filter chip is *Question*, a normal chip built in
+  R82b and in the filter row of every list frame, not a dashed *Answer state*.
+  G1's open gap was settled at G8.
+- **No frame yet** for the *Other* row, a question closed by its producer, the
+  Ctrl+Enter tooltip, the *Question* filter's menu, a 100-character label, a
+  1000-character description, a 3000-character answer, or the dialog's
+  note-or-*Other* control. Section 10 describes them. Before R82b starts, the
+  *Other* row (app and web page), the closed-by-producer card and a
+  1000-character description are drawn (the maintainer, 2026-10-25); the rest
+  is built from section 10.
 
 ## What the images show
 
@@ -113,7 +148,7 @@ Folder `images/app-answering/`, 33 images. Drawn in `App - Answering an event`. 
 - [2m](images/app-answering/2m-the-event-was-deleted-meanwhile.webp): The event was deleted meanwhile
 - [2n](images/app-answering/2n-field-error-the-text-is-too.webp): Field error: the text is too long
 - [2o](images/app-answering/2o-field-error-nothing-picked.webp): Field error: nothing picked
-- [2p](images/app-answering/2p-a-choice-with-a-200character-description.webp): A choice with a 200-character description
+- [2p](images/app-answering/2p-a-choice-with-a-200character-description.webp): A choice with a long description
 - [2q](images/app-answering/2q-multiple-choice-with-descriptions.webp): Multiple choice with descriptions
 - [3a](images/app-answering/3a-inbox-a-question-to-answer-waiting.webp): Inbox: a question to answer, waiting, answered, closed
 - [3b](images/app-answering/3b-the-to-answer-filter-on.webp): The To answer filter on

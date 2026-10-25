@@ -12,6 +12,12 @@ All people, hosts and keys are sample data: `signalhub.example`, Rodrigo
 is *Merge R82 into main?* from the producer `ci-pipeline`, with the choices
 *Merge* and *Hold*.
 
+Decided at G8 (2026-10-25), after the frames: labels up to 100 characters,
+descriptions up to 1000 and typed answers up to 3000; a note or an *Other* row;
+the producer can close a question; Ctrl+Enter sends on the web page; the admin
+page has a *Question* filter; *Action required* uses `pending_actions`. Where a
+frame shows an older limit or the raised hand, [DESIGN.md section 10](../users/DESIGN.md#10-questions-and-answers-r81) wins.
+
 Contents:
 
 1. [A producer asks and waits](#1-a-producer-asks-and-waits)
@@ -51,6 +57,20 @@ There is no screen for the producer: it is an API client.
 7. **While it waits** the operator sees the same question on the admin page,
    read-only: "Waiting for an answer · closes 09:00 · Rodrigo or Ana can answer".
    [Q1](images/admin/q1-open-waiting-for-an-answer.webp)
+8. **The producer waits.** `signalhub wait-answer EVENT_ID` (or `GET
+   .../answer?wait=60`) holds up to 60 seconds and returns the state: `OPEN`,
+   `ANSWERED` with the answer, or `CLOSED`. The command repeats the waits until
+   one of them ends it and exits 0 when answered, 5 when closed and 6 when its
+   own timeout passed.
+9. **The producer answers elsewhere.** If the question was answered somewhere
+   else, for example in a session the event links to, it runs `signalhub
+   close-question EVENT_ID --note "Answered in the session"`. Everyone sees
+   "Closed by ci-pipeline · Answered in the session" and the notifications go.
+   If someone answered in SignalHub first, the close is refused and the producer
+   reads that answer instead (exit 7).
+10. **Reading late.** The state stays on the event: a producer that reads after
+    the answer, the closing time or its own close gets the same state at once,
+    until the event is deleted (then `404`).
 
 ## 2. The owner answers in the app, from a notification
 
@@ -113,7 +133,8 @@ is the app's option A at the web page's width.
 4. **Other kinds:** several choices [1b](images/web-answering/1b-multiple-choice-with-descriptions.webp); a typed question [1c](images/web-answering/1c-a-typed-question-only.webp).
 5. **Keyboard.** A group of radios is one tab stop; the arrow keys move and check;
    Space checks. Tab goes on to the note and then to *Send answer*. Enter in the
-   note does not send. [1n](images/web-answering/1n-keyboard-the-focus-ring-and-the.webp)
+   note does not send; Ctrl+Enter (Cmd+Enter on a Mac) sends from anywhere in
+   the card, as the button does. [1n](images/web-answering/1n-keyboard-the-focus-ring-and-the.webp)
 6. **Mistakes** are shown under the field: [1l](images/web-answering/1l-field-error-the-text-is-too.webp), [1m](images/web-answering/1m-field-error-nothing-picked.webp).
 7. **Sending** and **the result**: [1d](images/web-answering/1d-sending.webp), [1e](images/web-answering/1e-you-answered.webp). A typed answer: [1q](images/web-answering/1q-you-answered-a-typed-question.webp).
 8. **If sending fails**, a snackbar with *Retry* keeps the choice and the note.
@@ -170,6 +191,14 @@ answer.
 3. **The card becomes** "Closed · nobody answered in time", "It closed on 17 Oct
    at 09:00. ci-pipeline got no answer." It is not an error. App: [2g](images/app-answering/2g-closed-with-no-answer.webp).
    Web: [1g](images/web-answering/1g-closed-with-no-answer.webp).
+
+   **If the producer closes it** (`signalhub close-question`, after the question
+   was answered somewhere else), the card becomes "Closed by ci-pipeline ·
+   Answered in the session" with "ci-pipeline closed this question on 17 Oct
+   at 08:41." Nobody
+   sees an error. The notification goes on every device, as for a time-out, and
+   a card that was open swaps on the next re-read or on a `409`. [no frame:
+   DESIGN.md 10.3]
 4. **If it closes while someone is choosing,** *Send answer* gets `409` and the
    card swaps to "Closed while you were choosing · nobody can answer it now".
    The choice and the note are dropped. [2l2](images/app-answering/2l2-it-closed-while-you-were-choosing.webp)
@@ -181,7 +210,8 @@ answer.
    it opens the event in its current state. The limits of removal are written in
    the notification page's second turn.
 7. **The producer** reads the same state, `CLOSED`, with its own key. The inbox
-   row says "Closed · nobody answered". [3a](images/app-answering/3a-inbox-a-question-to-answer-waiting.webp)
+   row says "Closed · nobody answered", or "Closed by ci-pipeline" when the
+   producer closed it. [3a](images/app-answering/3a-inbox-a-question-to-answer-waiting.webp)
 
 ## 6. The operator looks at a question and sends a test question
 
@@ -191,31 +221,35 @@ its answer read-only.
 
 1. **The list.** An event that asks has a small word under its title: *Waiting*,
    *Answered* or *Closed*. The page never says "To answer". [L1](images/admin/l1-the-list-with-questions.webp)
-2. **An open question.** In the event pane, under the message, the question as
+2. **Filter by question.** The *Question* chip lists only events that are
+   waiting, answered, closed or have no question. [no frame:
+   DESIGN.md 10.7]
+3. **An open question.** In the event pane, under the message, the question as
    the producer asked it (pick one, note, closing time, each choice with its
    description), and "Waiting for an answer · closes 09:00 · Rodrigo or Ana can
    answer". The admin page cannot answer. [Q1](images/admin/q1-open-waiting-for-an-answer.webp)
-3. **An answered question** says who answered, when and where ("in the app" or
+4. **An answered question** says who answered, when and where ("in the app" or
    "on the web page"), the labels chosen and the note. [Q1b](images/admin/q1b-answered-in-the-app-with-a.webp) Several
    choices: [Q1c](images/admin/q1c-several-choices-answered-on-the-web.webp). A typed question: [Q1d](images/admin/q1d-a-typed-question-answered.webp).
-4. **A closed question** has no answer block. [Q1e](images/admin/q1e-closed-with-no-answer.webp)
-5. **An answerer who was revoked later** keeps the name stored with the answer,
+5. **A closed question** has no answer block. [Q1e](images/admin/q1e-closed-with-no-answer.webp)
+6. **An answerer who was revoked later** keeps the name stored with the answer,
    with a *Revoked* tag. [Q1f](images/admin/q1f-the-answerer-was-revoked-later.webp)
-6. **Light theme and phone:** [Q1g](images/admin/q1g-q1b-in-the-light-theme.webp), [Q2](images/admin/q2-phone-the-detail-with-an-answered.webp).
-7. **Deleting an event that asks** adds one sentence to the confirmation: "Its
+7. **Light theme and phone:** [Q1g](images/admin/q1g-q1b-in-the-light-theme.webp), [Q2](images/admin/q2-phone-the-detail-with-an-answered.webp).
+8. **Deleting an event that asks** adds one sentence to the confirmation: "Its
    question and any answer are deleted too." [Q3](images/admin/q3-delete-an-event-that-asks-still.webp), [Q3b](images/admin/q3b-delete-several-events-some-ask.webp)
-8. **Who can answer, on a producer.** The producer's pane lists the owner and the
+9. **Who can answer, on a producer.** The producer's pane lists the owner and the
    answerers read-only; the owner sets them in the app. [P21](images/admin/p21-who-can-answer-the-owner-and.webp), [P22](images/admin/p22-who-can-answer-only-the-owner.webp)
-9. **Send a test question.** The *Send a test event* dialog has one folded section at
-   its foot, "Ask for an answer", so a plain test event is as short as before.
-   [D1q](images/admin/d1q-the-dialog-with-the-section-folded.webp) Opened for the first time: [D1a](images/admin/d1a-the-section-opened-for-the-first.webp). Filled in, with
-   choices, descriptions, ids derived from the labels, a note rule and a closing
-   time: [D1b](images/admin/d1b-a-question-filled-in.webp)
-10. **Mistakes name the field:** [D1c](images/admin/d1c-error-two-choices-with-the-same.webp), [D1d](images/admin/d1d-error-more-than-10-choices.webp), [D1e](images/admin/d1e-error-no-choices-so-the-note.webp), [D1f](images/admin/d1f-error-one-or-more-with-a.webp). A closing time is a
+10. **Send a test question.** The *Send a test event* dialog has one folded section at
+    its foot, "Ask for an answer", so a plain test event is as short as before.
+    [D1q](images/admin/d1q-the-dialog-with-the-section-folded.webp) Opened for the first time: [D1a](images/admin/d1a-the-section-opened-for-the-first.webp). Filled in, with
+    choices, descriptions, ids derived from the labels, a note rule and a closing
+    time: [D1b](images/admin/d1b-a-question-filled-in.webp)
+11. **Mistakes name the field:** [D1c](images/admin/d1c-error-two-choices-with-the-same.webp), [D1d](images/admin/d1d-error-more-than-10-choices.webp), [D1e](images/admin/d1e-error-no-choices-so-the-note.webp), [D1f](images/admin/d1f-error-one-or-more-with-a.webp). A closing time is a
     date and a time in the operator's time zone: [D1g](images/admin/d1g-closes-at-a-date-and-a.webp).
-11. **Sent.** The snack bar links to the new event and says who was asked. The
+12. **Sent.** The snack bar links to the new event and says who was asked. The
     operator reads the answer in the pane as it arrives. [D2c](images/admin/d2c-sent-the-snack-bar-links-to.webp)
-12. **Gaps found while drawing**, six settled and one open: [G1](images/admin/g1-seven-gaps-six-settled-one-open.webp).
+13. **Gaps found while drawing**, six settled and one open: [G1](images/admin/g1-seven-gaps-six-settled-one-open.webp).
+    The open one, the admin *Question* filter, was decided at G8.
 
 ## 7. The server changes and what was left out
 
@@ -234,10 +268,13 @@ The designs assume the API in [API-PROPOSAL.md](API-PROPOSAL.md). In short:
 - Pushes: a tag per event, a last "Tap to answer" line only for people who may
   answer, and a data-only notice (`answered`, `closed`, `deleted`) that makes the
   app remove the question's notification. Closing is scheduled at `closesAt`.
+- `POST /api/v1/events/{id}/answer/close` for the producer, and `textStyle` in
+  `ask`.
 - The Python package and the `signalhub` command: `ask` on publish, `wait_answer`,
-  `signalhub wait-answer`.
-- Optional, for the owner: an `answerState` filter on the admin events list
-  ([L1](images/admin/l1-the-list-with-questions.webp)).
+  `signalhub wait-answer`. They also have `close_question` and
+  `signalhub close-question`.
+- An `answerState` filter on the admin events list (the *Question* filter,
+  decided at G8; [L1](images/admin/l1-the-list-with-questions.webp)).
 
 ### What the owner decided
 
@@ -245,6 +282,10 @@ Answering is option A. Notifications have no buttons and a question's
 notification is removed when it is decided. Choices may have descriptions. See
 [README.md](README.md#the-owner-chose) and the options kept for the record in
 [Not chosen](README.md#not-chosen).
+
+- **An "Other" row** was left out of the first designs. Decided at G8: the
+  producer chooses a note or an *Other* row with `textStyle`. See
+  [DESIGN.md](../users/DESIGN.md#101-the-answer-card-option-a).
 
 ### What was left out
 
@@ -257,7 +298,6 @@ notification is removed when it is decided. Choices may have descriptions. See
 - **Changing an answer.** An answer is final; the same answer sent twice is
   accepted.
 - **The operator answering.** The admin token acts for no user.
-- **An "Other" row** instead of the note, as in Claude Code's prompt. Not decided.
 - **Offline answering.** An answer that cannot be sent is kept on the screen with
   *Retry*; nothing is queued.
 - **Showing who has subscribed** in the answerers picker: the owner does not see
