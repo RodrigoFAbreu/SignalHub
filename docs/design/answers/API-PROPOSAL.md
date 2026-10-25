@@ -1,8 +1,8 @@
-A proposal, approved or changed by the maintainer at G8.
+Approved by the maintainer at G8 (2026-10-25), with the changes listed in section 10.
 
 # Answering an event: the API proposal (R81)
 
-Status: proposal for the maintainer's approval at G8. Built on the owner's decisions of
+Status: approved at G8 (2026-10-25), with the changes in section 10. Built on the owner's decisions of
 2026-10-16 and on an inventory of today's event detail, inbox, notification code and event API. Words: a producer **asks**, a
 person **answers**; the API says `ask` and `answer`. Nothing here names a producer: an ask is
 generic choices and text, and SignalHub never interprets them (principle 1).
@@ -25,9 +25,10 @@ generic choices and text, and SignalHub never interprets them (principle 1).
 
 | Field | Rule |
 |---|---|
-| `choices` | 0 to 10 items. `id`: `Identifiers.PATTERN`, at most 64, unique in the ask. `label`: 1 to 40 characters, no NUL, unique ignoring case. `description`: optional, at most 200 characters, no NUL; shown under the label in the app and on the web page, and nothing at all when absent or empty (the owner, 2026-10-16). Never in the notification's hint line. |
+| `choices` | 0 to 10 items. `id`: `Identifiers.PATTERN`, at most 64, unique in the ask. `label`: 1 to 100 characters, no NUL, unique ignoring case. `description`: optional, at most 1000 characters, no NUL; shown under the label in the app and on the web page, and nothing at all when absent or empty (the owner, 2026-10-16). Never in the notification's hint line. |
 | `multiple` | `false` by default. `true` = pick one or more; needs at least 2 choices. |
-| `text` | `NONE` (default when there are choices), `OPTIONAL` or `REQUIRED`. With no choices it must be `REQUIRED` (a typed question). Typed answers are 1 to 1000 characters. |
+| `text` | `NONE` (default when there are choices), `OPTIONAL` or `REQUIRED`. With no choices it must be `REQUIRED` (a typed question). Typed answers are 1 to 3000 characters. |
+| `textStyle` | Only with choices and `text` not `NONE`: `NOTE` (the default) or `OTHER`. `NOTE`: the typed text is a note written alongside the chosen choice. `OTHER`: an *Other* row is picked instead of a choice, and the typed text is the answer (as in Claude Code's prompt); with `multiple`, the *Other* row can be ticked with the choices. Chosen by the producer per question (the maintainer, G8). |
 | `closesAt` | Optional, with an offset, in the future, at most 30 days ahead. After it nobody can answer. |
 
 - An event without `ask` behaves exactly as today. `ask` is stored with the event (a nullable
@@ -74,6 +75,24 @@ Stored in `event_answers`:
 - `user_id` and `user_name`: the name is kept as it was, so a later rename doesn't change the record.
 - `choice_ids text[]`, `text`, `answered_at`.
 - `via`: `APP` or `WEB`, for the admin page's record.
+
+## 4b. Closing a question as the producer: `POST /api/v1/events/{id}/answer/close`
+
+Producer key, the producer's own events only. Body: optional `{"note": "Answered in the session"}` (1 to 200
+characters). For a question answered somewhere else, for example in a session the event links to
+(the maintainer, G8).
+
+| Answer | When |
+|---|---|
+| `200` + the state | Closed now, or already closed by the producer (repeating is harmless). |
+| `409` + the event's `answer` | Someone answered first, so the producer learns that answer. |
+| `409` | Already closed by `closesAt`. |
+| `404` | Not its event, deleted, or no such event. An event without an ask: `409`. |
+
+- The state becomes `CLOSED` with `closedBy: PRODUCER` (`closedBy: TIME` when `closesAt` passed) and the
+  note. Pages say *Closed by ci-pipeline · Answered in the session* (or without the note).
+- The `closed` notice removes the question's notifications, as for any closed question (section 6).
+- A held wait returns `CLOSED` at once.
 
 ## 4. Reading the answer as the producer: `GET /api/v1/events/{id}/answer?wait=60`
 
@@ -202,15 +221,19 @@ critical alert, `PushAlertReceiver` and the channel stay as they are.
 ## 7. Python SDK and the `signalhub` command
 
 - `publish(..., ask=Ask(choices=[Choice("merge", "Merge", description="Squash-merge now"), Choice("hold", "Hold")], multiple=False,
-  text="OPTIONAL", closes_at=...))`.
+  text="OPTIONAL", text_style="NOTE", closes_at=...))`.
+- `close_question(event_id, note=None)`: section 4b; returns the state, or raises with the answer
+  when someone answered first.
 - `wait_answer(event_id, timeout=None)`: repeats 60 s waits until answered, closed, or `timeout`
   passes. Its socket timeout is the wait plus 15 s.
-- `signalhub send ... --choice merge=Merge --choice-description merge='Squash-merge now' --choice hold=Hold [--multiple] [--text optional|required]
+- `signalhub send ... --choice merge=Merge --choice-description merge='Squash-merge now' --choice hold=Hold [--multiple] [--text optional|required] [--text-style note|other]
   [--closes-in 2h]` prints the event ID as today.
 - `signalhub wait-answer EVENT_ID [--timeout 30m] [--json]`:
   - prints the chosen choice ids (one per line) and then the text;
   - exits 0 when answered, 5 when closed, 6 when its own timeout passed;
   - so a shell script can branch on it.
+- `signalhub close-question EVENT_ID [--note TEXT]`: exits 0 when closed, 5 when someone answered
+  first (and prints that answer).
 - An example in `examples/` asks a question and waits, using only the public API.
 
 ## 8. Edge cases, settled
@@ -223,15 +246,30 @@ critical alert, `PushAlertReceiver` and the channel stay as they are.
 | Owner unsubscribed | Can't answer until they subscribe again (they can't read the event). The producer's page says "Stay subscribed to answer". |
 | Two answers at once | The primary key decides. The loser gets `409` with the winner's answer, and the page shows it ("Ana answered first: Hold"). |
 | Answer after `closesAt` | `409` closed. The page shows "Closed · nobody answered in time". |
+| Answered elsewhere, e.g. in a linked session | The producer closes its question (section 4b). If someone answered in SignalHub first, the close is refused with that answer. |
 | Test event from the operator | Asks like any other. The owner and answerers answer it. No producer key reads it unless the producer reads its own events. |
 
 ## 9. Compatibility and splitting
 
 - Everything is additive (`feat`, minor): a new optional field, new endpoints, new response fields.
   Old apps ignore `ask` and show the event as today.
-- A suggested split for G8:
-  - **R82a**: server, SDK and command, with an example; the tag, the "Tap to answer" line and the
-    answered notice;
-  - **R82b**: answering in the app, on the web page and on the admin page, plus the answerers setting
-    and the receiver removing a question's notification on a notice.
-  - R83 is dropped (see section 6).
+- Decided at G8: **R82a** (server, SDK and command, with an example; the tag, the "Tap to answer"
+  line, the removal notices, the producer's close) and **R82b** (answering in the app, on the web
+  page and on the admin page, the answerers setting, the receiver removing a question's
+  notification, and the admin events list's *Question* filter). R83 is dropped.
+
+## 10. Decided at G8 (2026-10-25)
+
+The maintainer approved this proposal and the designs, with these changes:
+
+- Sizes: choice labels up to 100 characters, descriptions up to 1000, typed answers up to 3000
+  (section 1). Up to 10 choices and `closesAt` at most 30 days ahead stay; the event's title stays
+  at 200 characters.
+- `textStyle` (section 1): the producer chooses a note alongside the choice or an *Other* row.
+- The producer closes a question answered elsewhere (section 4b).
+- An answer is final once sent. The notification line's limit stays 80 characters.
+- On the web page, Ctrl+Enter (Cmd+Enter on a Mac) sends the answer; Enter alone never does.
+- The admin events list gets a *Question* filter (`answerState`), in R82b. The operator sees a
+  producer's answerers read-only.
+- *Action required* uses the `pending_actions` icon on the app, the web page and the admin page.
+- R83 is dropped; R82 is built as R82a then R82b.

@@ -146,6 +146,11 @@ These are rebuilt from the screenshots of app 2.26.6 (1 px is 1 dp).
   Settings is a tab, and the unread count is on the Inbox tab.
 - **Inbox row:** a category icon coloured by severity, a bold title and a dot
   while unread, a one-line summary and the time.
+- **Category icons**, the same on the app, the web page and the admin page (the
+  maintainer, G8, 2026-10-25): *Action required* `pending_actions`, *Blocked*
+  `block`, *Completed* `check_circle`, *Info* `info`, an unknown category `label`.
+  Older images show the raised hand (`pan_tool`) for *Action required*; this
+  line supersedes them.
 - **Event details:** a headlineSmall title, outlined chips for category and
   severity, a tonal button for the link, and label and value pairs.
 - **Folding settings group:** a one-line summary of its values. It stays open
@@ -696,6 +701,9 @@ A **producer asks**, a **person answers**. Only the producer's owner and the
 people the owner named as answerers may answer, and the first answer wins. The
 operator (the admin token) never answers.
 
+Changed at G8 (2026-10-25): the sizes, the *Other* row, the producer's close and
+Ctrl+Enter below supersede any frame that shows the older limits or lacks them.
+
 ### 10.1 The answer card (option A)
 
 ![1a: Option A: an answer card under the message](../answers/images/app-answering/1a-option-a-an-answer-card-under.webp)
@@ -714,19 +722,24 @@ place, so a state never moves.
 - **Choices**, in the order the producer sent them. A single choice is a group of
   radios, a multiple choice is checkboxes (needs at least 2 choices). Each choice
   is one 48 dp row; the whole row is the target, not the 20 dp control. The
-  label is bodyLarge (16/24), at most 40 characters, and wraps to a second line
+  label is bodyLarge (16/24), at most 100 characters, and wraps to a second line
   rather than being cut.
-- **Descriptions.** A choice may have a description of at most 200 characters.
+- **Descriptions.** A choice may have a description of at most 1000 characters.
   It is shown under the label in bodyMedium (14/20) onSurfaceVariant, wraps, and
   is never cut or ellipsised. A choice without one is one line, with no gap
   where it would be. A description is plain text, never a link or markup, and it
   is never in the notification. [2p](../answers/images/app-answering/2p-a-choice-with-a-200character-description.webp), [2q](../answers/images/app-answering/2q-multiple-choice-with-descriptions.webp)
 - **Note.** An outlined field, *Note (optional)*, with the placeholder
-  *Add a note for PRODUCER* and a counter *0 / 1000*. It is a single line on
+  *Add a note for PRODUCER* and a counter *0 / 3000*. It is a single line on
   the app and the web page for a choice question. When the question has no
   choices the field is required: its label is *Your answer*, the placeholder is
   empty, and it is a text area that grows to 6 lines and then scrolls. A question
-  that does not take text has no field. [2c](../answers/images/app-answering/2c-a-typed-question-only-with-the.webp)
+  that does not take text has no field.
+- **Other row** (`textStyle: OTHER`). Instead of the note, the last row of the
+  choices is *Other*, with the field *Your answer* under it once it is picked
+  (counter *0 / 3000*). A single choice picks a choice or *Other*; a multiple
+  choice may tick *Other* with the choices. The producer chooses the style per
+  question. [2c](../answers/images/app-answering/2c-a-typed-question-only-with-the.webp)
 - **Send answer.** A filled button, full width. **Select then send is the
   confirmation** of 4.1: an answer goes to a producer and cannot be taken back,
   so choosing sends nothing and the button is the one deliberate step. There is
@@ -770,10 +783,11 @@ the inbox. Curly quotes and the middle dot as separator, as in section 5.
 | Answered first | *Ana answered first: Hold*, then *18:55. Your answer wasn't sent, and ci-pipeline has Ana's.* | The `409` carries the winner, so the card swaps at once. No error colour, no retry, the choice and the note dropped. The same person on another device with a different answer reads *You already answered: Merge. Your new answer wasn't sent.* [2l](../answers/images/app-answering/2l-someone-answered-first-while-you-were.webp), [1j](../answers/images/web-answering/1j-someone-answered-first.webp) |
 | Closed | *Closed · nobody answered in time*, then *It closed on 17 Oct at 09:00. ci-pipeline got no answer.* | A clock icon, no warning colour. Seen by everyone, including people who may not answer. [2g](../answers/images/app-answering/2g-closed-with-no-answer.webp), [1g](../answers/images/web-answering/1g-closed-with-no-answer.webp) |
 | Closed while choosing | *Closed while you were choosing · nobody can answer it now*, then *Your answer wasn't sent. ci-pipeline got no answer.* | The `409` closed. [2l2](../answers/images/app-answering/2l2-it-closed-while-you-were-choosing.webp) |
+| Closed by the producer | *Closed by ci-pipeline · Answered in the session* (without the part after the dot when no note was sent), then *ci-pipeline closed this question.* | The producer answered elsewhere and closed it (`closedBy: PRODUCER`). Seen by everyone; no warning colour; notifications removed. On the admin page as on the app and web page. |
 | Read-only | 10.2 | [2h](../answers/images/app-answering/2h-open-but-you-may-not-answer.webp), [1h](../answers/images/web-answering/1h-open-but-you-may-not-answer.webp) |
 | Send failed | A snackbar *Answer not sent* with *Retry* | The failed-change pattern of 4. The choice and the note are kept as typed. Retry and the button do the same. Offline before the tap has no frame of its own: the offline banner covers it. [2k](../answers/images/app-answering/2k-send-failed-offline-or-server-error.webp), [1i](../answers/images/web-answering/1i-send-failed.webp) |
 | Nothing picked | *Pick an answer to send.* / *Pick at least one answer.* / *Type an answer to send.* | Under the list with an icon, read out when it appears (`role="alert"`). Focus moves to the first choice. [2o](../answers/images/app-answering/2o-field-error-nothing-picked.webp), [1m](../answers/images/web-answering/1m-field-error-nothing-picked.webp) |
-| Text too long | *Too long: 43 characters over the limit.* with the counter *1043 / 1000* | Shown as soon as the text passes 1000, in the error colour. The text is never cut, and *Send answer* stays pressable and only moves the focus. [2n](../answers/images/app-answering/2n-field-error-the-text-is-too.webp), [1l](../answers/images/web-answering/1l-field-error-the-text-is-too.webp) |
+| Text too long | *Too long: 43 characters over the limit.* with the counter *3043 / 3000* | Shown as soon as the text passes 3000, in the error colour. The text is never cut, and *Send answer* stays pressable and only moves the focus. [2n](../answers/images/app-answering/2n-field-error-the-text-is-too.webp), [1l](../answers/images/web-answering/1l-field-error-the-text-is-too.webp) |
 | Event deleted | *This event isn't in your inbox any more* | The existing state; the answer went with the event. [2m](../answers/images/app-answering/2m-the-event-was-deleted-meanwhile.webp) |
 | Owner unsubscribed | On the producer's page, under the *Subscribed* switch: *Stay subscribed to answer. While you're unsubscribed, NAME's questions don't reach you, and you can't answer them.* | Shown only to the owner or an answerer who is unsubscribed. An unsubscribed owner cannot open the event, so this page is the only place. [2i](../answers/images/app-answering/2i-you-own-the-producer-but-unsubscribed.webp), [4f](../answers/images/web-answering/4f-your-producer-unsubscribed-stay-subscribed-to.webp) |
 
@@ -899,7 +913,7 @@ answering, and the page never says *To answer*.
 - **Send a test event** gets one folded section at the foot of its dialog, *Ask
   for an answer* (closed by default, so a plain test event is as short as before).
   Opened, it builds the question a producer would send: choices with labels (1 to
-  40 characters), optional descriptions (up to 200) and the id derived from the
+  100 characters), optional descriptions (up to 1000), *Note* or *Other* for the typed answer, and the id derived from the
   label by the one rule the SDK and the command use, *Pick* (*One* or *One or
   more*), *Note* (*None*, *Optional*, *Required*) and *Closes* (*Never*, *In* or
   *At*). Errors are on the field with an icon and a sentence, and a server refusal
@@ -922,8 +936,9 @@ answering, and the page never says *To answer*.
   *Send answer*. [1n](../answers/images/web-answering/1n-keyboard-the-focus-ring-and-the.webp)
 - **Enter in the note does not send.** The answer goes only by the button, because
   it cannot be taken back. A typed-only question's text area takes Enter as a new
-  line. Enter on the focused button sends. Escape does nothing. There is no
-  shortcut that sends.
+  line. Enter on the focused button sends. Escape does nothing. On the web page
+  **Ctrl+Enter** (Cmd+Enter on a Mac) sends from anywhere in the card, as the
+  button does, with the same checks; the button's tooltip names it.
 - **Accessible names.** A choice's name includes its description and its state:
   *Merge, Squash-merge now; CI passed., selected, 1 of 2*; a checkbox *Unit
   tests, About 2 minutes., checked* and *Lint, not checked*. The group is named

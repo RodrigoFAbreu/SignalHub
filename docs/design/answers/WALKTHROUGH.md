@@ -70,7 +70,7 @@ from the notification.
    - several choices, with checkboxes and "Pick one or more": [2b](images/app-answering/2b-multiple-choice.webp), [2q](images/app-answering/2q-multiple-choice-with-descriptions.webp);
    - a typed question, whose field is required: [2c](images/app-answering/2c-a-typed-question-only-with-the.webp);
    - a long description that wraps and is never cut: [2p](images/app-answering/2p-a-choice-with-a-200character-description.webp).
-5. **A note that is too long** shows its error as soon as the text passes 1000
+5. **A note that is too long** shows its error as soon as the text passes 3000
    characters, and the text is never cut. [2n](images/app-answering/2n-field-error-the-text-is-too.webp)
 6. **Sending.** The choices and the note are dimmed, and the button reads
    "Sending". Leaving the screen does not cancel the send. [2d](images/app-answering/2d-sending.webp)

@@ -3347,9 +3347,10 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 72    | R80 - Web sign-in codes follow the server's clock                                                | Increment (`fix`)                      | Done (see section 3)                                                             |
 | 73    | G7 - The maintainer's go-ahead for replies and notification actions                              | Human gate                             | Passed (2026-10-16, go-ahead given)                                              |
 | 74    | R81 - Designs for replying to an event and notification actions                                  | Increment (`docs`)                     | Done (see section 3)                                                             |
-| 75    | G8 - The maintainer approves the reply and notification action designs                           | Human gate                             | Waiting for the maintainer                                                       |
-| 76    | R82 - Replying to an event                                                                       | Increment (`feat`)                     | Blocked by G8                                                                    |
-| 77    | R83 - Notification action buttons                                                                | Increment (`feat`)                     | Blocked by G8                                                                    |
+| 75    | G8 - The maintainer approves the reply and notification action designs                           | Human gate                             | Passed (2026-10-25, approved with changes)                                       |
+| 76    | R82a - Answering an event: the server, the SDK and the command                                   | Increment (`feat`)                     | Next                                                                             |
+| 77    | R83 - Notification action buttons                                                                | Increment (`feat`)                     | Dropped at G8 (2026-10-25)                                                       |
+| 78    | R82b - Answering an event in the app, on the web page and on the admin page                      | Increment (`feat`)                     | Blocked by R82a                                                                  |
 
 How an autonomous run uses it:
 
@@ -3878,6 +3879,8 @@ G1 → G2 → R19 v1.0.0
   maintainer's go-ahead at G7. They follow the admin page redesign's
   model (G5, R73, G6): designs first, approved at a gate, then the
   building items, which may be split or reworded at that approval.
+- **G8 passed on 2026-10-25**: R83 was dropped and R82 split into R82a
+  (the server, the SDK and the command) and R82b (the screens), in that order.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -6533,7 +6536,14 @@ conversations or threads; a rules engine.
 
 ### G8 - The maintainer approves the reply and notification action designs
 
-Status: waiting for the maintainer. A human gate.
+Status: passed. The maintainer approved the designs and the proposal on
+2026-10-25, with changes: choice labels up to 100 characters, descriptions up
+to 1000 and typed answers up to 3000; a note or an *Other* row, as the producer
+chooses; the producer closes a question answered elsewhere (for example in a
+session the event links to); an answer is final; Ctrl+Enter sends on the web
+page; a *Question* filter on the admin page; and `pending_actions` as the
+*Action required* icon everywhere. R83 is dropped, and R82 is built as R82a and
+R82b (`docs/design/answers/API-PROPOSAL.md`, section 10). A human gate.
 
 R81's designs (`docs/design/answers/`) carry the maintainer's choices made
 while drawing: no action buttons on notifications, so every question is
@@ -6549,40 +6559,68 @@ split or reworded to match, and any server item the designs need is
 queued with them. Until then nothing of them starts. An orchestrator
 stops here and never answers it.
 
-### R82 - Replying to an event
+### R82a - Answering an event: the server, the SDK and the command
 
-Status: blocked by G8. Added by the maintainer (2026-10-16).
+Status: next. Added by the maintainer (2026-10-16), split at G8 (2026-10-25).
 
-Goal: a producer can ask for a reply on an event, the owner answers it in
-the app or on the web page, and the producer reads the answer, as R81
-designs it.
+Goal: a producer asks on an event, the people allowed answer it, and the
+producer reads the answer or closes the question, through the public API, as
+`docs/design/answers/API-PROPOSAL.md` (approved at G8) says.
 
-Scope (settled at G8): the event schema's and API's additions for asking
-and reading a reply, stored durably with the event; answering in the app
-and on the web page; the admin page shows an event's reply; an example in
-`examples/` and the Python SDK and command read replies.
+Scope:
 
-Compatible (`feat`, minor): additive fields and endpoints; an event that
-asks for nothing behaves as today.
+- the event's optional `ask` (sections 1 and 10: up to 10 choices, labels up to
+  100 characters, descriptions up to 1000, typed answers up to 3000, `textStyle`,
+  `closesAt` at most 30 days), stored with the event (V21) and part of the
+  idempotency comparison; accepted on the operator's test event too
+- the answerers of a producer, managed by its owner (section 2), and their
+  read-only view in the admin API
+- answering (`PUT /api/v1/events/{id}/answer`, first answer wins), a producer's
+  read with a held wait of up to 60 s, and its close (sections 3, 4, 4b)
+- what clients see (`ask`, `answer`, `answerState`, `canAnswer`, `whoCanAnswer`,
+  the `toAnswer` filter; section 5) and the admin events list's `answerState`
+  filter
+- pushes (section 6): the notification tag, the "Tap to answer" line per
+  recipient, the data-only `answered`, `closed` and `deleted` notices, and the
+  close due at `closesAt`
+- the Python SDK and the `signalhub` command (`send` with an ask,
+  `wait-answer`, `close-question`; section 7) and an example in `examples/`
+- tests against real PostgreSQL for first-answer-wins, the held wait and every
+  case of section 8
 
-Non-goals: the notification's buttons (R83); iOS.
+Compatible (`feat`, minor): additive fields and endpoints; an event that asks
+for nothing behaves as today, and today's apps ignore `ask`.
+
+Non-goals: the app, web page and admin page screens (R82b); a callback or a feed
+of answers; iOS.
+
+### R82b - Answering an event in the app, on the web page and on the admin page
+
+Status: blocked by R82a. Added by the maintainer (2026-10-16), split at G8
+(2026-10-25).
+
+Goal: the people allowed answer questions in the app and on the web page, see
+them in the inbox, manage who can answer their producers, and the operator sees
+questions and answers on the admin page, as drawn in `docs/design/answers/` and
+written in section 10 of `docs/design/users/DESIGN.md` (which supersedes frames
+that show the older limits).
+
+Scope: the answer card and every state, the *Other* row, the read-only and
+closed-by-producer cards; the inbox's *Unread* and *To answer* chips and row
+lines; the answerers setting; Ctrl+Enter on the web page; refresh on focus or
+resume; the app's receiver removing a question's notification on a notice; the
+admin page's Event tab, list markers, *Question* filter, test-event section and
+delete warnings; and the *Action required* icon `pending_actions` everywhere.
+
+Compatible (`feat`, minor): the screens only, on R82a's API.
+
+Non-goals: notification buttons (R83, dropped); iOS.
 
 ### R83 - Notification action buttons
 
-Status: blocked by G8. Added by the maintainer (2026-10-16).
-
-Goal: the owner acts on a push from the notification itself, without
-opening the app: answering an event's question with its choices or a typed
-answer, and generic actions such as *Mark as read* and *Open link*, as R81
-designs them.
-
-Scope (settled at G8): the Android notification's actions, working when
-the app is closed and on the lock screen as designed, with the critical
-alert; an answer from the notification is recorded as if made in the app.
-
-Compatible (`feat`, minor): the app only, with any API it needs from R82.
-
-Non-goals: iOS; actions on the web page (it receives no pushes).
+Status: dropped at G8 (2026-10-25). The maintainer chose no buttons on
+notifications: every question is answered by opening the event, and R82a and
+R82b carry the small notification work that remains.
 
 ### Already in place (not scheduled again)
 
@@ -6734,8 +6772,9 @@ Users). The maintainer then added R80 (web sign-in codes follow the server's
 clock), and R80 is done. The maintainer then added replying to an event
 and notification action buttons (G7, R81, G8, R82, R83). The maintainer
 gave the go-ahead at G7, and R81 (designs for answering an event) is done.
-**Next is G8: the maintainer approves the designs and the proposal, and
-settles R82 and R83.** A new item is added only by the maintainer, in a reviewed pull
+The maintainer approved them at G8 with changes, dropped R83 and split R82.
+**Next is R82a (answering an event: the server, the SDK and the command), then
+R82b (the app, the web page and the admin page).** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 
