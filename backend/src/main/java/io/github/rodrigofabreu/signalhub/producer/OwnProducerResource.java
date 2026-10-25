@@ -288,6 +288,54 @@ public class OwnProducerResource {
     return changed(producers.disallowOwn(userId(), id, userId));
   }
 
+  @PUT
+  @Path("/{id}/answerers/{userId}")
+  @Operation(
+      summary = "Let a user answer a producer's questions",
+      description =
+          "Names a user as an answerer of the questions on this producer's events, besides the"
+              + " owner, who always may answer. The user must see the producer, and needs to be"
+              + " subscribed to it to get its events. Naming the owner or an answerer changes"
+              + " nothing. The request has no body.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The producer, with its answerers.",
+      content = @Content(schema = @Schema(implementation = OwnProducerResponse.class)))
+  @APIResponse(
+      responseCode = "404",
+      description =
+          "No producer has this ID, the caller's user does not own it, or no user who is not"
+              + " revoked has the user ID.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "409",
+      description = "The user cannot see the producer.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public OwnProducerResponse addAnswerer(
+      @PathParam("id") UUID id, @PathParam("userId") UUID userId) {
+    return changed(producers.addAnswererOwn(userId(), id, userId));
+  }
+
+  @DELETE
+  @Path("/{id}/answerers/{userId}")
+  @Operation(
+      summary = "Stop a user answering a producer's questions",
+      description =
+          "Takes the user off the producer's answerers. Removing a user who is not on the list"
+              + " changes nothing. Answers they already gave stay.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The producer, with its answerers.",
+      content = @Content(schema = @Schema(implementation = OwnProducerResponse.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No producer has this ID, or the caller's user does not own it.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public OwnProducerResponse removeAnswerer(
+      @PathParam("id") UUID id, @PathParam("userId") UUID userId) {
+    return changed(producers.removeAnswererOwn(userId(), id, userId));
+  }
+
   private UUID userId() {
     return caller.get().userId();
   }
@@ -299,6 +347,8 @@ public class OwnProducerResource {
       case ProducerService.OwnChange.DisabledByOperator operator ->
           throw conflict("The operator disabled this producer");
       case ProducerService.OwnChange.UnknownUser unknown -> throw notFound();
+      case ProducerService.OwnChange.CannotSee cannotSee ->
+          throw conflict("The user cannot see this producer");
     };
   }
 

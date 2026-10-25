@@ -242,11 +242,14 @@ public class ProducerService {
     var lastEvents = producers.lastEventTimes();
     var all = producers.listAll(Sort.by("name"));
     var allowed = access.allowedByProducer();
+    var answerers = access.answerersByProducer();
     var people =
         users.find(
-            Stream.concat(
+            Stream.of(
                     all.stream().map(ProducerEntity::ownerId),
-                    allowed.values().stream().flatMap(List::stream))
+                    allowed.values().stream().flatMap(List::stream),
+                    answerers.values().stream().flatMap(List::stream))
+                .flatMap(s -> s)
                 .collect(toSet()));
     return all.stream()
         .map(
@@ -256,7 +259,8 @@ public class ProducerService {
                     lastEvents.get(p.id()),
                     keysByProducer.getOrDefault(p.id(), List.of()),
                     people,
-                    allowed.getOrDefault(p.id(), List.of())))
+                    allowed.getOrDefault(p.id(), List.of()),
+                    answerers.getOrDefault(p.id(), List.of())))
         .toList();
   }
 
@@ -297,8 +301,14 @@ public class ProducerService {
     var keysByProducer = keys.ofOwner(ownerId).stream().collect(groupingBy(k -> k.producer().id()));
     var lastEvents = producers.lastEventTimes();
     var allowed = access.allowedByProducer();
+    var answerers = access.answerersByProducer();
     var subscribed = access.subscribedProducerIds(ownerId);
-    var people = users.find(allowed.values().stream().flatMap(List::stream).collect(toSet()));
+    var people =
+        users.find(
+            Stream.concat(
+                    allowed.values().stream().flatMap(List::stream),
+                    answerers.values().stream().flatMap(List::stream))
+                .collect(toSet()));
     return owned.stream()
         .map(
             p ->
@@ -308,6 +318,7 @@ public class ProducerService {
                     keysByProducer.getOrDefault(p.id(), List.of()),
                     people,
                     allowed.getOrDefault(p.id(), List.of()),
+                    answerers.getOrDefault(p.id(), List.of()),
                     subscribed.contains(p.id())))
         .toList();
   }
@@ -433,6 +444,51 @@ public class ProducerService {
             });
   }
 
+  /**
+   * Names a user who is not revoked as an answerer of the producer's questions. The owner always
+   * may answer, so naming them changes nothing; a user who cannot see the producer cannot be named.
+   * Idempotent.
+   */
+  @Transactional
+  Optional<OwnChange> addAnswererOwn(UUID ownerId, UUID id, UUID userId) {
+    return ownedBy(ownerId, id, true)
+        .map(
+            producer -> {
+              if (!users.isActive(userId)) {
+                return new OwnChange.UnknownUser();
+              }
+              if (userId.equals(ownerId)) {
+                return updated(ownerId, id);
+              }
+              if (!access.canSee(userId, id)) {
+                return new OwnChange.CannotSee();
+              }
+              if (access.addAnswerer(id, userId)) {
+                LOG.infof("User %s may answer the questions of producer %s", userId, id);
+              }
+              return updated(ownerId, id);
+            });
+  }
+
+  /** Takes the user off the producer's answerers. Idempotent. */
+  @Transactional
+  Optional<OwnChange> removeAnswererOwn(UUID ownerId, UUID id, UUID userId) {
+    return ownedBy(ownerId, id, true)
+        .map(
+            producer -> {
+              if (access.removeAnswerer(id, userId)) {
+                LOG.infof("User %s may no longer answer the questions of producer %s", userId, id);
+              }
+              return updated(ownerId, id);
+            });
+  }
+
+  /** Takes a revoked user off every producer's answerers. */
+  @Transactional
+  public void removeAnswererEverywhere(UUID userId) {
+    access.removeAnswererEverywhere(userId);
+  }
+
   /** What a change to an own producer did, when the user owns it. */
   sealed interface OwnChange {
     record Updated(OwnProducerResponse producer) implements OwnChange {}
@@ -444,6 +500,9 @@ public class ProducerService {
 
     /** The user to allow does not exist or is revoked. */
     record UnknownUser() implements OwnChange {}
+
+    /** The user to name as an answerer cannot see the producer. */
+    record CannotSee() implements OwnChange {}
   }
 
   // ---- The producers a user sees, and their subscriptions.
@@ -519,12 +578,14 @@ public class ProducerService {
   private OwnProducerResponse ownResponse(UUID ownerId, UUID id) {
     var producer = producers.findById(id);
     var allowed = access.allowed(id);
+    var answerers = access.answerers(id);
     return toOwnResponse(
         producer,
         producers.lastEventAt(id).orElse(null),
         keys.ofProducer(id),
-        users.find(java.util.Set.copyOf(allowed)),
+        users.find(Stream.concat(allowed.stream(), answerers.stream()).collect(toSet())),
         allowed,
+        answerers,
         access.isSubscribed(ownerId, id));
   }
 
@@ -534,6 +595,7 @@ public class ProducerService {
       List<ApiKeyEntity> keys,
       Map<UUID, UserRef> people,
       List<UUID> allowed,
+      List<UUID> answerers,
       boolean subscribed) {
     return new OwnProducerResponse(
         producer.id(),
@@ -559,7 +621,13 @@ public class ProducerService {
             .sorted(java.util.Comparator.comparing(UserRef::name, String.CASE_INSENSITIVE_ORDER))
             .map(NamedUser::of)
             .toList(),
-        subscribed);
+        subscribed,
+        answerers.stream()
+            .map(people::get)
+            .filter(java.util.Objects::nonNull)
+            .sorted(java.util.Comparator.comparing(UserRef::name, String.CASE_INSENSITIVE_ORDER))
+            .map(NamedUser::of)
+            .toList());
   }
 
   private IssuedApiKey issueKey(ProducerEntity producer) {
@@ -572,14 +640,19 @@ public class ProducerService {
 
   private ProducerResponse toResponse(ProducerEntity producer) {
     var allowed = access.allowed(producer.id());
+    var answerers = access.answerers(producer.id());
     var people =
-        users.find(Stream.concat(Stream.of(producer.ownerId()), allowed.stream()).collect(toSet()));
+        users.find(
+            Stream.of(Stream.of(producer.ownerId()), allowed.stream(), answerers.stream())
+                .flatMap(s -> s)
+                .collect(toSet()));
     return toResponse(
         producer,
         producers.lastEventAt(producer.id()).orElse(null),
         keys.ofProducer(producer.id()),
         people,
-        allowed);
+        allowed,
+        answerers);
   }
 
   private static ProducerResponse toResponse(
@@ -587,7 +660,8 @@ public class ProducerService {
       Instant lastEventAt,
       List<ApiKeyEntity> keys,
       Map<UUID, UserRef> people,
-      List<UUID> allowed) {
+      List<UUID> allowed,
+      List<UUID> answerers) {
     return new ProducerResponse(
         producer.id(),
         producer.name(),
@@ -604,6 +678,11 @@ public class ProducerService {
         people.get(producer.ownerId()),
         producer.visibility(),
         allowed.stream()
+            .map(people::get)
+            .filter(java.util.Objects::nonNull)
+            .sorted(java.util.Comparator.comparing(UserRef::name, String.CASE_INSENSITIVE_ORDER))
+            .toList(),
+        answerers.stream()
             .map(people::get)
             .filter(java.util.Objects::nonNull)
             .sorted(java.util.Comparator.comparing(UserRef::name, String.CASE_INSENSITIVE_ORDER))

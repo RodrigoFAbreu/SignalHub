@@ -266,7 +266,10 @@ further URLs a producer has belong in metadata.
 | `PUT /api/v1/events/{id}/read` | Requires a client key or the admin token. Marks the event read; `200` with the event, or `404`. See [Read state](#read-state). |
 | `DELETE /api/v1/events/{id}/read` | Requires a client key or the admin token. Marks the event unread; `200` with the event, or `404`. |
 | `POST /api/v1/events/read` | Requires a client key or the admin token. Marks read every unread event up to a given one; `200` with the count. |
-| `GET /api/v1/events/unread-count` | Requires a client key or the admin token. `200` with the number of unread events. |
+| `GET /api/v1/events/unread-count` | Requires a client key or the admin token. `200` with the number of unread events and of open questions the caller may answer. |
+| `PUT /api/v1/events/{id}/answer` | Requires a client key or a browser's session (never the admin token). Answers the event's question; the first answer wins. See [Answering an event](#answering-an-event). |
+| `GET /api/v1/events/{id}/answer` | Requires a producer API key. The state of its event's question, optionally held up to 60 s with `wait`. |
+| `POST /api/v1/events/{id}/answer/close` | Requires a producer API key. Closes its event's question without an answer. |
 
 The event is committed to PostgreSQL before `201` is returned. Errors:
 
@@ -452,7 +455,9 @@ that existed into the first user's.
   and everything older) and answers `{"marked": <count>}`. A client passes
   the newest event it shows, so events that arrived since stay unread;
   there is deliberately no "mark everything" without a position.
-- `GET /api/v1/events/unread-count` answers `{"unread": <count>}`.
+- `GET /api/v1/events/unread-count` answers `{"unread": <count>, "toAnswer": <count>}`.
+  `toAnswer` is the open questions the caller may answer, read or not
+  (always `0` for the admin token; see [Answering an event](#answering-an-event)).
 
 All four require a client key or the admin token, like the listing; producers
 never change or see read state: `readAt` is `null` in every answer to a
@@ -555,6 +560,124 @@ under `/api/v1/admin`, so the Compose proxy never forwards it) or the
   "admin" producer, which could not test a producer's filters, no push to
   one device only and no scheduling.
 
+### Answering an event
+
+A producer may **ask** on an event: the optional `ask` of `POST /api/v1/events`
+is a question with choices to pick from, typed text, or both. The people
+allowed answer it in a client, the **first answer wins**, and the producer
+reads the answer or **closes** the question. The contract is
+[`docs/design/answers/API-PROPOSAL.md`](design/answers/API-PROPOSAL.md)
+(approved at G8); SignalHub stores and shows choices and text and never
+interprets them, so nothing here knows a producer. An event without `ask`
+behaves exactly as before.
+
+**Asking.** `ask` is `{choices, multiple, text, textStyle, closesAt}`:
+
+- `choices`: 0 to 10 items of `{id, label, description}`. `id` is a producer
+  identifier (the `context` pattern, at most 64 characters, unique); `label`
+  is 1 to 100 characters, not blank, with no control characters and unique
+  ignoring case; `description` is optional, at most 1000 characters.
+- `multiple` (default `false`) needs at least two choices.
+- `text` is `NONE`, `OPTIONAL` or `REQUIRED` (typed answers are 1 to 3000
+  characters). Omitted, it is `NONE` with choices and `REQUIRED` without,
+  and without choices it must be `REQUIRED`.
+- `textStyle` (`NOTE`, the default, or `OTHER`) only with choices and text
+  other than `NONE`: a note written beside the chosen choice, or an *Other*
+  row picked instead of a choice, whose text is the answer. `OTHER` needs
+  `text: OPTIONAL` and no choice labelled "Other".
+- `closesAt` (optional, with an offset, in the future and at most 30 days
+  ahead) is when the question closes by itself.
+- It is stored normalized (`events.ask` as `jsonb`, defaults filled in,
+  `closesAt` in UTC truncated to microseconds, an empty `description` as
+  none, `ask: null` as absent) and the normalized question is part of the
+  [idempotency](#idempotent-publishing) comparison. The checks on `closesAt`
+  run after the key's lookup, so a retry of a published question returns the
+  stored event even once its `closesAt` has passed. Errors name the field
+  (`ask.choices[1].label`, `ask.closesAt`). The operator's
+  [test event](#test-events) accepts `ask` too.
+- Every event response carries `ask` (with `whoCanAnswer`, the owner then the
+  answerers, revoked users left out), `answer`, `answerState` (`OPEN`,
+  `ANSWERED`, `CLOSED` or `null`), `closedBy` (`PRODUCER` or `TIME`),
+  `closedAt`, `closeNote` and `canAnswer` (whether the caller may answer now;
+  always `false` for the admin token and producers). The state is derived:
+  `CLOSED` by time as soon as `closesAt` passes.
+
+**Who may answer.** The producer's **owner**, and the users the owner names
+as **answerers** (`producer_answerers`): `PUT` and `DELETE
+/api/v1/client/producers/{id}/answerers/{userId}`, with `answerers` in the
+owner's producer response and, read-only, in the admin API's. An answerer
+must see the producer (`409` otherwise; `404` for an unknown or revoked
+user), and must be subscribed to receive its events. A user leaves the list,
+in the same transaction, when they are revoked, when they lose sight of the
+producer (taken off its allow-list, by the owner or by the operator's
+`allowedUserIds`, or the producer made private), or when the owner removes
+them; an answer already given stays. The admin token acts for no user, so it
+never answers.
+
+**Answering.** `PUT /api/v1/events/{id}/answer` with `{"choices": [...],
+"text": "..."}`. Checked in this order: the admin token is `403` (a producer
+key `401`); an event not in the caller's inbox is `404`; a caller who may not
+answer that producer's questions is `403`; an event that asks nothing is
+`409`; a body that does not fit the question is `400` naming `choices` or
+`text`; a question that is not `OPEN` is `409`, unless the stored answer is the
+same person's and equal to this one, which is `200` again. `200` carries the
+answer: `{choices, text, by {id, name}, via, at}` (`via` is `APP` or `WEB`, the
+name is as it was then). Choices are stored in the question's order.
+
+| Ask | A valid answer |
+|---|---|
+| no choices | text |
+| `NONE`, single or multiple | exactly one or at least one choice, no text |
+| `OPTIONAL` or `REQUIRED` `NOTE` | exactly one or at least one choice, and text (required, or optional) |
+| `OPTIONAL` `OTHER`, single | one choice and no text, or no choice and text |
+| `OPTIONAL` `OTHER`, multiple | at least one choice, or text, or both |
+
+A `409` carries the state in its body as `question` (an `ApiError` with one
+more field, absent from every other error), so the client shows who answered
+what or who closed it.
+
+**The record and the race.** `event_answers` has one row per event, so its
+primary key decides between two answers and between an answer and the
+producer's close (`kind` `ANSWER` or `CLOSE`). Both are one `INSERT ... SELECT
+... WHERE ask_closes_at IS NULL OR ask_closes_at > :now ON CONFLICT DO NOTHING`
+with one clock, the server's; the event row is held `FOR KEY SHARE` meanwhile,
+so a concurrent delete waits and nothing is recorded for a deleted event. The
+row is deleted with the event.
+
+**The producer's side.** `GET /api/v1/events/{id}/answer?wait=0..60` (a
+whole number of seconds; anything else is `400`) returns `{state, answer,
+closedBy, closedAt, closeNote}` for the producer's own events (`404` for any
+other, or a deleted event; `409` if the event asks nothing). With `wait` it is
+held until the state leaves `OPEN` or the wait ends, then returns the current
+state; a producer that wants longer asks again.
+
+- It runs on a virtual thread and holds no transaction or connection while it
+  waits: each read is its own short transaction. It registers with an
+  in-process notifier **before** it reads, so no change between the read and
+  the wait is missed, and is woken after the commit of an answer or close for
+  its event, at `closesAt`, by any event deletion that commits (every held
+  read re-reads, so deletion by any path, retention included, ends the wait
+  with `404`), and at shutdown (it returns the state it last read).
+- At most 200 reads wait at once; beyond that a read answers at once with the
+  current state. Neither the backend nor the proxy sets a response timeout, so
+  60 s passes through the Compose proxy.
+- `POST /api/v1/events/{id}/answer/close` with an optional `{"note": "..."}`
+  (1 to 200 characters, not blank; the body may be absent altogether) closes a
+  question answered somewhere else. `200` with the state, also when it is
+  already closed by the producer (the first note and time stay) or by time
+  (`closedBy: TIME`); `409` with the answer when someone answered first, or
+  when the event asks nothing; `404` for another producer's or a deleted event.
+  A held read returns `CLOSED` at once.
+- There is no callback and no feed of answers.
+
+**Listing.** `GET /api/v1/events?toAnswer=true` lists the open questions the
+caller may answer (read or not; only `true` is accepted; empty for the admin
+token), and the operator's listing takes `answerState` (`OPEN`, `ANSWERED`,
+`CLOSED`, `NONE`; repeatable; refused for a client key), both on the derived
+state. `V21__add_event_questions.sql` adds `events.ask`, `events.ask_closes_at`
+(copied from the question so filters compare a column), `producer_answerers`
+and `event_answers`, and a partial index over events that ask.
+
 ### Service status
 
 The [admin page](#the-admin-page)'s **Status** section answers "is
@@ -623,6 +746,9 @@ have none), checked to be 1 to 2000 characters; the API checks the scheme.
 `V17__create_users_roles_subscriptions.sql` adds `event_reads`, the per-user
 [read state](#read-state), keyed by user and event and deleted with the event;
 `events.read_at` stays as the operator's own read state.
+`V21__add_event_questions.sql` adds the nullable `ask` (`jsonb`) and
+`ask_closes_at` columns (existing events ask nothing), `producer_answerers`
+and `event_answers` (see [Answering an event](#answering-an-event)).
 
 ## Producers and authentication
 
@@ -1207,12 +1333,13 @@ the operator's, is `404`, the same answer as for an ID that does not exist.
 |---|---|
 | `POST /api/v1/client/producers` | Registers a producer owned by the caller's user (`{"name", "visibility"}`; `visibility` is `PRIVATE` when omitted; the name is as in [Producer management](#producer-management)). The owner is subscribed. `201` with `{"producer", "keyId", "apiKey"}` (`IssuedOwnApiKey`) and `Location`; **the key is shown only in this answer**. `409` if the name is taken. |
 | `GET /api/v1/client/producers` | The caller's producers by name, `{"items": [...]}`. |
-| `GET /api/v1/client/producers/{id}` | One of them (`OwnProducer`): `id`, `name`, `createdAt`, `disabledAt`, `disabledByOperator`, `lastEventAt`, `visibility`, `subscribed`, `allowedUsers` (`{"id", "name"}`) and `keys`: for each key its `id`, `prefix` (`shpk1_` and the key ID, which starts the key and is not secret), `createdAt`, `lastUsedAt` (`null` until the key publishes) and `revokedAt`. **Never a key.** |
+| `GET /api/v1/client/producers/{id}` | One of them (`OwnProducer`): `id`, `name`, `createdAt`, `disabledAt`, `disabledByOperator`, `lastEventAt`, `visibility`, `subscribed`, `allowedUsers` and `answerers` (each `{"id", "name"}`) and `keys`: for each key its `id`, `prefix` (`shpk1_` and the key ID, which starts the key and is not secret), `createdAt`, `lastUsedAt` (`null` until the key publishes) and `revokedAt`. **Never a key.** |
 | `PATCH /api/v1/client/producers/{id}` | Renames the producer and/or sets its `visibility` (at least one; `400` otherwise); `409` if another producer has the name. Keys keep working and events stay the producer's own (they show the new name). Making a producer private ends the subscriptions of users who are neither its owner nor on its allow-list. |
 | `POST /api/v1/client/producers/{id}/keys` | Issues an additional key (rotate: issue, switch, revoke). `201` with `IssuedOwnApiKey`. |
 | `POST /api/v1/client/producers/{id}/keys/{keyId}/revoke` | Revokes a key at once and for good. Idempotent. `404` for a key of another producer. |
 | `POST /api/v1/client/producers/{id}/disable`, `.../enable` | Disables the producer (none of its keys authenticate; events are kept) or enables it. Idempotent. `409` when enabling a producer **the operator disabled**: see below. |
-| `PUT`, `DELETE /api/v1/client/producers/{id}/allowed-users/{userId}` | Puts a user who is not revoked on the allow-list (`404` if there is none), or takes them off. Idempotent; allowing the owner changes nothing. Taking a user off a private producer ends their subscription in the same transaction. |
+| `PUT`, `DELETE /api/v1/client/producers/{id}/allowed-users/{userId}` | Puts a user who is not revoked on the allow-list (`404` if there is none), or takes them off. Idempotent; allowing the owner changes nothing. Taking a user off a private producer ends their subscription, and their role as an answerer, in the same transaction. |
+| `PUT`, `DELETE /api/v1/client/producers/{id}/answerers/{userId}` | Names a user who may answer the questions on the producer's events, besides the owner, or takes them off (see [Answering an event](#answering-an-event)). `404` for an unknown or revoked user; `409` if the user cannot see the producer. Idempotent; naming the owner changes nothing. |
 
 All answers are `OwnProducer`, except the two that issue a key. The decisions
 the entry left to this increment:

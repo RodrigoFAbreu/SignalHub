@@ -91,6 +91,8 @@ public class UserTrafficResource {
             Optional.empty(),
             Set.of(),
             false,
+            Set.of(),
+            false,
             Optional.empty(),
             RECENT);
     return new UserTraffic(

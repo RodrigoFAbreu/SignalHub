@@ -87,6 +87,9 @@ class EventPersistenceTest {
     expected.put("idempotency_key", "text YES");
     // Added by V11: null when the producer sent no link.
     expected.put("link", "text YES");
+    // Added by V21: the question the producer asked, and when it closes by itself.
+    expected.put("ask", "jsonb YES");
+    expected.put("ask_closes_at", "timestamp with time zone YES");
     assertEquals(expected, columnsOf("events"));
   }
 

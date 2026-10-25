@@ -65,6 +65,15 @@ class EventEntity {
   @Column(name = "read_at", updatable = false)
   private Instant readAt;
 
+  // The normalized question as JSON text, or null when the event asks nothing; never changed.
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(updatable = false)
+  private String ask;
+
+  // Copied from the question, so listing filters compare a column.
+  @Column(name = "ask_closes_at", updatable = false)
+  private Instant askClosesAt;
+
   protected EventEntity() {}
 
   EventEntity(
@@ -78,7 +87,9 @@ class EventEntity {
       String link,
       Instant occurredAt,
       Instant createdAt,
-      String idempotencyKey) {
+      String idempotencyKey,
+      String ask,
+      Instant askClosesAt) {
     this.producerId = producerId;
     this.context = context;
     this.category = category;
@@ -90,6 +101,8 @@ class EventEntity {
     this.occurredAt = occurredAt;
     this.createdAt = createdAt;
     this.idempotencyKey = idempotencyKey;
+    this.ask = ask;
+    this.askClosesAt = askClosesAt;
   }
 
   UUID id() {
@@ -134,6 +147,14 @@ class EventEntity {
 
   Instant createdAt() {
     return createdAt;
+  }
+
+  String ask() {
+    return ask;
+  }
+
+  Instant askClosesAt() {
+    return askClosesAt;
   }
 
   Instant readAt() {

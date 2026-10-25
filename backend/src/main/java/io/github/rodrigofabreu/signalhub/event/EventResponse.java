@@ -2,6 +2,7 @@ package io.github.rodrigofabreu.signalhub.event;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonRawValue;
+import io.github.rodrigofabreu.signalhub.api.QuestionState;
 import java.time.Instant;
 import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -62,7 +63,37 @@ public record EventResponse(
                     + " deliveries). Only in the admin token's event listing; absent everywhere"
                     + " else.")
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        PushSummary push) {
+        PushSummary push,
+    @Schema(
+            description =
+                "The question the producer asked on this event, with who can answer it; null"
+                    + " when the event asks nothing.",
+            nullable = true)
+        AskView ask,
+    @Schema(
+            description = "The accepted answer; null unless answerState is ANSWERED.",
+            nullable = true)
+        QuestionState.Answer answer,
+    @Schema(
+            description =
+                "OPEN, ANSWERED or CLOSED; null when the event asks nothing. CLOSED as soon as"
+                    + " closesAt passes.",
+            nullable = true)
+        QuestionState.State answerState,
+    @Schema(
+            description = "Who closed the question: PRODUCER or TIME; null unless CLOSED.",
+            nullable = true)
+        QuestionState.ClosedBy closedBy,
+    @Schema(description = "When the question closed; null unless CLOSED.", nullable = true)
+        Instant closedAt,
+    @Schema(description = "The producer's note on closing it, if it gave one.", nullable = true)
+        String closeNote,
+    @Schema(
+            required = true,
+            description =
+                "Whether the caller may answer the question now. Always false for the admin token"
+                    + " and for producers.")
+        boolean canAnswer) {
 
   @Schema(name = "EventProducer", description = "The producer that published an event.")
   public record Producer(

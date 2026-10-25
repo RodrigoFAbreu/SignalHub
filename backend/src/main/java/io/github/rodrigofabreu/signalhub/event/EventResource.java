@@ -1,6 +1,9 @@
 package io.github.rodrigofabreu.signalhub.event;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.rodrigofabreu.signalhub.api.ApiError;
+import io.github.rodrigofabreu.signalhub.api.QuestionState;
 import io.github.rodrigofabreu.signalhub.client.AuthenticatedClient;
 import io.github.rodrigofabreu.signalhub.client.ClientIdentity;
 import io.github.rodrigofabreu.signalhub.client.ClientResource;
@@ -12,9 +15,13 @@ import io.github.rodrigofabreu.signalhub.user.UserDirectory;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.quarkus.runtime.Startup;
+import io.smallrye.common.annotation.RunOnVirtualThread;
+import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
+import jakarta.validation.Validator;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -73,6 +80,10 @@ public class EventResource {
   private final AuthenticatedProducer producer;
   private final AuthenticatedClient client;
   private final UserDirectory userDirectory;
+  private final QuestionService questions;
+  private final AnswerWaits waits;
+  private final ObjectMapper json;
+  private final Validator validator;
   private final Counter published;
 
   EventResource(
@@ -80,8 +91,16 @@ public class EventResource {
       AuthenticatedProducer producer,
       AuthenticatedClient client,
       UserDirectory userDirectory,
+      QuestionService questions,
+      AnswerWaits waits,
+      ObjectMapper json,
+      Validator validator,
       MeterRegistry registry) {
     this.events = events;
+    this.json = json;
+    this.validator = validator;
+    this.questions = questions;
+    this.waits = waits;
     this.userDirectory = userDirectory;
     this.producer = producer;
     this.client = client;
@@ -292,6 +311,23 @@ public class EventResource {
           List<String> push,
       @Parameter(
               description =
+                  "With true, only the open questions the caller may answer: events that ask,"
+                      + " that nobody answered or closed, whose closesAt has not passed, on"
+                      + " producers the caller owns or may answer. Only true is accepted. Read"
+                      + " or not. With the admin token, who answers nothing, the list is empty.",
+              schema = @Schema(type = SchemaType.BOOLEAN))
+          @QueryParam("toAnswer")
+          String toAnswer,
+      @Parameter(
+              description =
+                  "Only events whose question stands as this says: OPEN, ANSWERED, CLOSED, or"
+                      + " NONE for events that ask nothing. Repeatable. Admin token only: a"
+                      + " client key is refused with 400.",
+              schema = @Schema(type = SchemaType.ARRAY, implementation = AnswerFilter.class))
+          @QueryParam("answerState")
+          List<String> answerStates,
+      @Parameter(
+              description =
                   "With true, the page also says how many events match the filters in all"
                       + " (total). Counting walks every matching event, so ask only when the number"
                       + " is shown. Admin token only: a client key is refused with 400.",
@@ -329,6 +365,8 @@ public class EventResource {
             userId,
             relation,
             push,
+            toAnswer,
+            answerStates,
             total,
             cursor,
             limit);
@@ -337,7 +375,7 @@ public class EventResource {
     return events.list(query, user());
   }
 
-  /** How events' pushes went, and the total, are the operator's: a client key may not ask. */
+  /** How events' pushes went, their question states and the total are the operator's. */
   private void checkAdminOnly(EventQuery query) {
     if (user().isEmpty()) {
       return;
@@ -345,6 +383,10 @@ public class EventResource {
     var violations = new ArrayList<ApiError.Violation>();
     if (!query.push().isEmpty()) {
       violations.add(new ApiError.Violation("push", "is available with the admin token only"));
+    }
+    if (!query.answerStates().isEmpty()) {
+      violations.add(
+          new ApiError.Violation("answerState", "is available with the admin token only"));
     }
     if (query.total()) {
       violations.add(new ApiError.Violation("total", "is available with the admin token only"));
@@ -523,6 +565,245 @@ public class EventResource {
     return events
         .markReadThrough(request.through(), user())
         .orElseThrow(EventResource::eventNotFound);
+  }
+
+  @PUT
+  @Path("/{id}/answer")
+  @OwnerAuthenticated
+  @SecurityRequirement(name = ClientResource.SECURITY_SCHEME)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Answer the question of an event",
+      description =
+          "Records the caller's user's answer to the event's question: the choices and/or text"
+              + " the question asks for. Only the producer's owner and its answerers may answer,"
+              + " and only events in the caller's inbox. The first accepted answer wins and ends"
+              + " the question for everyone; the same person sending the same answer again also"
+              + " gets 200. Requires a client key or a browser's session; the admin token acts"
+              + " for no user and is refused.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The accepted answer.",
+      content = @Content(schema = @Schema(implementation = QuestionState.Answer.class)))
+  @APIResponse(
+      responseCode = "400",
+      description =
+          "The answer does not fit the question: an unknown or repeated choice, the wrong number"
+              + " of choices, or text missing, not allowed or too long. Each violation names the"
+              + " field.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "401",
+      description = "Missing or invalid client key, or a producer's API key.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "403",
+      description =
+          "The admin token, or a user who may not answer this producer's questions (or a"
+              + " browser request refused for its CSRF check).",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No such event in the caller's inbox: it is deleted or not subscribed to.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "409",
+      description =
+          "The question is answered by someone else or differently, or closed (by its closesAt"
+              + " or its producer), or the event asks nothing. The body's question says where it"
+              + " stands: who answered what, or who closed it.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public QuestionState.Answer answer(
+      @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id,
+      @NotNull @Valid AnswerRequest request) {
+    var caller = client.current();
+    if (caller.isEmpty()) {
+      throw error(Response.Status.FORBIDDEN, "The admin token answers nothing", null);
+    }
+    return switch (questions.answer(id, caller.get(), request)) {
+      case QuestionService.Answering.Accepted accepted -> accepted.answer();
+      case QuestionService.Answering.NotFound notFound -> throw eventNotFound();
+      case QuestionService.Answering.Forbidden forbidden ->
+          throw error(
+              Response.Status.FORBIDDEN, "You may not answer this producer's questions", null);
+      case QuestionService.Answering.Invalid invalid ->
+          throw new BadRequestException(
+              Response.status(Response.Status.BAD_REQUEST)
+                  .entity(new ApiError("Invalid request", 400, invalid.violations()))
+                  .build());
+      case QuestionService.Answering.Conflict conflict ->
+          throw conflict.state() == null
+              ? error(Response.Status.CONFLICT, "The event asks nothing", null)
+              : error(
+                  Response.Status.CONFLICT,
+                  conflict.state().state() == QuestionState.State.ANSWERED
+                      ? "The question is already answered"
+                      : "The question is closed",
+                  conflict.state());
+    };
+  }
+
+  @GET
+  @Path("/{id}/answer")
+  @ProducerAuthenticated
+  @RunOnVirtualThread
+  @SecurityRequirement(name = SECURITY_SCHEME)
+  @Operation(
+      summary = "Read the answer to an event's question",
+      description =
+          "The producer reads how its event's question stands: OPEN, ANSWERED (with the answer)"
+              + " or CLOSED (by its time or by the producer). With wait, holds the request until"
+              + " the state leaves OPEN or the wait ends, and returns the state then; ask again"
+              + " to wait longer. Only the producer's own events, with any of its keys.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The state of the question.",
+      content = @Content(schema = @Schema(implementation = QuestionState.class)))
+  @APIResponse(
+      responseCode = "400",
+      description = "wait is not a whole number from 0 to 60.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "401",
+      description = "Missing, malformed, unknown or revoked API key, or the producer is disabled.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No such event of this producer, or it was deleted, also while waiting.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "409",
+      description = "The event asks nothing.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public QuestionState readAnswer(
+      @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id,
+      @Parameter(
+              description =
+                  "Seconds to wait for the question to be answered or closed: 0 (the default) to"
+                      + " 60.",
+              schema =
+                  @Schema(
+                      type = SchemaType.INTEGER,
+                      minimum = "0",
+                      maximum = "60",
+                      defaultValue = "0"))
+          @QueryParam("wait")
+          String wait) {
+    var seconds = parseWait(wait);
+    return switch (waits.read(id, producer.get().id(), seconds)) {
+      case QuestionService.Reading.Found found -> found.state();
+      case QuestionService.Reading.NotFound notFound -> throw eventNotFound();
+      case QuestionService.Reading.NoQuestion noQuestion ->
+          throw error(Response.Status.CONFLICT, "The event asks nothing", null);
+    };
+  }
+
+  private static int parseWait(String text) {
+    if (text == null) {
+      return 0;
+    }
+    try {
+      var seconds = Integer.parseInt(text);
+      if (seconds >= 0 && seconds <= AnswerWaits.MAX_WAIT_SECONDS) {
+        return seconds;
+      }
+    } catch (NumberFormatException e) {
+      // Reported below.
+    }
+    throw new BadRequestException(
+        Response.status(Response.Status.BAD_REQUEST)
+            .entity(
+                new ApiError(
+                    "Invalid request",
+                    400,
+                    List.of(
+                        new ApiError.Violation(
+                            "wait",
+                            "must be a whole number of seconds from 0 to "
+                                + AnswerWaits.MAX_WAIT_SECONDS))))
+            .build());
+  }
+
+  @POST
+  @Path("/{id}/answer/close")
+  @Consumes(MediaType.WILDCARD)
+  @ProducerAuthenticated
+  @SecurityRequirement(name = SECURITY_SCHEME)
+  @Operation(
+      summary = "Close an event's question",
+      description =
+          "The producer closes its question without an answer, for one answered somewhere else."
+              + " Nobody can answer it afterwards, and the devices it reached are told. Closing"
+              + " again keeps the first close's note and time; closing after closesAt also"
+              + " succeeds (closedBy TIME). The body is optional. Only the producer's own events.")
+  @APIResponse(
+      responseCode = "200",
+      description = "The question is closed, now or before.",
+      content = @Content(schema = @Schema(implementation = QuestionState.class)))
+  @APIResponse(
+      responseCode = "400",
+      description = "The note is blank, too long or holds a NUL character.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "401",
+      description = "Missing, malformed, unknown or revoked API key, or the producer is disabled.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "404",
+      description = "No such event of this producer, or it was deleted.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @APIResponse(
+      responseCode = "409",
+      description =
+          "Someone answered first (the body's question carries that answer), or the event asks"
+              + " nothing.",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  public QuestionState closeQuestion(
+      @Parameter(description = "Canonical event ID (UUID).") @PathParam("id") UUID id,
+      @RequestBody(
+              content =
+                  @Content(
+                      mediaType = MediaType.APPLICATION_JSON,
+                      schema = @Schema(implementation = CloseQuestionRequest.class)))
+          String body)
+      throws JsonProcessingException {
+    var note = closeNote(body);
+    return switch (questions.close(id, producer.get().id(), note)) {
+      case QuestionService.Closing.Closed closed -> closed.state();
+      case QuestionService.Closing.Answered answered ->
+          throw error(
+              Response.Status.CONFLICT, "The question is already answered", answered.state());
+      case QuestionService.Closing.NotFound notFound -> throw eventNotFound();
+      case QuestionService.Closing.NoQuestion noQuestion ->
+          throw error(Response.Status.CONFLICT, "The event asks nothing", null);
+    };
+  }
+
+  /**
+   * The note of the optional JSON body. Read here rather than bound, so a close with no body at all
+   * (no Content-Type either) is as good as one with {@code {}}.
+   */
+  private String closeNote(String body) throws JsonProcessingException {
+    if (body == null || body.isBlank()) {
+      return null;
+    }
+    var request = json.readValue(body, CloseQuestionRequest.class);
+    if (request == null) {
+      return null;
+    }
+    var violations = validator.validate(request);
+    if (!violations.isEmpty()) {
+      throw new ConstraintViolationException(violations);
+    }
+    return request.note();
+  }
+
+  private static ClientErrorException error(
+      Response.Status status, String title, QuestionState question) {
+    return new ClientErrorException(
+        Response.status(status)
+            .entity(new ApiError(title, status.getStatusCode(), List.of(), question))
+            .build());
   }
 
   /** The user whose events are read; empty for the operator, who reads them all. */

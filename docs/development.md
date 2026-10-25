@@ -814,7 +814,24 @@ curl -s -X PUT "http://localhost:8080/api/v1/events/$EVENT/read" -H "$H"      # 
 curl -s -X DELETE "http://localhost:8080/api/v1/events/$EVENT/read" -H "$H"   # readAt is null again
 curl -s http://localhost:8080/api/v1/events/read -H "$H" \
   -H 'Content-Type: application/json' -d "{\"through\": \"$EVENT\"}"       # {"marked": 12}
-curl -s http://localhost:8080/api/v1/events/unread-count -H "$H"              # {"unread": 0}
+curl -s http://localhost:8080/api/v1/events/unread-count -H "$H"              # {"unread": 0, "toAnswer": 0}
+```
+
+Ask on an event, answer it from a client, and read or close the question as the
+producer (see [architecture.md](architecture.md#answering-an-event)):
+
+```sh
+curl -s http://localhost:8080/api/v1/events -H "Authorization: Bearer $PRODUCER_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"category": "ACTION_REQUIRED", "severity": "HIGH", "title": "Merge it?",
+       "ask": {"choices": [{"id": "merge", "label": "Merge"}, {"id": "hold", "label": "Hold"}]}}'
+curl -s -X PUT "http://localhost:8080/api/v1/events/$EVENT/answer" -H "$H" \
+  -H 'Content-Type: application/json' -d '{"choices": ["merge"]}'          # a client key, not the admin token
+curl -s "http://localhost:8080/api/v1/events/$EVENT/answer?wait=60" \
+  -H "Authorization: Bearer $PRODUCER_KEY"                                # held up to 60 s: {"state": "ANSWERED", ...}
+curl -s -X POST "http://localhost:8080/api/v1/events/$EVENT/answer/close" \
+  -H "Authorization: Bearer $PRODUCER_KEY"                                # closes it, if nobody answered
+curl -s "http://localhost:8080/api/v1/events?toAnswer=true" -H "$H"        # the open questions this client may answer
 ```
 
 The operator deletes test or unwanted events with the admin token (see
@@ -827,7 +844,7 @@ there is no undo:
 A="Authorization: Bearer $ADMIN_TOKEN"
 curl -s -X DELETE "http://localhost:8080/api/v1/admin/events/$EVENT" -H "$A" -o /dev/null -w '%{http_code}\n'   # 204
 curl -s http://localhost:8080/api/v1/admin/events/delete -H "$A" -H 'Content-Type: application/json' \
-  -d "{\"producerId\": \"$PRODUCER\", \"dryRun\": true}"                  # {"count": 12, "dryRun": true}
+  -d "{\"producerId\": \"$PRODUCER\", \"dryRun\": true}"                  # {"count": 12, "dryRun": true, "asking": 0}
 curl -s http://localhost:8080/api/v1/admin/events/delete -H "$A" -H 'Content-Type: application/json' \
   -d '{"createdBefore": "2026-09-01T00:00:00Z"}'                         # {"count": 40, "dryRun": false}
 curl -s http://localhost:8080/api/v1/admin/events/delete -H "$A" -H 'Content-Type: application/json' \
