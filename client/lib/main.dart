@@ -11,6 +11,7 @@ import 'src/app_controller.dart';
 import 'src/connection/incoming_links.dart';
 import 'src/connection/server_credentials.dart';
 import 'src/onboarding/onboarding_store.dart';
+import 'src/push/event_notifications.dart';
 import 'src/push/firebase_push_service.dart';
 import 'src/settings/settings_groups.dart';
 
@@ -31,6 +32,10 @@ Future<void> main() async {
         : null,
     openGroups: SecureOpenGroupsStore(),
     onboarding: SecureOnboardingStore(),
+    // Android shows a push under its event's ID, which finds it again.
+    removeNotification: defaultTargetPlatform == TargetPlatform.android
+        ? removeEventNotification
+        : null,
   );
   runApp(
     SignalHubApp(

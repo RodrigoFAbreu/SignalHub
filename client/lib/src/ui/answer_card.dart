@@ -47,6 +47,7 @@ class AnswerCard extends StatefulWidget {
     required this.onRead,
     required this.reread,
     required this.onGone,
+    this.ended,
     this.now = DateTime.now,
   });
 
@@ -73,6 +74,10 @@ class AnswerCard extends StatefulWidget {
   /// The event is not in the inbox any more.
   final VoidCallback onGone;
 
+  /// Each notice that the question was answered or closed, or the event
+  /// deleted, elsewhere: the card reads the event again, through [reread].
+  final Stream<void>? ended;
+
   /// The clock, for the closing time; tests replace it.
   final DateTime Function() now;
 
@@ -97,10 +102,16 @@ class _AnswerCardState extends State<AnswerCard> {
   bool _lostRight = false;
   Timer? _timer;
   Timer? _closer;
+  StreamSubscription<void>? _endings;
 
   /// Whether the closing time passed with something picked or typed: if the
   /// server then says the question closed, it closed while choosing.
   bool _closedInHand = false;
+
+  /// Whether a notice that the question ended came with something picked or
+  /// typed: if the server then says it was answered or closed, that happened
+  /// while choosing.
+  bool _endedInHand = false;
 
   Ask get _ask => widget.event.ask!;
 
@@ -122,21 +133,34 @@ class _AnswerCardState extends State<AnswerCard> {
       _check(_other, (e) => _otherError = e);
     });
     _tick();
+    _endings = widget.ended?.listen((_) => _endedElsewhere());
   }
 
   @override
   void didUpdateWidget(AnswerCard old) {
     super.didUpdateWidget(old);
-    final closed =
+    if (widget.ended != old.ended) {
+      unawaited(_endings?.cancel());
+      _endings = widget.ended?.listen((_) => _endedElsewhere());
+    }
+    final ended =
         old.event.answerState == AnswerState.open &&
-        widget.event.answerState == AnswerState.closed;
-    if (closed && _closedInHand && _attempt == Attempt.none) {
-      // As a send's 409 would say; what was picked and typed is dropped.
-      _attempt = Attempt.closedWhileChoosing;
-      _drafts.remove(widget.event.id);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _resultTitle.requestFocus();
-      });
+        widget.event.answerState != AnswerState.open;
+    // While sending, the send's own 409 says it.
+    if (ended && _attempt == Attempt.none && !_sending) {
+      _attempt = switch (widget.event.answerState) {
+        AnswerState.closed when _closedInHand || _endedInHand =>
+          Attempt.closedWhileChoosing,
+        AnswerState.answered when _endedInHand => Attempt.answeredFirst,
+        _ => Attempt.none,
+      };
+      if (_attempt != Attempt.none) {
+        // As a send's 409 would say; what was picked and typed is dropped.
+        _drafts.remove(widget.event.id);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _resultTitle.requestFocus();
+        });
+      }
     }
     _tick();
   }
@@ -145,6 +169,7 @@ class _AnswerCardState extends State<AnswerCard> {
   void dispose() {
     _timer?.cancel();
     _closer?.cancel();
+    unawaited(_endings?.cancel());
     _note.dispose();
     _other.dispose();
     _firstChoice.dispose();
@@ -176,6 +201,11 @@ class _AnswerCardState extends State<AnswerCard> {
   void _closesByTime() {
     if (!mounted) return;
     _closedInHand = _inHand;
+    unawaited(widget.reread());
+  }
+
+  void _endedElsewhere() {
+    _endedInHand = _inHand;
     unawaited(widget.reread());
   }
 
@@ -305,6 +335,8 @@ class _AnswerCardState extends State<AnswerCard> {
     setState(() => _sending = false);
     switch (outcome) {
       case AnswerAccepted(:final state):
+        // A notice whose read failed said nothing about this answer.
+        _endedInHand = false;
         _drafts.remove(widget.event.id);
         _decided(state);
       case AnswerRefused(:final state):

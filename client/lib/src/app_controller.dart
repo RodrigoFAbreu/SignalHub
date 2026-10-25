@@ -22,6 +22,7 @@ import 'models/push_config.dart';
 import 'models/question.dart';
 import 'models/users.dart';
 import 'onboarding/onboarding_store.dart';
+import 'push/event_notifications.dart';
 import 'push/push_registration.dart';
 import 'push/push_service.dart';
 import 'settings/settings_groups.dart';
@@ -63,7 +64,9 @@ class AppController extends ChangeNotifier implements ApiGateway {
   /// settings. [openGroups] keeps which groups of the Settings screen are
   /// open; without one, they are kept only while the app runs. [onboarding]
   /// keeps whether the welcome and the _What's new_ card were said; without
-  /// one the app says neither.
+  /// one the app says neither. [removeNotification] takes an answered
+  /// question's notification off this device; without one (iOS, tests) it
+  /// stays.
   AppController({
     required this._store,
     required this._apiFactory,
@@ -74,6 +77,7 @@ class AppController extends ChangeNotifier implements ApiGateway {
     AlertPlatform? alertPlatform,
     OpenGroupsStore? openGroups,
     OnboardingStore? onboarding,
+    this._removeNotification,
   }) : _push = push,
        _openGroupsStore = openGroups,
        _onboardingStore = onboarding,
@@ -92,7 +96,18 @@ class AppController extends ChangeNotifier implements ApiGateway {
   final ServedPushStarter? _startServedPush;
   final OpenGroupsStore? _openGroupsStore;
   final OnboardingStore? _onboardingStore;
+  final NotificationRemover? _removeNotification;
   StreamSubscription<PushNotice>? _notices;
+  final _questionEnds = StreamController<String>.broadcast();
+
+  /// The data-only notices that a question was answered or closed, or its
+  /// event deleted (docs/design/answers/API-PROPOSAL.md, section 6).
+  static const _endingNotices = {'answered', 'closed', 'deleted'};
+
+  /// The IDs of events whose question a notice says ended (answered, closed,
+  /// or the event deleted), as the notices arrive with the app open: an open
+  /// event screen reads its event again.
+  Stream<String> get questionEnds => _questionEnds.stream;
 
   /// The served options push was set up with; `null` until then.
   PushConfig? _servedPushConfig;
@@ -750,6 +765,9 @@ class AppController extends ChangeNotifier implements ApiGateway {
       outcome = AnswerAccepted(
         QuestionState(state: AnswerState.answered, answer: answer),
       );
+      // The server sends its notice to every other device, not this one,
+      // however the question was opened here.
+      unawaited(_removeNotification?.call(id));
     } on QuestionConflictException catch (e) {
       outcome = AnswerRefused(e.state);
     } on EventNotFoundException {
@@ -997,6 +1015,9 @@ class AppController extends ChangeNotifier implements ApiGateway {
       _deviceNoticeToOpen = true;
       notifyListeners();
     }
+    if (_endingNotices.contains(notice.notice) && notice.eventId != null) {
+      _questionEnds.add(notice.eventId!);
+    }
     if (phase == ConnectionPhase.connected) unawaited(_reload());
   }
 
@@ -1019,6 +1040,7 @@ class AppController extends ChangeNotifier implements ApiGateway {
   @override
   void dispose() {
     unawaited(_notices?.cancel());
+    unawaited(_questionEnds.close());
     unawaited(_pushRegistration?.dispose());
     alert?.dispose();
     producers.dispose();

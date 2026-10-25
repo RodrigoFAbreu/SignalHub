@@ -480,6 +480,19 @@ void main() {
         expect(event.eventId, 'e-1');
       },
     );
+
+    test('a data-only notice that a question ended keeps its event', () {
+      // In the foreground the plugin hands every message to onMessage,
+      // data-only ones included.
+      final ended = FirebasePushService.noticeOf(
+        const RemoteMessage(data: {'notice': 'answered', 'eventId': 'e-1'}),
+        false,
+      );
+
+      expect(ended.notice, 'answered');
+      expect(ended.eventId, 'e-1');
+      expect(ended.opened, isFalse);
+    });
   });
 
   group('the producers to choose from', () {

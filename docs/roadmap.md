@@ -2780,6 +2780,24 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   drawings in `docs/design/answers/images/app-answering/`
 - minor (`feat`); the screens on R82a's API
 
+### R84 - Fixes from testing answering an event on the phone
+
+- **the answering phone clears its notification**: once the app's answer is
+  accepted (`200`), the app removes that question's notification by its tag,
+  the event ID, through the activity's `notifications` channel, however the
+  event was opened (the server's `answered` notice goes to the other devices
+  only)
+- **an open event screen follows any end of its question**: a data-only
+  `answered`, `closed` or `deleted` notice for the event on screen, with the
+  app in the foreground, makes the screen read the event again and show its
+  current state: *Ana answered first: Hold* or *Closed while you were choosing*
+  when something was picked or typed, the plain answered or closed state
+  otherwise, and *This event isn't in your inbox any more* once deleted; in
+  the background the re-read on resume covers it
+- widget tests with a fake push stream for each notice, with and without a
+  draft, and with a fake platform for the removal; they fail without the fixes
+- patch (`fix`); the app only, no API or schema change
+
 ## 4. Planned roadmap
 
 Roadmap items are ordered by dependency, but each item may be split into smaller releasable increments if implementation evidence shows that doing so is safer or more reviewable.
@@ -3411,7 +3429,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 76    | R82a - Answering an event: the server, the SDK and the command                                   | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 77    | R83 - Notification action buttons                                                                | Increment (`feat`)                     | Dropped at G8 (2026-10-25)                                                       |
 | 78    | R82b - Answering an event in the app, on the web page and on the admin page                      | Increment (`feat`)                     | Done (see section 3)                                                             |
-| 79    | R84 - Fixes from testing answering an event on the phone                                         | Increment (`fix`)                      | Next                                                                             |
+| 79    | R84 - Fixes from testing answering an event on the phone                                         | Increment (`fix`)                      | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -4014,6 +4032,7 @@ advance; they follow from the queue.
 | R81           | patch (`docs`)                                                                                                                                        | drawings and a proposal only                                                                                  |
 | R82a          | minor (`feat`)                                                                                                                                        | an optional `ask` on events, answering, the producer's read and close, notices, the SDK and command; additive |
 | R82b          | minor (`feat`)                                                                                                                                        | the screens for questions in the app, on the web page and on the admin page, `canAnswer` on the visible producers, the push's first line; additive|
+| R84           | patch (`fix`)                                                                                                                                         | the app follows a question's end on an open event screen, and the answering phone clears its notification; no API change |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6699,7 +6718,7 @@ R82b carry the small notification work that remains.
 
 ### R84 - Fixes from testing answering an event on the phone
 
-Status: next. Added by the maintainer (2026-10-25) from testing R82b on the phone.
+Status: done (see section 3). Added by the maintainer (2026-10-25) from testing R82b on the phone.
 
 Goal: in the app, a question's notification and its open event screen always follow the question,
 however it is answered or ended.
@@ -6880,7 +6899,7 @@ The maintainer approved them at G8 with changes, dropped R83 and split R82,
 R82a (answering an event: the server, the SDK and the command) and R82b
 (answering an event in the app, on the web page and on the admin page) are
 done. The maintainer then added R84 (fixes from testing answering an event on
-the phone). **Next is R84.** A new item is added only by the maintainer, in a reviewed pull
+the phone), and R84 is done. **Nothing is Next.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:signalhub_client/src/push/push_service.dart';
 import 'package:signalhub_client/src/ui/answer_card.dart';
 import 'package:signalhub_client/src/ui/event_style.dart';
 
@@ -693,6 +694,179 @@ void main() {
       expect(
         find.text('Closed while you were choosing · nobody can answer it now'),
         findsOneWidget,
+      );
+    });
+  });
+
+  group('its notification on this phone', () {
+    // The server's notice goes to every other device, never the one that
+    // answered: the app removes its own, however the event was opened.
+    testWidgets('goes once the answer is accepted', (tester) async {
+      final app = await open(tester);
+
+      await press(tester, 'choice-merge');
+      await app.settle(tester);
+      expect(app.removedNotifications, isEmpty);
+      await press(tester, 'sendAnswer');
+      await app.settle(tester);
+
+      expect(app.removedNotifications, ['e-1']);
+    });
+
+    testWidgets('stays when someone answered first', (tester) async {
+      final app = await open(tester);
+
+      await press(tester, 'choice-merge');
+      await app.settle(tester);
+      app.backend.answerBy('e-1', 'Ana', ['hold']);
+      await press(tester, 'sendAnswer');
+      await app.settle(tester);
+
+      expect(find.text('Ana answered first: Hold'), findsOneWidget);
+      expect(app.removedNotifications, isEmpty);
+    });
+
+    testWidgets('stays when the answer is not sent', (tester) async {
+      final app = await open(tester);
+
+      await press(tester, 'choice-merge');
+      await app.settle(tester);
+      app.backend.offline = true;
+      await press(tester, 'sendAnswer');
+      await app.settle(tester);
+
+      expect(find.text('Answer not sent'), findsOneWidget);
+      expect(app.removedNotifications, isEmpty);
+    });
+  });
+
+  group('when a notice says its question ended, with the event open', () {
+    final at = formatClock(DateTime.utc(2026, 10, 16, 18, 55));
+
+    /// The data-only notice the server sends for [id], as the app receives
+    /// it in the foreground.
+    Future<void> notice(
+      WidgetTester tester,
+      AppHarness app,
+      String kind, {
+      String id = 'e-1',
+    }) async {
+      app.push.received.add(
+        PushNotice(
+          title: 'SignalHub',
+          eventId: id,
+          data: {'notice': kind, 'eventId': id},
+        ),
+      );
+      await app.settle(tester);
+    }
+
+    testWidgets('answered, with a choice picked: answered first', (
+      tester,
+    ) async {
+      final app = await open(tester);
+      await press(tester, 'choice-merge');
+      await app.settle(tester);
+
+      app.backend.answerBy('e-1', 'Ana', ['hold']);
+      await notice(tester, app, 'answered');
+
+      expect(find.text('Ana answered first: Hold'), findsOneWidget);
+      expect(
+        find.text("$at. Your answer wasn't sent, and ci-pipeline has Ana's."),
+        findsOneWidget,
+      );
+      expect(byKey('sendAnswer'), findsNothing);
+      expect(app.backend.answers, isEmpty);
+    });
+
+    testWidgets('answered, with nothing picked: who answered', (tester) async {
+      final app = await open(tester);
+
+      app.backend.answerBy('e-1', 'Ana', ['hold']);
+      await notice(tester, app, 'answered');
+
+      expect(find.text('Ana answered · Hold · $at'), findsOneWidget);
+      expect(
+        find.text('Sent to ci-pipeline. Nobody else can answer now.'),
+        findsOneWidget,
+      );
+      expect(find.text('Ana answered first: Hold'), findsNothing);
+    });
+
+    testWidgets('closed, with something typed: closed while choosing', (
+      tester,
+    ) async {
+      final app = await open(tester);
+      await tester.enterText(inner('noteField'), 'after lunch');
+      await app.settle(tester);
+
+      app.backend.close('e-1');
+      await notice(tester, app, 'closed');
+
+      expect(
+        find.text('Closed while you were choosing · nobody can answer it now'),
+        findsOneWidget,
+      );
+      expect(
+        find.text("Your answer wasn't sent. ci-pipeline closed this question."),
+        findsOneWidget,
+      );
+      expect(byKey('noteField'), findsNothing);
+      expect(app.backend.answers, isEmpty);
+    });
+
+    testWidgets('closed, with nothing picked: closed by its producer', (
+      tester,
+    ) async {
+      final app = await open(tester);
+
+      app.backend.close('e-1');
+      await notice(tester, app, 'closed');
+
+      expect(find.text('Closed by ci-pipeline'), findsOneWidget);
+      expect(
+        find.text('Closed while you were choosing · nobody can answer it now'),
+        findsNothing,
+      );
+      expect(byKey('sendAnswer'), findsNothing);
+    });
+
+    for (final picked in [true, false]) {
+      testWidgets('deleted, ${picked ? 'with' : 'without'} a choice picked: '
+          'not in the inbox', (tester) async {
+        final app = await open(tester);
+        if (picked) {
+          await press(tester, 'choice-merge');
+          await app.settle(tester);
+        }
+
+        app.backend.events.clear();
+        await notice(tester, app, 'deleted');
+
+        expect(
+          find.text("This event isn't in your inbox any more"),
+          findsOneWidget,
+        );
+        expect(app.backend.answers, isEmpty);
+      });
+    }
+
+    testWidgets('a notice about another event leaves the card as it is', (
+      tester,
+    ) async {
+      final app = await open(tester);
+      await press(tester, 'choice-merge');
+      await tester.enterText(inner('noteField'), 'kept');
+      await app.settle(tester);
+
+      app.backend.answerBy('e-1', 'Ana', ['hold']);
+      await notice(tester, app, 'answered', id: 'e-2');
+
+      expect(byKey('sendAnswer'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(inner('noteField')).controller!.text,
+        'kept',
       );
     });
   });
