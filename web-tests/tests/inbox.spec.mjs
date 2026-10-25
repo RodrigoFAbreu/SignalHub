@@ -79,12 +79,13 @@ test("filters: unread only, a category and a severity, shown as chips that can b
   await expect(page.locator("a.event-row").first()).toContainText("Nightly backup finished");
   await expect(page).toHaveURL(/unread=1/);
   await expect(page).toHaveURL(/category=INFO/);
-  await expect(page.getByRole("button", { name: "Remove filter Unread" })).toBeVisible();
+  // Unread is a chip of the row above the list, the same switch as the dialog's.
+  await expect(page.getByRole("button", { name: "Unread", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Remove filter Info" }).click();
   // Unread only, and the event opened above (now read) is not in it.
   await expect(page.locator("a.event-row")).toHaveCount(3);
   await expect(page.locator("a.event-row", { hasText: "Disk almost full" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await page.getByRole("button", { name: "Unread", exact: true }).click();
   await expect(page.locator("a.event-row")).toHaveCount(4);
   void events;
 });

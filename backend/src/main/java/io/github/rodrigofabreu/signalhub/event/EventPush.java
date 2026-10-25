@@ -12,16 +12,28 @@ record EventPush(
     Severity severity,
     UUID producerId,
     PushMessage message,
+    PushMessage answererMessage,
     QuestionState.State question) {
 
   /** The push for the event, whose question (if it asks one) stands as {@code question}. */
-  static EventPush of(EventEntity event, QuestionState.State question) {
+  static EventPush of(EventEntity event, AskView ask, QuestionState.State question) {
     return new EventPush(
         event.category(),
         event.severity(),
         event.producerId(),
         EventPushMessages.of(event),
+        ask == null ? null : EventPushMessages.forAnswerer(event, ask),
         question);
+  }
+
+  /**
+   * What the push says to a user: for a question that is still open and that the user may answer,
+   * the text with the "Tap to answer" line first; the event's usual text otherwise.
+   */
+  PushMessage messageFor(boolean mayAnswer) {
+    return mayAnswer && answererMessage != null && question == QuestionState.State.OPEN
+        ? answererMessage
+        : message;
   }
 
   /**

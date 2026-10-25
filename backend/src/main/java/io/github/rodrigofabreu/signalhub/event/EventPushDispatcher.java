@@ -9,6 +9,7 @@ import io.github.rodrigofabreu.signalhub.producer.ProducerAccess;
 import io.github.rodrigofabreu.signalhub.push.DeliveryReport;
 import io.github.rodrigofabreu.signalhub.push.DeliveryResult;
 import io.github.rodrigofabreu.signalhub.push.PushDelivery;
+import io.github.rodrigofabreu.signalhub.user.NamedUser;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -19,6 +20,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.jboss.logging.Logger;
@@ -149,6 +151,7 @@ class EventPushDispatcher {
       // Only the users subscribed to the event's producer are considered at all: the devices of
       // the others are neither pushed to nor recorded.
       var subscribers = access.subscribers(push.get().producerId());
+      var answerers = answerersOf(push.get());
       var recipients =
           clients.pushRecipients().stream()
               .filter(recipient -> subscribers.contains(recipient.userId()))
@@ -165,7 +168,10 @@ class EventPushDispatcher {
       for (var recipient : recipients) {
         var exclusion = push.get().skippedFor(recipient.preferences());
         if (exclusion.isEmpty()) {
-          var report = delivery.deliver(recipient.clientId(), push.get().message());
+          var report =
+              delivery.deliver(
+                  recipient.clientId(),
+                  push.get().messageFor(answerers.contains(recipient.userId())));
           record(recipient.clientId(), eventId, 1, report);
           results.merge(report.result(), 1, Integer::sum);
           if (report.result() == DeliveryResult.TRANSIENT_FAILURE) {
@@ -185,6 +191,19 @@ class EventPushDispatcher {
           eventId, results, excluded);
     }
     dispatches.complete(eventId, retryClientIds, RETRY_DELAYS.get(0));
+  }
+
+  /** The users who may answer the push's question; none if the event asks nothing. */
+  private Set<UUID> answerersOf(EventPush push) {
+    if (push.messageFor(true) == push.message()) {
+      return Set.of();
+    }
+    return access
+        .whoCanAnswer(List.of(push.producerId()))
+        .getOrDefault(push.producerId(), List.of())
+        .stream()
+        .map(NamedUser::id)
+        .collect(toSet());
   }
 
   /**
@@ -211,7 +230,8 @@ class EventPushDispatcher {
       } else if (exclusion.isPresent()) {
         recordDelivery(
             retry.eventId(), retry.clientId(), attempt, DeliveryOutcome.FILTERED, exclusion.get());
-      } else if (sendAgain(retry, push.get(), attempt)) {
+      } else if (sendAgain(
+          retry, push.get(), attempt, answerersOf(push.get()).contains(recipient.get().userId()))) {
         return;
       }
     }
@@ -219,8 +239,8 @@ class EventPushDispatcher {
   }
 
   /** Sends the retry; true if it failed temporarily again and is to be sent once more later. */
-  private boolean sendAgain(PushRetry retry, EventPush push, int attempt) {
-    var report = delivery.deliver(retry.clientId(), push.message());
+  private boolean sendAgain(PushRetry retry, EventPush push, int attempt, boolean mayAnswer) {
+    var report = delivery.deliver(retry.clientId(), push.messageFor(mayAnswer));
     record(retry.clientId(), retry.eventId(), attempt, report);
     if (report.result() != DeliveryResult.TRANSIENT_FAILURE) {
       LOG.debugf(

@@ -696,8 +696,17 @@ state; a producer that wants longer asks again.
   `OPEN`, the dispatcher and its retries send the event push to no device; the
   skip is recorded as `FILTERED` with the detail `question answered` or
   `question closed`.
-- The app's receiver for notices, and the "Tap to answer" line of the push's
-  text, come with the screens (R82b).
+- **The "Tap to answer" line** is the first line of the push's text, before the
+  shortened message (a line break between them; with no message the body is
+  the line alone), and goes only to devices whose user may answer (the owner
+  and the producer's answerers; read per recipient, so a retry builds it too).
+  It is built from the ask alone: up to 3 single choices are named
+  (*Tap to answer · Merge or Hold*, *… · Restart, Wait or Ignore*); more, or a
+  line that would pass 80 code points, say *… · 7 choices*; a multiple choice
+  says *… · pick one or more*; a typed question says *Tap to answer*. The
+  *Other* row is never named or counted, and a description is never in it.
+  Everyone else, and a question no longer open, gets the event's usual text.
+  The app's receiver for notices comes with the app's screens (R82b).
 
 **Listing.** `GET /api/v1/events?toAnswer=true` lists the open questions the
 caller may answer (read or not; only `true` is accepted; empty for the admin
@@ -1403,7 +1412,7 @@ Every role sees the producers it may and chooses which to receive, under
 
 | Method and path | Result |
 |---|---|
-| `GET /api/v1/client/visible-producers` | The producers the caller's user sees, by name: public ones, their own and private ones they are allowed on, as `{"items": [{"id", "name", "owner": {"id", "name"}, "visibility", "disabled", "subscribed"}]}`. **Never** a key, an allow-list, a role or when the producer last published. |
+| `GET /api/v1/client/visible-producers` | The producers the caller's user sees, by name: public ones, their own and private ones they are allowed on, as `{"items": [{"id", "name", "owner": {"id", "name"}, "visibility", "disabled", "subscribed", "canAnswer"}]}` (`canAnswer`: the caller owns it or is one of its answerers, so an unsubscribed answerer can be told to stay subscribed). **Never** a key, an allow-list, a role or when the producer last published. |
 | `PUT /api/v1/client/visible-producers/{id}/subscription` | Subscribes the user, on all their devices: they receive the producer's events from now on and find its stored ones in their inbox. Idempotent. `404` for a producer they do not see, which looks like one that does not exist. |
 | `DELETE /api/v1/client/visible-producers/{id}/subscription` | Unsubscribes. Idempotent; `404` for a producer they do not see. |
 
@@ -1742,6 +1751,23 @@ admin page uses) are bundled with their licences.
   server would refuse. The routes are hash routes (`#inbox/<id>`,
   `#producers/<id>`, `#settings/devices`), so a reload returns to the same
   place and there is no server fallback.
+- **Questions (R82b, part 1).** An event that asks shows the answer card under
+  its message: the choices as a radio group (one tab stop, arrow keys) or
+  checkboxes, the optional note or the *Other* row, and *Send answer*, the one
+  deliberate step (choosing sends nothing; Enter in a field adds a line; Ctrl+Enter, Cmd+Enter
+  on a Mac, sends as the button does). The card turns into the result without
+  animation (answered by you or someone else, closed by time or by the
+  producer, answered first on a `409`, closed while choosing) or, for a
+  person who may only read, a disabled list. A `403` on sending re-reads the
+  event; the page also re-reads an open event when its tab regains focus and
+  after any `409`. What was typed is kept per event while the page is open.
+  The inbox gains the *Unread* and *To answer* chips (`?toAnswer=1`, the
+  `toAnswer` filter), a line under each question's row in words, and a dot on
+  the rail's Inbox while questions wait and nothing is unread. Producers gain
+  *Who can answer* for the owner (an add-only picker; removal confirmed) and
+  *Stay subscribed to answer* for an unsubscribed owner or answerer
+  (`canAnswer` of the visible producers). Nothing here interprets a question:
+  every label, description, name and note is text.
 - **Decided.** The page polls a sign-in every 1.5 s, which is how it notices a
   cancel. The *Open the app* link is the QR link
   (`signalhub://signin?server=…&code=…`). A sign-out in another tab is noticed

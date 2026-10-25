@@ -2,7 +2,7 @@
 // severity, never on its producer.
 
 export const CATEGORIES = [
-  { value: "ACTION_REQUIRED", label: "Action required", glyph: "pan_tool" },
+  { value: "ACTION_REQUIRED", label: "Action required", glyph: "pending_actions" },
   { value: "BLOCKED", label: "Blocked", glyph: "block" },
   { value: "COMPLETED", label: "Completed", glyph: "check_circle" },
   { value: "INFO", label: "Info", glyph: "info" },

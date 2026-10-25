@@ -194,6 +194,7 @@ class EventService {
             event ->
                 EventPush.of(
                     event,
+                    event.ask() == null ? null : questions.read(event.ask()),
                     event.ask() == null ? null : questions.stateOf(event, Instant.now()).state()));
   }
 

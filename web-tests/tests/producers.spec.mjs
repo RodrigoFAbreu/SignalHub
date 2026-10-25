@@ -36,7 +36,7 @@ test("creating a producer shows its key once, in a dialog, and the producer open
 
   await expect(page).toHaveURL(/#producers\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { name, level: 2, exact: true })).toBeVisible();
-  await expect(page.getByText("Only you")).toBeVisible();
+  await expect(page.getByText("Only you", { exact: true })).toBeVisible();
   // The key is never shown again: only its prefix is. (The dialog is gone first: it is still
   // in the page while it closes.)
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -211,7 +211,7 @@ test("an owner renames, changes who can see it, adds and removes people, and man
 
   // Who can see it: Private to start; add a person, then make it public and private again.
   await expect(page.getByRole("radio", { name: "Private" })).toBeChecked();
-  await page.getByRole("button", { name: "Add people" }).click();
+  await page.getByRole("button", { name: "Add people", exact: true }).click();
   const add = page.getByRole("dialog", { name: "Add people" });
   await add.getByRole("button", { name: `Add ${friend.name}` }).click();
   await expect(add.getByRole("button", { name: `Added ${friend.name}` })).toBeDisabled();
@@ -226,7 +226,7 @@ test("an owner renames, changes who can see it, adds and removes people, and man
   await expect(page.getByText("Shared with 1 person")).toBeVisible();
   await page.getByRole("button", { name: `Remove ${friend.name}` }).click();
   await page.getByRole("dialog", { name: `Remove ${friend.name}?` }).getByRole("button", { name: "Remove" }).click();
-  await expect(page.getByText("Only you")).toBeVisible();
+  await expect(page.getByText("Only you", { exact: true })).toBeVisible();
 
   // Keys: a second key is shown once; revoking the first asks, for good.
   await page.getByRole("button", { name: "New key" }).click();

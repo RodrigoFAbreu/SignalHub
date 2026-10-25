@@ -8,6 +8,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.github.rodrigofabreu.signalhub.TestClients;
 import io.github.rodrigofabreu.signalhub.TestProducers;
@@ -62,6 +63,26 @@ class ProducerAnswerersApiTest {
         .get(PRODUCERS + "/" + scene.producer().id())
         .then()
         .statusCode(200);
+  }
+
+  private static Object canAnswer(Scene scene, TestClients.Registered device) {
+    return asClient(device.clientKey())
+        .get("/api/v1/client/visible-producers")
+        .then()
+        .statusCode(200)
+        .extract()
+        .path("items.find { it.id == '" + scene.producer().id() + "' }.canAnswer");
+  }
+
+  @Test
+  void theVisibleProducersSayWhetherTheCallerMayAnswerThem() {
+    var scene = scene("PUBLIC");
+
+    assertEquals(true, canAnswer(scene, scene.owner()));
+    assertEquals(false, canAnswer(scene, scene.anaDevice()));
+
+    nameAnswerer(scene).statusCode(200);
+    assertEquals(true, canAnswer(scene, scene.anaDevice()));
   }
 
   @Test

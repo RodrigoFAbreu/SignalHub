@@ -7,15 +7,17 @@ import { CATEGORIES, SEVERITIES, categoryOf, severityLabel, toneOf } from "./eve
 import { clock, rowTime, timestamp } from "./format.js";
 import { chip, paneHeader, selectPrompt } from "./parts.js";
 import { go, hashFor, parseHash } from "./router.js";
-import { setUnread, state } from "./state.js";
+import { answerCard, disposeQuestion, lineNode, questionLine, signature } from "./question.js";
+import { setToAnswer, setUnread, state } from "./state.js";
 import { announce, bannerSlot, button, emptyState, hideBanner, iconButton, openDialog, setBusy, showBanner, skeletonRows, spinner, banner } from "./ui.js";
 
 const PAGE = 50;
 
-/** The filter in the address: `?unread=1&producer=ID&category=INFO&severity=HIGH`. */
+/** The filter in the address: `?unread=1&toAnswer=1&producer=ID&category=INFO&severity=HIGH`. */
 export function readFilter(query) {
   return {
     unread: query.get("unread") === "1",
+    toAnswer: query.get("toAnswer") === "1",
     producers: query.getAll("producer"),
     categories: query.getAll("category").filter((value) => CATEGORIES.some((c) => c.value === value)),
     severities: query.getAll("severity").filter((value) => SEVERITIES.some((s) => s.value === value)),
@@ -25,6 +27,7 @@ export function readFilter(query) {
 function filterQuery(filter) {
   const query = new URLSearchParams();
   if (filter.unread) query.set("unread", "1");
+  if (filter.toAnswer) query.set("toAnswer", "1");
   for (const id of filter.producers) query.append("producer", id);
   for (const value of filter.categories) query.append("category", value);
   for (const value of filter.severities) query.append("severity", value);
@@ -34,11 +37,13 @@ function filterQuery(filter) {
 const isActive = (filter) => filter.unread || narrows(filter);
 // Marking everything read up to an event would mark events the person cannot see, so it is
 // off while a filter leaves some out by what they are.
-const narrows = (filter) => filter.producers.length || filter.categories.length || filter.severities.length;
+// The To answer chip narrows too: it leaves out events the person may read but not answer.
+const narrows = (filter) => filter.toAnswer || filter.producers.length || filter.categories.length || filter.severities.length;
 
 function admits(filter, event) {
   return (
     (!filter.unread || !event.readAt) &&
+    (!filter.toAnswer || (event.answerState === "OPEN" && event.canAnswer)) &&
     (!filter.producers.length || filter.producers.includes(event.producer.id)) &&
     (!filter.categories.length || filter.categories.includes(event.category)) &&
     (!filter.severities.length || filter.severities.includes(event.severity))
@@ -49,6 +54,7 @@ function listQuery(filter, cursor) {
   const query = new URLSearchParams({ limit: String(PAGE) });
   if (cursor) query.set("cursor", cursor);
   if (filter.unread) query.set("read", "false");
+  if (filter.toAnswer) query.set("toAnswer", "true");
   for (const id of [...filter.producers].sort()) query.append("producerId", id);
   for (const value of [...filter.categories].sort()) query.append("category", value);
   for (const value of [...filter.severities].sort()) query.append("severity", value);
@@ -80,8 +86,9 @@ export function mountInbox(container, route, { wide }) {
 
   const listHost = el("div", { class: "list-host" });
   const filterBar = el("div", { class: "filter-bar" });
+  const chipBar = el("div", { class: "fchips", role: "group", "aria-label": "Show" });
   const header = el("div", { class: "head-host" });
-  const listPane = el("section", { class: "listp", "aria-label": "Events" }, header, filterBar, bannerSlot(), listHost);
+  const listPane = el("section", { class: "listp", "aria-label": "Events" }, header, chipBar, filterBar, bannerSlot(), listHost);
   const detail = el("section", { class: "detp", "aria-label": "Event" });
   container.className = `main${selected ? " has-detail" : ""}`;
   replace(container, listPane, detail);
@@ -99,8 +106,27 @@ export function mountInbox(container, route, { wide }) {
     replace(header, paneHeader({ title: wide ? "Inbox" : "SignalHub", actions: [filterButton, markAll], account: !wide }));
   }
 
+  // Unread and To answer: the only chips of the inbox. They are hidden while the inbox has no
+  // events and no filter is on, and To answer only while it has a count or is on.
+  function paintChips() {
+    const empty = phase === "ready" && !events.length && !nextCursor && !isActive(filter);
+    chipBar.hidden = empty || phase === "failed";
+    const change = (next) => go(hashFor(selected ? ["inbox", selected] : ["inbox"], filterQuery(next)));
+    const nodes = [chip({ label: "Unread", on: filter.unread, onClick: () => change({ ...filter, unread: !filter.unread }) })];
+    const count = state.toAnswer ?? 0;
+    if (count > 0 || filter.toAnswer) {
+      const node = chip({ label: "To answer", on: filter.toAnswer, onClick: () => change({ ...filter, toAnswer: !filter.toAnswer }) });
+      if (count > 0) {
+        node.append(el("b", { class: "fc-count", "aria-hidden": "true", text: String(count) }));
+        node.setAttribute("aria-label", `To answer, ${count}`);
+      }
+      nodes.push(node);
+    }
+    replace(chipBar, ...nodes);
+  }
+
   function paintFilterBar() {
-    if (!isActive(filter)) {
+    if (!narrows(filter)) {
       clear(filterBar);
       filterBar.hidden = true;
       return;
@@ -108,7 +134,6 @@ export function mountInbox(container, route, { wide }) {
     filterBar.hidden = false;
     const chips = [];
     const change = (next) => go(hashFor(selected ? ["inbox", selected] : ["inbox"], filterQuery(next)));
-    if (filter.unread) chips.push(chip({ label: "Unread", on: true, remove: () => change({ ...filter, unread: false }) }));
     for (const id of filter.producers) {
       chips.push(chip({ label: producerNames.get(id) ?? "Producer", on: true, remove: () => change({ ...filter, producers: filter.producers.filter((p) => p !== id) }) }));
     }
@@ -118,7 +143,7 @@ export function mountInbox(container, route, { wide }) {
     for (const value of filter.severities) {
       chips.push(chip({ label: severityLabel(value), on: true, remove: () => change({ ...filter, severities: filter.severities.filter((s) => s !== value) }) }));
     }
-    replace(filterBar, ...chips, button("Clear", { kind: "text", onClick: () => change({ unread: false, producers: [], categories: [], severities: [] }) }));
+    replace(filterBar, ...chips, button("Clear", { kind: "text", onClick: () => change({ unread: false, toAnswer: false, producers: [], categories: [], severities: [] }) }));
   }
 
   // ---- The list -------------------------------------------------------------------------
@@ -126,6 +151,7 @@ export function mountInbox(container, route, { wide }) {
   function eventRow(event) {
     const unread = !event.readAt;
     const category = categoryOf(event.category);
+    const line = questionLine(event);
     return el(
       "li",
       { data: { id: event.id } },
@@ -144,6 +170,7 @@ export function mountInbox(container, route, { wide }) {
             webLink(event.link) ? icon("link", "ms16 c-var link-ic") : null,
             el("span", { class: "when", text: rowTime(event.createdAt) }),
           ),
+          line ? lineNode(line) : null,
         ),
         unread ? el("span", { class: "dot", role: "img", "aria-label": "Unread" }) : el("span", { class: "nodot" }),
       ),
@@ -187,6 +214,14 @@ export function mountInbox(container, route, { wide }) {
   }
 
   function emptyInbox() {
+    if (filter.toAnswer && !filter.unread && !narrowsOtherThanAnswer()) {
+      return emptyState({
+        glyph: "task_alt",
+        title: "Nothing to answer",
+        body: "Questions you can answer show up here until someone answers them or they close.",
+        action: button("Show all events", { kind: "tonal", onClick: () => go(selected ? hashFor(["inbox", selected], filterQuery({ ...filter, toAnswer: false })) : hashFor(["inbox"], filterQuery({ ...filter, toAnswer: false }))) }),
+      });
+    }
     if (isActive(filter)) {
       return emptyState({
         glyph: "filter_list_off",
@@ -201,6 +236,8 @@ export function mountInbox(container, route, { wide }) {
       action: button("Find producers", { kind: "tonal", onClick: () => go("#producers") }),
     });
   }
+
+  const narrowsOtherThanAnswer = () => filter.producers.length || filter.categories.length || filter.severities.length;
 
   function onListKey(event) {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
@@ -249,6 +286,7 @@ export function mountInbox(container, route, { wide }) {
     }
     paintProblem();
     paintHeader();
+    paintChips();
     paintList();
     refreshUnread();
   }
@@ -286,10 +324,12 @@ export function mountInbox(container, route, { wide }) {
 
   async function refreshUnread() {
     try {
-      const { unread } = await calls.unreadCount();
+      const { unread, toAnswer } = await calls.unreadCount();
       if (!gone) {
         setUnread(unread);
+        setToAnswer(toAnswer ?? 0);
         paintHeader();
+        paintChips();
       }
     } catch {
       // The banner already says what is wrong; the badge keeps its last number.
@@ -323,7 +363,7 @@ export function mountInbox(container, route, { wide }) {
   }
 
   function editFilter() {
-    const draft = { unread: filter.unread, producers: [...filter.producers], categories: [...filter.categories], severities: [...filter.severities] };
+    const draft = { unread: filter.unread, toAnswer: filter.toAnswer, producers: [...filter.producers], categories: [...filter.categories], severities: [...filter.severities] };
     const toggled = (list, value) => (list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
     const body = el("div", { class: "filter-sheet" });
     const paint = () => {
@@ -400,6 +440,49 @@ export function mountInbox(container, route, { wide }) {
     if (!events.length && !nextCursor) paintList();
   }
 
+  // What the answer card tells the screen: a new state of the event (for the list and the counts), a
+  // fresh read of it, and that it is gone.
+  function cardHooks(event) {
+    return {
+      changed(changed) {
+        current = changed;
+        replaceInList(changed);
+        refreshUnread();
+      },
+      reread: () => reread(event.id),
+      gone() {
+        paintDetail(null, "missing");
+        load(true);
+      },
+    };
+  }
+
+  // Reads the open event again without disturbing what is typed: the screen is painted again only
+  // if the state of its question changed.
+  async function reread(id) {
+    let fresh;
+    try {
+      fresh = await calls.event(id);
+    } catch (error) {
+      if (gone || error instanceof SessionEnded) return null;
+      if (error instanceof ApiError && error.status === 404 && selected === id) {
+        paintDetail(null, "missing");
+        load(true);
+      }
+      return null;
+    }
+    if (gone || selected !== id) return fresh;
+    if (current?.id === id && signature(fresh) !== signature(current)) {
+      current = fresh;
+      replaceInList(fresh);
+      refreshUnread();
+      paintDetail(fresh);
+    } else {
+      current = fresh;
+    }
+    return fresh;
+  }
+
   function detailBody(event) {
     const category = categoryOf(event.category);
     const field = (name, value, className = "") => [el("b", { text: name }), el("span", { class: className, text: value })];
@@ -418,6 +501,7 @@ export function mountInbox(container, route, { wide }) {
       el("h2", { class: "h", text: event.title }),
       el("div", { class: "chips" }, el("span", { class: "chip" }, icon(category.glyph), category.label), el("span", { class: "chip" }, icon("priority_high", toneOf(event.severity)), severityLabel(event.severity))),
       event.message ? el("p", { class: "body", text: event.message }) : null,
+      event.ask ? answerCard(event, cardHooks(event)) : null,
       link ? el("div", {}, el("a", { class: "btn btn-t", href: link, target: "_blank", rel: "noopener noreferrer" }, icon("open_in_new"), el("span", { class: "btn-label", text: "Open link" }))) : null,
       el("div", { class: "kv" }, rows),
       metadata ? el("div", { class: "metadata-block" }, el("div", { class: "lab", text: "Metadata" }), el("pre", { class: "metadata mono", text: JSON.stringify(metadata, null, 2) })) : null,
@@ -425,6 +509,7 @@ export function mountInbox(container, route, { wide }) {
   }
 
   function paintDetail(event, status = "ready") {
+    disposeQuestion();
     if (!selected) {
       replace(detail, wide ? selectPrompt("inbox", "Select an event", "Pick one from the list to read it here.") : null);
       return;
@@ -486,6 +571,7 @@ export function mountInbox(container, route, { wide }) {
   // ---- Public ---------------------------------------------------------------------------
 
   paintHeader();
+  paintChips();
   paintFilterBar();
   paintDetail(null);
   paintList();
@@ -502,6 +588,7 @@ export function mountInbox(container, route, { wide }) {
       selected = nextSelected;
       container.className = `main${selected ? " has-detail" : ""}`;
       paintHeader();
+      paintChips();
       paintFilterBar();
       if (filterChanged) {
         events = [];
@@ -522,10 +609,12 @@ export function mountInbox(container, route, { wide }) {
       }
     },
     refresh() {
-      return load(true);
+      // The tab came back or the page is current again: the list, and an open question's state.
+      return Promise.all([load(true), selected && current?.ask ? reread(selected) : null]);
     },
     unmount() {
       gone = true;
+      disposeQuestion();
       observer?.disconnect();
       clearTimeout(retryTimer);
       hideBanner("inbox");
