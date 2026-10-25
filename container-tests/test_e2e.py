@@ -160,7 +160,11 @@ class PushEndToEnd(StackTestCase):
                     "path": "/v1/projects/signalhub-e2e/messages:send",
                     "message": {
                         "token": self.phone_token,
-                        "android": {"priority": "HIGH"},
+                        # The tag is the event's ID: a later push for it replaces the card.
+                        "android": {
+                            "priority": "HIGH",
+                            "notification": {"tag": self.high_id},
+                        },
                         "notification": {
                             "title": "Approve the deployment",
                             "body": "Production is waiting.",
