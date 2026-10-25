@@ -41,6 +41,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         configureShareChannel(flutterEngine)
+        configureNotificationsChannel(flutterEngine)
         linksChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LINKS_CHANNEL)
             .also { channel ->
                 channel.setMethodCallHandler { call, result ->
@@ -120,6 +121,19 @@ class MainActivity : FlutterActivity() {
             }
     }
 
+    // An answered question's notification (lib/src/push/event_notifications.dart).
+    private fun configureNotificationsChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NOTIFICATIONS_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method != "remove") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                PushAlertReceiver.removeEventNotification(this, call.arguments as String)
+                result.success(null)
+            }
+    }
+
     // Opening the app, or a notification, which opens it, ends a long alert.
     override fun onResume() {
         super.onResume()
@@ -131,5 +145,6 @@ class MainActivity : FlutterActivity() {
         const val SHARE_CHANNEL = "io.github.rodrigofabreu.signalhub/share"
         const val LINKS_CHANNEL = "io.github.rodrigofabreu.signalhub/links"
         const val APP_CHANNEL = "io.github.rodrigofabreu.signalhub/app"
+        const val NOTIFICATIONS_CHANNEL = "io.github.rodrigofabreu.signalhub/notifications"
     }
 }

@@ -1930,7 +1930,13 @@ a confirmation, and *Add people who can answer*, which offers only those who can
 for its owner, and *Stay subscribed to answer* for an owner or answerer who unsubscribed
 (`canAnswer` on the visible producers). On Android, the receiver of every push also takes the
 notification of an event off the shade on an `answered`, `closed` or `deleted` data-only notice,
-by the event's ID as tag; the app re-reads the inbox on the same notice.
+by the event's ID as tag; the app re-reads the inbox on the same notice. The answering device gets
+no notice, so once its answer is accepted (`200`) the app removes that notification itself, through
+the activity's `notifications` channel and the same tag, however the event was opened (R84). In the
+foreground a notice also reaches the app (`onMessage`): an open event screen for that event reads
+it again and shows its current state, with the *answered first* or *closed while you were choosing*
+words of a `409` when something was picked or typed, or that the event is gone; in the background
+the re-read on resume covers it.
 
 **Status** reads `/q/info`, `/q/health`, `/api/v1/admin/status` (its `startedAt` is *Running since*),
 the device list and the newest event, and says *SignalHub needs attention* when the database is

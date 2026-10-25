@@ -32,6 +32,7 @@ class AppHarness {
           backend.api(credentials.baseUrl, credentials.clientKey),
       redeemPairing: backend.redeemPairing,
       push: push,
+      removeNotification: (eventId) async => removedNotifications.add(eventId),
     );
   }
 
@@ -47,6 +48,9 @@ class AppHarness {
 
   /// The links the app handed to the platform.
   final openedLinks = <Uri>[];
+
+  /// The events whose notification the app took off the phone, in order.
+  final removedNotifications = <String>[];
 
   /// Opens the app on a device that is already set up, and lets the first
   /// reads finish. Pass [connected] `false` to stop at setup.

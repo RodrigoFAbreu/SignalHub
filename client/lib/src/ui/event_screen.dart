@@ -38,6 +38,7 @@ class EventScreen extends StatefulWidget {
     this.myUserId,
     this.answer,
     this.reload,
+    this.questionEnded,
     this.now = DateTime.now,
   });
 
@@ -69,6 +70,10 @@ class EventScreen extends StatefulWidget {
   /// Reads the event from the server again, for a question that may have
   /// been answered or closed meanwhile.
   final Future<Event> Function()? reload;
+
+  /// Each notice, while the app is open, that the event's question was
+  /// answered or closed, or the event deleted: the card reads it again.
+  final Stream<void>? questionEnded;
 
   /// The clock, for a question's closing time; tests replace it.
   final DateTime Function() now;
@@ -261,6 +266,7 @@ class _EventScreenState extends State<EventScreen> with WidgetsBindingObserver {
                 onState: _questionState,
                 onRead: _follow,
                 reread: _refresh,
+                ended: widget.questionEnded,
                 now: widget.now,
                 onGone: () => setState(() => _gone = true),
               ),

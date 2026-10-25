@@ -44,7 +44,7 @@ class PushAlertReceiver : BroadcastReceiver() {
     private fun removesNotification(context: Context, extras: Bundle): Boolean {
         if (extras.getString("notice") !in REMOVING_NOTICES) return false
         val eventId = extras.getString("eventId") ?: return true
-        context.getSystemService(NotificationManager::class.java).cancel(eventId, FCM_NOTIFICATION_ID)
+        removeEventNotification(context, eventId)
         return true
     }
 
@@ -83,5 +83,15 @@ class PushAlertReceiver : BroadcastReceiver() {
 
         /** The ID Firebase gives a notification it builds for a push. */
         const val FCM_NOTIFICATION_ID = 0
+
+        /**
+         * Removes the notification of the event [eventId], if it is shown:
+         * here on a notice, and from the app once its own answer is
+         * accepted, which the server sends no notice for.
+         */
+        fun removeEventNotification(context: Context, eventId: String) {
+            context.getSystemService(NotificationManager::class.java)
+                .cancel(eventId, FCM_NOTIFICATION_ID)
+        }
     }
 }
