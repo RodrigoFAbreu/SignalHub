@@ -93,6 +93,53 @@ they are; the server decides.
 Other options: `--url`, `--api-key-file PATH`, `--timeout SECONDS`
 (default 10) and `--json`.
 
+### Asking a question
+
+`send` can make the event a question that the people allowed to answer it
+(the producer's owner and its answerers) answer in their client. The options
+below describe it; none of them is needed for an ordinary event.
+
+| Option | Question field |
+|---|---|
+| `--choice [ID=]LABEL` | one of `choices`, repeatable. Without `ID=`, the id is derived from the label: lower case, accents removed, runs of other characters become `-` (`Merge now!` is `merge-now`), `choice-N` if nothing is left, `-2`, `-3` on a collision. |
+| `--choice-description ID=TEXT` | the `description` shown under a choice's label (by its id, derived or given); repeatable |
+| `--multiple` | `multiple`: pick one or more (needs two or more choices) |
+| `--text optional\|required` | `text`: the answer takes typed text; alone, a typed question |
+| `--text-style note\|other` | `textStyle`: the text is a note beside the choice (default), or an *Other* row picked instead of a choice |
+| `--closes-in DURATION` | `closesAt`: a number and `s`, `m`, `h` or `d` (at most `30d`), e.g. `2h` |
+
+```sh
+id=$(signalhub send --category ACTION_REQUIRED --severity HIGH \
+  --title "Deploy build 1842 to production?" \
+  --choice deploy=Deploy --choice-description "deploy=Tests passed on main" \
+  --choice hold=Hold --closes-in 2h) || exit
+
+signalhub wait-answer "$id" --timeout 30m     # prints the chosen ids, one per line
+case $? in 0) ;; 5) echo closed ;; 6) echo "no answer" ;; esac
+```
+
+`signalhub wait-answer EVENT_ID [--timeout DURATION] [--json]` waits until
+the question is answered or closed. It prints the chosen choice ids, one per
+line, then, when there is text, an empty line and the text (ids are never
+empty, so the empty line tells them apart); `--json` prints the question's
+state instead (`state`, `answer`, and for a closed one `closedBy`, `closedAt`
+and `closeNote`). `signalhub close-question EVENT_ID [--note TEXT]` closes a
+question that was answered somewhere else, such as a session the event links
+to. Both use the producer's key and only reach its own events.
+
+| Command | Status | Meaning |
+|---|---|---|
+| `wait-answer` | `0` | Answered. |
+| | `5` | Closed, by its time or by the producer. |
+| | `6` | Its own `--timeout` passed (there is no default: it waits for ever). |
+| | `1` | The event is gone, or not this producer's. |
+| `close-question` | `0` | Closed, also if it was closed already, even by its time. |
+| | `7` | Someone answered first; their answer is printed as `wait-answer` prints it. |
+
+Both also exit `2` for a usage error and `3` for a temporary failure, as
+`send` does. `wait-answer` keeps trying through temporary errors (an upgrade
+restarting the backend) until its timeout.
+
 ### Exit status
 
 | Status | Meaning | Sending again |
@@ -165,6 +212,38 @@ subclasses:
 | `AuthenticationError` | `401`: the key is invalid or revoked, or its producer is disabled. |
 | `RequestError` | Any other error status; `status` holds it, and `temporary` is true for `429` and `5xx`. The two errors above are subclasses. |
 | `UnreachableError` | No answer: connection refused, DNS failure, TLS error, or timeout. |
+
+### Asking in the library
+
+```python
+from signalhub import Ask, Choice, QuestionAnsweredError
+
+event = hub.publish(
+    category="ACTION_REQUIRED",
+    severity="HIGH",
+    title="Deploy build 1842 to production?",
+    ask=Ask(
+        [Choice("deploy", "Deploy", description="Tests passed on main"), Choice("hold", "Hold")],
+        multiple=False,           # sent only when given, like text, text_style and closes_at
+        text="optional",          # "none", "optional" or "required" typed text
+        text_style="note",        # or "other"
+        closes_at=datetime.now(timezone.utc) + timedelta(hours=2),
+    ),
+)
+state = hub.wait_answer(event["id"], timeout=1800)   # None: no limit
+if state["state"] == "ANSWERED":
+    print(state["answer"]["choices"], state["answer"]["text"])
+```
+
+`wait_answer` repeats 60 second held reads until the question is answered or
+closed, or `timeout` seconds pass (it then returns the last state, still
+`OPEN`). A read that comes back `OPEN` in under 5 seconds is followed by a
+pause of 5 seconds, and a temporary error is retried after 5 seconds until
+the timeout; a `404` is raised at once. `read_answer(id, wait=0)` is one
+read. `close_question(id, note=None)` returns the state, or raises
+`QuestionAnsweredError`, whose `state` holds the answer someone gave first.
+The state is the JSON of
+[`GET /api/v1/events/{id}/answer`](../../docs/architecture.md#answering-an-event).
 
 A timestamp without an offset raises `ValueError` before anything is sent,
 as SignalHub rejects it as ambiguous, and so does an idempotency key that is

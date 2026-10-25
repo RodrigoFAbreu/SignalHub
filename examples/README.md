@@ -15,6 +15,7 @@ supported products.
 | [`github-actions/notify-on-failure.yml`](github-actions/notify-on-failure.yml) | GitHub Actions | `BLOCKED`/`HIGH` when a workflow run fails | a workflow, `curl`, `jq` |
 | [`coding-agent/agent_hook.py`](coding-agent/agent_hook.py) | a coding agent (Claude Code hooks) | `ACTION_REQUIRED`/`HIGH` when the agent waits for the owner, `COMPLETED`/`NORMAL` when it finishes | the Python package |
 | [`usage-threshold/usage_threshold.py`](usage-threshold/usage_threshold.py) | a quota, budget or data-plan meter | `ACTION_REQUIRED`/`HIGH` at a warning level, `BLOCKED`/`CRITICAL` at the limit, once each | the Python package |
+| [`ask-to-continue/ask_to_continue.py`](ask-to-continue/ask_to_continue.py) | a script that must not go on without a person (a deploy, a clean-up) | `ACTION_REQUIRED`/`HIGH` with a question, then waits for the answer | the Python package |
 
 Each example maps its own states onto the generic `category` and
 `severity`, names what it is about in `context` (a host, repository or
@@ -151,6 +152,23 @@ period), the next crossing notifies again. The state file is only updated
 after a successful publish, so a failed one is tried again on the next run.
 Exit statuses follow the `signalhub` command: `1` rejected, `2` usage or
 configuration error, `3` temporary failure.
+
+## Asking: wait for a person's answer
+
+```sh
+examples/ask-to-continue/ask_to_continue.py --title "Deploy build 1842 to production?" \
+  --choice deploy=Deploy --choice hold=Hold --wait 30m && ./deploy.sh
+```
+
+It publishes the question as an event with an `ask`, so the producer's owner
+(and the users the owner named as answerers) can answer it in the app or on
+the web page, then waits with `wait_answer` and prints the chosen choice IDs,
+one per line. It exits `0` when answered, `5` when the question was closed,
+and `6` when nobody answered within `--wait`, in which case it closes the
+question (`close_question`) so it does not linger in the inbox. Exit statuses
+`1`, `2` and `3` follow the `signalhub` command. The script should check the
+line it printed (`deploy` or `hold`), not only the exit status. See
+[Answering an event](../docs/architecture.md#answering-an-event).
 
 ## Tests
 

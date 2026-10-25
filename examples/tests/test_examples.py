@@ -29,19 +29,36 @@ class FakeEvents:
     def __init__(self, test: unittest.TestCase) -> None:
         self.requests: list[dict[str, Any]] = []
         self.status = 201
+        # What reading an answer returns, in turn; closing answers `closed`.
+        self.answers: list[tuple[int, dict[str, Any]]] = []
+        self.closed = {"state": "CLOSED", "closedBy": "PRODUCER"}
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                fake.requests.append(
+                    {"path": self.path, "headers": dict(self.headers), "body": None}
+                )
+                status, answer = fake.answers.pop(0)
+                self._send(status, answer)
+
             def do_POST(self) -> None:
-                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length)) if length else None
                 fake.requests.append(
                     {"path": self.path, "headers": dict(self.headers), "body": body}
                 )
+                if self.path.endswith("/answer/close"):
+                    self._send(200, fake.closed)
+                    return
                 answer = dict(body, id="0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b")
                 if fake.status != 201:
                     answer = {"title": "Error", "status": fake.status}
+                self._send(fake.status, answer)
+
+            def _send(self, status: int, answer: dict[str, Any]) -> None:
                 text = json.dumps(answer).encode("utf-8")
-                self.send_response(fake.status)
+                self.send_response(status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(text)))
                 self.end_headers()
@@ -59,9 +76,17 @@ class FakeEvents:
     @property
     def events(self) -> list[dict[str, Any]]:
         for request in self.requests:
-            assert request["path"] == "/api/v1/events", request["path"]
+            assert request["path"].startswith("/api/v1/events"), request["path"]
             assert request["headers"]["Authorization"] == f"Bearer {KEY}"
-        return [request["body"] for request in self.requests]
+        return [
+            request["body"]
+            for request in self.requests
+            if request["path"] == "/api/v1/events"
+        ]
+
+    def paths(self) -> list[str]:
+        """Every request's path, to see what a question did besides publishing."""
+        return [request["path"] for request in self.requests]
 
 
 class ExampleTest(unittest.TestCase):
@@ -336,6 +361,76 @@ class UsageThresholdTest(ExampleTest):
         self.server.status = 401
 
         self.assertEqual(self.check("9000").returncode, 1)
+
+
+class AskToContinueTest(ExampleTest):
+    script = str(EXAMPLES / "ask-to-continue" / "ask_to_continue.py")
+    event = "0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"
+
+    def ask(self, *extra: str) -> subprocess.CompletedProcess[str]:
+        return self.run_example(
+            sys.executable,
+            self.script,
+            "--title=Deploy build 1842?",
+            "--context=shop",
+            "--choice=deploy=Deploy",
+            "--choice=hold=Hold",
+            *extra,
+        )
+
+    def test_asks_the_question_and_prints_the_answer(self) -> None:
+        self.server.answers.append(
+            (
+                200,
+                {"state": "ANSWERED", "answer": {"choices": ["deploy"], "text": None}},
+            )
+        )
+
+        result = self.ask()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "deploy\n")
+        [event] = self.server.events
+        self.assertEqual(event["category"], "ACTION_REQUIRED")
+        self.assertEqual(event["severity"], "HIGH")
+        self.assertEqual(event["title"], "Deploy build 1842?")
+        self.assertEqual(
+            event["ask"]["choices"],
+            [{"id": "deploy", "label": "Deploy"}, {"id": "hold", "label": "Hold"}],
+        )
+        self.assertEqual(
+            self.server.paths(),
+            ["/api/v1/events", f"/api/v1/events/{self.event}/answer?wait=60"],
+        )
+
+    def test_a_closed_question_exits_5(self) -> None:
+        self.server.answers.append((200, self.server.closed))
+
+        result = self.ask()
+
+        self.assertEqual(result.returncode, 5)
+        self.assertEqual(result.stdout, "")
+
+    def test_closes_the_question_when_nobody_answers_in_time(self) -> None:
+        self.server.answers.append((200, {"state": "OPEN"}))
+
+        result = self.ask("--wait=1s")
+
+        self.assertEqual(result.returncode, 6)
+        self.assertEqual(
+            self.server.paths()[-1], f"/api/v1/events/{self.event}/answer/close"
+        )
+        self.assertEqual(
+            self.server.requests[-1]["body"], {"note": "Nobody answered in time"}
+        )
+
+    def test_a_rejected_question_exits_1(self) -> None:
+        self.server.status = 400
+
+        result = self.ask()
+
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(self.server.paths(), ["/api/v1/events"])
 
 
 if __name__ == "__main__":

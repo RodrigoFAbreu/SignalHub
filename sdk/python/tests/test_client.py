@@ -8,9 +8,12 @@ from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 from signalhub import (
+    Ask,
     AuthenticationError,
     Category,
+    Choice,
     ConfigurationError,
+    QuestionAnsweredError,
     RequestError,
     Severity,
     SignalHub,
@@ -18,6 +21,7 @@ from signalhub import (
     UnreachableError,
     ValidationError,
     Violation,
+    derive_choice_ids,
 )
 
 from tests.fake_server import start
@@ -346,3 +350,278 @@ class ConfigurationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+QUESTION = {"choices": [{"id": "merge", "label": "Merge"}], "multiple": False}
+OPEN = {"state": "OPEN", "answer": None}
+ANSWERED = {
+    "state": "ANSWERED",
+    "answer": {"choices": ["merge"], "text": None, "by": {"id": "u", "name": "Ana"}},
+}
+CLOSED = {"state": "CLOSED", "closedBy": "PRODUCER", "closeNote": "elsewhere"}
+EVENT_ID = "0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"
+
+
+class AskTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.server = start(self)
+        self.hub = SignalHub(self.server.url, KEY)
+
+    def publish(self, ask: object) -> dict:
+        return self.hub.publish(
+            category="action-required", severity="high", title="Merge it?", ask=ask
+        )
+
+    def test_publishes_a_question_with_only_what_was_given(self) -> None:
+        self.publish(
+            Ask([Choice("merge", "Merge", "Squash now"), Choice("hold", "Hold")])
+        )
+
+        self.assertEqual(
+            self.server.requests[0]["body"]["ask"],
+            {
+                "choices": [
+                    {"id": "merge", "label": "Merge", "description": "Squash now"},
+                    {"id": "hold", "label": "Hold"},
+                ]
+            },
+        )
+
+    def test_sends_multiple_text_style_and_closing_time_when_given(self) -> None:
+        closes = datetime(2026, 10, 17, 9, 0, tzinfo=timezone.utc)
+
+        self.publish(
+            Ask(
+                [Choice("a", "A"), Choice("b", "B")],
+                multiple=True,
+                text="optional",
+                text_style="other",
+                closes_at=closes,
+            )
+        )
+
+        ask = self.server.requests[0]["body"]["ask"]
+        self.assertIs(ask["multiple"], True)
+        self.assertEqual(ask["text"], "OPTIONAL")
+        self.assertEqual(ask["textStyle"], "OTHER")
+        self.assertEqual(ask["closesAt"], "2026-10-17T09:00:00+00:00")
+
+    def test_a_closing_time_needs_an_offset(self) -> None:
+        with self.assertRaisesRegex(ValueError, "closes_at must be timezone-aware"):
+            self.publish(Ask(closes_at=datetime(2026, 10, 17, 9, 0)))  # noqa: DTZ001
+
+    def test_a_question_given_as_json_is_sent_as_it_is(self) -> None:
+        self.publish({"text": "REQUIRED"})
+
+        self.assertEqual(self.server.requests[0]["body"]["ask"], {"text": "REQUIRED"})
+
+    def test_derives_the_ids_of_choices_that_have_none(self) -> None:
+        ids = derive_choice_ids(
+            [
+                Choice(None, "Merge now!"),
+                Choice(None, "Ação  Rápida"),
+                Choice(None, "???"),
+                Choice(None, "merge NOW"),
+                Choice("explicit", "Explicit"),
+                Choice(None, "x" * 100),
+            ]
+        )
+
+        self.assertEqual(
+            ids,
+            [
+                "merge-now",
+                "acao-rapida",
+                "choice-3",
+                "merge-now-2",
+                "explicit",
+                "x" * 60,
+            ],
+        )
+
+    def test_a_derived_id_avoids_an_explicit_one(self) -> None:
+        self.assertEqual(
+            derive_choice_ids([Choice(None, "Hold"), Choice("hold", "Wait")]),
+            ["hold-2", "hold"],
+        )
+
+    def test_an_event_without_a_question_sends_no_ask(self) -> None:
+        self.publish(None)
+
+        self.assertNotIn("ask", self.server.requests[0]["body"])
+
+
+class AnswerTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.server = start(self)
+        self.hub = SignalHub(self.server.url, KEY)
+        self.sleeps: list[float] = []
+        self.now = 0.0
+
+    def clock(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+    def wait(self, timeout: float | None = None) -> dict:
+        return self.hub.wait_answer(
+            EVENT_ID, timeout, sleep=self.sleep, clock=self.clock
+        )
+
+    def test_reads_the_answer_with_the_producers_key(self) -> None:
+        self.server.respond(200, ANSWERED)
+
+        state = self.hub.read_answer(EVENT_ID)
+
+        self.assertEqual(state, ANSWERED)
+        request = self.server.requests[0]
+        self.assertEqual(request["method"], "GET")
+        self.assertEqual(request["path"], f"/api/v1/events/{EVENT_ID}/answer")
+        self.assertEqual(request["headers"]["Authorization"], f"Bearer {KEY}")
+
+    def test_a_held_read_asks_the_server_to_wait(self) -> None:
+        self.server.respond(200, OPEN)
+
+        self.hub.read_answer(EVENT_ID, wait=60)
+
+        self.assertEqual(
+            self.server.requests[0]["path"], f"/api/v1/events/{EVENT_ID}/answer?wait=60"
+        )
+
+    def test_a_wait_longer_than_the_server_holds_is_refused_here(self) -> None:
+        with self.assertRaises(ValueError):
+            self.hub.read_answer(EVENT_ID, wait=61)
+
+    def test_wait_answer_returns_at_once_when_answered(self) -> None:
+        self.server.respond(200, ANSWERED)
+
+        self.assertEqual(self.wait(), ANSWERED)
+        self.assertEqual(len(self.server.requests), 1)
+        self.assertTrue(self.server.requests[0]["path"].endswith("?wait=60"))
+
+    def test_wait_answer_returns_a_closed_question_too(self) -> None:
+        self.server.respond(200, CLOSED)
+
+        self.assertEqual(self.wait(), CLOSED)
+
+    def test_wait_answer_pauses_five_seconds_after_an_early_open(self) -> None:
+        self.server.respond(200, OPEN)
+        self.server.respond(200, ANSWERED)
+
+        self.assertEqual(self.wait(), ANSWERED)
+        self.assertEqual(self.sleeps, [5.0])
+
+    def test_wait_answer_does_not_pause_after_a_full_wait(self) -> None:
+        # The fake answers instantly, so make the clock say a minute passed.
+        ticks = iter([0.0, 61.0, 61.0, 61.0, 61.0, 61.0])
+        self.server.respond(200, OPEN)
+        self.server.respond(200, ANSWERED)
+
+        state = self.hub.wait_answer(
+            EVENT_ID, None, sleep=self.sleep, clock=lambda: next(ticks)
+        )
+
+        self.assertEqual(state, ANSWERED)
+        self.assertEqual(self.sleeps, [])
+
+    def test_wait_answer_retries_temporary_errors_after_five_seconds(self) -> None:
+        self.server.respond(502, {"title": "Bad Gateway"})
+        self.server.respond(503)
+        self.server.respond(200, ANSWERED)
+
+        self.assertEqual(self.wait(), ANSWERED)
+        self.assertEqual(self.sleeps, [5.0, 5.0])
+
+    def test_wait_answer_retries_when_the_server_is_unreachable(self) -> None:
+        hub = SignalHub(unused_url(), KEY)
+        attempts = 0
+
+        def sleep(seconds: float) -> None:
+            nonlocal attempts
+            attempts += 1
+            self.now += seconds
+
+        with self.assertRaises(UnreachableError):
+            hub.wait_answer(EVENT_ID, 12, sleep=sleep, clock=self.clock)
+        self.assertEqual(attempts, 2)
+
+    def test_wait_answer_raises_a_missing_event_at_once(self) -> None:
+        self.server.respond(404, {"title": "Event not found", "status": 404})
+
+        with self.assertRaises(RequestError) as caught:
+            self.wait()
+
+        self.assertEqual(caught.exception.status, 404)
+        self.assertEqual(self.sleeps, [])
+
+    def test_wait_answer_raises_a_rejected_key_at_once(self) -> None:
+        self.server.respond(401, {"title": "Unauthorized", "status": 401})
+
+        with self.assertRaises(AuthenticationError):
+            self.wait()
+
+    def test_wait_answer_returns_the_open_state_when_its_timeout_passes(self) -> None:
+        for _ in range(10):
+            self.server.respond(200, OPEN)
+
+        state = self.wait(12)
+
+        self.assertEqual(state["state"], "OPEN")
+        # Asks for what is left, never for more than the timeout allows.
+        self.assertTrue(self.server.requests[0]["path"].endswith("?wait=12"))
+
+    def test_close_question_posts_the_note(self) -> None:
+        self.server.respond(200, CLOSED)
+
+        state = self.hub.close_question(EVENT_ID, "elsewhere")
+
+        self.assertEqual(state, CLOSED)
+        request = self.server.requests[0]
+        self.assertEqual(request["method"], "POST")
+        self.assertEqual(request["path"], f"/api/v1/events/{EVENT_ID}/answer/close")
+        self.assertEqual(request["body"], {"note": "elsewhere"})
+
+    def test_close_question_without_a_note_sends_no_body(self) -> None:
+        self.server.respond(200, CLOSED)
+
+        self.hub.close_question(EVENT_ID)
+
+        self.assertIsNone(self.server.requests[0]["body"])
+        self.assertNotIn("Content-Type", self.server.requests[0]["headers"])
+
+    def test_close_question_raises_the_answer_when_someone_answered_first(self) -> None:
+        self.server.respond(
+            409,
+            {
+                "title": "The question is already answered",
+                "status": 409,
+                "violations": [],
+                "question": ANSWERED,
+            },
+        )
+
+        with self.assertRaises(QuestionAnsweredError) as caught:
+            self.hub.close_question(EVENT_ID)
+
+        self.assertEqual(caught.exception.state, ANSWERED)
+        self.assertEqual(caught.exception.status, 409)
+
+    def test_close_question_on_an_event_that_asks_nothing_is_a_plain_rejection(
+        self,
+    ) -> None:
+        self.server.respond(409, {"title": "The event asks nothing", "status": 409})
+
+        with self.assertRaises(ValidationError):
+            self.hub.close_question(EVENT_ID)
+
+    def test_an_event_id_is_escaped_in_the_path(self) -> None:
+        self.server.respond(404, {"title": "Event not found"})
+
+        with self.assertRaises(RequestError):
+            self.hub.read_answer("../admin")
+
+        self.assertEqual(
+            self.server.requests[0]["path"], "/api/v1/events/..%2Fadmin/answer"
+        )
