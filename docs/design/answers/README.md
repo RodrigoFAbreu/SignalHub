@@ -72,19 +72,17 @@ admin designs:
   it needs its own confirmation, and it falls back to B's sheet for everything
   else, so the screen has two layouts.
 
-## Open for the owner at G8
+## Decided at G8 (2026-10-25)
 
-Small decisions the drawings made on a guess or leave open. Each is also named
-in [WALKTHROUGH.md](WALKTHROUGH.md#7-the-server-changes-and-what-was-left-out).
-
-- The notification line stays within 80 characters, and past that says
-  "Tap to answer · 3 choices" ([1b2](images/notification/1b2-long-labels.webp)). The limit is a guess.
-- An `answerState` filter on the admin events list, for a *Question* chip
-  ([L1](images/admin/l1-the-list-with-questions.webp)). The row markers need no server change.
-- The *Unread* and *To answer* chips are new on the inbox ([3a](images/app-answering/3a-inbox-a-question-to-answer-waiting.webp)).
-  *Unread* is the same switch as the filter sheet's unread-only option.
-- An "Other" row instead of the note, as in Claude Code's prompt: not decided.
-  The note stays.
+The maintainer approved the designs and the proposal. The changes are listed in
+[API-PROPOSAL.md](API-PROPOSAL.md#10-decided-at-g8-2026-10-25) and in
+[DESIGN.md section 10](../users/DESIGN.md#10-questions-and-answers-r81), which
+supersede frames that show the older limits: labels up to 100 characters,
+descriptions up to 1000, typed answers up to 3000; a note or an *Other* row, as
+the producer chooses; the producer closes a question answered elsewhere;
+Ctrl+Enter sends on the web page; the *Question* filter on the admin page;
+`pending_actions` for *Action required* everywhere. The notification line stays
+within 80 characters, and the *Unread* and *To answer* chips are approved.
 
 ## What the images show
 
