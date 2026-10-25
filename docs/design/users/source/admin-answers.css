@@ -50,6 +50,8 @@
 .cinfo .btn-x{height:48px;font-size:13px}
 .addc{display:flex;align-items:center;gap:8px;min-height:48px;margin-top:4px}
 .addc .btn-x.dis{color:var(--off-fg)}
+/* R81 redraw: a segment that is dimmed but still focusable (aria-disabled), as Add choice at 10 of 10 */
+.seg>span.off{color:var(--off-fg,var(--on-surface-variant));opacity:.5}
 .alab{font-size:12px;line-height:16px;color:var(--on-surface-variant);padding:16px 0 4px 4px}
 .rdd{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 0;border-top:1px solid var(--outline-variant)}
 .rdd .sp{flex:1}

@@ -174,14 +174,14 @@
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Merge R82 into main?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och hi">High</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
                   <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
                   <div class="acard">
                     <div class="ahead">Your answer</div>
                     <div class="p">Pick one. It goes to ci-pipeline and can't be changed once sent.</div>
                     <div class="rr d"><span class="rb on"></span><div class="rt"><span>Merge</span><span class="rd">Squash-merge now; CI passed.</span></div></div>
                     <div class="rr"><span class="rb"></span>Hold</div>
-                    <div style="padding-top:8px"><div class="tf"><span class="fl">Note (optional)</span>Add a note for ci-pipeline</div><div class="help"><span></span><span>0 / 1000</span></div></div>
+                    <div style="padding-top:8px"><div class="tf"><span class="fl">Note (optional)</span>Add a note for ci-pipeline</div><div class="help"><span></span><span>0 / 3000</span></div></div>
                     <div style="padding-top:8px"><span class="btn-f w">Send answer</span></div>
                   </div>
                   <div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div>
@@ -191,10 +191,8 @@
                     <div class="kv"><div class="k">Event ID</div><div class="v mono" style="font-size:14px">evt_EXAMPLE01</div></div>
                   </div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
-            <p class="dv-onote"><b>Pros.</b> Everything is in view: the question, the choices with their descriptions and the event's own facts, so the answer is made with the message in front of you. Choosing is not sending: <b>Send answer</b> is the confirmation, so no extra dialog. The same card becomes the result (answered, closed, read-only) in the same place, so a state never moves. <b>Cons.</b> It pushes the link and the rows down; with 7 choices (or long descriptions) the card is long and the rows are a scroll away. <b>Scales:</b> 7 choices are a longer radio list; multiple choice swaps radios for checkboxes and says <i>Pick one or more</i>; a typed-only question has the field and no list. Descriptions simply wrap under their label: the card grows, never changes shape.</p>
+              </div>            </div>
+            <p class="dv-onote"><b>Pros.</b> Everything is in view: the question, the choices with their descriptions and the event's own facts, so the answer is made with the message in front of you. Choosing is not sending: <b>Send answer</b> is the confirmation, so no extra dialog. The same card becomes the result (answered, closed, read-only) in the same place, so a state never moves. <b>Cons.</b> It pushes the link and the rows down; with 7 choices (or long descriptions) the card is long and the rows are a scroll away. <b>Scales:</b> 7 choices are a longer radio list; multiple choice swaps radios for checkboxes and says <i>Pick one or more</i>; a typed-only question has the field and no list. Descriptions simply wrap under their label: the card grows, never changes shape. <b>The note</b> of a choice question is a text area that starts as one line and grows to 4 lines, then scrolls; Enter adds a line, and a short note stays one line.</p>
           </div>
 
           <div class="dv-opt" id="1b" data-screen-label="1b Option B answer button">
@@ -314,14 +312,14 @@
       <!-- ============ Turn 2: the states, in option A ============ -->
       <section class="dv-turn" id="t2" data-screen-label="Turn 2: states">
         <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">The states of a question, drawn in option A</span></div>
-        <p class="dv-why">Each state is its own frame with an id, so the orchestrator can redraw any of them in the owner's pick. A person answering sees one card, <b>Your answer</b>; once the question is decided the same card becomes a plain result. Every choice row is a 48 dp target (the whole row, not the 20 dp control; a row with a description is taller). The choices of a question are read in the order the producer sent them. Typed answers are 1 to 1000 characters; the counter shows as soon as the field has focus or text. Radio and checkbox rows are announced with their group and position and their description, for example &ldquo;Merge, Squash-merge now; CI passed., selected, 1 of 2&rdquo;. A choice's description is shown only while answering; the result states name the choice only. The result states are announced as one line of text. The only icon-only control on these frames is Back (accessible name &ldquo;Back&rdquo;). <b>Refresh:</b> the screen re-reads an open event when the app resumes, and after any 409, so a card left open turns into its result by itself. <b>Motion:</b> the card swaps to the result without animation and the result is announced once, politely; the sending ring (2d) stops turning under reduced motion, and nothing else moves. <b>Notifications:</b> when a question is answered, closed or deleted, its notification is removed from every device that had it (see <i>App - Notification actions</i>); nothing replaces it, the outcome is here and in the inbox row.</p>
+        <p class="dv-why">Each state is its own frame with an id, so the orchestrator can redraw any of them in the owner's pick. A person answering sees one card, <b>Your answer</b>; once the question is decided the same card becomes a plain result. Every choice row is a 48 dp target (the whole row, not the 20 dp control; a row with a description is taller). The choices of a question are read in the order the producer sent them. Typed answers are 1 to 3000 characters; the counter shows as soon as the field has focus or text. Radio and checkbox rows are announced with their group and position and their description, for example &ldquo;Merge, Squash-merge now; CI passed., selected, 1 of 2&rdquo;. A choice's description is shown only while answering; the result states name the choice only. The result states are announced as one line of text. The only icon-only control on these frames is Back (accessible name &ldquo;Back&rdquo;). <b>Refresh:</b> the screen re-reads an open event when the app resumes, and after any 409, so a card left open turns into its result by itself. <b>Motion:</b> the card swaps to the result without animation and the result is announced once, politely; the sending ring (2d) stops turning under reduced motion, and nothing else moves. <b>Pushed screens:</b> an event is a pushed screen, so none of these frames has the bottom bar, and <b>Mark as unread</b> is in the app bar. <b>Limits (G8):</b> a label is at most 100 characters, a description at most 1000, a note or typed answer at most 3000; all wrap and none is ever cut. 2r to 2u draw the <i>Other</i> row, the question its producer closed, and the longest label and description. <b>Notifications:</b> when a question is answered, closed or deleted, its notification is removed from every device that had it (see <i>App - Notification actions</i>); nothing replaces it, the outcome is here and in the inbox row.</p>
         <div class="dv-opts">
 
           <div class="dv-opt" id="2a" data-screen-label="2a Seven choices">
             <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Seven choices, single choice</div>
             <div class="ph l">
               <div class="sb"><span>18:20</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Which backup should I restore?</h1>
@@ -340,21 +338,19 @@
                     <div style="padding-top:8px"><span class="btn-f w">Send answer</span></div>
                   </div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
-            <p class="dv-onote">Up to 10 choices (the server's limit); 7 is drawn. No field when the producer asks for no typed answer. The card is 7 x 48 dp of choices, and the screen scrolls; Send answer is the last thing in the card. Labels are at most 40 characters and wrap to two lines rather than cut.</p>
+              </div>            </div>
+            <p class="dv-onote">Up to 10 choices (the server's limit); 7 is drawn. No field when the producer asks for no typed answer. The card is 7 x 48 dp of choices, and the screen scrolls; Send answer is the last thing in the card. Labels are at most 100 characters and wrap rather than being cut.</p>
           </div>
 
           <div class="dv-opt" id="2b" data-screen-label="2b Multiple choice">
             <div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Multiple choice</div>
             <div class="ph m">
               <div class="sb"><span>18:31</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Which checks should run on R82?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och">Normal</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
                   <p class="msg">Pick what to include in this run.</p>
                   <div class="acard">
                     <div class="ahead">Your answer</div>
@@ -366,9 +362,7 @@
                     <div style="padding-top:8px"><span class="btn-f w">Send answer</span></div>
                   </div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
+              </div>            </div>
             <p class="dv-onote">Checkboxes instead of radios, and the words <b>Pick one or more</b> (the server needs at least 2 choices for this kind). Nothing is selected until the person picks. Accessible names: &ldquo;Unit tests, checked&rdquo;, &ldquo;Lint, not checked&rdquo;. With descriptions: 2q.</p>
           </div>
 
@@ -376,67 +370,61 @@
             <div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>A typed question only, with the character counter</div>
             <div class="ph m">
               <div class="sb"><span>18:44</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">What should the R82 release notes say?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och">Normal</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
                   <p class="msg">Write one or two lines for the changelog.</p>
                   <div class="acard">
                     <div class="ahead">Your answer</div>
                     <div class="p">Type your answer. It goes to ci-pipeline and can't be changed once sent.</div>
-                    <div style="padding-top:12px"><div class="tf ta focus v"><span class="fl">Your answer</span>Answers can now carry a note. Sending twice is harmless.</div><div class="help"><span></span><span>58 / 1000</span></div></div>
+                    <div style="padding-top:12px"><div class="tf ta focus v"><span class="fl">Your answer</span>Answers can now carry a note. Sending twice is harmless.</div><div class="help"><span></span><span>58 / 3000</span></div></div>
                     <div style="padding-top:8px"><span class="btn-f w">Send answer</span></div>
                   </div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
-            <p class="dv-onote">No choices, so the field is required: its label is <b>Your answer</b> (not <i>Note (optional)</i>), 1 to 1000 characters, and the counter reads <b>58 / 1000</b>. The field grows with the text up to 6 lines, then scrolls inside itself.</p>
+              </div>            </div>
+            <p class="dv-onote">No choices, so the field is required: its label is <b>Your answer</b> (not <i>Note (optional)</i>), 1 to 3000 characters, and the counter reads <b>58 / 3000</b>. The field grows with the text up to 6 lines, then scrolls inside itself.</p>
           </div>
 
           <div class="dv-opt" id="2d" data-screen-label="2d Sending">
             <div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a>Sending</div>
             <div class="ph m">
               <div class="sb"><span>19:02</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Merge R82 into main?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och hi">High</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
                   <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
                   <div class="acard">
                     <div class="ahead">Your answer</div>
                     <div class="dim">
                       <div class="rr d"><span class="rb on"></span><div class="rt"><span>Merge</span><span class="rd">Squash-merge now; CI passed.</span></div></div>
                       <div class="rr"><span class="rb"></span>Hold</div>
-                      <div style="padding-top:8px"><div class="tf v"><span class="fl">Note (optional)</span>After lunch</div><div class="help"><span></span><span>11 / 1000</span></div></div>
+                      <div style="padding-top:8px"><div class="tf v"><span class="fl">Note (optional)</span>After lunch</div><div class="help"><span></span><span>11 / 3000</span></div></div>
                     </div>
                     <div style="padding-top:8px"><span class="btn-f w dis"><span class="ms spin">progress_activity</span>Sending</span></div>
                   </div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
-            <p class="dv-onote">The choices and the field are dimmed and can't be changed; the button shows a progress ring and reads <b>Sending</b> and is announced &ldquo;Sending answer&rdquo;. It can't be tapped twice. Back stays available: leaving does not cancel the send, and the answer shows when the screen is next opened.</p>
+              </div>            </div>
+            <p class="dv-onote">The choices and the field are dimmed and can't be changed; the button shows a progress ring and reads <b>Sending</b> and is announced &ldquo;Sending answer&rdquo;. It can't be tapped twice. Back stays available: leaving does not cancel the send, and the answer shows when the screen is next opened. The note is a text area that starts at one line and grows to 4 lines, then scrolls; this short note stays one line.</p>
           </div>
 
           <div class="dv-opt" id="2e" data-screen-label="2e Answered by you">
             <div class="dv-olabel"><a class="dv-oid" href="#2e">2e</a>Answered by you</div>
             <div class="ph s">
               <div class="sb"><span>19:03</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Merge R82 into main?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och hi">High</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
                   <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
                   <div class="acard"><div class="res"><span class="ms fill c-primary">check_circle</span><div class="tx"><span class="ahead">You answered · Merge · 19:02</span><span class="t2">Note: After lunch</span><span class="t2">Sent to ci-pipeline.</span></div></div></div>
                   <div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
+              </div>            </div>
             <p class="dv-onote">The card keeps its place and becomes a result. The note line shows only when a note was sent; several choices read &ldquo;You answered · Unit tests, Lint · 19:02&rdquo;. It is also what the person sees after a doubled tap or reopening the event (the same answer sent again is accepted, 200). Its notification is removed on every device.</p>
           </div>
 
@@ -444,36 +432,32 @@
             <div class="dv-olabel"><a class="dv-oid" href="#2e2">2e2</a>A typed question, answered</div>
             <div class="ph s">
               <div class="sb"><span>19:03</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">When should the R82 deploy run?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och">Normal</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
                   <p class="msg">Type a time or a condition.</p>
-                  <div class="acard"><div class="res"><span class="ms fill c-primary">check_circle</span><div class="tx"><span class="ahead">You answered · &lsquo;after lunch&rsquo;</span><span class="t2">19:02. Sent to ci-pipeline.</span></div></div></div>
+                  <div class="acard"><div class="res"><span class="ms fill c-primary">check_circle</span><div class="tx"><span class="ahead">You answered · &lsquo;after lunch&rsquo;</span><span class="t2">19:02 · Sent to ci-pipeline.</span></div></div></div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
-            <p class="dv-onote">A question with no choices has only the typed answer, so it is the whole answer line: &ldquo;You answered · &lsquo;after lunch&rsquo;&rdquo;. Past about 40 characters the title says &ldquo;You answered&rdquo; and the text follows under it in full (up to 1000 characters, wrapped, never cut). Someone else's typed answer reads &ldquo;Ana answered · &lsquo;after lunch&rsquo;&rdquo;. In the inbox row the line is the same words (3a).</p>
+              </div>            </div>
+            <p class="dv-onote">A question with no choices has only the typed answer, so it is the whole answer line: &ldquo;You answered · &lsquo;after lunch&rsquo;&rdquo;. Past about 40 characters the title says &ldquo;You answered&rdquo; and the text follows under it in full (up to 3000 characters, wrapped, never cut). Someone else's typed answer reads &ldquo;Ana answered · &lsquo;after lunch&rsquo;&rdquo;. In the inbox row the line is the same words (3a).</p>
           </div>
 
           <div class="dv-opt" id="2f" data-screen-label="2f Answered by someone else">
             <div class="dv-olabel"><a class="dv-oid" href="#2f">2f</a>Answered by someone else</div>
             <div class="ph s">
               <div class="sb"><span>19:10</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Merge R82 into main?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och hi">High</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
                   <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
                   <div class="acard"><div class="res"><span class="ms fill c-var">check_circle</span><div class="tx"><span class="ahead">Ana answered · Hold · 18:55</span><span class="t2">Sent to ci-pipeline. Nobody else can answer now.</span></div></div></div>
                   <div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
+              </div>            </div>
             <p class="dv-onote">What every other person the event reached sees, read-only. The name is the name kept with the answer, even if the person is renamed later. The icon is grey, not primary, so &ldquo;You answered&rdquo; (2e) stands apart. Its notification is removed on every device.</p>
           </div>
 
@@ -481,17 +465,15 @@
             <div class="dv-olabel"><a class="dv-oid" href="#2g">2g</a>Closed with no answer</div>
             <div class="ph s">
               <div class="sb"><span>09:20</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Deploy window for R80?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och">Normal</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
                   <p class="msg">Open until 09:00.</p>
                   <div class="acard"><div class="res"><span class="ms c-var">lock_clock</span><div class="tx"><span class="ahead">Closed · nobody answered in time</span><span class="t2">It closed on 17 Oct at 09:00. ci-pipeline got no answer.</span></div></div></div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
+              </div>            </div>
             <p class="dv-onote">After the closing time nobody can answer (the server answers 409 closed). No warning colour: nothing is wrong, it just ran out. The same card shows for the people who may not answer. Its notification is removed on every device.</p>
           </div>
 
@@ -499,18 +481,16 @@
             <div class="dv-olabel"><a class="dv-oid" href="#2h">2h</a>Open, but you may not answer</div>
             <div class="ph s">
               <div class="sb"><span>18:53</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Merge R82 into main?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och hi">High</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
                   <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
                   <div class="acard"><div class="res"><span class="ms c-var">lock</span><div class="tx"><span class="ahead">Rodrigo or Ana can answer</span><span class="t2">You can read the question.</span></div></div><div style="padding-top:8px"><div class="rr d" style="min-height:0"><span class="ms ms18 c-var" style="margin-top:3px">remove</span><div class="rt"><span>Merge</span><span class="rd">Squash-merge now; CI passed.</span></div></div><div class="rr" style="min-height:40px"><span class="ms ms18 c-var">remove</span>Hold</div></div></div>
                   <div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
+              </div>            </div>
             <p class="dv-onote">For a person who is not the owner and not an answerer: no radios, no button, nothing that looks tappable (the roles-hide-what-they-cannot-do rule). The line is built from the question's list of who can answer, the owner first: one person &ldquo;Rodrigo answers this&rdquo;, two &ldquo;Rodrigo or Ana can answer&rdquo; (drawn), three or more &ldquo;Rodrigo, Ana or Rui can answer&rdquo;. Never &ldquo;an admin&rdquo; or &ldquo;the operator&rdquo;. The choices are listed with their descriptions, as in the answer card, but with no control. When the answer comes, the card turns into 2f. An admin user sees this card too when they are not the owner or an answerer; the operator's admin token never answers and has no app.</p>
           </div>
 
@@ -530,11 +510,11 @@
             <div class="dv-olabel"><a class="dv-oid" href="#2j">2j</a>It closes soon</div>
             <div class="ph m">
               <div class="sb"><span>08:48</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Deploy window for R80?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och">Normal</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
                   <p class="msg">Open until 09:00.</p>
                   <div class="acard">
                     <div class="closes soon"><span class="ms ms18">schedule</span>Closes at 09:00 · in 12 min</div>
@@ -545,9 +525,7 @@
                     <div style="padding-top:8px"><span class="btn-f w">Send answer</span></div>
                   </div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
+              </div>            </div>
             <p class="dv-onote">With a closing time, the first line of the card says <b>Closes at 09:00</b>, grey; the last hour adds &ldquo;in 12 min&rdquo; and turns to the error colour with a clock icon (the colour is not the only signal: the words say it). Dates other than today read &ldquo;Closes 17 Oct at 09:00&rdquo;. A question with no closing time shows no line.</p>
           </div>
 
@@ -555,44 +533,40 @@
             <div class="dv-olabel"><a class="dv-oid" href="#2k">2k</a>Send failed (offline or server error)</div>
             <div class="ph m">
               <div class="sb"><span>19:02</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Merge R82 into main?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och hi">High</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
                   <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
                   <div class="acard">
                     <div class="ahead">Your answer</div>
                     <div class="p">Pick one. It goes to ci-pipeline and can't be changed once sent.</div>
                     <div class="rr d"><span class="rb on"></span><div class="rt"><span>Merge</span><span class="rd">Squash-merge now; CI passed.</span></div></div>
                     <div class="rr"><span class="rb"></span>Hold</div>
-                    <div style="padding-top:8px"><div class="tf v"><span class="fl">Note (optional)</span>After lunch</div><div class="help"><span></span><span>11 / 1000</span></div></div>
+                    <div style="padding-top:8px"><div class="tf v"><span class="fl">Note (optional)</span>After lunch</div><div class="help"><span></span><span>11 / 3000</span></div></div>
                     <div style="padding-top:8px"><span class="btn-f w">Send answer</span></div>
                   </div>
                 </div>
               </div>
-              <div class="snack"><span>Answer not sent</span><b>Retry</b></div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
-            <p class="dv-onote">The failed-change pattern (DESIGN.md section 4): a snackbar with <b>Retry</b>, and the choice and the note are kept exactly as typed. <b>Send answer</b> works again by itself, so Retry and the button do the same. Nothing was sent, so there is nothing to undo. A doubled send is harmless: the server accepts the same answer twice. A 403 on send re-reads the event: if the person may no longer answer, the card turns into 2h; otherwise this same snackbar shows with Retry. Offline before the tap: the app's existing offline banner covers it, so there is no separate frame.</p>
+              <div class="snack" style="bottom:32px;left:16px;right:16px"><span>Answer not sent</span><b>Retry</b></div>            </div>
+            <p class="dv-onote">The failed-change pattern (DESIGN.md section 4): a snackbar with <b>Retry</b>, and the choice and the note are kept exactly as typed. <b>Send answer</b> works again by itself, so Retry and the button do the same. Nothing was sent, so there is nothing to undo. A doubled send is harmless: the server accepts the same answer twice. A 403 on send re-reads the event: if the person may no longer answer, the card turns into 2h; otherwise this same snackbar shows with Retry. The snackbar sits 8 dp above the bottom inset (24 dp here) and 16 dp from each side. Offline before the tap: the app's existing offline banner covers it, so there is no separate frame.</p>
           </div>
 
           <div class="dv-opt" id="2l" data-screen-label="2l Answered first">
             <div class="dv-olabel"><a class="dv-oid" href="#2l">2l</a>Someone answered first while you were choosing</div>
             <div class="ph m">
               <div class="sb"><span>18:56</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Merge R82 into main?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och hi">High</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
                   <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
                   <div class="acard"><div class="res"><span class="ms fill c-var">info</span><div class="tx"><span class="ahead">Ana answered first: Hold</span><span class="t2">18:55. Your answer wasn't sent, and ci-pipeline has Ana's.</span></div></div></div>
                   <div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
+              </div>            </div>
             <p class="dv-onote">The server's 409 carries the winning answer, so the card swaps to the result at once: no error colour, no retry, the person's own choice dropped (a typed note is dropped too). &ldquo;Ana answered first: Hold&rdquo; is also what a screen reader announces. If the winner was the same person on another device with a different answer, the card reads &ldquo;You already answered: Merge. Your new answer wasn't sent.&rdquo; Its notification is removed on every device.</p>
           </div>
 
@@ -600,17 +574,15 @@
             <div class="dv-olabel"><a class="dv-oid" href="#2l2">2l2</a>It closed while you were choosing</div>
             <div class="ph s">
               <div class="sb"><span>09:01</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Deploy window for R80?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och">Normal</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
                   <p class="msg">Open until 09:00.</p>
                   <div class="acard"><div class="res"><span class="ms c-var">lock_clock</span><div class="tx"><span class="ahead">Closed while you were choosing · nobody can answer it now</span><span class="t2">Your answer wasn't sent. ci-pipeline got no answer.</span></div></div></div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
+              </div>            </div>
             <p class="dv-onote">The server's 409 closed, when the closing time passes between choosing and tapping Send answer. The card swaps at once to the closed state, with no error colour, no retry and no blame. The choice and the note are dropped. Its notification is removed on every device.</p>
           </div>
 
@@ -629,33 +601,31 @@
             <div class="dv-olabel"><a class="dv-oid" href="#2n">2n</a>Field error: the text is too long</div>
             <div class="ph m">
               <div class="sb"><span>18:44</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">What should the R82 release notes say?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och">Normal</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
                   <div class="acard">
                     <div class="ahead">Your answer</div>
                     <div class="p">Type your answer. It goes to ci-pipeline and can't be changed once sent.</div>
-                    <div style="padding-top:12px"><div class="tf ta err v"><span class="fl">Your answer</span>Answers can now carry a note. Sending twice is harmless. Keys can be revoked at any time and the owner can add people who answer. The closing time is optional and at most 30 days ahead…</div><div class="help err"><span>Too long: 43 characters over the limit.</span><span>1043 / 1000</span></div></div>
+                    <div style="padding-top:12px"><div class="tf ta err v"><span class="fl">Your answer</span><div style="height:144px;overflow:hidden;display:flex;align-items:flex-end;width:100%;box-sizing:border-box;padding-right:8px"><span>Keys can be revoked at any time and the owner can add people who answer. The closing time is optional and at most 30 days ahead. A producer closes its own question when it was answered elsewhere. Labels run to 100 characters and descriptions to 1000. Everything wraps and nothing is cut, so the whole text can be read back before it is sent.</span></div><span style="position:absolute;right:4px;top:60px;width:3px;height:84px;border-radius:2px;background:var(--outline)"></span></div><div class="help err"><span>Too long: 43 characters over the limit.</span><span>3043 / 3000</span></div></div>
                     <div style="padding-top:8px"><span class="btn-f w">Send answer</span></div>
                   </div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
-            <p class="dv-onote">The error shows as soon as the text passes 1000 characters, and the counter turns the error colour; the text is never cut. <b>Send answer</b> stays tappable and, tapped, only moves focus to the field and says the same error again (the app does not send). The same line applies to a note on a choice question.</p>
+              </div>            </div>
+            <p class="dv-onote">The error shows as soon as the text passes 3000 characters, and the counter turns the error colour; the text is never cut. The area shows six lines scrolled to the end of the text, with a thin scroll indicator and no ellipsis. <b>Send answer</b> stays tappable and, tapped, only moves focus to the field and says the same error again (the app does not send). The same line applies to a note on a choice question.</p>
           </div>
 
           <div class="dv-opt" id="2o" data-screen-label="2o Nothing picked">
             <div class="dv-olabel"><a class="dv-oid" href="#2o">2o</a>Field error: nothing picked</div>
             <div class="ph m">
               <div class="sb"><span>18:52</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Merge R82 into main?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och hi">High</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
                   <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
                   <div class="acard">
                     <div class="ahead">Your answer</div>
@@ -666,21 +636,19 @@
                     <div style="padding-top:8px"><span class="btn-f w">Send answer</span></div>
                   </div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
+              </div>            </div>
             <p class="dv-onote">Shown when Send answer is tapped with no choice. Exact words: single choice &ldquo;Pick an answer to send.&rdquo;; multiple choice &ldquo;Pick at least one answer.&rdquo;; typed-only question &ldquo;Type an answer to send.&rdquo; The message sits under the list, with an icon so colour is not the only signal, and is read out when it appears.</p>
           </div>
 
           <div class="dv-opt" id="2p" data-screen-label="2p Long description">
-            <div class="dv-olabel"><a class="dv-oid" href="#2p">2p</a>A choice with a 200-character description</div>
+            <div class="dv-olabel"><a class="dv-oid" href="#2p">2p</a>A choice with a long description</div>
             <div class="ph l">
               <div class="sb"><span>18:52</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Merge R82 into main?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och hi">High</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
                   <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
                   <div class="acard">
                     <div class="ahead">Your answer</div>
@@ -688,25 +656,23 @@
                     <div class="rr d"><span class="rb on"></span><div class="rt"><span>Merge</span><span class="rd">Squash-merge now and delete the branch. CI passed on all 3 checks and the change touches 3 files in the docs and the Python package only. Nothing in the backend or the schema changes. Safe today.</span></div></div>
                     <div class="rr"><span class="rb"></span>Hold</div>
                     <div class="rr d"><span class="rb"></span><div class="rt"><span>Hold until Monday</span><span class="rd">Wait for the release freeze to end.</span></div></div>
-                    <div style="padding-top:8px"><div class="tf"><span class="fl">Note (optional)</span>Add a note for ci-pipeline</div><div class="help"><span></span><span>0 / 1000</span></div></div>
+                    <div style="padding-top:8px"><div class="tf"><span class="fl">Note (optional)</span>Add a note for ci-pipeline</div><div class="help"><span></span><span>0 / 3000</span></div></div>
                     <div style="padding-top:8px"><span class="btn-f w">Send answer</span></div>
                   </div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
-            <p class="dv-onote">The first description is exactly the 200-character limit and wraps to five lines under its label; the whole row stays one target. Descriptions are never cut or ellipsised. A choice with none (Hold) is one line, with no gap where a description would be. Mixing is normal.</p>
+              </div>            </div>
+            <p class="dv-onote">A description of up to 1000 characters wraps under its label (2u shows a full one); the whole row stays one target. Descriptions are never cut or ellipsised. A choice with none (Hold) is one line, with no gap where a description would be. Mixing is normal.</p>
           </div>
 
           <div class="dv-opt" id="2q" data-screen-label="2q Multiple with descriptions">
             <div class="dv-olabel"><a class="dv-oid" href="#2q">2q</a>Multiple choice with descriptions</div>
             <div class="ph m">
               <div class="sb"><span>18:31</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Which checks should run on R82?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och">Normal</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
                   <div class="acard">
                     <div class="ahead">Your answer</div>
                     <div class="p">Pick one or more. It goes to ci-pipeline and can't be changed once sent.</div>
@@ -717,10 +683,188 @@
                     <div style="padding-top:8px"><span class="btn-f w">Send answer</span></div>
                   </div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
+              </div>            </div>
             <p class="dv-onote">The same description rule with checkboxes: the description is part of the row's label for a screen reader (&ldquo;Unit tests, About 2 minutes., checked&rdquo;). Lint has none and stays one line.</p>
+          </div>
+
+          <div class="dv-opt" id="2r" data-screen-label="2r An Other row, nothing picked">
+            <div class="dv-olabel"><a class="dv-oid" href="#2r">2r</a>An Other row, nothing picked</div>
+            <div class="ph m">
+              <div class="sb"><span>19:00</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+              <div class="body">
+                <div class="dt">
+                  <h1 class="h5">Which port should staging use?</h1>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
+                  <p class="msg">The proxy can forward either port.</p>
+                  <div class="acard"><div class="ahead">Your answer</div><div class="p">Pick one. It goes to ci-pipeline and can't be changed once sent.</div><div class="rr d"><span class="rb"></span><div class="rt"><span>8443</span><span class="rd">The usual HTTPS port behind the proxy.</span></div></div><div class="rr"><span class="rb"></span>9443</div><div class="rr"><span class="rb"></span>Other</div><div style="padding-top:8px"><span class="btn-f w">Send answer</span></div></div>
+                  
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">The producer asked for an Other row (<code>textStyle</code> OTHER) instead of a note. Other is always the last row and is never named or counted in the notification line. Its field appears only once it is picked.</p>
+          </div>
+
+          <div class="dv-opt" id="2r2" data-screen-label="2r2 Other picked: its field">
+            <div class="dv-olabel"><a class="dv-oid" href="#2r2">2r2</a>Other picked: its field</div>
+            <div class="ph m">
+              <div class="sb"><span>19:01</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+              <div class="body">
+                <div class="dt">
+                  <h1 class="h5">Which port should staging use?</h1>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
+                  <p class="msg">The proxy can forward either port.</p>
+                  <div class="acard"><div class="ahead">Your answer</div><div class="p">Pick one. It goes to ci-pipeline and can't be changed once sent.</div><div class="rr d"><span class="rb"></span><div class="rt"><span>8443</span><span class="rd">The usual HTTPS port behind the proxy.</span></div></div><div class="rr"><span class="rb"></span>9443</div><div class="rr"><span class="rb on"></span>Other</div><div style="margin-left:40px;padding-top:4px"><div class="tf focus v"><span class="fl">Your answer</span>9000, behind the proxy</div><div class="help"><span></span><span>22 / 3000</span></div></div><div style="padding-top:8px"><span class="btn-f w">Send answer</span></div></div>
+                  
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">Picking Other moves the focus to its field (accessible name <i>Your answer for Other</i>, <code>aria-controls</code> on the radio). Picking 8443 again hides the field and keeps the text, unsent; picking Other again shows it. Nothing animates.</p>
+          </div>
+
+          <div class="dv-opt" id="2r3" data-screen-label="2r3 Multiple choice with Other ticked">
+            <div class="dv-olabel"><a class="dv-oid" href="#2r3">2r3</a>Multiple choice with Other ticked</div>
+            <div class="ph l">
+              <div class="sb"><span>19:01</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+              <div class="body">
+                <div class="dt">
+                  <h1 class="h5">Which checks should run on R82?</h1>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
+                  
+                  <div class="acard"><div class="ahead">Your answer</div><div class="p">Pick one or more. It goes to ci-pipeline and can't be changed once sent.</div><div class="rr d"><span class="cb on"><span class="ms">check</span></span><div class="rt"><span>Unit tests</span><span class="rd">About 2 minutes.</span></div></div><div class="rr"><span class="cb"></span>Lint</div><div class="rr d"><span class="cb"></span><div class="rt"><span>Security scan</span><span class="rd">Checks dependencies against known advisories.</span></div></div><div class="rr"><span class="cb on"><span class="ms">check</span></span>Other</div><div style="margin-left:40px;padding-top:4px"><div class="tf focus v"><span class="fl">Your answer</span>Run the e2e suite too</div><div class="help"><span></span><span>21 / 3000</span></div></div><div style="padding-top:8px"><span class="btn-f w">Send answer</span></div></div>
+                  
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">A multiple choice may tick Other together with the choices. Its field sits under the Other row, indented to the label column. The answer sent is the ticked choices plus the typed text, which the result reads as <i>Other: TEXT</i>.</p>
+          </div>
+
+          <div class="dv-opt" id="2r4" data-screen-label="2r4 Other picked, field empty">
+            <div class="dv-olabel"><a class="dv-oid" href="#2r4">2r4</a>Other picked, field empty</div>
+            <div class="ph m">
+              <div class="sb"><span>19:01</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+              <div class="body">
+                <div class="dt">
+                  <h1 class="h5">Which port should staging use?</h1>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
+                  <p class="msg">The proxy can forward either port.</p>
+                  <div class="acard"><div class="ahead">Your answer</div><div class="p">Pick one. It goes to ci-pipeline and can't be changed once sent.</div><div class="rr d"><span class="rb"></span><div class="rt"><span>8443</span><span class="rd">The usual HTTPS port behind the proxy.</span></div></div><div class="rr"><span class="rb"></span>9443</div><div class="rr"><span class="rb on"></span>Other</div><div style="margin-left:40px;padding-top:4px"><div class="tf err"><span class="fl">Your answer</span><span class="ms" style="margin-left:auto;color:var(--error)">error</span></div><div class="help err"><span>Type your answer for Other.</span><span>0 / 3000</span></div></div><div style="padding-top:8px"><span class="btn-f w">Send answer</span></div></div>
+                  
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">Send answer was pressed with Other picked and nothing typed. The field takes the error look (2 dp error border, error label, trailing error icon), says <b>Type your answer for Other.</b> and keeps the focus. The message is read out when it appears.</p>
+          </div>
+
+          <div class="dv-opt" id="2s" data-screen-label="2s You answered with Other">
+            <div class="dv-olabel"><a class="dv-oid" href="#2s">2s</a>You answered with Other</div>
+            <div class="ph s">
+              <div class="sb"><span>19:03</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+              <div class="body">
+                <div class="dt">
+                  <h1 class="h5">Which port should staging use?</h1>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
+                  <p class="msg">The proxy can forward either port.</p>
+                  <div class="acard"><div class="res"><span class="ms fill c-primary">check_circle</span><div class="tx"><span class="ahead">You answered · Other · 19:02</span><span class="t2">Other: 9000, behind the proxy</span><span class="t2">Sent to ci-pipeline.</span></div></div></div>
+                  
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">The result keeps the card’s place. The title names Other; the typed text follows as <i>Other: TEXT</i>, wrapped in full.</p>
+          </div>
+
+          <div class="dv-opt" id="2s2" data-screen-label="2s2 Someone else answered with Other">
+            <div class="dv-olabel"><a class="dv-oid" href="#2s2">2s2</a>Someone else answered with Other</div>
+            <div class="ph s">
+              <div class="sb"><span>18:58</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+              <div class="body">
+                <div class="dt">
+                  <h1 class="h5">Which checks should run on R82?</h1>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och">Normal</span></div>
+                  
+                  <div class="acard"><div class="res"><span class="ms fill c-var">check_circle</span><div class="tx"><span class="ahead">Ana answered · Unit tests, Other · 18:55</span><span class="t2">Other: Run the e2e suite too</span><span class="t2">Sent to ci-pipeline. Nobody else can answer now.</span></div></div></div>
+                  
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">What every other person the event reached sees. The icon is grey, as in 2f.</p>
+          </div>
+
+          <div class="dv-opt" id="2t" data-screen-label="2t Closed by the producer, with a note">
+            <div class="dv-olabel"><a class="dv-oid" href="#2t">2t</a>Closed by the producer, with a note</div>
+            <div class="ph s">
+              <div class="sb"><span>08:50</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+              <div class="body">
+                <div class="dt">
+                  <h1 class="h5">Merge R82 into main?</h1>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
+                  <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
+                  <div class="acard"><div class="res"><span class="ms c-var">lock</span><div class="tx"><span class="ahead">Closed by ci-pipeline · Answered in the session</span><span class="t2">ci-pipeline closed this question on 17 Oct at 08:41.</span></div></div></div>
+                  <div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">The producer answered elsewhere and closed its question (<code>closedBy</code> PRODUCER). Seen by everyone; no warning colour; its notifications are removed; a card that was open swaps on the next re-read or on a 409.</p>
+          </div>
+
+          <div class="dv-opt" id="2t2" data-screen-label="2t2 Closed by the producer, no note">
+            <div class="dv-olabel"><a class="dv-oid" href="#2t2">2t2</a>Closed by the producer, no note</div>
+            <div class="ph s">
+              <div class="sb"><span>08:50</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+              <div class="body">
+                <div class="dt">
+                  <h1 class="h5">Merge R82 into main?</h1>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
+                  <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
+                  <div class="acard"><div class="res"><span class="ms c-var">lock</span><div class="tx"><span class="ahead">Closed by ci-pipeline</span><span class="t2">ci-pipeline closed this question on 17 Oct at 08:41.</span></div></div></div>
+                  <div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">The same without a note: the part after the dot is dropped.</p>
+          </div>
+
+          <div class="dv-opt" id="2t3" data-screen-label="2t3 Closed by the producer, a long note">
+            <div class="dv-olabel"><a class="dv-oid" href="#2t3">2t3</a>Closed by the producer, a long note</div>
+            <div class="ph s">
+              <div class="sb"><span>08:50</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+              <div class="body">
+                <div class="dt">
+                  <h1 class="h5">Merge R82 into main?</h1>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
+                  <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
+                  <div class="acard"><div class="res"><span class="ms c-var">lock</span><div class="tx"><span class="ahead">Closed by ci-pipeline</span><span class="t2">&lsquo;Merged by hand after the review in the linked session; the release notes were updated there too.&rsquo;</span><span class="t2">ci-pipeline closed this question on 17 Oct at 08:41.</span></div></div></div>
+                  <div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div>
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">Past about 40 characters the note leaves the title: the title reads <i>Closed by ci-pipeline</i> and the note follows in full on its own line, in curly quotes, above the closing line. A note of up to 200 characters wraps and is never cut.</p>
+          </div>
+
+          <div class="dv-opt" id="2u" data-screen-label="2u A 100-character label and a 1000-character description">
+            <div class="dv-olabel"><a class="dv-oid" href="#2u">2u</a>A 100-character label and a 1000-character description</div>
+            <div class="ph l" style="height:1180px">
+              <div class="sb"><span>18:52</span><span class="ms ms18">signal_cellular_alt</span></div>
+              <div class="appbar"><span class="ib"><span class="ms">arrow_back</span></span><div class="t">Event</div><span class="tbtn"><span class="ms">mark_email_unread</span>Mark as unread</span></div>
+              <div class="body">
+                <div class="dt">
+                  <h1 class="h5">Merge R82 into main?</h1>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
+                  <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
+                  <div class="acard"><div class="ahead">Your answer</div><div class="p">Pick one. It goes to ci-pipeline and can't be changed once sent.</div><div class="rr d"><span class="rb on"></span><div class="rt"><span>Merge now, tag 3.4.1 and deploy it to staging, then to production after all of its smoke tests pass.</span><span class="rd">Squash-merge the whole branch into main with the message from the pull request, then tag the commit as 3.4.1 and let the pipeline build the image. The deploy to staging starts by itself and runs the smoke tests against the proxy, the database migration, the push provider in test mode, the admin page and the users web page. If every one of them passes, the same image is promoted to production during the quiet hour, with the old image kept so a rollback takes a single command. The backend and the schema are unchanged in this release; only the documentation, the Python package and two examples move. Nothing here sends a notification by itself. Choose this when you are ready for the release notes to go out today, and choose Hold if you want to read the diff once more first. If a smoke test fails, the release stops at staging and ci-pipeline sends a new event with the logs, so nothing reaches production by accident. There's no rush. The question stays open until it is answered or it closes.</span></div></div><div class="rr"><span class="rb"></span>Hold</div><div style="padding-top:8px"><div class="tf"><span class="fl">Note (optional)</span>Add a note for ci-pipeline</div><div class="help"><span></span><span>0 / 3000</span></div></div><div style="padding-top:8px"><span class="btn-f w">Send answer</span></div></div>
+                  
+                </div>
+              </div>
+            </div>
+            <p class="dv-onote">Labels wrap, never cut; a description wraps and is never cut or ellipsised; Send answer stays the last thing in the card. The frame is drawn tall enough to show the whole card (the screen scrolls).</p>
           </div>
 
         </div>
@@ -739,17 +883,18 @@
               <div class="appbar"><div class="t">SignalHub</div><span class="ib"><span class="ms">filter_list</span></span><span class="ib"><span class="ms">done_all</span></span></div>
               <div class="fchips"><span class="fc">Unread</span><span class="fc">To answer <b>2</b></span></div>
               <div class="body">
-                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-error" style="margin-top:2px">pan_tool</span><div class="tx"><span class="t1b">Merge R82 into main?</span><div class="meta"><span class="m1">Action required · High · ci-pipeline</span><span>18:50</span></div><div class="ql"><span class="ms">question_answer</span>To answer · Closes 09:00</div></div><span class="dot" style="margin-top:7px"></span></div>
+                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-error" style="margin-top:2px">pending_actions</span><div class="tx"><span class="t1b">Merge R82 into main?</span><div class="meta"><span class="m1">Action required · High · ci-pipeline</span><span>18:50</span></div><div class="ql"><span class="ms">question_answer</span>To answer · Closes 09:00</div></div><span class="dot" style="margin-top:7px"></span></div>
                 <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-error" style="margin-top:2px">block</span><div class="tx"><span class="t1">Which backup should I restore?</span><div class="meta"><span class="m1">Blocked · High · backup-jobs</span><span>18:20</span></div><div class="ql"><span class="ms">question_answer</span>To answer</div></div><span class="nodot"></span></div>
-                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-primary" style="margin-top:2px">pan_tool</span><div class="tx"><span class="t1">Rotate the staging key?</span><div class="meta"><span class="m1">Action required · Normal · homelab-monitor</span><span>15:30</span></div><div class="ql v"><span class="ms">hourglass_empty</span>Waiting for Rodrigo</div></div><span class="nodot"></span></div>
-                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-primary" style="margin-top:2px">pan_tool</span><div class="tx"><span class="t1">Merge R81 into main?</span><div class="meta"><span class="m1">Action required · Normal · ci-pipeline</span><span>17:40</span></div><div class="ql v"><span class="ms">check</span>You answered · Merge</div></div><span class="nodot"></span></div>
-                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-primary" style="margin-top:2px">pan_tool</span><div class="tx"><span class="t1">Restart the proxy?</span><div class="meta"><span class="m1">Action required · Normal · homelab-monitor</span><span>16:05</span></div><div class="ql v"><span class="ms">check</span>Ana answered · Hold</div></div><span class="nodot"></span></div>
-                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-primary" style="margin-top:2px">pan_tool</span><div class="tx"><span class="t1">Deploy window for R80?</span><div class="meta"><span class="m1">Action required · Normal · ci-pipeline</span><span>Yesterday</span></div><div class="ql v"><span class="ms">lock_clock</span>Closed · nobody answered</div></div><span class="nodot"></span></div>
+                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-primary" style="margin-top:2px">pending_actions</span><div class="tx"><span class="t1">Rotate the staging key?</span><div class="meta"><span class="m1">Action required · Normal · homelab-monitor</span><span>15:30</span></div><div class="ql v"><span class="ms">hourglass_empty</span>Waiting for Rodrigo</div></div><span class="nodot"></span></div>
+                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-primary" style="margin-top:2px">pending_actions</span><div class="tx"><span class="t1">Merge R81 into main?</span><div class="meta"><span class="m1">Action required · Normal · ci-pipeline</span><span>17:40</span></div><div class="ql v"><span class="ms">check</span>You answered · Merge</div></div><span class="nodot"></span></div>
+                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-primary" style="margin-top:2px">pending_actions</span><div class="tx"><span class="t1">Restart the proxy?</span><div class="meta"><span class="m1">Action required · Normal · homelab-monitor</span><span>16:05</span></div><div class="ql v"><span class="ms">check</span>Ana answered · Hold</div></div><span class="nodot"></span></div>
+                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-primary" style="margin-top:2px">pending_actions</span><div class="tx"><span class="t1">Deploy window for R80?</span><div class="meta"><span class="m1">Action required · Normal · ci-pipeline</span><span>Yesterday</span></div><div class="ql v"><span class="ms">lock_clock</span>Closed · nobody answered</div></div><span class="nodot"></span></div>
+                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-primary" style="margin-top:2px">pending_actions</span><div class="tx"><span class="t1">Rotate the backup key?</span><div class="meta"><span class="m1">Action required · Normal · backup-jobs</span><span>Yesterday</span></div><div class="ql v"><span class="ms">lock</span>Closed by backup-jobs</div></div><span class="nodot"></span></div>
                 <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-var" style="margin-top:2px">check_circle</span><div class="tx"><span class="t1">Nightly backup finished</span><div class="meta"><span class="m1">Completed · Low · backup-jobs</span><span>02:01</span></div></div><span class="nodot"></span></div>
               </div>
               <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span><span class="nbadge">1</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
             </div>
-            <p class="dv-onote">Rows 1 and 2 are open questions this person may answer; row 3 is an open question they can only read (the line names who can answer); 4 to 6 are decided; 7 is an event with no question, unchanged. The chips are added by R81 and are the only chips of the inbox: <b>Unread</b> and <b>To answer</b> sit above the list (accessible names &ldquo;Unread&rdquo; and &ldquo;To answer, 2&rdquo;); <b>Unread</b> is the same switch as the unread-only option in the Filter sheet, which keeps producer, category and severity. The count is the number of open questions this person may answer. Row 2 is read and still marked, because a question is not finished by reading it. <b>To answer</b> shows only while its count is above 0 or while it is on; <b>Unread</b> is always there.</p>
+            <p class="dv-onote">Rows 1 and 2 are open questions this person may answer; row 3 is an open question they can only read (the line names who can answer); 4 to 7 are decided (7 was closed by its producer: <i>Closed by backup-jobs</i>, the note is not in the row); 8 is an event with no question, unchanged. The chips are added by R81 and are the only chips of the inbox: <b>Unread</b> and <b>To answer</b> sit above the list (accessible names &ldquo;Unread&rdquo; and &ldquo;To answer, 2&rdquo;); <b>Unread</b> is the same switch as the unread-only option in the Filter sheet, which keeps producer, category and severity. The count is the number of open questions this person may answer. Row 2 is read and still marked, because a question is not finished by reading it. <b>To answer</b> shows only while its count is above 0 or while it is on; <b>Unread</b> is always there. <b>Inbox tab (FD2):</b> with unread events the tab shows the number, here 1, named &ldquo;Inbox, 1 unread, 2 to answer&rdquo;. With nothing unread and questions still waiting it shows a small error-colour dot with no number, named &ldquo;Inbox, 2 to answer&rdquo;.</p>
           </div>
 
           <div class="dv-opt" id="3b" data-screen-label="3b To answer filter on">
@@ -759,12 +904,12 @@
               <div class="appbar"><div class="t">SignalHub</div><span class="ib"><span class="ms">filter_list</span></span><span class="ib"><span class="ms">done_all</span></span></div>
               <div class="fchips"><span class="fc">Unread</span><span class="fc on"><span class="ms ms18">check</span>To answer <b>2</b></span></div>
               <div class="body">
-                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-error" style="margin-top:2px">pan_tool</span><div class="tx"><span class="t1b">Merge R82 into main?</span><div class="meta"><span class="m1">Action required · High · ci-pipeline</span><span>18:50</span></div><div class="ql"><span class="ms">question_answer</span>To answer · Closes 09:00</div></div><span class="dot" style="margin-top:7px"></span></div>
+                <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-error" style="margin-top:2px">pending_actions</span><div class="tx"><span class="t1b">Merge R82 into main?</span><div class="meta"><span class="m1">Action required · High · ci-pipeline</span><span>18:50</span></div><div class="ql"><span class="ms">question_answer</span>To answer · Closes 09:00</div></div><span class="dot" style="margin-top:7px"></span></div>
                 <div class="lt" style="align-items:flex-start;padding-top:14px;padding-bottom:14px"><span class="ms c-error" style="margin-top:2px">block</span><div class="tx"><span class="t1">Which backup should I restore?</span><div class="meta"><span class="m1">Blocked · High · backup-jobs</span><span>18:20</span></div><div class="ql"><span class="ms">question_answer</span>To answer</div></div><span class="nodot"></span></div>
               </div>
               <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span><span class="nbadge">1</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
             </div>
-            <p class="dv-onote">The chip is on (check mark, secondary container), as the producers' filter chips are. Only open questions the person may answer are listed; a question leaves the list by itself when it is answered or closes. It can be combined with the Filter sheet's producer, category and severity. The Filter icon keeps its name &ldquo;Filter events&rdquo;.</p>
+            <p class="dv-onote">The chip is on (check mark, secondary container), as the producers' filter chips are. Only open questions the person may answer are listed; a question leaves the list by itself when it is answered or closes. It can be combined with the Filter sheet's producer, category and severity. The Filter icon keeps its name &ldquo;Filter events&rdquo;. The Inbox tab shows the number of unread events (1), named &ldquo;Inbox, 1 unread, 2 to answer&rdquo;; with nothing unread it would be a small error-colour dot with no number, named &ldquo;Inbox, 2 to answer&rdquo;.</p>
           </div>
 
           <div class="dv-opt" id="3c" data-screen-label="3c Nothing to answer">
@@ -827,14 +972,13 @@
             <div class="dv-olabel"><a class="dv-oid" href="#4c">4c</a>Add people who can answer</div>
             <div class="ph">
               <div class="sb"><span>18:31</span><span class="ms ms18">signal_cellular_alt</span></div>
-              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Who can answer</div></div>
+              <div class="appbar"><span class="ib"><span class="ms">close</span></span><div class="t">Add people who can answer</div></div>
               <div class="pad"><p class="p" style="padding-bottom:8px">Only people who can see homelab-monitor are listed. They also need to be subscribed to get its questions.</p></div>
-              <div class="lt" style="min-height:64px"><span class="av">A</span><div class="tx"><span class="t1">Ana</span></div><span class="cb on"><span class="ms">check</span></span></div>
               <div class="lt" style="min-height:64px"><span class="av">R</span><div class="tx"><span class="t1">Rui</span></div><span class="cb"></span></div>
               <div style="flex:1"></div>
-              <div class="bar"><span class="btn-f">Save</span></div>
+              <div class="bar"><span class="btn-f dis">Add</span></div>
             </div>
-            <p class="dv-onote">The same picker as 2f: names only, the whole row is the 48 dp target, <b>Save</b> is off until the selection changes. You are not listed (you always can). Close and Back leave without saving; with unsaved changes they ask &ldquo;Discard changes?&rdquo; as 2f does. If no one else can see the producer, the list is replaced by the plain line &ldquo;Nobody else can see homelab-monitor. Add people under Who can see it first.&rdquo;</p>
+            <p class="dv-onote">An add-only picker: it lists only people who can see homelab-monitor and are not answerers yet (Ana already is, so she is not listed), with nothing pre-checked. <b>Add</b> is off until one is checked. Close and Back leave without adding; with a row checked they ask &ldquo;Discard changes?&rdquo; as 2f does. Removing is only by the &times; on an answerer&rsquo;s row, with the confirmation of 4d. When everyone who can see the producer already answers, the list is replaced by the plain line &ldquo;Everyone who can see homelab-monitor can already answer.&rdquo; If nobody else can see the producer, the line is &ldquo;Nobody else can see homelab-monitor. Add people under Who can see it first.&rdquo;</p>
           </div>
 
           <div class="dv-opt" id="4d" data-screen-label="4d Remove confirmation">
@@ -873,14 +1017,14 @@
               <div class="body">
                 <div class="dt">
                   <h1 class="h5">Merge R82 into main?</h1>
-                  <div class="chrow"><span class="och"><span class="ms ms18">pan_tool</span>Action required</span><span class="och hi">High</span></div>
+                  <div class="chrow"><span class="och"><span class="ms ms18">pending_actions</span>Action required</span><span class="och hi">High</span></div>
                   <p class="msg">CI passed on all 3 checks. 3 files changed.</p>
                   <div class="acard">
                     <div class="ahead">Your answer</div>
                     <div class="p">Pick one. It goes to ci-pipeline and can't be changed once sent.</div>
                     <div class="rr d"><span class="rb on"></span><div class="rt"><span>Merge</span><span class="rd">Squash-merge now; CI passed.</span></div></div>
                     <div class="rr"><span class="rb"></span>Hold</div>
-                    <div style="padding-top:8px"><div class="tf"><span class="fl">Note (optional)</span>Add a note for ci-pipeline</div><div class="help"><span></span><span>0 / 1000</span></div></div>
+                    <div style="padding-top:8px"><div class="tf"><span class="fl">Note (optional)</span>Add a note for ci-pipeline</div><div class="help"><span></span><span>0 / 3000</span></div></div>
                     <div style="padding-top:8px"><span class="btn-f w">Send answer</span></div>
                   </div>
                   <div><span class="btn-t"><span class="ms">open_in_new</span>Open link</span></div>
@@ -890,9 +1034,7 @@
                     <div class="kv"><div class="k">Event ID</div><div class="v mono" style="font-size:14px">evt_EXAMPLE01</div></div>
                   </div>
                 </div>
-              </div>
-              <div class="nav"><div class="nv on"><span class="pill"><span class="ms fill">inbox</span></span>Inbox</div><div class="nv"><span class="pill"><span class="ms">sensors</span></span>Producers</div><div class="nv"><span class="pill"><span class="ms">settings</span></span>Settings</div></div>
-            </div>
+              </div>            </div>
             <p class="dv-onote">Option A's key screen with the light tokens of the light-theme check (surface #fbf8ff, card #f5f2fa, primary #515b92, on-primary #ffffff). The selected radio, the Send answer button and the note field keep their dark-theme roles; every text pair passes 4.5:1.</p>
           </div>
 

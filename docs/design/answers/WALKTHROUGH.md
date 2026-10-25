@@ -38,13 +38,14 @@ or `signalhub wait-answer`). The rules and the fields are in
 There is no screen for the producer: it is an API client.
 
 1. **The push reaches the owner's phone.** The notification is the event's own
-   (title and message, built by Android from the push), with one new last line,
-   which tells the person how to answer. It is shown when the card is expanded.
+   (title and message, built by Android from the push), with one new first line,
+   which tells the person how to answer; the message follows it. A collapsed
+   card shows the title and this line.
    ![1a: A question you may answer](images/notification/1a-a-question-you-may-answer.webp)
 2. **The line says what the question is.** Up to 3 single choices list their
    labels; more than 3 say how many; a multiple choice says "pick one or more";
    a typed question says only "Tap to answer". A line that would pass 80
-   characters says "Tap to answer · 3 choices". [1b](images/notification/1b-the-last-line-for-each-kind.webp), [1b2](images/notification/1b2-long-labels.webp)
+   characters says "Tap to answer · 3 choices". [1b](images/notification/1b-the-first-line-for-each-kind.webp), [1b2](images/notification/1b2-long-labels.webp)
 3. **Only people who may answer get the line.** Someone the event reached
    read-only gets the event's usual text. [1c](images/notification/1c-a-question-you-may-not-answer.webp)
 4. **A critical question** keeps today's alert (SignalHub's own sound, volume
@@ -77,7 +78,7 @@ There is no screen for the producer: it is an API client.
 The owner is Rodrigo. Tapping the notification opens the event. Nothing is sent
 from the notification.
 
-1. **Tap the notification.** It opens the event on its answer card. [1h](images/notification/1h-tapping-one.webp)
+1. **Tap the notification.** It opens the event; the answer card is under the message. [1h](images/notification/1h-tapping-one.webp)
 2. **The card under the message** is headed "Your answer". It says "Pick one.
    It goes to ci-pipeline and can't be changed once sent." Each choice is a
    48 dp row with its description under the label when it has one, then
@@ -89,7 +90,11 @@ from the notification.
    - seven choices, one of them: [2a](images/app-answering/2a-seven-choices-single-choice.webp);
    - several choices, with checkboxes and "Pick one or more": [2b](images/app-answering/2b-multiple-choice.webp), [2q](images/app-answering/2q-multiple-choice-with-descriptions.webp);
    - a typed question, whose field is required: [2c](images/app-answering/2c-a-typed-question-only-with-the.webp);
-   - a long description that wraps and is never cut: [2p](images/app-answering/2p-a-choice-with-a-200character-description.webp).
+   - a long description that wraps and is never cut: [2p](images/app-answering/2p-a-choice-with-a-long-description.webp);
+   - an *Other* row, when the producer asks for one (`textStyle: OTHER`): the
+     last row is *Other*; picking it opens the field *Your answer* under it and
+     moves the focus there; leaving it keeps the text, unsent; the result reads
+     *You answered · Other*, then *Other: …*. Nothing picked [2r](images/app-answering/2r-an-other-row-nothing-picked.webp), picked [2r2](images/app-answering/2r2-other-picked-its-field.webp), several choices [2r3](images/app-answering/2r3-multiple-choice-with-other-ticked.webp), field empty [2r4](images/app-answering/2r4-other-picked-field-empty.webp), answered by you [2s](images/app-answering/2s-you-answered-with-other.webp) and by someone else [2s2](images/app-answering/2s2-someone-else-answered-with-other.webp)
 5. **A note that is too long** shows its error as soon as the text passes 3000
    characters, and the text is never cut. [2n](images/app-answering/2n-field-error-the-text-is-too.webp)
 6. **Sending.** The choices and the note are dimmed, and the button reads
@@ -110,11 +115,11 @@ from the notification.
 The owner also decides who else may answer, on the producer's own screen.
 
 12. **Who can answer.** The owner is the first row and can't be removed. Added
-    people get a close button, "Remove Ana". [4a](images/app-answering/4a-your-producer-who-can-answer-one.webp)
+    people get a close button, "Remove Ana from Who can answer". [4a](images/app-answering/4a-your-producer-who-can-answer-one.webp)
 13. **Nobody added yet:** "Only you can answer this producer's questions."
     [4b](images/app-answering/4b-nobody-added-yet.webp)
-14. **Add people.** The picker lists only people who can see the producer, and
-    says they also need to be subscribed. [4c](images/app-answering/4c-add-people-who-can-answer.webp)
+14. **Add people.** The picker only adds: it lists the people who can see the
+    producer and can't answer yet, and says they also need to be subscribed. [4c](images/app-answering/4c-add-people-who-can-answer.webp)
 15. **Remove a person.** A confirmation, because it changes what someone else
     can do. Answers already given stay. [4d](images/app-answering/4d-removing-a-person-the-confirmation.webp)
 
@@ -131,6 +136,7 @@ is the app's option A at the web page's width.
 3. **The event pane** shows the card under the message and above *Open link*.
    [1a](images/web-answering/1a-the-question-a-single-choice-with.webp)
 4. **Other kinds:** several choices [1b](images/web-answering/1b-multiple-choice-with-descriptions.webp); a typed question [1c](images/web-answering/1c-a-typed-question-only.webp).
+   An *Other* row: [1r](images/web-answering/1r-an-other-row-picked.webp), [1r2](images/web-answering/1r2-multiple-choice-with-other-ticked.webp), [1r3](images/web-answering/1r3-other-picked-field-empty.webp), [1s](images/web-answering/1s-you-answered-with-other.webp).
 5. **Keyboard.** A group of radios is one tab stop; the arrow keys move and check;
    Space checks. Tab goes on to the note and then to *Send answer*. Enter in the
    note does not send; Ctrl+Enter (Cmd+Enter on a Mac) sends from anywhere in
@@ -141,7 +147,7 @@ is the app's option A at the web page's width.
    [1i](images/web-answering/1i-send-failed.webp)
 9. **A `403` on Send** (the owner removed this person while the card was open):
    the page re-reads the event and shows the read-only card with "Your answer
-   wasn't sent." [1p](images/web-answering/1p-a-403-on-send-the-page.webp)
+   wasn't sent. You can no longer answer this question." [1p](images/web-answering/1p-a-403-on-send-the-page.webp)
 10. **Someone the question reached read-only** sees the choices as a list with no
     controls and a title naming who can answer. [1h](images/web-answering/1h-open-but-you-may-not-answer.webp)
 11. **At phone width** the rail is a bottom bar and the card fills the screen:
@@ -197,8 +203,8 @@ answer.
    Answered in the session" with "ci-pipeline closed this question on 17 Oct
    at 08:41." Nobody
    sees an error. The notification goes on every device, as for a time-out, and
-   a card that was open swaps on the next re-read or on a `409`. [no frame:
-   DESIGN.md 10.3]
+   a card that was open swaps on the next re-read or on a `409`. ([app 2t](images/app-answering/2t-closed-by-the-producer-with-a.webp), [web 1t](images/web-answering/1t-closed-by-the-producer.webp)
+   and [admin Q1h](images/admin/q1h-closed-by-its-producer.webp))
 4. **If it closes while someone is choosing,** *Send answer* gets `409` and the
    card swaps to "Closed while you were choosing · nobody can answer it now".
    The choice and the note are dropped. [2l2](images/app-answering/2l2-it-closed-while-you-were-choosing.webp)
@@ -235,16 +241,19 @@ its answer read-only.
 6. **An answerer who was revoked later** keeps the name stored with the answer,
    with a *Revoked* tag. [Q1f](images/admin/q1f-the-answerer-was-revoked-later.webp)
 7. **Light theme and phone:** [Q1g](images/admin/q1g-q1b-in-the-light-theme.webp), [Q2](images/admin/q2-phone-the-detail-with-an-answered.webp).
-8. **Deleting an event that asks** adds one sentence to the confirmation: "Its
-   question and any answer are deleted too." [Q3](images/admin/q3-delete-an-event-that-asks-still.webp), [Q3b](images/admin/q3b-delete-several-events-some-ask.webp)
+8. **Deleting an event that asks** says so in the confirmation: an open one
+   names who it waits for and says ci-pipeline gets no answer; an answered one
+   says "Its question and Ana's answer are deleted too." [Q3](images/admin/q3-delete-an-event-that-asks-still.webp), [Q3b](images/admin/q3b-delete-several-events-some-ask.webp)
 9. **Who can answer, on a producer.** The producer's pane lists the owner and the
-   answerers read-only; the owner sets them in the app. [P21](images/admin/p21-who-can-answer-the-owner-and.webp), [P22](images/admin/p22-who-can-answer-only-the-owner.webp)
+   answerers read-only; the owner sets them in the app or on the web page. [P21](images/admin/p21-who-can-answer-the-owner-and.webp), [P22](images/admin/p22-who-can-answer-only-the-owner.webp)
 10. **Send a test question.** The *Send a test event* dialog has one folded section at
     its foot, "Ask for an answer", so a plain test event is as short as before.
     [D1q](images/admin/d1q-the-dialog-with-the-section-folded.webp) Opened for the first time: [D1a](images/admin/d1a-the-section-opened-for-the-first.webp). Filled in, with
     choices, descriptions, ids derived from the labels, a note rule and a closing
     time: [D1b](images/admin/d1b-a-question-filled-in.webp)
-11. **Mistakes name the field:** [D1c](images/admin/d1c-error-two-choices-with-the-same.webp), [D1d](images/admin/d1d-error-more-than-10-choices.webp), [D1e](images/admin/d1e-error-no-choices-so-the-note.webp), [D1f](images/admin/d1f-error-one-or-more-with-a.webp). A closing time is a
+11. **Mistakes name the field:** [D1c](images/admin/d1c-error-two-choices-with-the-same.webp), [D1d](images/admin/d1d-error-more-than-10-choices.webp), [D1f](images/admin/d1f-error-one-or-more-with-a.webp). With no
+    choices there is no error: the *Note* control gives way to "No choices: the
+    answer is typed, and the person must type one." [D1e](images/admin/d1e-no-choices-the-answer-is-typed.webp) A closing time is a
     date and a time in the operator's time zone: [D1g](images/admin/d1g-closes-at-a-date-and-a.webp).
 12. **Sent.** The snack bar links to the new event and says who was asked. The
     operator reads the answer in the pane as it arrives. [D2c](images/admin/d2c-sent-the-snack-bar-links-to.webp)
@@ -265,8 +274,8 @@ The designs assume the API in [API-PROPOSAL.md](API-PROPOSAL.md). In short:
 - `GET /api/v1/events/{id}/answer?wait=60` for the producer's key.
 - A `toAnswer=true` filter on the event list, and the answerers of a producer
   (`PUT` and `DELETE` under `/api/v1/client/producers/{id}/answerers/{userId}`).
-- Pushes: a tag per event, a last "Tap to answer" line only for people who may
-  answer, and a data-only notice (`answered`, `closed`, `deleted`) that makes the
+- Pushes: a tag per event, a first "Tap to answer" line only for people who may
+  answer (shipped in R82b), and a data-only notice (`answered`, `closed`, `deleted`) that makes the
   app remove the question's notification. Closing is scheduled at `closesAt`.
 - `POST /api/v1/events/{id}/answer/close` for the producer, and `textStyle` in
   `ask`.
