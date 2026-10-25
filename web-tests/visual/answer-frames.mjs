@@ -150,6 +150,8 @@ export const answerFrames = [
   eventFrame("1h", "1h", "open, but you may not answer", openEvent({ can: false, ask: ask(MERGE, { who: WHO_RA }) }), { person: RUI, role: "BASIC" }),
   eventFrame("1j", "1j", "someone answered first", openEvent({ state: "ANSWERED", can: false, answer: answered(ANA, ["hold"], null, [18, 55]) }), { after: null }),
   eventFrame("1k", "1k", "it closes soon", openEvent({ title: "Deploy window for R80?", message: "Open until 09:00.", link: null, severity: "NORMAL", ask: ask([choice("Deploy now"), choice("Deploy tomorrow")], { text: "NONE", closesAt: new Date(Date.now() + 12 * 60_000).toISOString() }) })),
+  eventFrame("1l", "1l", "the text is too long", typedEvent(), { after: async (page) => { await typed("Answers can now carry a note. Sending twice is harmless. ".repeat(60).slice(0, 3043))(page); await page.getByRole("button", { name: "Send answer" }).click(); } }),
+  eventFrame("1n", "1n", "keyboard: the focus ring", openEvent({ ask: ask(MERGE, { closesAt: at(0, 9, 0) }) }), { after: async (page) => { await page.locator(".acard input").first().check(); await page.keyboard.press("Tab"); await page.keyboard.press("Shift+Tab"); } }),
   eventFrame("1m", "1m", "nothing picked", openEvent({ ask: ask(MERGE, { text: "NONE" }) }), { after: async (page) => { await page.getByRole("button", { name: "Send answer" }).click(); } }),
   eventFrame("1o", "1o", "light theme", openEvent(), {}, { scheme: "light" }),
   eventFrame("1q", "1q", "you answered a typed question", typedEvent({ state: "ANSWERED", can: false, answer: answered(ME, [], "after lunch") })),

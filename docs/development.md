@@ -1203,12 +1203,12 @@ loads is served with the policy and what each module calls. `web-tests/tests/adm
 it in a headless browser the same way (sign-in, Status, Producers, Devices, Events, Users, the layout at 1440,
 1280, 1100 and 390 px, themes, reduced motion, focus); they sign in with `ADMIN_TOKEN`. Its frames
 are compared with the drawings without any server data:
-`SIGNALHUB_URL=http://localhost:8080 node visual/compare.mjs A P1 ST1 DV1 EA E2 S4b Q1` (and `AQ1 AQ1b AQ1e AQ1h AQ3 AD1b` for the questions, `visual/admin-answer-frames.mjs`) (`visual/admin-frames.mjs`
+`SIGNALHUB_URL=http://localhost:8080 node visual/compare.mjs A P1 ST1 DV1 EA E2 S4b Q1` (and `AQ1 AQ1b AQ1e AQ1h AQ3 AD1b AD1c AD1d AD1e AD1f AD1i AL1` for the questions, `visual/admin-answer-frames.mjs`) (`visual/admin-frames.mjs`
 serves the drawings' sample data in place of the management API).
 
 The answering frames (`AW1a`, `AW2a`, `AW3b`, ...) are served the drawings' own people and
 events by mocked answers (`visual/answer-frames.mjs`), so they need no sample world:
-`node visual/compare.mjs AW1a AW1h AW2a AW3b`.
+`node visual/compare.mjs AW1a AW1h AW1l AW1n AW2a AW3b`.
 
 ### Comparing the page with its drawings
 

@@ -9,6 +9,7 @@ import { names } from "./question.js";
 import { iconButton, nextId, segmented, selectField, textField } from "./ui.js";
 
 const MAX_CHOICES = 10;
+const EXAMPLES = ["Merge", "Hold"];
 const MAX_LABEL = 100;
 const MAX_DESCRIPTION = 1000;
 const ID_ROOM = 60; // of the server's 64, leaving room for a "-2" ... "-10" suffix
@@ -126,8 +127,8 @@ export function askSection({ who }) {
   function body() {
     const parts = [el("div", { class: "alab alab-top", text: "Choices" })];
     state.choices.forEach((choice, at) => parts.push(...choiceRows(choice, at)));
-    parts.push(addRow());
     if (state.choices.length === 0) parts.push(el("div", { class: "cinfo", text: "No choices: the answer is typed." }));
+    parts.push(addRow());
     if (state.choices.length > 0) parts.push(el("div", { class: "alab", text: "Pick" }), pickControl());
     parts.push(el("div", { class: "alab", text: "Note" }));
     if (state.choices.length === 0) {
@@ -157,11 +158,13 @@ export function askSection({ who }) {
   }
 
   function choiceRows(choice, at) {
-    const label = textField({ label: "Label", value: choice.label, onInput: (value) => { choice.label = value; infos(); } });
-    label.input.placeholder = "";
+    const label = textField({ label: "Label", value: choice.label, onInput: (value) => { choice.label = value; renameRemove(); infos(); } });
+    label.input.placeholder = `For example: ${EXAMPLES[at % EXAMPLES.length]}`;
     label.input.dataset.key = `label-${at}`;
-    const named = choice.label.trim();
-    const remove = iconButton("close", named ? `Remove choice ${named}` : `Remove choice ${at + 1}`, () => change(() => state.choices.splice(at, 1), null));
+    // Named by the label as it is typed; by the position only while the label is empty.
+    const removeName = () => `Remove choice ${choice.label.trim() || at + 1}`;
+    const renameRemove = () => remove.setAttribute("aria-label", removeName());
+    const remove = iconButton("close", removeName(), () => change(() => state.choices.splice(at, 1), null));
     const info = el("div", { class: "cinfo" });
     refs.labels[at] = label;
     refs.infos[at] = info;
@@ -204,7 +207,7 @@ export function askSection({ who }) {
     const error = el("div", { class: "cinfo err", role: "alert", hidden: true });
     add.addEventListener("click", () => {
       if (full) {
-        replace(error, icon("error"), `A question has at most ${MAX_CHOICES} choices.`);
+        replace(error, icon("error"), `At most ${MAX_CHOICES} choices. Remove one to add another.`);
         error.hidden = false;
         return;
       }
@@ -283,15 +286,15 @@ export function askSection({ who }) {
       if (!text) message = "Give the choice a label.";
       else if ([...text].length > MAX_LABEL) message = `Use ${MAX_LABEL} characters or fewer.`;
       else if (/[\u0000-\u001f\u007f]/.test(text)) message = "A label has no line breaks.";
-      else if (seen.has(text.toLowerCase())) message = "Two choices have the same label. Labels must differ.";
-      else if (state.style === "OTHER" && state.note !== "NONE" && text.toLowerCase() === "other") message = "A choice called Other is not allowed with an Other row. Remove it or use a note.";
-      seen.set(text.toLowerCase(), true);
+      else if (seen.has(text.toLowerCase())) message = `Another choice is already called ${seen.get(text.toLowerCase())}. Labels must differ, ignoring capitals.`;
+      else if (state.style === "OTHER" && state.note !== "NONE" && text.toLowerCase() === "other") message = "A choice cannot be called Other while the question has an Other row. Rename it, or type the answer as a Note.";
+      if (!seen.has(text.toLowerCase())) seen.set(text.toLowerCase(), text);
       flag(field, message);
       const description = refs.descriptions[at];
       if (description) flag(description, [...choice.description].length > MAX_DESCRIPTION ? `Use ${MAX_DESCRIPTION} characters or fewer.` : "");
     });
     if (state.multiple && kept.length > 0 && kept.length < 2 && refs.pickError) {
-      replace(refs.pickError, icon("error"), "A pick of several needs at least two choices. Add a choice or pick One.");
+      replace(refs.pickError, icon("error"), "Picking one or more needs at least 2 choices. Add another, or pick One.");
       refs.pickError.hidden = false;
       problems.push(node.querySelector("[data-key='pick'] [aria-checked='true']"));
     }

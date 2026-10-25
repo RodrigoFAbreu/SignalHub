@@ -483,6 +483,37 @@ class AdminPageTest {
   }
 
   @Test
+  void aQuestionMarkerAndTheStatusPillsHelpIconDoNotShareAClass() {
+    // R82b: both were `qm`, so the status icon's absolute 16 px rule also hit the list markers and
+    // took them out of their rows.
+    var css = given().get("/admin/admin.css").then().statusCode(200).extract().asString();
+    assertTrue(source("question.js").contains("class: `qmk${"));
+    assertTrue(source("shell.js").contains("icon(\"help\", \"qm\")"));
+    assertTrue(Pattern.compile("\\.qmk\\b").matcher(css).find());
+    // `.qm` alone is the icon's: no other rule, state or descendant is written for it.
+    var rules = Pattern.compile("\\.qm(?![\\w-])([^{,]*)").matcher(css).results().toList();
+    assertTrue(rules.size() == 1 && rules.get(0).group(1).isBlank());
+  }
+
+  @Test
+  void theTestDialogsFieldErrorsReadAsDrawnAndRemoveButtonsAreNamedByLabel() {
+    var script = source("ask-form.js");
+    assertTrue(
+        script.contains(
+            "Another choice is already called ${seen.get(text.toLowerCase())}. Labels must differ,"
+                + " ignoring capitals."));
+    assertTrue(
+        script.contains(
+            "A choice cannot be called Other while the question has an Other row. Rename it, or"
+                + " type the answer as a Note."));
+    assertTrue(script.contains("At most ${MAX_CHOICES} choices. Remove one to add another."));
+    assertTrue(
+        script.contains("Picking one or more needs at least 2 choices. Add another, or pick One."));
+    assertTrue(script.contains("`Remove choice ${choice.label.trim() || at + 1}`"));
+    assertTrue(script.contains("`For example: ${EXAMPLES[at % EXAMPLES.length]}`"));
+  }
+
+  @Test
   void thePageManagesUsersWithTheManagementApiAndAsksBeforeWhatCannotBeUndone() {
     var script = source("users.js");
     assertTrue(source("api.js").contains("export const USERS = \"/api/v1/admin/users\";"));

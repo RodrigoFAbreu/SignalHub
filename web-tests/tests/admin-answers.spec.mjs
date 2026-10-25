@@ -85,8 +85,22 @@ test.describe("desktop", () => {
     await expect(rows.filter({ hasText: title })).toHaveAccessibleName(new RegExp(`, waiting$`));
     await expect(rows.filter({ hasText: answered.title })).toContainText("Answered");
     await expect(rows.filter({ hasText: closed.title })).toContainText("Closed");
-    await expect(rows.filter({ hasText: closed.title }).locator(".qm .ms")).toHaveText("lock");
-    await expect(rows.filter({ hasText: plain.title }).locator(".qm")).toHaveCount(0);
+    await expect(rows.filter({ hasText: closed.title }).locator(".qmk .ms")).toHaveText("lock");
+    await expect(rows.filter({ hasText: plain.title }).locator(".qmk")).toHaveCount(0);
+    // Each marker is in its own row, under the title, in the flow of the page (R82b: an older rule
+    // took it out of the row and drew them all at one corner).
+    for (const row of [rows.filter({ hasText: title }), rows.filter({ hasText: answered.title }), rows.filter({ hasText: closed.title })]) {
+      const marker = row.locator(".qmk");
+      await expect(marker).toBeVisible();
+      await expect(marker).toHaveCSS("position", "static");
+      const inside = await marker.evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        const rowBox = node.closest("[role=row]").getBoundingClientRect();
+        const name = node.parentElement.querySelector(".nm").getBoundingClientRect();
+        return { within: box.top >= rowBox.top && box.bottom <= rowBox.bottom && box.left >= rowBox.left && box.right <= rowBox.right, below: box.top >= name.bottom - 1, wide: box.width > 40 };
+      });
+      expect(inside).toEqual({ within: true, below: true, wide: true });
+    }
 
     await page.getByRole("button", { name: "Question", exact: true }).click();
     for (const word of ["Any", "Waiting", "Answered", "Closed", "No question"]) await expect(page.getByRole("menuitemradio", { name: word })).toBeVisible();
@@ -184,12 +198,12 @@ test.describe("desktop", () => {
     await labels.nth(0).fill("Merge");
     await labels.nth(1).fill("merge");
     await dialog.getByRole("button", { name: "Send", exact: true }).click();
-    await expect(dialog).toContainText("Two choices have the same label.");
+    await expect(dialog).toContainText("Another choice is already called Merge. Labels must differ, ignoring capitals.");
     await expect(labels.nth(1)).toBeFocused();
     await labels.nth(1).fill("");
     await dialog.getByRole("radiogroup", { name: "Pick" }).getByRole("radio", { name: "One or more" }).click();
     await dialog.getByRole("button", { name: "Send", exact: true }).click();
-    await expect(dialog).toContainText("A pick of several needs at least two choices.");
+    await expect(dialog).toContainText("Picking one or more needs at least 2 choices. Add another, or pick One.");
     await dialog.getByRole("radiogroup", { name: "Pick" }).getByRole("radio", { name: "One", exact: true }).click();
     await dialog.getByRole("radiogroup", { name: "Closes" }).getByRole("radio", { name: "At" }).click();
     await dialog.getByLabel("Day").fill("2020-01-01");
@@ -208,6 +222,11 @@ test.describe("desktop", () => {
     await dialog.getByRole("button", { name: "Remove choice 2" }).click();
     await dialog.getByRole("button", { name: "Remove choice 1" }).click();
     await expect(dialog).toContainText("No choices: the answer is typed, and the person must type one.");
+    // Frame D1e: the line comes first, then Add choice.
+    const line = dialog.getByText("No choices: the answer is typed.", { exact: true });
+    const add = dialog.getByRole("button", { name: "Add choice" });
+    const [lineBox, addBox] = [await line.boundingBox(), await add.boundingBox()];
+    expect(lineBox.y + lineBox.height).toBeLessThanOrEqual(addBox.y + 1);
     await expect(dialog.getByRole("radiogroup", { name: "Pick" })).toHaveCount(0);
     await dialog.getByRole("button", { name: "Add choice" }).click();
     await dialog.getByRole("button", { name: "Add choice" }).click();
@@ -246,6 +265,55 @@ test.describe("desktop", () => {
     await expect(pane(page).getByText("<img src=x onerror=alert(1)>")).toBeVisible();
     await expect(pane(page).locator(".qch img, .qch b")).toHaveCount(0);
   });
+
+  test("the dialog's choice rows: a placeholder, a remove button named by its label, and the errors as drawn", async ({ page }) => {
+    const { producer } = await world();
+    await open(page, producer);
+    await page.getByRole("button", { name: "Send a test event" }).first().click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Producer").selectOption({ label: producer.name });
+    await dialog.getByRole("button", { name: /Ask for an answer/ }).click();
+    const labels = dialog.getByLabel("Label", { exact: true });
+    await expect(labels.nth(0)).toHaveAttribute("placeholder", "For example: Merge");
+    await expect(labels.nth(1)).toHaveAttribute("placeholder", "For example: Hold");
+    // Empty: named by position; with a label: by the label.
+    await expect(dialog.getByRole("button", { name: "Remove choice 1", exact: true })).toBeVisible();
+    await labels.nth(0).fill("Merge");
+    await labels.nth(1).fill("Hold");
+    await expect(dialog.getByRole("button", { name: "Remove choice Merge", exact: true })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Remove choice Hold", exact: true })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Remove choice 1", exact: true })).toHaveCount(0);
+
+    // D1i: a choice called Other with an Other row.
+    await dialog.getByRole("button", { name: "Add choice" }).click();
+    await labels.nth(2).fill("Other");
+    await dialog.getByRole("radiogroup", { name: "Note" }).getByRole("radio", { name: "Optional" }).click();
+    await dialog.getByRole("radiogroup", { name: "Typed answer as" }).getByRole("radio", { name: "Other row" }).click();
+    await dialog.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(dialog).toContainText("A choice cannot be called Other while the question has an Other row. Rename it, or type the answer as a Note.");
+    await dialog.getByRole("radiogroup", { name: "Typed answer as" }).getByRole("radio", { name: "Note" }).click();
+    await labels.nth(2).fill("Third");
+
+    // D1c: the duplicate names the earlier choice as it was typed.
+    await labels.nth(2).fill("hold");
+    await dialog.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(dialog).toContainText("Another choice is already called Hold. Labels must differ, ignoring capitals.");
+
+    // D1d: at 10, Add choice says why.
+    await labels.nth(2).fill("Third");
+    for (let n = 3; n < 10; n += 1) {
+      await dialog.getByRole("button", { name: "Add choice" }).click();
+      await labels.nth(n).fill(`Choice ${n}`);
+    }
+    await dialog.getByRole("button", { name: "Add choice" }).click({ force: true });
+    await expect(dialog).toContainText("At most 10 choices. Remove one to add another.");
+
+    // D1f: one or more with a single choice.
+    for (let n = 9; n >= 1; n -= 1) await dialog.getByRole("button", { name: /^Remove choice / }).last().click();
+    await dialog.getByRole("radiogroup", { name: "Pick" }).getByRole("radio", { name: "One or more" }).click();
+    await dialog.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(dialog).toContainText("Picking one or more needs at least 2 choices. Add another, or pick One.");
+  });
 });
 
 test.describe("phone", () => {
@@ -258,5 +326,19 @@ test.describe("phone", () => {
     await show(page, producer, sent.id);
     await expect(pane(page).locator(".qbox")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  });
+  test("on a phone each question marker joins its row", async ({ page }) => {
+    const { producer, title } = await world();
+    await open(page, producer);
+    const row = page.getByRole("grid", { name: "Events" }).getByRole("row").filter({ hasText: title });
+    const marker = row.locator(".qmk");
+    await expect(marker).toBeVisible();
+    await expect(marker).toContainText("Waiting");
+    const within = await marker.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      const rowBox = node.closest("[role=row]").getBoundingClientRect();
+      return box.top >= rowBox.top && box.bottom <= rowBox.bottom && box.right <= rowBox.right;
+    });
+    expect(within).toBe(true);
   });
 });
