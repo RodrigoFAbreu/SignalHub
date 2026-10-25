@@ -28,6 +28,10 @@ import java.util.UUID;
  * @param relation which producers of {@code userId}: owned, subscribed to, or either when empty
  * @param push only events whose pushes went as one of these summaries say (the operator's listing
  *     only)
+ * @param toAnswer only open questions the caller may answer (a user's listing only; the operator,
+ *     who answers nothing, lists none)
+ * @param answerStates only events whose question stands as one of these says (the operator's
+ *     listing only)
  * @param total whether to count every matching event, not just fill a page (the operator's listing
  *     only)
  * @param after position to continue after, from a previous page's cursor
@@ -42,6 +46,8 @@ record EventQuery(
     Optional<UUID> userId,
     Optional<UserRelation> relation,
     Set<PushSummary> push,
+    boolean toAnswer,
+    Set<AnswerFilter> answerStates,
     boolean total,
     Optional<EventCursor> after,
     int limit) {
@@ -54,6 +60,7 @@ record EventQuery(
     categories = Set.copyOf(categories);
     severities = Set.copyOf(severities);
     push = Set.copyOf(push);
+    answerStates = Set.copyOf(answerStates);
   }
 
   /**
@@ -71,6 +78,8 @@ record EventQuery(
       String userId,
       String relation,
       List<String> push,
+      String toAnswer,
+      List<String> answerStates,
       String total,
       String cursor,
       String limit) {
@@ -98,6 +107,8 @@ record EventQuery(
                 .stream()
                 .findFirst(),
             parseEnums("push", push, PushSummary.class, problems),
+            parseTrue("toAnswer", toAnswer, problems),
+            parseEnums("answerState", answerStates, AnswerFilter.class, problems),
             parseBoolean("total", total, problems).orElse(false),
             parseCursor(cursor, problems),
             parseLimit(limit, problems));
@@ -170,6 +181,17 @@ record EventQuery(
         yield Optional.empty();
       }
     };
+  }
+
+  /** A switch that exists only to be turned on: true, or absent. */
+  private static boolean parseTrue(String field, String text, List<ApiError.Violation> problems) {
+    if (text == null) {
+      return false;
+    }
+    if (!text.equals("true")) {
+      problems.add(new ApiError.Violation(field, "must be true"));
+    }
+    return true;
   }
 
   private static Optional<Instant> parseTimestamp(

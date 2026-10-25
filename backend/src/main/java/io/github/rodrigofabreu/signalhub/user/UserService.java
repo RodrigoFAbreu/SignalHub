@@ -124,6 +124,7 @@ public class UserService {
               user.revoke(now());
               clients.revokeAllOf(id);
               producers.disableAllOwnedBy(id);
+              producers.removeAnswererEverywhere(id);
               users.flush();
               LOG.infof("Revoked user %s", id);
               return summarize(List.of(user)).getFirst();

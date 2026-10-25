@@ -3,11 +3,15 @@ package io.github.rodrigofabreu.signalhub.event;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 
+import io.github.rodrigofabreu.signalhub.api.ApiError;
 import io.github.rodrigofabreu.signalhub.producer.ProducerAccess;
 import io.github.rodrigofabreu.signalhub.producer.ProducerIdentity;
 import io.github.rodrigofabreu.signalhub.producer.ProducerService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.core.Response;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
@@ -33,18 +37,27 @@ class EventService {
   private final PushDispatches dispatches;
   private final ProducerAccess access;
   private final EventReads reads;
+  private final EventQuestions questions;
+  private final QuestionWakeups wakeups;
+
+  /** How far ahead a question may close by itself. */
+  static final Duration MAX_ASK_DURATION = Duration.ofDays(30);
 
   EventService(
       EventRepository repository,
       ProducerService producers,
       PushDispatches dispatches,
       ProducerAccess access,
-      EventReads reads) {
+      EventReads reads,
+      EventQuestions questions,
+      QuestionWakeups wakeups) {
     this.repository = repository;
     this.producers = producers;
     this.dispatches = dispatches;
     this.access = access;
     this.reads = reads;
+    this.questions = questions;
+    this.wakeups = wakeups;
   }
 
   /** The outcome of publishing: the event, and whether this request stored it. */
@@ -66,6 +79,7 @@ class EventService {
   Published create(ProducerIdentity producer, CreateEventRequest request, String idempotencyKey) {
     repository.lockPublishing();
     var metadata = request.metadata();
+    var ask = request.ask() == null ? null : request.ask().normalized();
     var event =
         new EventEntity(
             producer.id(),
@@ -78,19 +92,26 @@ class EventService {
             request.link(),
             request.occurredAt() == null ? null : toStoredInstant(request.occurredAt().toInstant()),
             nextCreatedAt(),
-            idempotencyKey);
+            idempotencyKey,
+            ask == null ? null : questions.store(ask),
+            ask == null ? null : ask.closesAt());
     if (idempotencyKey != null) {
       var stored = repository.findByIdempotencyKey(producer.id(), idempotencyKey);
       if (stored.isPresent()) {
         if (!sameRequest(stored.get(), event)) {
           throw new IdempotencyKeyReusedException();
         }
-        return new Published(toResponse(stored.get(), producer, null, null), false);
+        return new Published(respond(stored.get(), producer, null, null), false);
       }
+    }
+    // After the idempotency lookup: a retry of a published question is answered with the stored
+    // event even once its closesAt has passed.
+    if (ask != null && ask.closesAt() != null) {
+      checkClosesAt(ask.closesAt());
     }
     repository.persist(event);
     dispatches.add(event);
-    return new Published(toResponse(event, producer, null, null), true);
+    return new Published(respond(event, producer, null, null), true);
   }
 
   /**
@@ -102,6 +123,26 @@ class EventService {
     var event = create(producer, request, null).event();
     LOG.infof("Operator sent event %s as producer %s", event.id(), producer.id());
     return event;
+  }
+
+  private static void checkClosesAt(Instant closesAt) {
+    var now = Instant.now();
+    String problem = null;
+    if (!closesAt.isAfter(now)) {
+      problem = "must be in the future";
+    } else if (closesAt.isAfter(now.plus(MAX_ASK_DURATION))) {
+      problem = "must be at most 30 days ahead";
+    }
+    if (problem != null) {
+      throw new BadRequestException(
+          Response.status(Response.Status.BAD_REQUEST)
+              .entity(
+                  new ApiError(
+                      "Invalid request",
+                      400,
+                      List.of(new ApiError.Violation("ask.closesAt", problem))))
+              .build());
+    }
   }
 
   /**
@@ -126,7 +167,15 @@ class EventService {
         && Objects.equals(stored.message(), sent.message())
         && Objects.equals(stored.link(), sent.link())
         && Objects.equals(stored.occurredAt(), sent.occurredAt())
-        && repository.sameMetadata(stored.metadata(), sent.metadata());
+        && repository.sameMetadata(stored.metadata(), sent.metadata())
+        && sameAsk(stored.ask(), sent.ask());
+  }
+
+  private boolean sameAsk(String stored, String sent) {
+    if (stored == null || sent == null) {
+      return stored == null && sent == null;
+    }
+    return repository.sameMetadata(stored, sent);
   }
 
   /** The push for the event; empty if the event no longer exists. */
@@ -153,7 +202,8 @@ class EventService {
                     user.isPresent()
                         ? reads.readAt(user.get(), List.of(id)).get(id)
                         : event.readAt(),
-                    null));
+                    null,
+                    questions.contextFor(List.of(event), user)));
   }
 
   private boolean receivedBy(EventEntity event, Optional<UUID> user) {
@@ -167,7 +217,17 @@ class EventService {
    */
   @Transactional
   EventPage list(EventQuery query, Optional<UUID> user) {
-    var viewer = user.map(u -> new EventRepository.Viewer(u, access.subscribedProducerIds(u)));
+    if (query.toAnswer() && user.isEmpty()) {
+      // The operator acts for no user, so nothing is theirs to answer.
+      return new EventPage(List.of(), null, query.total() ? 0L : null);
+    }
+    var viewer =
+        user.map(
+            u ->
+                new EventRepository.Viewer(
+                    u,
+                    access.subscribedProducerIds(u),
+                    query.toAnswer() ? access.answerableProducerIds(u) : Set.of()));
     var rows = repository.find(query, query.limit() + 1, viewer, userProducers(query));
     var page = rows.subList(0, Math.min(rows.size(), query.limit()));
     var producersById = producers.find(page.stream().map(EventEntity::producerId).collect(toSet()));
@@ -176,6 +236,7 @@ class EventService {
             .orElse(Map.of());
     // The operator's listing says how each event's pushes went; a user's does not.
     var summaries = user.isPresent() ? Map.<UUID, PushSummary>of() : pushSummaries(page);
+    var context = questions.contextFor(page, user);
     var items =
         page.stream()
             .map(
@@ -184,7 +245,8 @@ class EventService {
                         e,
                         producersById.get(e.producerId()),
                         user.isPresent() ? readAt.get(e.id()) : e.readAt(),
-                        summaries.get(e.id())))
+                        summaries.get(e.id()),
+                        context))
             .toList();
     String nextCursor = null;
     if (rows.size() > page.size()) {
@@ -273,8 +335,16 @@ class EventService {
 
   @Transactional
   UnreadCount countUnread(Optional<UUID> user) {
+    if (user.isEmpty()) {
+      return new UnreadCount(repository.countUnread(), 0);
+    }
+    var subscribed = access.subscribedProducerIds(user.get());
+    var answerable = new HashSet<>(access.answerableProducerIds(user.get()));
+    answerable.retainAll(subscribed);
     return new UnreadCount(
-        user.isPresent() ? reads.countUnread(user.get()) : repository.countUnread());
+        reads.countUnread(user.get()),
+        repository.countToAnswer(
+            new EventRepository.Viewer(user.get(), subscribed, answerable), Instant.now()));
   }
 
   /**
@@ -285,6 +355,7 @@ class EventService {
   boolean delete(UUID id) {
     var deleted = repository.deleteEvent(id);
     if (deleted) {
+      wakeups.deletedAfterCommit();
       LOG.infof("Deleted event %s", id);
     }
     return deleted;
@@ -300,23 +371,27 @@ class EventService {
     var dryRun = request.dryRunRequested();
     if (request.selection()) {
       var ids = new LinkedHashSet<>(request.ids());
+      var asking = repository.countAskingIds(ids);
       if (dryRun) {
-        return Optional.of(new DeletedEvents(repository.countIds(ids), true));
+        return Optional.of(new DeletedEvents(repository.countIds(ids), true, asking));
       }
       var count = repository.deleteIds(ids);
+      wakeups.deletedAfterCommit();
       LOG.infof("Deleted %d of %d selected events: %s", count, ids.size(), ids);
-      return Optional.of(new DeletedEvents(count, false));
+      return Optional.of(new DeletedEvents(count, false, asking));
     }
     var producerId = Optional.ofNullable(request.producerId());
     if (producerId.isPresent() && producers.find(producerId.get()).isEmpty()) {
       return Optional.empty();
     }
     var createdBefore = Optional.ofNullable(request.createdBefore()).map(OffsetDateTime::toInstant);
+    var asking = repository.countAskingMatching(producerId, createdBefore);
     if (dryRun) {
       return Optional.of(
-          new DeletedEvents(repository.countMatching(producerId, createdBefore), true));
+          new DeletedEvents(repository.countMatching(producerId, createdBefore), true, asking));
     }
     var count = repository.deleteMatching(producerId, createdBefore);
+    wakeups.deletedAfterCommit();
     LOG.infof(
         "Deleted %d events %s",
         count,
@@ -325,7 +400,7 @@ class EventService {
                 createdBefore.map(before -> "created before " + before))
             .flatMap(Optional::stream)
             .collect(joining(" and ")));
-    return Optional.of(new DeletedEvents(count, false));
+    return Optional.of(new DeletedEvents(count, false, asking));
   }
 
   /**
@@ -334,7 +409,11 @@ class EventService {
    */
   @Transactional
   int deleteCreatedBefore(Instant cutoff, int limit) {
-    return repository.deleteCreatedBefore(cutoff, limit);
+    var deleted = repository.deleteCreatedBefore(cutoff, limit);
+    if (deleted > 0) {
+      wakeups.deletedAfterCommit();
+    }
+    return deleted;
   }
 
   // The foreign key guarantees the producer exists.
@@ -347,8 +426,21 @@ class EventService {
     return instant.truncatedTo(ChronoUnit.MICROS);
   }
 
-  private static EventResponse toResponse(
+  /** The response for one event, loading what its question needs; the caller is no user. */
+  private EventResponse respond(
       EventEntity event, ProducerIdentity producer, Instant readAt, PushSummary push) {
+    return toResponse(
+        event, producer, readAt, push, questions.contextFor(List.of(event), Optional.empty()));
+  }
+
+  private EventResponse toResponse(
+      EventEntity event,
+      ProducerIdentity producer,
+      Instant readAt,
+      PushSummary push,
+      EventQuestions.Context context) {
+    var question = questions.fields(event, context);
+    var state = question.state();
     return new EventResponse(
         event.id(),
         new EventResponse.Producer(producer.id(), producer.name()),
@@ -362,6 +454,13 @@ class EventService {
         event.occurredAt(),
         event.createdAt(),
         readAt,
-        push);
+        push,
+        question.ask(),
+        state == null ? null : state.answer(),
+        state == null ? null : state.state(),
+        state == null ? null : state.closedBy(),
+        state == null ? null : state.closedAt(),
+        state == null ? null : state.closeNote(),
+        question.canAnswer());
   }
 }

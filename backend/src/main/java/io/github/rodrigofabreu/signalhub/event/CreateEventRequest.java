@@ -67,7 +67,16 @@ public record CreateEventRequest(
             examples = "2026-09-25T14:03:00+02:00")
         @JsonDeserialize(using = IsoOffsetDateTimeDeserializer.class)
         @SupportedTimestamp
-        OffsetDateTime occurredAt) {
+        OffsetDateTime occurredAt,
+    @Schema(
+            description =
+                "Optional question on the event: choices to pick from, typed text, or both. The"
+                    + " producer's owner and answerers answer it; the first answer wins. The"
+                    + " producer reads it with GET /api/v1/events/{id}/answer, or closes it. An"
+                    + " event without ask behaves as before.",
+            nullable = true)
+        @ValidAsk
+        Ask ask) {
 
   // ObjectNode is mutable; copy it so the record stays a value.
   public CreateEventRequest {

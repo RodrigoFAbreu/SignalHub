@@ -1,5 +1,6 @@
 package io.github.rodrigofabreu.signalhub.api;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
 import java.util.Objects;
@@ -11,10 +12,21 @@ public record ApiError(
     @Schema(required = true, examples = "Invalid request") String title,
     @Schema(required = true, examples = "400") int status,
     @Schema(required = true, description = "Per-field problems; empty when not field-specific.")
-        List<Violation> violations) {
+        List<Violation> violations,
+    @Schema(
+            description =
+                "Only on a 409 that refuses to answer or close a question: the state the question"
+                    + " is in, so the caller learns who answered what, or who closed it. Absent"
+                    + " from every other error.")
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        QuestionState question) {
 
   public ApiError {
     violations = List.copyOf(violations);
+  }
+
+  public ApiError(String title, int status, List<Violation> violations) {
+    this(title, status, violations, null);
   }
 
   /** An error with no per-field problems, titled by the status's reason phrase. */

@@ -27,7 +27,7 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
    */
   List<EventEntity> find(
       EventQuery query, int count, Optional<Viewer> viewer, Optional<Set<UUID>> userProducerIds) {
-    var filter = Filter.of(query, viewer, userProducerIds);
+    var filter = Filter.of(query, viewer, userProducerIds, Instant.now());
     if (filter.isEmpty()) {
       return List.of();
     }
@@ -57,7 +57,7 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
    * rows, so it costs more the more events match: the listing runs it only when asked.
    */
   long countListed(EventQuery query, Optional<Viewer> viewer, Optional<Set<UUID>> userProducerIds) {
-    var filter = Filter.of(query, viewer, userProducerIds);
+    var filter = Filter.of(query, viewer, userProducerIds, Instant.now());
     if (filter.isEmpty()) {
       return 0;
     }
@@ -103,13 +103,49 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
    */
   private record Filter(boolean isEmpty, List<String> conditions, Map<String, Object> parameters) {
 
+    /** The condition that an event's question stands as the filter says. */
+    static String state(AnswerFilter filter) {
+      return switch (filter) {
+        case NONE -> "ask is null";
+        case OPEN -> OPEN;
+        case ANSWERED -> ENDED + " and a.kind = 'ANSWER')";
+        case CLOSED ->
+            "("
+                + ENDED
+                + " and a.kind = 'CLOSE') or (ask is not null and not "
+                + ENDED
+                + ") and askClosesAt <= :now))";
+      };
+    }
+
     static Filter of(
-        EventQuery query, Optional<Viewer> viewer, Optional<Set<UUID>> userProducerIds) {
+        EventQuery query,
+        Optional<Viewer> viewer,
+        Optional<Set<UUID>> userProducerIds,
+        Instant now) {
       var conditions = new ArrayList<String>();
       var parameters = new HashMap<String, Object>();
       if ((viewer.isPresent() && viewer.get().producerIds().isEmpty())
-          || (userProducerIds.isPresent() && userProducerIds.get().isEmpty())) {
+          || (userProducerIds.isPresent() && userProducerIds.get().isEmpty())
+          // Only a user answers: for the operator, or a user who answers nothing, none can match.
+          || (query.toAnswer() && viewer.map(v -> v.answerable().isEmpty()).orElse(true))) {
         return new Filter(true, conditions, parameters);
+      }
+      if (query.toAnswer()) {
+        conditions.add("producerId in :answerable");
+        parameters.put("answerable", viewer.get().answerable());
+        conditions.add(OPEN);
+        parameters.put("now", now);
+      }
+      if (!query.answerStates().isEmpty()) {
+        conditions.add(
+            query.answerStates().stream()
+                .map(Filter::state)
+                .collect(Collectors.joining(" or ", "(", ")")));
+        // A named parameter nothing uses is an error.
+        if (!Set.of(AnswerFilter.ANSWERED, AnswerFilter.NONE).containsAll(query.answerStates())) {
+          parameters.put("now", now);
+        }
       }
       viewer.ifPresent(
           v -> {
@@ -174,8 +210,39 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
     }
   }
 
-  /** Whose events a listing is limited to: a user, and the producers they are subscribed to. */
-  record Viewer(UUID userId, Set<UUID> producerIds) {}
+  /**
+   * Whose events a listing is limited to: a user, the producers they are subscribed to, and (when
+   * the listing needs it) those whose questions they may answer.
+   */
+  record Viewer(UUID userId, Set<UUID> producerIds, Set<UUID> answerable) {}
+
+  private static final String ENDED =
+      "exists (select 1 from EventAnswerEntity a where a.eventId = e.id";
+
+  /** An open question: it asks, nobody answered or closed it, and its closesAt has not passed. */
+  private static final String OPEN =
+      "(ask is not null and not " + ENDED + ") and (askClosesAt is null or askClosesAt > :now))";
+
+  /** How many open questions the viewer may answer. */
+  long countToAnswer(Viewer viewer, Instant now) {
+    if (viewer.answerable().isEmpty()) {
+      return 0;
+    }
+    return count(
+        "from EventEntity e where producerId in :answerable and " + OPEN,
+        Map.of("answerable", viewer.answerable(), "now", now));
+  }
+
+  /** How many of the given events exist and ask. */
+  long countAskingIds(Collection<UUID> ids) {
+    return count("id in ?1 and ask is not null", ids);
+  }
+
+  /** How many events match the filter and ask; as {@link #countMatching}. */
+  long countAskingMatching(Optional<UUID> producerId, Optional<Instant> createdBefore) {
+    var filter = DeleteFilter.of(producerId, createdBefore);
+    return count(filter.query() + " and ask is not null", filter.parameters());
+  }
 
   /**
    * Waits until no other transaction is publishing and holds the lock until this transaction ends,

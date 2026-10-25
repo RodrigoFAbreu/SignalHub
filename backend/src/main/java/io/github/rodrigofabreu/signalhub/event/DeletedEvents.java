@@ -14,4 +14,11 @@ public record DeletedEvents(
             examples = "12")
         long count,
     @Schema(required = true, description = "Whether this was a dry run, which deletes nothing.")
-        boolean dryRun) {}
+        boolean dryRun,
+    @Schema(
+            required = true,
+            description =
+                "How many of the counted events ask a question, so a confirmation can say that"
+                    + " some are open questions. Counted with dryRun too.",
+            examples = "2")
+        long asking) {}

@@ -55,11 +55,19 @@ public record OwnProducerResponse(
             required = true,
             description =
                 "Whether the caller receives this producer's events (the owner may stop).")
-        boolean subscribed) {
+        boolean subscribed,
+    @Schema(
+            required = true,
+            description =
+                "The users, besides the owner, who may answer the questions on this producer's"
+                    + " events. Each also sees the producer; they leave the list when they lose"
+                    + " sight of it or are revoked.")
+        List<NamedUser> answerers) {
 
   public OwnProducerResponse {
     keys = List.copyOf(keys);
     allowedUsers = List.copyOf(allowedUsers);
+    answerers = List.copyOf(answerers);
   }
 
   @Schema(name = "OwnApiKey", description = "An issued API key. The key itself is never returned.")

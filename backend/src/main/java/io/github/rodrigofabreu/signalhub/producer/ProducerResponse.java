@@ -47,11 +47,18 @@ public record ProducerResponse(
             description =
                 "The users on the allow-list of a private producer, besides its owner, by name."
                     + " Kept, but without effect, while the producer is public.")
-        List<UserRef> allowedUsers) {
+        List<UserRef> allowedUsers,
+    @Schema(
+            required = true,
+            description =
+                "The users, besides the owner, who may answer the questions on this producer's"
+                    + " events, by name. The owner's choice: read-only here.")
+        List<UserRef> answerers) {
 
   public ProducerResponse {
     keys = List.copyOf(keys);
     allowedUsers = List.copyOf(allowedUsers);
+    answerers = List.copyOf(answerers);
   }
 
   @Schema(name = "ApiKey", description = "An issued API key. The key itself is never returned.")

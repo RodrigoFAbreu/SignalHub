@@ -92,7 +92,7 @@ class OpenApiTest {
         .body(SCHEMAS + ".MarkReadRequest.required", containsInAnyOrder("through"))
         .body(SCHEMAS + ".MarkReadResult.required", containsInAnyOrder("marked"))
         .body(UNREAD_COUNT + ".get.security", owner)
-        .body(SCHEMAS + ".UnreadCount.required", containsInAnyOrder("unread"))
+        .body(SCHEMAS + ".UnreadCount.required", containsInAnyOrder("unread", "toAnswer"))
         .body(SCHEMAS + ".Event.properties", hasKey("readAt"))
         .body(SCHEMAS + ".Event.required", not(hasItems("readAt")));
   }
@@ -121,6 +121,8 @@ class OpenApiTest {
                 "userId",
                 "relation",
                 "push",
+                "toAnswer",
+                "answerState",
                 "total",
                 "cursor",
                 "limit"))
@@ -159,6 +161,42 @@ class OpenApiTest {
   }
 
   @Test
+  void describesAnsweringAnEvent() {
+    var answer = "paths.'/api/v1/events/{id}/answer'";
+    given()
+        .queryParam("format", "json")
+        .when()
+        .get("/q/openapi")
+        .then()
+        .statusCode(200)
+        .body(answer + ".put.security", equalTo(List.of(Map.of("clientKey", List.of()))))
+        .body(answer + ".get.security", equalTo(List.of(Map.of("producerApiKey", List.of()))))
+        .body(
+            "paths.'/api/v1/events/{id}/answer/close'.post.security",
+            equalTo(List.of(Map.of("producerApiKey", List.of()))))
+        .body(answer + ".put.responses", hasKey("409"))
+        .body(answer + ".get.parameters.name", hasItems("id", "wait"))
+        .body(answer + ".get.parameters.find { it.name == 'wait' }.schema.maximum", equalTo(60))
+        .body(SCHEMAS + ".QuestionState.required", containsInAnyOrder("state"))
+        .body(
+            SCHEMAS + ".QuestionState.properties.state.$ref", equalTo("#/components/schemas/State"))
+        .body(SCHEMAS + ".Error.properties", hasKey("question"))
+        .body(SCHEMAS + ".Error.required", not(hasItems("question")))
+        .body(
+            SCHEMAS + ".Event.properties.keySet()",
+            hasItems(
+                "ask", "answer", "answerState", "closedBy", "closedAt", "closeNote", "canAnswer"))
+        .body(SCHEMAS + ".Event.required", hasItems("canAnswer"))
+        .body(
+            SCHEMAS + ".AskView.properties.keySet()",
+            containsInAnyOrder(
+                "choices", "multiple", "text", "textStyle", "closesAt", "whoCanAnswer"))
+        .body(SCHEMAS + ".AnswerRequest.properties.keySet()", containsInAnyOrder("choices", "text"))
+        .body(SCHEMAS + ".OwnProducer.required", hasItems("answerers"))
+        .body(SCHEMAS + ".Producer.required", hasItems("answerers"));
+  }
+
+  @Test
   void describesTheEventModels() {
     given()
         .queryParam("format", "json")
@@ -179,7 +217,8 @@ class OpenApiTest {
                 "message",
                 "metadata",
                 "link",
-                "occurredAt"))
+                "occurredAt",
+                "ask"))
         .body(SCHEMAS + ".CreateEventRequest.properties.link.maxLength", equalTo(2000))
         .body(SCHEMAS + ".Event.properties.link.type", hasItems("string", "null"))
         .body(SCHEMAS + ".CreateEventRequest.properties.title.maxLength", equalTo(200))
@@ -469,7 +508,7 @@ class OpenApiTest {
             containsInAnyOrder("ids", "producerId", "createdBefore", "dryRun"))
         .body(SCHEMAS + ".DeleteEventsRequest.properties.ids.maxItems", equalTo(100))
         .body(SCHEMAS + ".DeleteEventsRequest.properties.dryRun.type", equalTo("boolean"))
-        .body(SCHEMAS + ".DeletedEvents.required", containsInAnyOrder("count", "dryRun"))
+        .body(SCHEMAS + ".DeletedEvents.required", containsInAnyOrder("count", "dryRun", "asking"))
         // Deleting is management: the event API itself still cannot delete an event.
         .body("paths.'/api/v1/events/{id}'", not(hasKey("delete")));
   }
