@@ -62,6 +62,32 @@ abstract final class ProducerDialogs {
     destructive: true,
   );
 
+  /// Taking someone off the people who answer: not an Undo, because it
+  /// changes what someone else can do.
+  static Future<bool> removeAnswerer(
+    BuildContext context, {
+    required String person,
+    required OwnProducer producer,
+  }) => showConfirmDialog(
+    context,
+    title: 'Remove $person?',
+    message:
+        "$person won't be able to answer ${producer.name}'s questions any "
+        'more. Answers $person already gave stay as they are.',
+    action: 'Remove',
+    destructive: true,
+  );
+
+  /// Leaving the answerers picker with people checked.
+  static Future<bool> discardAnswerers(BuildContext context) =>
+      showConfirmDialog(
+        context,
+        title: 'Discard changes?',
+        message: "The people you checked aren't added yet.",
+        action: 'Discard',
+        destructive: true,
+      );
+
   /// Making a public producer private ends the subscriptions of everyone not
   /// on the list. A reversible change, so the primary colour.
   static Future<bool> makePrivate(BuildContext context, OwnProducer producer) {

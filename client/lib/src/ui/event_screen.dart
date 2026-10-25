@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
 import '../api/signalhub_api.dart';
+import '../features/answer_outcome.dart';
 import '../models/event.dart';
+import '../models/question.dart';
+import 'answer_card.dart';
 import 'event_style.dart';
 import 'link_opener.dart';
 import 'widgets/empty_state.dart';
@@ -31,6 +35,9 @@ class EventScreen extends StatefulWidget {
     this.markOpened,
     this.setRead,
     required this.openLink,
+    this.myUserId,
+    this.answer,
+    this.reload,
   });
 
   /// Reads the event, from the inbox or the server.
@@ -50,11 +57,23 @@ class EventScreen extends StatefulWidget {
   /// Opens the event's link outside the app.
   final LinkOpener openLink;
 
+  /// Who is looking, so an answer of theirs reads _You answered_.
+  final String? myUserId;
+
+  /// Sends an answer to the event's question; without it the card cannot
+  /// send.
+  final Future<AnswerOutcome> Function(List<String> choices, String? text)?
+  answer;
+
+  /// Reads the event from the server again, for a question that may have
+  /// been answered or closed meanwhile.
+  final Future<Event> Function()? reload;
+
   @override
   State<EventScreen> createState() => _EventScreenState();
 }
 
-class _EventScreenState extends State<EventScreen> {
+class _EventScreenState extends State<EventScreen> with WidgetsBindingObserver {
   Event? _event;
   String? _error;
   bool _changing = false;
@@ -69,9 +88,68 @@ class _EventScreenState extends State<EventScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _event = widget.initial;
     if (_event == null) _load();
     if (widget.markOpened case final markOpened?) _markOpened(markOpened);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// A card left open goes stale: the app reads the event again when it
+  /// returns to the foreground.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_refresh());
+  }
+
+  /// Reads the event again; the screen follows only when its question or
+  /// what this person may do changed, so what is typed is never disturbed.
+  Future<void> _refresh() async {
+    final reload = widget.reload;
+    final current = _event;
+    if (reload == null || current?.ask == null || _gone) return;
+    try {
+      final fresh = await reload();
+      if (mounted) _follow(fresh);
+    } on EventNotFoundException {
+      if (mounted) setState(() => _gone = true);
+    } on ApiException {
+      // The card keeps what it shows; the next read tries again.
+    }
+  }
+
+  void _follow(Event fresh) {
+    final current = _event;
+    if (current == null || _sameQuestion(current, fresh)) {
+      // Read state is the server's too.
+      if (current != null && current.readAt != fresh.readAt) {
+        setState(() => _event = fresh);
+      }
+      return;
+    }
+    setState(() => _event = fresh);
+  }
+
+  static bool _sameQuestion(Event a, Event b) =>
+      a.answerState == b.answerState &&
+      a.canAnswer == b.canAnswer &&
+      a.answer?.at == b.answer?.at &&
+      a.closedBy == b.closedBy &&
+      a.ask?.closesAt == b.ask?.closesAt &&
+      a.ask?.whoCanAnswer.length == b.ask?.whoCanAnswer.length;
+
+  /// A new state of the question, from the answer or a `409`: shown at once,
+  /// and read again, so what the server says now replaces what was inferred.
+  void _questionState(QuestionState state) {
+    final current = _event;
+    if (current == null) return;
+    setState(() => _event = current.withQuestionState(state));
+    unawaited(_refresh());
   }
 
   Future<void> _load() async {
@@ -166,7 +244,21 @@ class _EventScreenState extends State<EventScreen> {
         actionLabel: 'Back to Inbox',
         onAction: () => Navigator.of(context).maybePop(),
       ),
-      (final Event event, _) => _EventDetails(event, openLink: _openLink),
+      (final Event event, _) => _EventDetails(
+        event,
+        openLink: _openLink,
+        card: event.ask == null || widget.answer == null
+            ? null
+            : AnswerCard(
+                key: ValueKey('card-${event.id}'),
+                event: event,
+                myUserId: widget.myUserId,
+                answer: widget.answer!,
+                onState: _questionState,
+                onRead: _follow,
+                onGone: () => setState(() => _gone = true),
+              ),
+      ),
       (null, final String error) => Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -190,10 +282,13 @@ class _EventScreenState extends State<EventScreen> {
 }
 
 class _EventDetails extends StatelessWidget {
-  const _EventDetails(this.event, {required this.openLink});
+  const _EventDetails(this.event, {required this.openLink, this.card});
 
   final Event event;
   final void Function(Uri link) openLink;
+
+  /// The question's card, under the message and above the link.
+  final Widget? card;
 
   @override
   Widget build(BuildContext context) {
@@ -225,6 +320,7 @@ class _EventDetails extends StatelessWidget {
             const SizedBox(height: 16),
             Text(message, style: theme.textTheme.bodyLarge),
           ],
+          if (card != null) ...[const SizedBox(height: 16), card!],
           if (event.link case final link?) ...[
             const SizedBox(height: 16),
             Align(

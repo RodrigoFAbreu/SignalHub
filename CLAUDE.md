@@ -38,8 +38,8 @@ the producer's owner and the answerers it names answer, the first answer winning
 (`PUT /api/v1/events/{id}/answer`), read by the producer with a held
 `GET .../answer?wait=` or closed by it (`POST .../answer/close`), and removed
 from the devices' notifications by data-only notices once answered, closed or
-deleted (the screens for it are R82b), `GET /api/v1/events/{id}` with a client
-key or the admin token), a paginated event listing
+deleted, answered in the app and on the web page at `/app/` and read on the
+admin page, `GET /api/v1/events/{id}` with a client key or the admin token), a paginated event listing
 (`GET /api/v1/events`, with a client key or the admin token, filterable by
 read state among others, and browsed in the *Events* section of the
 admin page, a page at a time with the inbox's filters, opening an event

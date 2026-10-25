@@ -23,6 +23,7 @@ class VisibleProducer {
     required this.visibility,
     required this.disabled,
     required this.subscribed,
+    this.canAnswer = false,
   });
 
   factory VisibleProducer.fromJson(Map<String, Object?> json) =>
@@ -33,6 +34,7 @@ class VisibleProducer {
         visibility: ProducerVisibility.parse(json.string('visibility')),
         disabled: json.boolean('disabled'),
         subscribed: json.boolean('subscribed'),
+        canAnswer: json.optionalBoolean('canAnswer') ?? false,
       );
 
   final String id;
@@ -45,6 +47,10 @@ class VisibleProducer {
   final bool disabled;
   final bool subscribed;
 
+  /// Whether the caller owns it or is one of its answerers: its questions
+  /// reach them only while they are subscribed.
+  final bool canAnswer;
+
   VisibleProducer withSubscribed(bool subscribed) => VisibleProducer(
     id: id,
     name: name,
@@ -52,6 +58,7 @@ class VisibleProducer {
     visibility: visibility,
     disabled: disabled,
     subscribed: subscribed,
+    canAnswer: canAnswer,
   );
 }
 
@@ -101,6 +108,7 @@ class OwnProducer {
     this.disabledAt,
     this.disabledByOperator = false,
     this.lastEventAt,
+    this.answerers = const [],
   });
 
   factory OwnProducer.fromJson(Map<String, Object?> json) => OwnProducer(
@@ -120,6 +128,9 @@ class OwnProducer {
         .list('keys')
         .map((k) => ProducerKeyInfo.fromJson(asObject(k, 'keys[]')))
         .toList(growable: false),
+    answerers: (json['answerers'] as List<Object?>? ?? const [])
+        .map((u) => UserName.fromJson(asObject(u, 'answerers[]')))
+        .toList(growable: false),
   );
 
   final String id;
@@ -135,6 +146,9 @@ class OwnProducer {
   final List<UserName> allowedUsers;
   final List<ProducerKeyInfo> keys;
 
+  /// The people its owner named to answer its questions, besides the owner.
+  final List<UserName> answerers;
+
   bool get isDisabled => disabledAt != null;
 
   OwnProducer withSubscribed(bool subscribed) => OwnProducer(
@@ -148,6 +162,7 @@ class OwnProducer {
     disabledAt: disabledAt,
     disabledByOperator: disabledByOperator,
     lastEventAt: lastEventAt,
+    answerers: answerers,
   );
 
   /// Keys that still work.

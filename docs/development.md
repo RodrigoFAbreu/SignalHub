@@ -1050,7 +1050,9 @@ it. Each screen is also compared with its approved drawing in
 (serve the folder with `python3 -m http.server`) and run the widget tests with
 `SIGNALHUB_SCREENSHOTS=<directory>`, which makes the tests that call
 `saveScreenshot` (`test/support/screenshot.dart`, with Roboto and the Material
-icons loaded from the Flutter SDK) write each frame as a PNG to put beside it.
+icons loaded from the Flutter SDK) write each frame as a PNG to put beside it
+(the answer card's frames, `answer-open` and `answer-done`, in
+`test/ui/answering_test.dart`, go beside `docs/design/answers/images/app-answering/`).
 Builds without
 Firebase options run without push. The Android code that plays the alert
 is compiled by the release APK build and checked on a phone by the device

@@ -191,6 +191,30 @@ class OwnProducersController extends ChangeNotifier {
     return last ?? read(id);
   }
 
+  /// Names the people in [add] to answer the producer's questions, one by one,
+  /// stopping at the first that fails. What worked stays in [list].
+  Future<ProducerOutcome<OwnProducer>> addAnswerers(
+    String id,
+    List<String> add,
+  ) async {
+    ProducerOutcome<OwnProducer>? last;
+    for (final userId in add) {
+      last = await _change(
+        () => gateway.call((api) => api.addAnswerer(id, userId)),
+        conflict: ProducerFailure.notAllowed,
+      );
+      if (!last.ok) return last;
+    }
+    return last ?? read(id);
+  }
+
+  /// Takes one person off the producer's answerers. Their earlier answers stay
+  /// as they are.
+  Future<ProducerOutcome<OwnProducer>> removeAnswerer(
+    String id,
+    String userId,
+  ) => _change(() => gateway.call((api) => api.removeAnswerer(id, userId)));
+
   /// The people on the server a private producer can be shared with, by name
   /// and A to Z. This user is left out: a producer is always theirs to see.
   Future<ProducerOutcome<List<Person>>> readPeople() async {

@@ -10,6 +10,7 @@ import 'devices_screen.dart';
 import 'event_screen.dart';
 import 'event_style.dart';
 import 'inbox_filter_sheet.dart';
+import 'question_words.dart';
 import 'link_opener.dart';
 import 'whats_new_card.dart';
 import 'widgets/banners.dart';
@@ -82,6 +83,10 @@ class _InboxScreenState extends State<InboxScreen> {
           markOpened: () => _controller.markRead(id),
           setRead: (read) => _controller.setRead(id, read: read),
           openLink: widget.openLink,
+          myUserId: _controller.userId,
+          answer: (choices, text) =>
+              _controller.answerEvent(id, choices: choices, text: text),
+          reload: () => _controller.reloadEvent(id),
         ),
       ),
     );
@@ -110,7 +115,8 @@ class _InboxScreenState extends State<InboxScreen> {
       appBar: _appBar(),
       body: Column(
         children: [
-          if (_controller.filter.isActive)
+          if (_showChips) _InboxChips(controller: _controller),
+          if (_controller.filter.narrowsBySheet)
             ActiveFilterBar(controller: _controller, onEdit: _editFilter),
           Expanded(
             child: RefreshIndicator(
@@ -122,6 +128,18 @@ class _InboxScreenState extends State<InboxScreen> {
       ),
     ),
   );
+
+  /// The chip row: shown unless the inbox has no events at all and no filter
+  /// is on, so the empty inbox is unchanged.
+  bool get _showChips {
+    final controller = _controller;
+    final empty =
+        controller.inboxLoaded &&
+        controller.events.isEmpty &&
+        !controller.hasMore &&
+        !controller.filter.isActive;
+    return !empty && !(controller.error != null && !controller.inboxLoaded);
+  }
 
   AppBar _appBar() {
     final unread = _controller.unreadCount ?? 0;
@@ -228,7 +246,11 @@ class _InboxScreenState extends State<InboxScreen> {
             itemBuilder: (context, i) {
               if (i < events.length) {
                 final event = events[i];
-                return EventTile(event, onTap: () => _open(event.id, event));
+                return EventTile(
+                  event,
+                  myUserId: controller.userId,
+                  onTap: () => _open(event.id, event),
+                );
               }
               return _footer();
             },
@@ -246,7 +268,19 @@ class _InboxScreenState extends State<InboxScreen> {
   /// sent nothing yet.
   Widget _emptyInbox() {
     final controller = _controller;
-    if (controller.filter.isActive) {
+    final filter = controller.filter;
+    if (filter.toAnswer && !filter.unreadOnly && !filter.narrowsBySheet) {
+      return EmptyState(
+        icon: Icons.task_alt,
+        title: 'Nothing to answer',
+        body:
+            'Questions you can answer show up here until someone answers '
+            'them or they close.',
+        actionLabel: 'Show all events',
+        onAction: () => controller.setFilter(filter.copyWith(toAnswer: false)),
+      );
+    }
+    if (filter.isActive) {
       return EmptyState(
         icon: Icons.filter_list_off,
         title: 'No events match these filters',
@@ -306,15 +340,20 @@ class _InboxScreenState extends State<InboxScreen> {
 /// Unread events have a bold title and a dot; events with a link, a link
 /// icon.
 class EventTile extends StatelessWidget {
-  const EventTile(this.event, {super.key, this.onTap});
+  const EventTile(this.event, {super.key, this.onTap, this.myUserId});
 
   final Event event;
   final VoidCallback? onTap;
 
+  /// Who this is, so an answer of theirs reads _You answered_.
+  final String? myUserId;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final line = questionLine(event, myUserId: myUserId);
     return ListTile(
+      isThreeLine: line != null,
       leading: Icon(event.category.icon, color: event.severity.color(colors)),
       title: Text(
         event.title,
@@ -325,32 +364,38 @@ class EventTile extends StatelessWidget {
             : const TextStyle(fontWeight: FontWeight.bold),
       ),
       // The time is never cut: a long producer name or severity gives way.
-      subtitle: Row(
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              '${event.category.label} · ${event.severity.label} · '
-              '${event.producer.name}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${event.category.label} · ${event.severity.label} · '
+                  '${event.producer.name}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (event.link != null) ...[
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.link,
+                  key: Key('hasLink'),
+                  size: 16,
+                  semanticLabel: 'Has a link',
+                ),
+              ],
+              const SizedBox(width: 8),
+              Text(
+                formatTimestamp(event.createdAt),
+                key: const Key('eventTime'),
+                maxLines: 1,
+                softWrap: false,
+              ),
+            ],
           ),
-          if (event.link != null) ...[
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.link,
-              key: Key('hasLink'),
-              size: 16,
-              semanticLabel: 'Has a link',
-            ),
-          ],
-          const SizedBox(width: 8),
-          Text(
-            formatTimestamp(event.createdAt),
-            key: const Key('eventTime'),
-            maxLines: 1,
-            softWrap: false,
-          ),
+          if (line != null) _QuestionLineView(line),
         ],
       ),
       trailing: event.isRead
@@ -363,6 +408,105 @@ class EventTile extends StatelessWidget {
               semanticLabel: 'Unread',
             ),
       onTap: onTap,
+    );
+  }
+}
+
+/// The line under a question's row: an icon and words, never the icon alone.
+/// One line: a long label ends with an ellipsis, and the whole line is the
+/// row's accessible name.
+class _QuestionLineView extends StatelessWidget {
+  const _QuestionLineView(this.line);
+
+  final QuestionLine line;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final color = line.quiet ? colors.onSurfaceVariant : colors.primary;
+    return Padding(
+      key: const Key('questionLine'),
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          ExcludeSemantics(child: Icon(line.icon, size: 18, color: color)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              line.text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: color,
+                fontWeight: line.quiet ? null : FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// _Unread_ and _To answer_: the only chips of the inbox. _To answer_ shows
+/// only while its count is above 0 or while it is on, so a person who never
+/// gets questions never sees it.
+class _InboxChips extends StatelessWidget {
+  const _InboxChips({required this.controller});
+
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final filter = controller.filter;
+    final count = controller.toAnswerCount;
+    final colors = Theme.of(context).colorScheme;
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            FilterChip(
+              key: const Key('chipUnread'),
+              label: const Text('Unread'),
+              selected: filter.unreadOnly,
+              onSelected: (on) =>
+                  controller.setFilter(filter.copyWith(unreadOnly: on)),
+            ),
+            if (count > 0 || filter.toAnswer)
+              FilterChip(
+                key: const Key('chipToAnswer'),
+                label: Semantics(
+                  label: count > 0 ? 'To answer, $count' : 'To answer',
+                  excludeSemantics: true,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('To answer'),
+                      if (count > 0) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '$count',
+                          style: TextStyle(
+                            color: filter.toAnswer ? null : colors.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                selected: filter.toAnswer,
+                onSelected: (on) =>
+                    controller.setFilter(filter.copyWith(toAnswer: on)),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

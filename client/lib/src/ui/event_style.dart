@@ -6,7 +6,7 @@ import '../models/event.dart';
 /// event's category and severity, never on its producer.
 extension CategoryStyle on EventCategory {
   IconData get icon => switch (this) {
-    EventCategory.actionRequired => Icons.pan_tool_outlined,
+    EventCategory.actionRequired => Icons.pending_actions,
     EventCategory.blocked => Icons.block,
     EventCategory.completed => Icons.check_circle_outline,
     EventCategory.info => Icons.info_outline,

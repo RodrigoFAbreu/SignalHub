@@ -135,7 +135,6 @@ class ActiveFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final filter = controller.filter;
     final labels = [
-      if (filter.unreadOnly) 'Unread',
       for (final id in filter.producerIds) controller.producerName(id) ?? id,
       for (final c in InboxFilterSheet.categories)
         if (filter.categories.contains(c)) c.label,

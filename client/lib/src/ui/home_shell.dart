@@ -149,6 +149,7 @@ class _NavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unread = controller.unreadCount ?? 0;
+    final toAnswer = controller.toAnswerCount;
     // The labels never wrap: their text scale stops at about 1.3x, and the
     // bar grows only by the extra line height. Icons keep their size.
     final media = MediaQuery.of(context);
@@ -167,11 +168,21 @@ class _NavigationBar extends StatelessWidget {
           for (final tab in tabs)
             NavigationDestination(
               key: Key('tab-${tab.name}'),
-              icon: _icon(tab, selected: false, unread: unread),
-              selectedIcon: _icon(tab, selected: true, unread: unread),
+              icon: _icon(
+                tab,
+                selected: false,
+                unread: unread,
+                toAnswer: toAnswer,
+              ),
+              selectedIcon: _icon(
+                tab,
+                selected: true,
+                unread: unread,
+                toAnswer: toAnswer,
+              ),
               label: _labels[tab]!,
-              tooltip: tab == HomeTab.inbox && unread > 0
-                  ? 'Inbox, $unread unread'
+              tooltip: tab == HomeTab.inbox
+                  ? (inboxName(unread, toAnswer) ?? 'Inbox')
                   : _labels[tab],
             ),
         ],
@@ -179,17 +190,39 @@ class _NavigationBar extends StatelessWidget {
     );
   }
 
-  Widget _icon(HomeTab tab, {required bool selected, required int unread}) {
+  /// What the Inbox tab is named while something waits on it: `Inbox, 3
+  /// unread`, `Inbox, 2 to answer`, or both; `null` with neither.
+  @visibleForTesting
+  static String? inboxName(int unread, int toAnswer) {
+    final parts = [
+      if (unread > 0) '$unread unread',
+      if (toAnswer > 0) '$toAnswer to answer',
+    ];
+    return parts.isEmpty ? null : 'Inbox, ${parts.join(', ')}';
+  }
+
+  /// The number of unread events as a badge; with nothing unread and
+  /// questions waiting, a dot without a number, so the number stays read
+  /// state only.
+  Widget _icon(
+    HomeTab tab, {
+    required bool selected,
+    required int unread,
+    required int toAnswer,
+  }) {
     final (outlined, filled) = _icons[tab]!;
     final icon = Icon(selected ? filled : outlined);
-    if (tab != HomeTab.inbox || unread == 0) return icon;
+    final name = inboxName(unread, toAnswer);
+    if (tab != HomeTab.inbox || name == null) return icon;
     return Semantics(
-      label: 'Inbox, $unread unread',
-      child: Badge(
-        key: const Key('unreadCount'),
-        label: Text(unread > 99 ? '99+' : '$unread'),
-        child: icon,
-      ),
+      label: name,
+      child: unread > 0
+          ? Badge(
+              key: const Key('unreadCount'),
+              label: Text(unread > 99 ? '99+' : '$unread'),
+              child: icon,
+            )
+          : Badge(key: const Key('toAnswerDot'), child: icon),
     );
   }
 }

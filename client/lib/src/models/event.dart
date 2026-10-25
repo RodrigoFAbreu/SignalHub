@@ -1,4 +1,5 @@
 import 'json.dart';
+import 'question.dart';
 
 /// What an event means for the owner. See docs/architecture.md, "Category and
 /// severity".
@@ -69,6 +70,13 @@ class Event {
     this.link,
     this.occurredAt,
     this.readAt,
+    this.ask,
+    this.answer,
+    this.answerState,
+    this.closedBy,
+    this.closedAt,
+    this.closeNote,
+    this.canAnswer = false,
   });
 
   factory Event.fromJson(Map<String, Object?> json) => Event(
@@ -84,6 +92,13 @@ class Event {
     occurredAt: json.optionalTimestamp('occurredAt'),
     createdAt: json.timestamp('createdAt'),
     readAt: json.optionalTimestamp('readAt'),
+    ask: json.optionalObjectAs('ask', Ask.fromJson),
+    answer: json.optionalObjectAs('answer', EventAnswer.fromJson),
+    answerState: AnswerState.parse(json.optionalString('answerState')),
+    closedBy: ClosedBy.parse(json.optionalString('closedBy')),
+    closedAt: json.optionalTimestamp('closedAt'),
+    closeNote: json.optionalString('closeNote'),
+    canAnswer: json.optionalBoolean('canAnswer') ?? false,
   );
 
   final String id;
@@ -108,9 +123,56 @@ class Event {
 
   bool get isRead => readAt != null;
 
+  /// The question this event asks; `null` for an event that asks nothing,
+  /// which behaves as it always did.
+  final Ask? ask;
+
+  /// The answer, once the question was answered.
+  final EventAnswer? answer;
+
+  /// Where the question stands; `null` when the event asks nothing. Derived by
+  /// the server: closed as soon as its closing time passes.
+  final AnswerState? answerState;
+  final ClosedBy? closedBy;
+  final DateTime? closedAt;
+
+  /// The producer's note when it closed the question.
+  final String? closeNote;
+
+  /// Whether this person may answer the question now.
+  final bool canAnswer;
+
+  /// An open question this person may answer: the inbox's _To answer_.
+  bool get isToAnswer =>
+      ask != null && answerState == AnswerState.open && canAnswer;
+
   /// This event with its read state changed locally, for example after
   /// marking a range read on the server.
-  Event withReadAt(DateTime? readAt) => Event(
+  Event withReadAt(DateTime? readAt) => _copy(readAt: readAt, readAtSet: true);
+
+  /// This event with its question in [state], as a `409` or an accepted
+  /// answer says: nobody can answer it now.
+  Event withQuestionState(QuestionState state) => _copy(
+    answer: state.answer,
+    answerState: state.state,
+    closedBy: state.closedBy,
+    closedAt: state.closedAt,
+    closeNote: state.closeNote,
+    canAnswer: false,
+    questionSet: true,
+  );
+
+  Event _copy({
+    DateTime? readAt,
+    bool readAtSet = false,
+    EventAnswer? answer,
+    AnswerState? answerState,
+    ClosedBy? closedBy,
+    DateTime? closedAt,
+    String? closeNote,
+    bool canAnswer = false,
+    bool questionSet = false,
+  }) => Event(
     id: id,
     producer: producer,
     context: context,
@@ -122,7 +184,14 @@ class Event {
     link: link,
     occurredAt: occurredAt,
     createdAt: createdAt,
-    readAt: readAt,
+    readAt: readAtSet ? readAt : this.readAt,
+    ask: ask,
+    answer: questionSet ? answer : this.answer,
+    answerState: questionSet ? answerState : this.answerState,
+    closedBy: questionSet ? closedBy : this.closedBy,
+    closedAt: questionSet ? closedAt : this.closedAt,
+    closeNote: questionSet ? closeNote : this.closeNote,
+    canAnswer: questionSet ? canAnswer : this.canAnswer,
   );
 }
 

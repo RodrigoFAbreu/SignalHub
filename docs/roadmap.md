@@ -2758,6 +2758,28 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   and `closesAt`, every row of sections 8 and 8b, the notices and the skip
 - minor (`feat`); additive, and an event that asks nothing behaves as before
 
+### R82b - Answering an event in the app, on the web page and on the admin page
+
+- built as three pull requests, each releasable on its own (#184, #185 and
+  the app's), from `docs/design/answers/` and section 10 of
+  `docs/design/users/DESIGN.md`, which wins over the drawings
+- **the web page and the push line (#184)**: the answer card and every state on
+  `/app/` (choices, the *Other* row, a note, Ctrl+Enter, the read-only and
+  closed-by-producer cards, refresh on focus), the inbox's *To answer* chip and
+  row lines, the answerers setting, `canAnswer` on the visible producers (an
+  unsubscribed answerer is told to stay subscribed), and the "Tap to answer"
+  first line of the push's text, per recipient
+- **the admin page (#185)**: the Event tab's question, state and answer, list
+  markers, the *Question* filter, the test event's question section and the
+  delete warnings, all read-only because the operator never answers
+- **the app**: the answer card on the event screen with every state, the
+  inbox's *To answer* chip, row lines and bottom-bar count, *Who can answer*
+  and *Stay subscribed to answer* on the producer screens, and the Android
+  receiver taking a question's notification off the shade on an `answered`,
+  `closed` or `deleted` notice; widget tests compare each screen with the
+  drawings in `docs/design/answers/images/app-answering/`
+- minor (`feat`); the screens on R82a's API
+
 ## 4. Planned roadmap
 
 Roadmap items are ordered by dependency, but each item may be split into smaller releasable increments if implementation evidence shows that doing so is safer or more reviewable.
@@ -3388,7 +3410,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 75    | G8 - The maintainer approves the reply and notification action designs                           | Human gate                             | Passed (2026-10-25, approved with changes)                                       |
 | 76    | R82a - Answering an event: the server, the SDK and the command                                   | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 77    | R83 - Notification action buttons                                                                | Increment (`feat`)                     | Dropped at G8 (2026-10-25)                                                       |
-| 78    | R82b - Answering an event in the app, on the web page and on the admin page                      | Increment (`feat`)                     | Next                                                                             |
+| 78    | R82b - Answering an event in the app, on the web page and on the admin page                      | Increment (`feat`)                     | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -3988,6 +4010,7 @@ advance; they follow from the queue.
 | R80           | patch (`fix`)                                                                                                                                         | web sign-in codes follow the server's clock: a `Date` header on starting a sign-in; no field or schema change |
 | R81           | patch (`docs`)                                                                                                                                        | drawings and a proposal only                                                                                  |
 | R82a          | minor (`feat`)                                                                                                                                        | an optional `ask` on events, answering, the producer's read and close, notices, the SDK and command; additive |
+| R82b          | minor (`feat`)                                                                                                                                        | the screens for questions in the app, on the web page and on the admin page, `canAnswer` on the visible producers, the push's first line; additive|
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6635,11 +6658,8 @@ callback or a feed of answers; iOS.
 
 ### R82b - Answering an event in the app, on the web page and on the admin page
 
-Status: next, built in parts, each its own pull request, and only the last
-marks it done: part 1 the users' web page and the push's "Tap to answer" line
-(with `canAnswer` on the visible producers, which an unsubscribed answerer
-needs to be told to stay subscribed), done; part 2 the admin page, done when
-it is merged; part 3 the app and its receiver. Added by the maintainer (2026-10-16), split at G8
+Status: done, built in three parts (the web page and the push line, the admin
+page, the app and its receiver), each its own pull request. Added by the maintainer (2026-10-16), split at G8
 (2026-10-25).
 
 Goal: the people allowed answer questions in the app and on the web page, see
@@ -6825,9 +6845,9 @@ clock), and R80 is done. The maintainer then added replying to an event
 and notification action buttons (G7, R81, G8, R82, R83). The maintainer
 gave the go-ahead at G7, and R81 (designs for answering an event) is done.
 The maintainer approved them at G8 with changes, dropped R83 and split R82,
-and R82a (answering an event: the server, the SDK and the command) is done.
-**Next is R82b (answering an event in the app, on the web page and on the
-admin page).** A new item is added only by the maintainer, in a reviewed pull
+R82a (answering an event: the server, the SDK and the command) and R82b
+(answering an event in the app, on the web page and on the admin page) are
+done. **Nothing is Next.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 

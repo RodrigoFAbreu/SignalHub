@@ -11,6 +11,7 @@ import '../models/inbox_filter.dart';
 import '../models/json.dart';
 import '../models/producers.dart';
 import '../models/push_config.dart';
+import '../models/question.dart';
 import '../models/users.dart';
 
 /// A request to the backend failed.
@@ -32,6 +33,15 @@ class ApiException implements Exception {
 class UnauthorizedException extends ApiException {
   const UnauthorizedException()
     : super('The server did not accept this client key', statusCode: 401);
+}
+
+/// The question was answered or closed before this answer arrived (`409`):
+/// [state] says who answered what, or who closed it.
+class QuestionConflictException extends ApiException {
+  const QuestionConflictException(super.message, this.state)
+    : super(statusCode: 409);
+
+  final QuestionState state;
 }
 
 /// The server has no event with the requested ID.
@@ -470,9 +480,53 @@ class SignalHubApi {
   }
 
   /// `GET /api/v1/events/unread-count`: unread events, on the whole server.
-  Future<int> unreadCount() async => _read(
+  Future<int> unreadCount() async => (await eventCounts()).unread;
+
+  /// The same request, with the open questions this person may answer.
+  Future<EventCounts> eventCounts() async => _read(
     await _send('GET', 'api/v1/events/unread-count'),
-    (json) => json.integer('unread'),
+    EventCounts.fromJson,
+  );
+
+  /// `PUT /api/v1/events/{id}/answer`: answers the event's question with the
+  /// ids of [choices] and the typed [text]. Answers the accepted answer; the
+  /// same answer sent again is accepted too. A question already answered or
+  /// closed is a [QuestionConflictException]; `403` (not allowed) and `400`
+  /// are [ApiException]s with their status; `404` is an
+  /// [EventNotFoundException].
+  Future<EventAnswer> answerEvent(
+    String id, {
+    List<String> choices = const [],
+    String? text,
+  }) async => _read(
+    await _eventRequest(
+      'PUT',
+      'api/v1/events/${Uri.encodeComponent(id)}/answer',
+      body: {'choices': choices, 'text': ?text},
+    ),
+    EventAnswer.fromJson,
+  );
+
+  /// `PUT /api/v1/client/producers/{id}/answerers/{userId}`: the owner names
+  /// someone who may answer the producer's questions.
+  Future<OwnProducer> addAnswerer(String id, String userId) =>
+      _answerer('PUT', id, userId);
+
+  /// `DELETE /api/v1/client/producers/{id}/answerers/{userId}`. The person's
+  /// earlier answers stay as they are.
+  Future<OwnProducer> removeAnswerer(String id, String userId) =>
+      _answerer('DELETE', id, userId);
+
+  Future<OwnProducer> _answerer(
+    String method,
+    String id,
+    String userId,
+  ) async => _read(
+    await _send(
+      method,
+      '${_producerPath(id)}/answerers/${Uri.encodeComponent(userId)}',
+    ),
+    OwnProducer.fromJson,
   );
 
   Future<Event> _setRead(String method, String id) async => _read(
@@ -540,6 +594,7 @@ class SignalHubApi {
   static Map<String, Object?> _decode(http.Response response) {
     final status = response.statusCode;
     if (status == 401) throw const UnauthorizedException();
+    if (status == 409) _throwIfQuestion(response);
     if (status < 200 || status >= 300) {
       throw ApiException(_errorTitle(response), statusCode: status);
     }
@@ -565,6 +620,19 @@ class SignalHubApi {
     } on FormatException catch (e) {
       debugPrint('Unexpected response: ${e.message}');
       throw const ApiException('The server sent an unexpected answer');
+    }
+  }
+
+  /// A `409` on a question carries its state in `question`.
+  static void _throwIfQuestion(http.Response response) {
+    try {
+      final body = asObject(jsonDecode(response.body), 'error');
+      if (body.optionalObjectAs('question', QuestionState.fromJson)
+          case final state?) {
+        throw QuestionConflictException(_errorTitle(response), state);
+      }
+    } on FormatException {
+      // Not a question's conflict: the plain error follows.
     }
   }
 
