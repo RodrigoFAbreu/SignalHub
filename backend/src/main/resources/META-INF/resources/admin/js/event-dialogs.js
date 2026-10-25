@@ -4,7 +4,9 @@
 
 import { DELETE_EVENTS, PRODUCERS, call } from "./api.js";
 import { el, icon } from "./dom.js";
+import { askSection } from "./ask-form.js";
 import { CATEGORIES, SEVERITIES, addDays, dayString } from "./event-filters.js";
+import { QUESTIONS_GO_TOO } from "./question.js";
 import { openDialog, segmented, selectField, textField } from "./ui.js";
 
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/;
@@ -61,6 +63,15 @@ export function sendTestEvent({ producers, preset, onSent }) {
   const link = textField({ label: "Link (optional)", type: "url", hint: "https://" });
   const metadata = textField({ label: "Metadata (optional, a JSON object)", mono: true, multiline: true, hint: "Shown with the event and never interpreted." });
   metadata.box.classList.add("tfa");
+  // Who a question would go to: the chosen producer's owner and the people its owner named.
+  const asking = () => {
+    const chosen = producers.find((item) => item.id === producer.select.value);
+    if (!chosen) return [];
+    const people = [chosen.owner, ...(chosen.answerers ?? [])].filter(Boolean);
+    return people.filter((person, at) => people.findIndex((other) => other.id === person.id) === at);
+  };
+  const ask = askSection({ who: asking });
+  producer.select.addEventListener("change", () => ask.refreshWho());
 
   const content = el(
     "div",
@@ -72,6 +83,7 @@ export function sendTestEvent({ producers, preset, onSent }) {
     el("div", { class: "row2" }, severitySlot, category.node),
     el("div", { class: "row2" }, context.node, link.node),
     metadata.node,
+    ask.node,
   );
 
   // The first thing wrong, on its field; the dialog stays open with what was typed.
@@ -100,16 +112,19 @@ export function sendTestEvent({ producers, preset, onSent }) {
       }
     }
     mark(metadata, metaText);
-    return { found, parsed };
+    const asked = ask.read();
+    found.push(...asked.problems);
+    return { found, parsed, asked: asked.ask };
   }
 
-  function request(parsed) {
+  function request(parsed, asked) {
     const body = { category: category.select.value, severity, title: title.input.value.trim() };
     for (const [name, field] of [["message", message], ["context", context], ["link", link]]) {
       const value = field.input.value.trim();
       if (value) body[name] = value;
     }
     if (parsed) body.metadata = parsed;
+    if (asked) body.ask = asked;
     return body;
   }
 
@@ -129,12 +144,12 @@ export function sendTestEvent({ producers, preset, onSent }) {
         disabled: enabled.length === 0,
         busyLabel: "Sending…",
         run: async (controller) => {
-          const { found, parsed } = problems();
+          const { found, parsed, asked } = problems();
           if (found.length) {
             found[0].focus();
             return;
           }
-          const sent = await call("POST", `${PRODUCERS}/${producer.select.value}/events`, request(parsed));
+          const sent = await call("POST", `${PRODUCERS}/${producer.select.value}/events`, request(parsed, asked));
           controller.close(true);
           onSent(sent);
         },
@@ -232,7 +247,7 @@ export function deleteByRule({ producers, onDeleted }) {
   }
 
   async function count() {
-    const { count: found } = await call("POST", DELETE_EVENTS, { ...body(), dryRun: true });
+    const { count: found, asking } = await call("POST", DELETE_EVENTS, { ...body(), dryRun: true });
     lock();
     if (found === 0) {
       slot.replaceChildren(
@@ -253,7 +268,7 @@ export function deleteByRule({ producers, onDeleted }) {
         "div",
         { class: "warn danger" },
         icon("delete_forever"),
-        el("div", {}, el("b", { text: `${eventCount(found)} will be deleted.` }), el("br"), `Every event ${which()}, with its waiting pushes and delivery records. This cannot be undone.`),
+        el("div", {}, el("b", { text: `${eventCount(found)} will be deleted${asking ? `, ${asking.toLocaleString("en")} of them with a question` : ""}.` }), el("br"), `Every event ${which()}, with its waiting pushes and delivery records.${asking ? ` ${QUESTIONS_GO_TOO}` : ""} This cannot be undone.`),
       ),
     );
     dialog.replace({

@@ -9,6 +9,7 @@ import { webLink, el, icon } from "./dom.js";
 import { categoryOf, severityOf } from "./event-filters.js";
 import { recipients, summary } from "./event-pushes.js";
 import { ago, clock, shortDate } from "./format.js";
+import { deleteWords, questionParts } from "./question.js";
 import { store } from "./store.js";
 import { avatar, banner, button, confirmDialog, iconButton, nextId } from "./ui.js";
 
@@ -221,6 +222,8 @@ export function createEventPane(cfg) {
     );
     if (event.message) parts.push(el("p", { class: "msg", text: event.message }));
     if (event.link) parts.push(linkRow(event.link));
+    // The question, its state and its answer: under the message and the link, above Producer.
+    parts.push(...questionParts(event, (id) => cfg.user?.(id) ?? null));
     const owner = cfg.producerOwner(event.producer.id);
     const kv = el(
       "div",
@@ -413,7 +416,7 @@ export function createEventPane(cfg) {
     const current = event;
     return confirmDialog({
       title: "Delete this event?",
-      message: `“${current.title}” is gone for good, with its waiting pushes and delivery records. Producers and users are not touched. This cannot be undone.`,
+      message: deleteWords(current) ?? `“${current.title}” is gone for good, with its waiting pushes and delivery records. Producers and users are not touched. This cannot be undone.`,
       action: "Delete event",
       ariaLabel: `Delete event ${current.title}`,
       destructive: true,
@@ -434,7 +437,12 @@ export function createEventPane(cfg) {
     },
     /** The list was read again: the event shown follows what it says now. */
     follow(fresh) {
-      if (fresh && fresh.id === id && event && (fresh.readAt ?? null) !== (event.readAt ?? null)) {
+      if (fresh && fresh.id === id && event && ((fresh.readAt ?? null) !== (event.readAt ?? null) || fresh.answerState !== event.answerState)) {
+        // A question answered or closed since the pane loaded: read the event again for its answer.
+        if (fresh.answerState !== event.answerState) {
+          load(id, fresh);
+          return;
+        }
         event = fresh;
         paint();
       }

@@ -9,7 +9,7 @@ import { ago, dateTime, shortDate } from "./format.js";
 import { createList } from "./list.js";
 import { hashFor } from "./router.js";
 import { loadUsers } from "./store.js";
-import { announce, avatar, button, confirmDialog, iconButton, openDialog, openMenu, phone, ROLES, segmented, selectField, textField, userChoice } from "./ui.js";
+import { announce, avatar, button, confirmDialog, iconButton, openDialog, openMenu, phone, ROLES, segmented, selectField, tag, textField, userChoice } from "./ui.js";
 
 const QUIET_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -195,6 +195,9 @@ function renderPane(producer, ctx) {
     body.push(allowedUsers(producer, ctx));
   }
 
+  // Who can answer its questions: read-only, as the owner chose them (every producer may ask).
+  body.push(...whoCanAnswer(producer));
+
   // Disable or enable
   body.push(
     el(
@@ -253,6 +256,17 @@ function allowedUsers(producer, ctx) {
   wrap.append(chips);
   if (producer.allowedUsers.length === 0) wrap.append(el("div", { class: "t2 sub-note", text: "Only its owner, until you add someone." }));
   return wrap;
+}
+
+function whoCanAnswer(producer) {
+  const answerers = producer.answerers ?? [];
+  const person = (user, word) => el("div", { class: "qwho who-row" }, avatar(user.name, { tint: true }), user.name, tag(word, "outlined"));
+  return [
+    el("div", { class: "lab" }, "Who can answer", el("span", { class: "cnt", text: "set by the producer's owner" })),
+    person(producer.owner, "Owner"),
+    ...answerers.map((user) => person(user, "Answerer")),
+    el("div", { class: "t2 sub-note", text: answerers.length ? "Set by the producer's owner, in the app or on the web page. The admin page cannot change it. People also need to be subscribed to get its questions." : "Nobody else can answer its questions. Its owner can add answerers in the app or on the web page." }),
+  ];
 }
 
 function technical(producer) {

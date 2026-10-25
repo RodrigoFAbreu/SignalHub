@@ -7,8 +7,10 @@
 import { DELETE_EVENTS, EVENTS, PRODUCERS, STATUS, SessionEnded, call } from "./api.js";
 import { el, icon } from "./dom.js";
 import { deleteByRule, eventCount, sendTestEvent } from "./event-dialogs.js";
-import { CATEGORIES, READ_STATES, RELATIONS, SEVERITIES, categoryOf, describe, emptyFilters, filterCount, fromQuery, isFiltered, rangeText, severityOf, toApi, toQuery, valuesText } from "./event-filters.js";
+import { CATEGORIES, QUESTIONS, READ_STATES, RELATIONS, SEVERITIES, categoryOf, describe, emptyFilters, filterCount, fromQuery, isFiltered, rangeText, severityOf, toApi, toQuery, valuesText } from "./event-filters.js";
 import { createEventPane, severityChip } from "./event-pane.js";
+import { askingWords } from "./ask-form.js";
+import { QUESTIONS_GO_TOO, askingCount, markerNode, markerOf } from "./question.js";
 import { clock, duration, shortDate } from "./format.js";
 import { ID, go, hashFor, keepAddress } from "./router.js";
 import { setDetailOpen } from "./shell.js";
@@ -275,6 +277,7 @@ function paintChips() {
   const list = [
     singleChip({ key: "read", prefix: "Read state", options: READ_STATES, value: filters.read, set: (value) => setFilters({ read: value }, "read") }),
     multiChip({ key: "severity", prefix: "Severity", options: SEVERITIES, selected: filters.severity, set: (value) => setFilters({ severity: value }, "severity") }),
+    singleChip({ key: "question", prefix: "Question", options: QUESTIONS, value: filters.question, set: (value) => setFilters({ question: value }, "question") }),
     pushChip,
     multiChip({ key: "producer", prefix: "Producer", options: [...producers].sort((a, b) => a.name.localeCompare(b.name)).map((item) => ({ value: item.id, text: item.name })), selected: filters.producer, set: (value) => setFilters({ producer: value }, "producer") }),
     multiChip({ key: "category", prefix: "Category", options: CATEGORIES, selected: filters.category, set: (value) => setFilters({ category: value }, "category") }),
@@ -459,7 +462,8 @@ function buildRow(item) {
   const category = categoryOf(item.category);
   const problem = pushProblem(item);
   const age = received(item.createdAt);
-  const label = `${item.title}, ${severity?.text ?? item.severity}, ${category?.text ?? item.category}, ${item.producer.name}, ${age === "now" ? "just now" : age}${unread ? ", unread" : ""}${problem ? ", push problems" : ""}`;
+  const marker = markerOf(item);
+  const label = `${item.title}, ${severity?.text ?? item.severity}, ${category?.text ?? item.category}, ${item.producer.name}, ${age === "now" ? "just now" : age}${unread ? ", unread" : ""}${problem ? ", push problems" : ""}${marker ? `, ${marker.word.toLowerCase()}` : ""}`;
   const row = el(
     "div",
     { class: `tr gE${unread ? " unr" : ""}${checked ? " chk" : ""}`, id: `row-${item.id}`, role: "row", tabindex: "-1", "aria-selected": String(item.id === selectedId), "aria-label": label, data: { id: item.id } },
@@ -470,6 +474,7 @@ function buildRow(item) {
       unread ? el("span", { class: "ud" }) : el("span", { class: "udz" }),
       icon(category?.glyph ?? "info", `cic s-${severity?.tone ?? "low"}`),
       el("span", { class: "nm", text: item.title }),
+      markerNode(item),
       problem ? el("span", { class: "pp" }, icon("error"), el("span", { class: "pp-w", text: "Push problems" })) : null,
     ),
     el("span", { role: "gridcell", class: "cell nm-var c-producer", text: item.producer.name }),
@@ -574,11 +579,19 @@ async function markTickedRead() {
   paintTable();
 }
 
+// The selection is rows of the page being shown, so which ask is known without asking the server.
+function deleteTickedWords(ids) {
+  const asking = items.filter((item) => ids.includes(item.id) && item.ask).length;
+  const usual = "They are gone for good, with their waiting pushes and delivery records. Producers and users are not touched. This cannot be undone.";
+  if (!asking) return usual;
+  return `${eventCount(ids.length)} will be deleted, ${askingCount(asking)}. ${QUESTIONS_GO_TOO} This cannot be undone.`;
+}
+
 function deleteTicked() {
   const ids = [...ticked];
   return confirmDialog({
     title: `Delete ${eventCount(ids.length)}?`,
-    message: "They are gone for good, with their waiting pushes and delivery records. Producers and users are not touched. This cannot be undone.",
+    message: deleteTickedWords(ids),
     action: `Delete ${eventCount(ids.length)}`,
     destructive: true,
     busyLabel: "Deleting…",
@@ -716,6 +729,7 @@ function openFiltersSheet() {
       ...field("severity", "Severity", sever, checks(SEVERITIES, "severity")),
       ...field("category", "Category", draft.category.length ? valuesText(CATEGORIES.filter((item) => draft.category.includes(item.value)).map((item) => item.text)) : "All categories", checks(CATEGORIES, "category")),
       ...field("read", "Read state", READ_STATES.find((item) => item.value === draft.read).text, radios(READ_STATES, "read")),
+      ...field("question", "Question", QUESTIONS.find((item) => item.value === draft.question).text, radios(QUESTIONS, "question")),
       ...field("received", "Received", rangeNow || "Any time", receivedFields()),
       pushRow(),
     ];
@@ -773,7 +787,8 @@ function openSend() {
     producers,
     preset,
     onSent: async (sent) => {
-      snack(`Sent “${sent.title}” as ${sent.producer.name}`, { label: "Open", onClick: () => go(hashFor("events", sent.id, query())) });
+      const asked = askingWords(sent.ask?.whoCanAnswer ?? []);
+      snack(`Sent “${sent.title}” as ${sent.producer.name}${asked ? `, ${asked}` : ""}`, { label: "Open", onClick: () => go(hashFor("events", sent.id, query())) });
       cursors = [null];
       await reload();
     },
@@ -845,6 +860,7 @@ export const eventsSection = {
     pane = createEventPane({
       producerOwner: (id) => producers.find((item) => item.id === id)?.owner.name ?? null,
       close: closePane,
+      user: (id) => users.find((item) => item.id === id) ?? null,
       onRead: (event) => {
         const at = items?.findIndex((item) => item.id === event.id) ?? -1;
         if (at >= 0) items[at] = { ...items[at], ...event, push: items[at].push };

@@ -146,14 +146,15 @@ export function segmented({ options, value, onChange, label }) {
   const group = el("div", { class: "seg", role: "radiogroup", "aria-label": label });
   for (const option of options) {
     const selected = option.value === value;
+    // A dimmed option stays focusable and says it is not available; pressing it changes nothing.
     const node = el(
       "button",
-      { type: "button", role: "radio", "aria-checked": String(selected), tabindex: selected ? "0" : "-1" },
+      { type: "button", role: "radio", class: option.dim ? "off" : null, "aria-disabled": option.dim ? "true" : null, "aria-checked": String(selected), tabindex: selected ? "0" : "-1" },
       option.glyph ? icon(option.glyph, "ms18") : null,
       el("span", { text: option.label }),
     );
     node.addEventListener("click", () => {
-      if (!selected) onChange(option.value);
+      if (!selected && !option.dim) onChange(option.value);
     });
     group.append(node);
   }
@@ -163,7 +164,7 @@ export function segmented({ options, value, onChange, label }) {
     const step = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
     const next = options[(at + step + options.length) % options.length];
     event.preventDefault();
-    if (next.value !== value) onChange(next.value);
+    if (next.value !== value && !next.dim) onChange(next.value);
   });
   return group;
 }

@@ -6638,8 +6638,8 @@ callback or a feed of answers; iOS.
 Status: next, built in parts, each its own pull request, and only the last
 marks it done: part 1 the users' web page and the push's "Tap to answer" line
 (with `canAnswer` on the visible producers, which an unsubscribed answerer
-needs to be told to stay subscribed); part 2 the admin page; part 3 the app and
-its receiver. Added by the maintainer (2026-10-16), split at G8
+needs to be told to stay subscribed), done; part 2 the admin page, done when
+it is merged; part 3 the app and its receiver. Added by the maintainer (2026-10-16), split at G8
 (2026-10-25).
 
 Goal: the people allowed answer questions in the app and on the web page, see
