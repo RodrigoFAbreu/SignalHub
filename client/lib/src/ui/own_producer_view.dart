@@ -13,6 +13,7 @@ class OwnProducerView extends StatelessWidget {
   const OwnProducerView({
     super.key,
     required this.producer,
+    required this.ownerName,
     required this.stale,
     required this.writable,
     required this.busy,
@@ -22,6 +23,8 @@ class OwnProducerView extends StatelessWidget {
     required this.onVisibility,
     required this.onRemovePerson,
     required this.onAddPeople,
+    required this.onRemoveAnswerer,
+    required this.onAddAnswerers,
     required this.onRevoke,
     required this.onNewKey,
     required this.onEvents,
@@ -31,6 +34,9 @@ class OwnProducerView extends StatelessWidget {
   });
 
   final OwnProducer producer;
+
+  /// This user's name: the first row of _Who can answer_.
+  final String ownerName;
 
   /// The banner that says the screen shows an older state, if it does.
   final Widget? stale;
@@ -46,6 +52,8 @@ class OwnProducerView extends StatelessWidget {
   final ValueChanged<ProducerVisibility> onVisibility;
   final ValueChanged<UserName> onRemovePerson;
   final VoidCallback onAddPeople;
+  final ValueChanged<UserName> onRemoveAnswerer;
+  final VoidCallback onAddAnswerers;
   final ValueChanged<ProducerKeyInfo> onRevoke;
   final VoidCallback onNewKey;
   final VoidCallback onEvents;
@@ -117,6 +125,7 @@ class OwnProducerView extends StatelessWidget {
           description: _subscribedLine(),
           onChanged: canWrite ? onSubscribed : null,
         ),
+        if (!producer.subscribed) StayRow(producerName: producer.name),
         if (producer.subscribed && mutedHere)
           DetailRow(
             icon: Icons.volume_off,
@@ -146,6 +155,32 @@ class OwnProducerView extends StatelessWidget {
             onAdd: onAddPeople,
           ),
         ],
+        const SectionLabel('Who can answer'),
+        _AnswererRow(
+          name: '$ownerName (you)',
+          line: 'Owner · can always answer',
+        ),
+        for (final person in producer.answerers)
+          _AnswererRow(
+            key: Key('answerer-${person.id}'),
+            name: person.name,
+            line: 'Can answer its questions',
+            onRemove: canWrite ? () => onRemoveAnswerer(person) : null,
+          ),
+        if (producer.answerers.isEmpty)
+          const Hint("Only you can answer this producer's questions."),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 16, 0),
+            child: TextButton.icon(
+              key: const Key('addAnswerers'),
+              onPressed: canWrite ? onAddAnswerers : null,
+              icon: const Icon(Icons.person_add_alt),
+              label: const Text('Add people who can answer'),
+            ),
+          ),
+        ),
         const SectionLabel('Keys'),
         if (producer.keys.isEmpty)
           const DetailRow(icon: Icons.key_off_outlined, title: 'No keys'),
@@ -458,6 +493,59 @@ class _KeyRow extends StatelessWidget {
                 child: const Text('Revoke'),
               ),
             ),
+    );
+  }
+}
+
+/// A row of _Who can answer_: an avatar, the name and what they may do. An
+/// added person's row has a 48 dp close button; the owner's has no control.
+class _AnswererRow extends StatelessWidget {
+  const _AnswererRow({
+    super.key,
+    required this.name,
+    required this.line,
+    this.onRemove,
+  });
+
+  final String name;
+  final String line;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final plain = name.replaceAll(' (you)', '');
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 64),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+        child: Row(
+          children: [
+            PersonAvatar(plain, neutral: true),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: theme.textTheme.bodyLarge),
+                  Text(
+                    line,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onRemove != null || line.startsWith('Can answer'))
+              IconButton(
+                tooltip: 'Remove $plain from Who can answer',
+                icon: const Icon(Icons.close),
+                onPressed: onRemove,
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

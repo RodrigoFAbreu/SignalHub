@@ -69,6 +69,8 @@ class OtherProducerView extends StatelessWidget {
                     'older events too.',
           onChanged: writable ? onSubscribed : null,
         ),
+        if (producer.canAnswer && !producer.subscribed)
+          StayRow(producerName: producer.name),
         if (producer.subscribed && mutedHere)
           DetailRow(
             icon: Icons.volume_off,

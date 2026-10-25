@@ -184,6 +184,8 @@ class FakeBackend {
       'id': 'p-1',
       'name': 'nightly-build',
     },
+    Map<String, Object?>? ask,
+    bool canAnswer = true,
   }) => events.insert(0, {
     'id': id,
     'producer': producer,
@@ -197,13 +199,116 @@ class FakeBackend {
     'occurredAt': null,
     'createdAt': '2026-09-25T12:03:00.123456Z',
     'readAt': readAt,
+    'ask': ask,
+    'answer': null,
+    'answerState': ask == null ? null : 'OPEN',
+    'closedBy': null,
+    'closedAt': null,
+    'closeNote': null,
+    'canAnswer': ask != null && canAnswer,
   });
+
+  /// A question as the API answers it: [choices] are `(id, label)` or
+  /// `(id, label, description)`.
+  static Map<String, Object?> question({
+    List<(String, String, String?)> choices = const [],
+    bool multiple = false,
+    String? text,
+    String? textStyle,
+    String? closesAt,
+    List<(String, String)> who = const [('user-0', 'Rodrigo')],
+  }) => {
+    'choices': [
+      for (final (id, label, description) in choices)
+        {'id': id, 'label': label, 'description': description},
+    ],
+    'multiple': multiple,
+    'text': text ?? (choices.isEmpty ? 'REQUIRED' : 'NONE'),
+    'textStyle': choices.isEmpty || text == null || text == 'NONE'
+        ? null
+        : (textStyle ?? 'NOTE'),
+    'closesAt': closesAt,
+    'whoCanAnswer': [
+      for (final (id, name) in who) {'id': id, 'name': name},
+    ],
+  };
+
+  /// Events whose next answer is refused with `403`.
+  final forbidden = <String>{};
+
+  /// The answers accepted, by event ID, as the request carried them.
+  final answers = <String, Map<String, Object?>>{};
+
+  /// The `409` an answer to [event] gets when it is not open any more.
+  http.Response _answer(Map<String, Object?> event, Map<String, Object?> body) {
+    if (forbidden.contains(event['id'])) {
+      return _json(403, {'title': 'Forbidden', 'status': 403});
+    }
+    if (event['answerState'] != 'OPEN') {
+      return _json(409, {
+        'title': 'Conflict',
+        'status': 409,
+        'question': _questionState(event),
+      });
+    }
+    if (!(event['canAnswer'] as bool)) {
+      return _json(403, {'title': 'Forbidden', 'status': 403});
+    }
+    final answer = {
+      'choices': body['choices'] ?? <Object?>[],
+      'text': body['text'],
+      'by': {'id': 'user-0', 'name': userName},
+      'via': 'APP',
+      'at': '2026-10-16T19:02:11Z',
+    };
+    event['answer'] = answer;
+    event['answerState'] = 'ANSWERED';
+    event['canAnswer'] = false;
+    answers[event['id']! as String] = body;
+    return _json(200, answer);
+  }
+
+  static Map<String, Object?> _questionState(Map<String, Object?> event) => {
+    'state': event['answerState'],
+    'answer': event['answer'],
+    'closedBy': event['closedBy'],
+    'closedAt': event['closedAt'],
+    'closeNote': event['closeNote'],
+  };
+
+  /// Someone else answers [id] first.
+  void answerBy(String id, String name, List<String> choices, {String? text}) {
+    final event = _event(id)!;
+    event['answer'] = {
+      'choices': choices,
+      'text': text,
+      'by': {'id': 'user-9', 'name': name},
+      'via': 'WEB',
+      'at': '2026-10-16T18:55:00Z',
+    };
+    event['answerState'] = 'ANSWERED';
+    event['canAnswer'] = false;
+  }
+
+  /// The producer (or the clock) closes the question of [id].
+  void close(String id, {String by = 'PRODUCER', String? note}) {
+    final event = _event(id)!;
+    event['answerState'] = 'CLOSED';
+    event['closedBy'] = by;
+    event['closedAt'] = '2026-10-17T08:41:00Z';
+    event['closeNote'] = note;
+    event['canAnswer'] = false;
+  }
 
   /// Whether the event with [id] is read on the server.
   bool isRead(String id) =>
       events.firstWhere((e) => e['id'] == id)['readAt'] != null;
 
   int get _unread => events.where((e) => e['readAt'] == null).length;
+
+  int get _toAnswer => events
+      .where((e) => e['answerState'] == 'OPEN' && e['canAnswer'] == true)
+      .length;
 
   Future<http.Response> _handle(http.Request request) async {
     requests.add(request);
@@ -237,6 +342,14 @@ class FakeBackend {
       final event = _event(eventId);
       return event == null ? _eventNotFound() : _json(200, event);
     }
+    final answerId = RegExp(r'^/api/v1/events/([^/]+)/answer$')
+        .firstMatch(path)
+        ?.group(1);
+    if (answerId != null && request.method == 'PUT') {
+      final event = _event(answerId);
+      if (event == null) return _eventNotFound();
+      return _answer(event, jsonDecode(request.body) as Map<String, Object?>);
+    }
     final readId = RegExp(r'^/api/v1/events/([^/]+)/read$')
         .firstMatch(path)
         ?.group(1);
@@ -269,7 +382,7 @@ class FakeBackend {
     final route = '${request.method} $path';
     switch (route) {
       case 'GET /api/v1/events/unread-count':
-        return _json(200, {'unread': _unread});
+        return _json(200, {'unread': _unread, 'toAnswer': _toAnswer});
       case 'POST /api/v1/events/read':
         final body = jsonDecode(request.body) as Map<String, Object?>;
         final through = events.indexWhere((e) => e['id'] == body['through']);
@@ -462,7 +575,9 @@ class FakeBackend {
         within('producerId', (event['producer'] as Map)['id']) &&
         within('category', event['category']) &&
         within('severity', event['severity']) &&
-        (read == null || (event['readAt'] != null) == (read == 'true'));
+        (read == null || (event['readAt'] != null) == (read == 'true')) &&
+        (!query.containsKey('toAnswer') ||
+            (event['answerState'] == 'OPEN' && event['canAnswer'] == true));
   }
 
   Map<String, Object?>? _event(String id) =>

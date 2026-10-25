@@ -10,6 +10,7 @@ import 'build_identity.dart';
 import 'connection/pairing_uri.dart';
 import 'connection/server_credentials.dart';
 import 'connection/setup_failure.dart';
+import 'features/answer_outcome.dart';
 import 'features/devices_controller.dart';
 import 'features/own_producers_controller.dart';
 import 'features/people_controller.dart';
@@ -18,6 +19,7 @@ import 'models/client_registration.dart';
 import 'models/event.dart';
 import 'models/inbox_filter.dart';
 import 'models/push_config.dart';
+import 'models/question.dart';
 import 'models/users.dart';
 import 'onboarding/onboarding_store.dart';
 import 'push/push_registration.dart';
@@ -150,6 +152,10 @@ class AppController extends ChangeNotifier implements ApiGateway {
   /// How many events are unread on the server, including events not read
   /// into [events] yet; `null` until known.
   int? unreadCount;
+
+  /// How many open questions this person may answer; the inbox's _To answer_
+  /// chip and the dot on its tab.
+  int toAnswerCount = 0;
 
   /// Whether the first page of the inbox has been read since connecting.
   bool inboxLoaded = false;
@@ -491,10 +497,10 @@ class AppController extends ChangeNotifier implements ApiGateway {
       final generation = ++_inboxGeneration;
       final filter = this.filter;
       final page = await api.listEvents(limit: pageSize, filter: filter);
-      final unread = await api.unreadCount();
+      final counts = await api.eventCounts();
       if (generation == _inboxGeneration) {
         _showFirstPage(page, filter);
-        unreadCount = unread;
+        _setCounts(counts);
       }
       error = null;
       serverUnreachable = false;
@@ -690,12 +696,90 @@ class AppController extends ChangeNotifier implements ApiGateway {
     final api = _api;
     if (api == null) return;
     try {
-      unreadCount = await api.unreadCount();
+      _setCounts(await api.eventCounts());
     } on UnauthorizedException {
       rethrow;
     } on ApiException catch (e) {
       debugPrint('Unread count not updated: ${e.message}');
     }
+  }
+
+  void _setCounts(EventCounts counts) {
+    unreadCount = counts.unread;
+    toAnswerCount = counts.toAnswer;
+  }
+
+  /// Reads the event with [id] from the server again, for a card that may
+  /// have gone stale (the app came back, or a `409` said so), and shows it in
+  /// the inbox. An [EventNotFoundException] takes it out of the inbox.
+  Future<Event> reloadEvent(String id) async {
+    final Event fresh;
+    try {
+      fresh = await call((api) => api.getEvent(id));
+    } on EventNotFoundException {
+      await _removeEvent(id);
+      rethrow;
+    }
+    if (_eventWithId(id) != null) _replaceEvent(fresh);
+    unawaited(_readCountsQuietly());
+    return fresh;
+  }
+
+  Future<void> _readCountsQuietly() async {
+    try {
+      await _readUnreadCount();
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return;
+    }
+    notifyListeners();
+  }
+
+  /// Sends this person's answer to the event's question. The inbox follows
+  /// what the server decided, and the counts are read again.
+  Future<AnswerOutcome> answerEvent(
+    String id, {
+    List<String> choices = const [],
+    String? text,
+  }) async {
+    final api = _api;
+    if (api == null) return const AnswerFailed('Not connected to a server');
+    AnswerOutcome outcome;
+    try {
+      final answer = await api.answerEvent(id, choices: choices, text: text);
+      outcome = AnswerAccepted(
+        QuestionState(state: AnswerState.answered, answer: answer),
+      );
+    } on QuestionConflictException catch (e) {
+      outcome = AnswerRefused(e.state);
+    } on EventNotFoundException {
+      await _removeEvent(id);
+      return const AnswerGone();
+    } on UnauthorizedException {
+      await _forgetRevokedKey();
+      return const AnswerFailed('This device is no longer connected');
+    } on ApiException catch (e) {
+      if (e.statusCode != 403) return AnswerFailed(e.message);
+      // A refusal may be "not allowed" or something else: read it again.
+      try {
+        final fresh = await reloadEvent(id);
+        return AnswerNotAllowed(fresh);
+      } on EventNotFoundException {
+        return const AnswerGone();
+      } on ApiException catch (_) {
+        return AnswerFailed(e.message);
+      }
+    }
+    final state = switch (outcome) {
+      AnswerAccepted(:final state) || AnswerRefused(:final state) => state,
+      _ => null,
+    };
+    final shown = _eventWithId(id);
+    if (state != null && shown != null) {
+      _replaceEvent(shown.withQuestionState(state));
+    }
+    await _readCountsQuietly();
+    return outcome;
   }
 
   Event? _eventWithId(String id) => events.where((e) => e.id == id).firstOrNull;
@@ -857,6 +941,7 @@ class AppController extends ChangeNotifier implements ApiGateway {
     filter = InboxFilter.none;
     _producers.clear();
     unreadCount = null;
+    toAnswerCount = 0;
     _nextCursor = null;
     _lastRead = null;
     _inboxGeneration++;

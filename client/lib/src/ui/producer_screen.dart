@@ -8,6 +8,7 @@ import '../models/producers.dart';
 import '../models/users.dart';
 import '../settings/settings_groups.dart';
 import 'allow_list_screen.dart';
+import 'answerers_screen.dart';
 import 'own_producer_view.dart';
 import 'producer_dates.dart';
 import 'producer_dialogs.dart';
@@ -416,14 +417,58 @@ class _ProducerScreenState extends State<ProducerScreen> {
   }
 
   Future<void> _addPeople(OwnProducer producer) async {
-    await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    final updated = await Navigator.of(context).push<OwnProducer>(
+      MaterialPageRoute<OwnProducer>(
         builder: (_) =>
             AllowListScreen(controller: _controller, producer: producer),
       ),
     );
     if (!mounted) return;
-    setState(() => _own = _ownProducers.byId(_id) ?? _own);
+    setState(() => _own = updated ?? _ownProducers.byId(_id) ?? _own);
+  }
+
+  Future<void> _removeAnswerer(OwnProducer producer, UserName person) async {
+    if (!await ProducerDialogs.removeAnswerer(
+      context,
+      person: person.name,
+      producer: producer,
+    )) {
+      return;
+    }
+    // A failure says "Not removed", with Retry; the list stays as it was.
+    if (_busy) return;
+    setState(() => _busy = true);
+    final outcome = await _ownProducers.removeAnswerer(_id, person.id);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (outcome.value case final updated?) _own = updated;
+      if (outcome.failure == ProducerFailure.notFound) _kind = _Kind.gone;
+    });
+    if (outcome.ok ||
+        outcome.failure == ProducerFailure.notFound ||
+        outcome.failure == ProducerFailure.signedOut) {
+      return;
+    }
+    showAppSnackBar(
+      context,
+      'Not removed',
+      actionLabel: outcome.failure == ProducerFailure.forbidden
+          ? null
+          : 'Retry',
+      onAction: () => _removeAnswerer(producer, person),
+    );
+  }
+
+  Future<void> _addAnswerers(OwnProducer producer) async {
+    final updated = await Navigator.of(context).push<OwnProducer>(
+      MaterialPageRoute<OwnProducer>(
+        builder: (_) =>
+            AnswerersScreen(controller: _controller, producer: producer),
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _own = updated ?? _ownProducers.byId(_id) ?? _own);
   }
 
   void _openEvents(String name) => Navigator.of(context).push(
@@ -522,6 +567,7 @@ class _ProducerScreenState extends State<ProducerScreen> {
         child: ContentWidth(
           child: OwnProducerView(
             producer: producer,
+            ownerName: _controller.userName ?? 'You',
             stale: _staleBanner(),
             writable: !_paused,
             busy: _busy,
@@ -531,6 +577,8 @@ class _ProducerScreenState extends State<ProducerScreen> {
             onVisibility: (v) => _setVisibility(producer, v),
             onRemovePerson: (p) => _removePerson(producer, p),
             onAddPeople: () => _addPeople(producer),
+            onRemoveAnswerer: (p) => _removeAnswerer(producer, p),
+            onAddAnswerers: () => _addAnswerers(producer),
             onRevoke: (key) => _revokeKey(producer, key),
             onNewKey: () => _newKey(producer),
             onEvents: () => _openEvents(producer.name),

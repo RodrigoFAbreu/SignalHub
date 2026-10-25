@@ -21,7 +21,7 @@ void main() {
   Future<(AppHarness, OwnProducersFake, FakePlatform)> setup(
     WidgetTester tester, {
     String role = 'MOD',
-    Size size = const Size(412, 892),
+    Size size = const Size(412, 1200),
     double textScale = 1,
   }) async {
     final app = AppHarness(role: role);

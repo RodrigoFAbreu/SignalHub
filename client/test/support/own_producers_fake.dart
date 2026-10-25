@@ -68,6 +68,7 @@ class OwnProducersFake {
     bool subscribed = true,
     List<Map<String, Object?>>? keys,
     List<Map<String, Object?>> allowed = const [],
+    List<Map<String, Object?>> answerers = const [],
     String? disabledAt,
     bool disabledByOperator = false,
     String? lastEventAt,
@@ -82,6 +83,7 @@ class OwnProducersFake {
       'visibility': visibility,
       'subscribed': subscribed,
       'allowedUsers': [...allowed],
+      'answerers': [...answerers],
       'keys': keys ?? [key('EXAMPLE1')],
     };
     owned.add(producer);
@@ -96,6 +98,7 @@ class OwnProducersFake {
     String visibility = 'PUBLIC',
     bool subscribed = false,
     bool disabled = false,
+    bool canAnswer = false,
   }) {
     final producer = <String, Object?>{
       'id': id,
@@ -104,6 +107,7 @@ class OwnProducersFake {
       'visibility': visibility,
       'disabled': disabled,
       'subscribed': subscribed,
+      'canAnswer': canAnswer,
     };
     others.add(producer);
     return producer;
@@ -129,6 +133,7 @@ class OwnProducersFake {
     'visibility': p['visibility'],
     'disabled': p['disabledAt'] != null,
     'subscribed': p['subscribed'],
+    'canAnswer': true,
   };
 
   static http.Response _json(int status, Object body) => http.Response(
@@ -287,6 +292,19 @@ class OwnProducersFake {
       final list = producer['allowedUsers']! as List;
       list.removeWhere((u) => (u as Map)['id'] == userId);
       if (allowed.group(1) == 'PUT') {
+        final person = people.where((p) => p['id'] == userId).firstOrNull;
+        if (person == null) return _problem(404, 'Not found');
+        list.add({'id': userId, 'name': person['name']});
+      }
+      return _json(200, producer);
+    }
+    final answerers = RegExp(r'^(PUT|DELETE) /answerers/([^/]+)$')
+        .firstMatch('$method $subpath');
+    if (answerers != null) {
+      final userId = answerers.group(2)!;
+      final list = producer['answerers']! as List;
+      list.removeWhere((u) => (u as Map)['id'] == userId);
+      if (answerers.group(1) == 'PUT') {
         final person = people.where((p) => p['id'] == userId).firstOrNull;
         if (person == null) return _problem(404, 'Not found');
         list.add({'id': userId, 'name': person['name']});

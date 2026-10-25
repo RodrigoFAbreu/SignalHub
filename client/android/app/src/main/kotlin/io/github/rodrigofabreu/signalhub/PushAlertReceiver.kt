@@ -19,8 +19,9 @@ import android.util.Log
 class PushAlertReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val extras = intent.extras ?: return
-        if (!isNotification(extras)) return
         val app = context.applicationContext
+        if (removesNotification(app, extras)) return
+        if (!isNotification(extras)) return
         val muted = mutedByOwner(app)
         if (muted != null) {
             Log.i(AlertPlayer.TAG, "Alert not played ($muted)")
@@ -31,6 +32,20 @@ class PushAlertReceiver : BroadcastReceiver() {
         val (kind, alert) = AlertPlayer.forPush(app, extras.getString("severity"))
         val pending = goAsync()
         AlertPlayer.play(app, alert, kind) { pending.finish() }
+    }
+
+    /**
+     * Takes an event's notification off the shade when a data-only notice
+     * says its question was answered, closed, or the event deleted. FCM
+     * shows a push under the event's ID as its tag, so the same tag finds
+     * it. Returns whether the message was such a notice, which plays no
+     * alert.
+     */
+    private fun removesNotification(context: Context, extras: Bundle): Boolean {
+        if (extras.getString("notice") !in REMOVING_NOTICES) return false
+        val eventId = extras.getString("eventId") ?: return true
+        context.getSystemService(NotificationManager::class.java).cancel(eventId, FCM_NOTIFICATION_ID)
+        return true
     }
 
     /**
@@ -60,5 +75,13 @@ class PushAlertReceiver : BroadcastReceiver() {
         } else {
             null
         }
+    }
+
+    companion object {
+        /** The data-only notices that end an event's question or the event itself. */
+        val REMOVING_NOTICES = setOf("answered", "closed", "deleted")
+
+        /** The ID Firebase gives a notification it builds for a push. */
+        const val FCM_NOTIFICATION_ID = 0
     }
 }

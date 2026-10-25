@@ -706,7 +706,8 @@ state; a producer that wants longer asks again.
   says *… · pick one or more*; a typed question says *Tap to answer*. The
   *Other* row is never named or counted, and a description is never in it.
   Everyone else, and a question no longer open, gets the event's usual text.
-  The app's receiver for notices comes with the app's screens (R82b).
+  The app's receiver removes the event's notification on these notices
+  (R82b, part 3).
 
 **Listing.** `GET /api/v1/events?toAnswer=true` lists the open questions the
 caller may answer (read or not; only `true` is accepted; empty for the admin
@@ -1915,6 +1916,21 @@ goes too, and a bulk delete counts the events with a question (`asking`, also in
 would send (labels with their derived ids, descriptions, *Pick*, *Note*, *Typed answer as*,
 *Closes*), with the same checks as the API on the field; a producer's *Who can answer* (its
 owner and answerers) is read-only in its pane.
+
+**Questions in the app (R82b, part 3).** The event screen shows the answer card under the message,
+as the web page does: the choices (one, or one or more), the optional note or the *Other* row, and
+*Send answer*, the one deliberate step. It turns into the result without animation (answered by
+you or someone else, closed by time or by the producer, answered first on a `409`) or, for a person
+who may only read, a disabled list; a `403` re-reads the event, and a draft survives a failed send.
+The inbox row of a question says *Waiting*, *Answered* or *Closed* with `pending_actions`
+(*Action required*) for one the user can answer; the filter sheet has *To answer*, and the bottom
+bar's *Inbox* counts the unread events and the questions to answer (`unread-count`'s `toAnswer`).
+A producer's screen has *Who can answer* (the owner, then the answerers named, each removable after
+a confirmation, and *Add people who can answer*, which offers only those who can see the producer)
+for its owner, and *Stay subscribed to answer* for an owner or answerer who unsubscribed
+(`canAnswer` on the visible producers). On Android, the receiver of every push also takes the
+notification of an event off the shade on an `answered`, `closed` or `deleted` data-only notice,
+by the event's ID as tag; the app re-reads the inbox on the same notice.
 
 **Status** reads `/q/info`, `/q/health`, `/api/v1/admin/status` (its `startedAt` is *Running since*),
 the device list and the newest event, and says *SignalHub needs attention* when the database is

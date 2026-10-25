@@ -43,6 +43,7 @@ commands that CI runs.
 | `lib/src/alert/` | The alert settings (sound, volume, vibration with its pattern and length, which pushes sound on silent and during Do Not Disturb, and critical events' own), what the platform is given for them, their controller, and `AlertPlatform`, the port to the Android code that stores and plays them. |
 | `lib/src/settings/` | The groups of the Settings screen, and which of them are open, kept in secure storage. |
 | `lib/src/app_controller.dart` | App state and behaviour; the UI only renders it. |
+| `lib/src/features/answer_outcome.dart`, `lib/src/models/question.dart` | Answering an event: the question and answer models, and what sending an answer came to. |
 | `lib/src/features/web_sign_in_controller.dart` | Signing a browser in: reading the code, the question, approving or cancelling. |
 | `lib/src/ui/` | The setup, pairing scanner, *Sign in a browser* (`sign_in_browser_screen.dart`), inbox (with its filter sheet), event, Settings (with its push filters and alert sections), devices (for an admin device) and *Connect a device* (a pairing code as a QR code, drawn with the pure-Dart `qr` package) screens; `link_opener.dart` hands an event's link to the platform (`url_launcher`). |
 | `android/`, `ios/` | Platform projects: identifiers, permissions, push capability, the browsers an event's link may open in (Android `<queries>`), and the `signalhub://signin` link the app opens from (Android intent filter). |
@@ -183,6 +184,18 @@ at the top of the inbox, once.
   one and shows its key **once**: copy or share it before leaving. A
   producer's screen renames it, sets who can see it, adds people to a private
   one, lists its keys, issues and revokes keys and disables or enables it.
+- **Questions.** An event that asks shows an answer card on its screen: the
+  choices (one, or one or more), a note or an *Other* row where the producer
+  allows one, and **Send answer**. The card turns into the result (answered by
+  you or by someone else, closed by time or by the producer) or, for a person
+  who may only read, a list. The inbox marks such a row (*Waiting*, *Answered*,
+  *Closed*; the *Action required* icon when it waits for you), has a *To answer*
+  filter, and counts the questions to answer beside the unread count on
+  *Inbox*. A producer's screen lists **Who can answer** (add people who can
+  see it; remove them after a confirmation) and, if you unsubscribed from a
+  producer whose questions you answer, **Stay subscribed to answer**. On
+  Android, a notice that a question was answered or closed, or its event
+  deleted, takes the notification off the shade.
 - **People** (admins) lists everyone in sections by role, invites someone
   with a pairing code, and shows a person's role (*Basic* or *Mod*; *Admin* is
   set on the admin page), devices and producers.

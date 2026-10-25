@@ -127,6 +127,28 @@ class SectionLabel extends StatelessWidget {
   );
 }
 
+/// _Stay subscribed to answer_: said under the _Subscribed_ switch to the
+/// owner or an answerer who unsubscribed. They cannot read its events, so
+/// they cannot answer; an unsubscribed owner cannot open the event at all, so
+/// this page is the one place that says why. In words, with an icon and no
+/// error colour.
+class StayRow extends StatelessWidget {
+  const StayRow({super.key, required this.producerName});
+
+  final String producerName;
+
+  @override
+  Widget build(BuildContext context) => DetailRow(
+    key: const Key('stayRow'),
+    icon: Icons.info_outline,
+    title: 'Stay subscribed to answer',
+    lines: [
+      "While you're unsubscribed, $producerName's questions don't reach you, "
+          "and you can't answer them.",
+    ],
+  );
+}
+
 /// A row of a producer's screen: a 24 dp icon, a title, up to two lines
 /// under it and what trails. At least 56 dp high, 16 dp from the leading edge
 /// and 24 from the trailing one; the whole row is the target when it has an

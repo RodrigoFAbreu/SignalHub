@@ -1436,12 +1436,12 @@ void main() {
       expect(find.text('Deploy done'), findsNothing);
       expect(find.text('Nightly build failed'), findsOneWidget);
       expect(find.text('Disk almost full'), findsOneWidget);
+      // Unread is a chip of the row above the list, the same switch as the
+      // sheet's: the grey bar names only what the sheet adds.
+      expect(find.byKey(const Key('activeFilters')), findsNothing);
       expect(
-        find.descendant(
-          of: find.byKey(const Key('activeFilters')),
-          matching: find.text('Unread'),
-        ),
-        findsOneWidget,
+        tester.widget<FilterChip>(find.byKey(const Key('chipUnread'))).selected,
+        isTrue,
       );
       expect(
         backend.requests
