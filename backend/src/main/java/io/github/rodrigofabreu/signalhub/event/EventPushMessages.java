@@ -21,7 +21,9 @@ final class EventPushMessages {
         Map.of(
             "eventId", event.id().toString(),
             "category", event.category().name(),
-            "severity", event.severity().name()));
+            "severity", event.severity().name()),
+        // A retried or later push for the event replaces its card instead of adding a second.
+        event.id().toString());
   }
 
   static String shorten(String text) {

@@ -39,6 +39,7 @@ class EventService {
   private final EventReads reads;
   private final EventQuestions questions;
   private final QuestionWakeups wakeups;
+  private final PushNotices notices;
 
   /** How far ahead a question may close by itself. */
   static final Duration MAX_ASK_DURATION = Duration.ofDays(30);
@@ -50,7 +51,9 @@ class EventService {
       ProducerAccess access,
       EventReads reads,
       EventQuestions questions,
-      QuestionWakeups wakeups) {
+      QuestionWakeups wakeups,
+      PushNotices notices) {
+    this.notices = notices;
     this.repository = repository;
     this.producers = producers;
     this.dispatches = dispatches;
@@ -111,6 +114,10 @@ class EventService {
     }
     repository.persist(event);
     dispatches.add(event);
+    if (ask != null && ask.closesAt() != null) {
+      // Sent at closesAt unless the question ended before; the app then removes its card.
+      notices.add(event.id(), PushNotices.CLOSED, ask.closesAt(), null);
+    }
     return new Published(respond(event, producer, null, null), true);
   }
 
@@ -181,7 +188,13 @@ class EventService {
   /** The push for the event; empty if the event no longer exists. */
   @Transactional
   Optional<EventPush> pushFor(UUID id) {
-    return repository.findByIdOptional(id).map(EventPush::of);
+    return repository
+        .findByIdOptional(id)
+        .map(
+            event ->
+                EventPush.of(
+                    event,
+                    event.ask() == null ? null : questions.stateOf(event, Instant.now()).state()));
   }
 
   /**
@@ -353,6 +366,7 @@ class EventService {
    */
   @Transactional
   boolean delete(UUID id) {
+    notices.recordDeleted(List.of(id), Instant.now());
     var deleted = repository.deleteEvent(id);
     if (deleted) {
       wakeups.deletedAfterCommit();
@@ -375,6 +389,7 @@ class EventService {
       if (dryRun) {
         return Optional.of(new DeletedEvents(repository.countIds(ids), true, asking));
       }
+      notices.recordDeleted(ids, Instant.now());
       var count = repository.deleteIds(ids);
       wakeups.deletedAfterCommit();
       LOG.infof("Deleted %d of %d selected events: %s", count, ids.size(), ids);
@@ -390,6 +405,7 @@ class EventService {
       return Optional.of(
           new DeletedEvents(repository.countMatching(producerId, createdBefore), true, asking));
     }
+    notices.recordDeleted(repository.askingIdsMatching(producerId, createdBefore), Instant.now());
     var count = repository.deleteMatching(producerId, createdBefore);
     wakeups.deletedAfterCommit();
     LOG.infof(
@@ -409,7 +425,12 @@ class EventService {
    */
   @Transactional
   int deleteCreatedBefore(Instant cutoff, int limit) {
-    var deleted = repository.deleteCreatedBefore(cutoff, limit);
+    var expired = repository.lockExpired(cutoff, limit);
+    if (expired.isEmpty()) {
+      return 0;
+    }
+    notices.recordDeleted(expired, Instant.now());
+    var deleted = (int) repository.deleteIds(expired);
     if (deleted > 0) {
       wakeups.deletedAfterCommit();
     }

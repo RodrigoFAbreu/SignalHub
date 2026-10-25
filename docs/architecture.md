@@ -670,6 +670,35 @@ state; a producer that wants longer asks again.
   A held read returns `CLOSED` at once.
 - There is no callback and no feed of answers.
 
+**Pushes.** A question changes what the event's pushes do:
+
+- Every event push carries the notification tag (the event ID), so a retried
+  push replaces its card instead of adding a second one.
+- When a question is **answered**, **closed** by its producer or by time, or
+  **deleted** while open, SignalHub sends a **data-only** push (`notice` =
+  `answered`, `closed` or `deleted`, and the `eventId`; `NORMAL` Android
+  priority) to the devices that were shown the event, so the app removes its
+  notification. Notices live in `push_notices` (V22; `event_id` has no foreign
+  key, as a `deleted` notice outlives the event), are written in the
+  transaction of the change, sent once and deleted, with no retry per device
+  and no [delivery record](#delivery-records):
+
+  | Transition | Devices | When |
+  |---|---|---|
+  | Answered | those with a `DELIVERED` record for the event, except the answering client | at once |
+  | Closed by the producer | those with a `DELIVERED` record | at once |
+  | Closed by `closesAt` | those with a `DELIVERED` record | at `closesAt` (a row written with the event), unless the question ended before |
+  | Deleted while `OPEN` | the devices read before the delete, in its transaction | after the delete (one, a selection, a producer's, older than, retention) |
+  | Deleted once answered or closed, a repeated close, the same answer again | none | |
+
+- A notice waits while the event's own `push_dispatches` row exists, so the
+  first dispatch cannot add a device after it. Once the question is not
+  `OPEN`, the dispatcher and its retries send the event push to no device; the
+  skip is recorded as `FILTERED` with the detail `question answered` or
+  `question closed`.
+- The app's receiver for notices, and the "Tap to answer" line of the push's
+  text, come with the screens (R82b).
+
 **Listing.** `GET /api/v1/events?toAnswer=true` lists the open questions the
 caller may answer (read or not; only `true` is accepted; empty for the admin
 token), and the operator's listing takes `answerState` (`OPEN`, `ANSWERED`,
@@ -2385,17 +2414,22 @@ key.
   signature), so no Google SDK is a dependency.
 - **Message.** A `PushMessage` becomes an FCM notification message: the title
   and optional body as `notification`, the data as `data`, addressed to the
-  push target's token. Nothing FCM-specific leaks out of the provider.
-- **Priority.** Every message carries `android.priority` `HIGH`, whatever the
-  event's severity or producer, and `PushMessage` has no field for it: it is how
-  this provider delivers a user-visible push. Without it FCM sends a
+  push target's token. Its neutral `tag` (every event push carries its event ID)
+  becomes `android.notification.tag`, so a later push with the same tag replaces
+  the card in place. A **data-only** message (no title or body: the notices of
+  [Answering an event](#answering-an-event)) has no `notification` block and
+  `android.priority` `NORMAL`. Nothing FCM-specific leaks out of the provider.
+- **Priority.** Every message that shows a notification carries
+  `android.priority` `HIGH`, whatever the event's severity or producer, and
+  `PushMessage` has no field for it: it is how this provider delivers a
+  user-visible push. A data-only notice shows nothing, so it is `NORMAL`. Without it FCM sends a
   normal-priority message, which Android's doze and app standby, and a
   manufacturer's app freezer, may hold until the phone wakes. A high-priority
   message is delivered at once and lets the app run briefly to show its
   notification and play its alert, so a push reaches a dozing phone or a frozen
   app in seconds. FCM keeps high priority for messages that show a notification
   to the user and may lower the priority of high-priority messages that do not;
-  every SignalHub push shows one, and a push is sent only when the owner's
+  every SignalHub push except a notice shows one, and a push is sent only when the owner's
   preferences let it through. No time to live or collapse key is set, and iOS
   (APNs) priority is not, since no iOS build is distributed.
 - **Outcomes.**

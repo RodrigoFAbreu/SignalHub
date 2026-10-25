@@ -31,6 +31,7 @@ class QuestionService {
   private final UserDirectory users;
   private final EventQuestions questions;
   private final QuestionWakeups wakeups;
+  private final PushNotices notices;
 
   QuestionService(
       EventRepository events,
@@ -38,7 +39,9 @@ class QuestionService {
       ProducerAccess access,
       UserDirectory users,
       EventQuestions questions,
-      QuestionWakeups wakeups) {
+      QuestionWakeups wakeups,
+      PushNotices notices) {
+    this.notices = notices;
     this.events = events;
     this.answers = answers;
     this.access = access;
@@ -124,6 +127,8 @@ class QuestionService {
     if (answers.insertAnswer(
         eventId, caller.userId(), name, via.name(), choices, request.text(), caller.id(), now)) {
       wakeups.changedAfterCommit(eventId);
+      notices.cancelTimed(eventId, now);
+      notices.add(eventId, PushNotices.ANSWERED, now, caller.id());
       LOG.infof("User %s answered the question of event %s", caller.userId(), eventId);
       return new Answering.Accepted(
           new QuestionState.Answer(
@@ -169,6 +174,8 @@ class QuestionService {
         && (event.askClosesAt() == null || event.askClosesAt().isAfter(now))
         && answers.insertClose(eventId, note, now)) {
       wakeups.changedAfterCommit(eventId);
+      notices.cancelTimed(eventId, now);
+      notices.add(eventId, PushNotices.CLOSED, now, null);
       LOG.infof("The producer closed the question of event %s", eventId);
       return new Closing.Closed(QuestionState.closed(QuestionState.ClosedBy.PRODUCER, now, note));
     }

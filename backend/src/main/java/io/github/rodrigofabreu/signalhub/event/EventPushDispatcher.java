@@ -163,7 +163,7 @@ class EventPushDispatcher {
               .filter(id -> !recipientIds.contains(id))
               .toList();
       for (var recipient : recipients) {
-        var exclusion = push.get().exclusionBy(recipient.preferences());
+        var exclusion = push.get().skippedFor(recipient.preferences());
         if (exclusion.isEmpty()) {
           var report = delivery.deliver(recipient.clientId(), push.get().message());
           record(recipient.clientId(), eventId, 1, report);
@@ -197,7 +197,7 @@ class EventPushDispatcher {
     if (push.isPresent()) {
       var attempt = retry.attempts() + 1;
       var recipient = clients.pushRecipient(retry.clientId());
-      var exclusion = recipient.flatMap(r -> push.get().exclusionBy(r.preferences()));
+      var exclusion = recipient.flatMap(r -> push.get().skippedFor(r.preferences()));
       if (recipient.isEmpty()) {
         recordDelivery(retry.eventId(), retry.clientId(), attempt, DeliveryOutcome.NO_TARGET, null);
       } else if (!access.subscribers(push.get().producerId()).contains(recipient.get().userId())) {
