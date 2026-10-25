@@ -6,10 +6,12 @@ const SAFE_METHODS = new Set(["GET", "HEAD"]);
 
 /** A request the server answered with an error, or did not answer (status 0). */
 export class ApiError extends Error {
-  constructor(status, title) {
+  constructor(status, title, question = null) {
     super(title);
     this.name = "ApiError";
     this.status = status;
+    // The state of a question, which a 409 on answering carries.
+    this.question = question;
   }
 
   get offline() {
@@ -37,14 +39,14 @@ export function whenSessionEnds(handler) {
   onSessionEnded = handler;
 }
 
-async function titleOf(response) {
+async function problemOf(response) {
   try {
     const body = await response.json();
-    if (body && typeof body.title === "string" && body.title) return body.title;
+    if (body && typeof body.title === "string" && body.title) return { title: body.title, question: body.question ?? null };
   } catch {
     // Not a SignalHub error body: a proxy in front of the server may answer anything.
   }
-  return `The server answered ${response.status}`;
+  return { title: `The server answered ${response.status}`, question: null };
 }
 
 /**
@@ -71,7 +73,10 @@ export async function api(method, path, body, options = {}) {
     onSessionEnded();
     throw new SessionEnded();
   }
-  if (!response.ok) throw new ApiError(response.status, await titleOf(response));
+  if (!response.ok) {
+    const problem = await problemOf(response);
+    throw new ApiError(response.status, problem.title, problem.question);
+  }
   const result = response.status === 204 ? null : await response.json();
   if (options.withDate) return { result, date: response.headers.get("Date") };
   return result;
@@ -94,6 +99,9 @@ export const calls = {
   markRead: (id) => api("PUT", `/api/v1/events/${enc(id)}/read`),
   markUnread: (id) => api("DELETE", `/api/v1/events/${enc(id)}/read`),
   markReadThrough: (through) => api("POST", "/api/v1/events/read", { through }),
+  answer: (id, body) => api("PUT", `/api/v1/events/${enc(id)}/answer`, body),
+  addAnswerer: (id, userId) => api("PUT", `/api/v1/client/producers/${enc(id)}/answerers/${enc(userId)}`),
+  removeAnswerer: (id, userId) => api("DELETE", `/api/v1/client/producers/${enc(id)}/answerers/${enc(userId)}`),
   unreadCount: () => api("GET", "/api/v1/events/unread-count"),
 
   visibleProducers: () => api("GET", "/api/v1/client/visible-producers"),

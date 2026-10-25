@@ -12,7 +12,7 @@ import { mountProducers } from "./producers.js";
 import { go, parseHash, replaceHash } from "./router.js";
 import { mountSettings } from "./settings.js";
 import { checkingPage, mountSignIn } from "./signin.js";
-import { hooks, isAdmin, setMe, setRole, setUnread, state } from "./state.js";
+import { hooks, isAdmin, setMe, setRole, setToAnswer, setUnread, state } from "./state.js";
 import { banner, bannerSlot, button, emptyState, hideBanner, showBanner, spinner, wideQuery } from "./ui.js";
 
 const root = document.getElementById("app");
@@ -269,8 +269,9 @@ wideQuery.addEventListener("change", () => {
 
 async function refreshUnread() {
   try {
-    const { unread } = await calls.unreadCount();
+    const { unread, toAnswer } = await calls.unreadCount();
     setUnread(unread);
+    setToAnswer(toAnswer ?? 0);
   } catch {
     // The badge keeps its last number; the screens say when the server cannot be reached.
   }

@@ -537,3 +537,27 @@ export function qrSvg(qrcode, text, { size = 168, label: name }) {
   node.append(svg("rect", { width: total, height: total, fill: "#ffffff" }), svg("path", { d: path, fill: "#121318" }));
   return node;
 }
+
+// ---- Snackbar --------------------------------------------------------------------------
+
+let snack = null;
+
+/**
+ * A failed change: a short sentence and one action (DESIGN.md section 4). It stays until the action
+ * is taken or the next one replaces it.
+ */
+export function showSnack({ text, action, onAction }) {
+  hideSnack();
+  const button = el("button", { type: "button", class: "snack-action", text: action });
+  button.addEventListener("click", () => {
+    hideSnack();
+    onAction();
+  });
+  snack = el("div", { class: "snack", role: "status" }, el("span", { class: "snack-text", text }), button);
+  document.body.append(snack);
+}
+
+export function hideSnack() {
+  snack?.remove();
+  snack = null;
+}

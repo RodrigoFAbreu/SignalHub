@@ -19,7 +19,13 @@ public record VisibleProducer(
     @Schema(required = true, description = "Whether the producer is disabled and publishes none.")
         boolean disabled,
     @Schema(required = true, description = "Whether the caller receives this producer's events.")
-        boolean subscribed) {
+        boolean subscribed,
+    @Schema(
+            required = true,
+            description =
+                "Whether the caller may answer this producer's questions: they own it or are one"
+                    + " of its answerers. They also need to be subscribed to receive them.")
+        boolean canAnswer) {
 
   /** The producers the caller sees, by name. */
   @Schema(name = "VisibleProducerList", description = "The producers the caller sees, by name.")

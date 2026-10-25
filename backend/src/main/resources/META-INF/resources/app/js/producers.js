@@ -112,6 +112,7 @@ export function mountProducers(container, route, { wide }) {
       owner: producer.owner,
       visibility: mine?.visibility ?? producer.visibility,
       subscribed: mine ? mine.subscribed : producer.subscribed,
+      canAnswer: Boolean(mine) || Boolean(producer.canAnswer),
       disabled: mine ? Boolean(mine.disabledAt) : producer.disabled,
       yours: Boolean(mine),
       own: mine,
@@ -378,12 +379,26 @@ export function mountProducers(container, route, { wide }) {
   }
 
   function subscribedRow(producer, line, onChange) {
-    return el(
+    const switchRow = el(
       "div",
       { class: "lt switch-row" },
       icon(producer.subscribed ? "notifications_active" : "notifications", producer.subscribed ? "c-primary" : "c-var"),
       el("div", { class: "tx" }, el("span", { class: "t1", text: "Subscribed" }), el("span", { class: "t2w", text: line })),
       toggle({ checked: producer.subscribed, label: "Subscribed", onChange, disabled: offline || changing.has(producer.id) }),
+    );
+    // Only the owner or an answerer, and only while unsubscribed: an unsubscribed person cannot
+    // read the event, so this page is the one place that says why they cannot answer.
+    if (!producer.canAnswer || producer.subscribed) return switchRow;
+    return el(
+      "div",
+      { class: "stay-wrap" },
+      switchRow,
+      el(
+        "div",
+        { class: "stay" },
+        icon("info", "c-var"),
+        el("div", { class: "tx" }, el("span", { class: "t1", text: "Stay subscribed to answer" }), el("span", { class: "t2w", text: `While you're unsubscribed, ${producer.name}'s questions don't reach you, and you can't answer them.` })),
+      ),
     );
   }
 
@@ -482,6 +497,9 @@ export function mountProducers(container, route, { wide }) {
       parts.push(el("span", { class: "t2w", text: "Anyone on this server can find and subscribe to it." }));
     }
 
+    parts.push(label("Who can answer"));
+    parts.push(...answerersSection(p, writable));
+
     parts.push(label("Keys"));
     if (!p.keys.length) parts.push(el("div", { class: "keyrow" }, icon("key_off", "c-var"), el("div", { class: "tx" }, el("span", { class: "t1", text: "No keys" }))));
     for (const key of p.keys) parts.push(keyRow(p, key, byHost, byYou, writable));
@@ -495,6 +513,101 @@ export function mountProducers(container, route, { wide }) {
       parts.push(linkRow("play_circle", "Enable", "Its keys work again", writable ? () => change(p, () => calls.enableProducer(p.id), `enable ${p.name}`) : null));
     }
     return parts;
+  }
+
+  // The owner always can; each person the owner added can too, and the owner takes them away.
+  function answerersSection(p, writable) {
+    const answerers = p.answerers ?? [];
+    const rows = [
+      el("div", { class: "lt answerer-row" }, avatar(state.me.name), el("div", { class: "tx" }, el("span", { class: "t1", text: `${state.me.name} (you)` }), el("span", { class: "t2n", text: "Owner · can always answer" }))),
+    ];
+    for (const person of answerers) {
+      rows.push(
+        el(
+          "div",
+          { class: "lt answerer-row" },
+          avatar(person.name),
+          el("div", { class: "tx" }, el("span", { class: "t1", text: person.name }), el("span", { class: "t2n", text: "Can answer its questions" })),
+          iconButton("close", `Remove ${person.name} from Who can answer`, () => removeAnswerer(p, person), { disabled: !writable }),
+        ),
+      );
+    }
+    if (!answerers.length) rows.push(el("span", { class: "t2n", text: "Only you can answer this producer's questions." }));
+    rows.push(el("div", { class: "row" }, button("Add people who can answer", { kind: "text", glyph: "person_add", disabled: !writable, onClick: () => addAnswerers(p) })));
+    return rows;
+  }
+
+  async function removeAnswerer(p, person) {
+    const ok = await confirmDialog({
+      title: `Remove ${person.name}?`,
+      message: `${person.name} won't be able to answer ${p.name}'s questions any more. Answers ${person.name} already gave stay as they are.`,
+      action: "Remove",
+      destructive: true,
+    });
+    if (!ok) return;
+    const attempt = () => change(p, () => calls.removeAnswerer(p.id, person.id), `remove ${person.name}`, { text: "Not removed", retry: attempt });
+    await attempt();
+  }
+
+  async function addAnswerers(p) {
+    let people;
+    try {
+      people = (await calls.users()).items;
+    } catch (error) {
+      if (error instanceof SessionEnded) return;
+      showBanner("producers-error", () => banner({ glyph: "error", error: true, role: "alert", text: failureMessage(error, "load the people") }));
+      return;
+    }
+    // Only people who can see the producer and cannot answer yet; the owner is not listed.
+    const named = new Set(p.answerers.map((person) => person.id));
+    const seeing = p.visibility === "PUBLIC" ? people.filter((person) => person.id !== state.me.userId) : p.allowedUsers;
+    const candidates = seeing.filter((person) => !named.has(person.id));
+    const checked = new Set();
+    const body = el("div", { class: "answerer-pick" });
+    let dialog;
+    const refresh = () => {
+      const add = dialog?.node.querySelector('[data-value="add"]');
+      if (add) add.disabled = checked.size === 0;
+    };
+    if (!candidates.length) {
+      const text = seeing.length ? `Everyone who can see ${p.name} can already answer.` : `Nobody else can see ${p.name}. Add people under Who can see it first.`;
+      body.append(el("p", { class: "p dlg-text", text }));
+    } else {
+      body.append(el("p", { class: "p dlg-text", text: `Only people who can see ${p.name} and can't answer yet are listed. They also need to be subscribed to get its questions.` }));
+      body.append(
+        el(
+          "div",
+          { class: "pick-checks" },
+          candidates.map((person) => {
+            const input = el("input", { type: "checkbox", value: person.id });
+            input.addEventListener("change", () => {
+              if (input.checked) checked.add(person.id);
+              else checked.delete(person.id);
+              refresh();
+            });
+            return el("label", { class: "prow check-row" }, input, avatar(person.name), el("span", { class: "t1", text: person.name }), el("span", { class: "cb", "aria-hidden": "true" }, icon("check")));
+          }),
+        ),
+      );
+    }
+    const actions = [{ label: "Cancel", value: "cancel", kind: "text" }];
+    if (candidates.length) {
+      actions.push({
+        label: "Add",
+        value: "add",
+        kind: "text",
+        disabled: true,
+        run: async () => {
+          for (const person of candidates.filter((c) => checked.has(c.id))) {
+            const updated = await change(p, () => calls.addAnswerer(p.id, person.id), `add ${person.name}`);
+            if (!updated) throw Object.assign(new Error(`Couldn't add ${person.name}. Try again.`), { silent: true });
+            p = updated;
+          }
+        },
+      });
+    }
+    dialog = openDialog({ title: "Add people who can answer", content: body, actions, initialFocus: "cancel" });
+    body.querySelector("input")?.focus();
   }
 
   function keyRow(p, key, byHost, byYou, writable) {
@@ -514,7 +627,7 @@ export function mountProducers(container, route, { wide }) {
   // ---- Changes to an owned producer -----------------------------------------------------
 
   // Runs a change, replaces the producer with the answer, and says a failure in a banner.
-  async function change(p, call, doing) {
+  async function change(p, call, doing, failed = null) {
     hideBanner("producers-error");
     try {
       const updated = await call();
@@ -530,7 +643,7 @@ export function mountProducers(container, route, { wide }) {
         return null;
       }
       const text = error instanceof ApiError && error.status === 409 && p.disabledByOperator ? "Disabled by the host. Ask the host to enable it." : failureMessage(error, doing);
-      showBanner("producers-error", () => banner({ glyph: "error", error: true, role: "alert", text }));
+      showBanner("producers-error", () => banner({ glyph: "error", error: true, role: "alert", text: failed ? failed.text : text, actions: failed ? [button("Retry", { onClick: failed.retry })] : [] }));
       return null;
     }
   }

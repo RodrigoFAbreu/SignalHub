@@ -5,6 +5,8 @@ export const state = {
   /** `{userId, name, role, clientId, clientName, createdAt, expiresAt}` once signed in. */
   me: null,
   unread: null,
+  /** Open questions this person may answer: the inbox's second count. */
+  toAnswer: null,
   server: null,
   listeners: new Set(),
 };
@@ -34,6 +36,12 @@ export function setUnread(count) {
   if (state.unread === count) return;
   state.unread = count;
   for (const listener of state.listeners) listener("unread");
+}
+
+export function setToAnswer(count) {
+  if (state.toAnswer === count) return;
+  state.toAnswer = count;
+  for (const listener of state.listeners) listener("toAnswer");
 }
 
 export function setRole(role) {

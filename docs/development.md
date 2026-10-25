@@ -1204,6 +1204,10 @@ are compared with the drawings without any server data:
 `SIGNALHUB_URL=http://localhost:8080 node visual/compare.mjs A P1 ST1 DV1 EA E2 S4b Q1` (`visual/admin-frames.mjs`
 serves the drawings' sample data in place of the management API).
 
+The answering frames (`AW1a`, `AW2a`, `AW3b`, ...) are served the drawings' own people and
+events by mocked answers (`visual/answer-frames.mjs`), so they need no sample world:
+`node visual/compare.mjs AW1a AW1h AW2a AW3b`.
+
 ### Comparing the page with its drawings
 
 The approved drawings are in `docs/design/users/source/` (`Web - *.dc.html`). To see

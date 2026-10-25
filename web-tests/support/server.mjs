@@ -63,6 +63,11 @@ export function publish(producer, event) {
   });
 }
 
+/** A call made with a producer's own key, as a producer's program does. */
+export function asProducer(producer, method, path, body) {
+  return call(method, path, { bearer: producer.apiKey, body });
+}
+
 /** What a device's key may read: its user's view of the client API. */
 export function asDevice(person, method, path, body) {
   return call(method, path, { bearer: person.key, body });

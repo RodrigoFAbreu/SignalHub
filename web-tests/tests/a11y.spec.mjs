@@ -71,7 +71,8 @@ test("keyboard focus has a visible ring, and follows reading order: the rail, th
   await admin(context, page);
   await expect(page.locator("a.event-row")).toHaveCount(1);
   const order = [];
-  for (let i = 0; i < 10; i += 1) {
+  // The rail's four, the account, Filter, Mark all as read, the Unread chip, then the first row.
+  for (let i = 0; i < 9; i += 1) {
     await page.keyboard.press("Tab");
     order.push(
       await page.evaluate(() => {

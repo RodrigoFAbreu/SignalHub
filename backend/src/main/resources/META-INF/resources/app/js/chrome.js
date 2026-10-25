@@ -19,6 +19,14 @@ let active = "inbox";
 
 const badgeText = (count) => (count > 99 ? "99+" : String(count));
 
+/** `Inbox, 3 unread`, `Inbox, 2 to answer` or `Inbox, 3 unread, 2 to answer`; null with neither. */
+function badgeName(label, unread, toAnswer) {
+  const parts = [];
+  if (unread > 0) parts.push(`${unread} unread`);
+  if (toAnswer > 0) parts.push(`${toAnswer} to answer`);
+  return parts.length ? `${label}, ${parts.join(", ")}` : null;
+}
+
 /** The rail (or the bottom bar): the same four destinations, People for an admin only. */
 export function buildNavigation() {
   nav = el("nav", { class: "rail", "aria-label": "Main" });
@@ -34,6 +42,7 @@ function paintNavigation() {
     if (destination.adminOnly && !isAdmin()) continue;
     const on = destination.name === active;
     const unread = destination.name === "inbox" ? (state.unread ?? 0) : 0;
+    const toAnswer = destination.name === "inbox" ? (state.toAnswer ?? 0) : 0;
     nav.append(
       el(
         "a",
@@ -41,9 +50,9 @@ function paintNavigation() {
           class: `ri${on ? " on" : ""}`,
           href: destination.hash,
           "aria-current": on ? "page" : null,
-          "aria-label": unread > 0 ? `${destination.label}, ${unread} unread` : null,
+          "aria-label": badgeName(destination.label, unread, toAnswer),
         },
-        el("span", { class: "pill" }, icon(destination.glyph, on ? "fill" : ""), unread > 0 ? el("span", { class: "nbadge", "aria-hidden": "true", text: badgeText(unread) }) : null),
+        el("span", { class: "pill" }, icon(destination.glyph, on ? "fill" : ""), unread > 0 ? el("span", { class: "nbadge", "aria-hidden": "true", text: badgeText(unread) }) : toAnswer > 0 ? el("span", { class: "ndot", "aria-hidden": "true" }) : null),
         el("span", { class: "ri-label", text: destination.label }),
       ),
     );

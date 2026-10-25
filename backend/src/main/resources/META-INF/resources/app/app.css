@@ -27,6 +27,7 @@
   --outline: #90909a;
   --outline-variant: #46464f;
   --inverse-surface: #e4e1e9;
+  --inverse-primary: #515b92;
   --scrim: rgba(0, 0, 0, 0.62);
   --menu-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
@@ -56,6 +57,7 @@
     --outline: #767680;
     --outline-variant: #c7c5d0;
     --inverse-surface: #303036;
+    --inverse-primary: #bac3ff;
     --scrim: rgba(0, 0, 0, 0.32);
     --menu-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
   }
@@ -2140,7 +2142,8 @@ ul {
     width: 64px;
   }
 
-  .ri .nbadge {
+  .ri .nbadge,
+  .ri .ndot {
     left: 36px;
   }
 
@@ -2253,6 +2256,490 @@ ul {
     opacity: 0;
     transform: scale(0.9);
   }
+}
+
+
+/* ---- Questions and answers (DESIGN.md section 10) ------------------------------------------------ */
+
+.ndot {
+  position: absolute;
+  top: 3px;
+  left: 35px;
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--error);
+}
+
+.fc b {
+  font-weight: 500;
+  color: var(--primary);
+}
+
+.fc.on b {
+  color: var(--on-secondary-container);
+}
+
+/* The line a question adds to an inbox row: always words, never only an icon or a colour. */
+.ql {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--primary);
+  padding-top: 2px;
+  min-width: 0;
+}
+
+.ql.v {
+  color: var(--on-surface-variant);
+  font-weight: 400;
+}
+
+.ql .ms {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.ql-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.acard {
+  --field-bg: var(--sc);
+  background: var(--sc);
+  border-radius: 16px;
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 560px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.ahead {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+}
+
+.ahead:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.acard .p {
+  margin: 0;
+}
+
+.rr {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 48px;
+  font-size: 16px;
+  line-height: 24px;
+  margin: 0 -8px;
+  padding: 0 8px;
+  border-radius: 8px;
+  position: relative;
+  cursor: pointer;
+}
+
+.rr.d {
+  align-items: flex-start;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.rr input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.rr:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 0;
+}
+
+.rt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rd {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--on-surface-variant);
+  white-space: pre-wrap;
+}
+
+.rb {
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  border: 2px solid var(--on-surface-variant);
+  box-sizing: border-box;
+  flex: none;
+  margin: 2px;
+  position: relative;
+}
+
+.rr input:checked + .rb {
+  border-color: var(--primary);
+}
+
+.rr input:checked + .rb::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.cb {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  border: 2px solid var(--on-surface-variant);
+  flex: none;
+  margin: 3px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cb .ms {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  display: none;
+}
+
+.rr input:checked + .cb {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.rr input:checked + .cb .ms {
+  display: block;
+}
+
+.dim {
+  opacity: 0.55;
+}
+
+.ro .rr {
+  color: var(--on-surface-variant);
+  cursor: default;
+}
+
+.rg {
+  width: 20px;
+  height: 20px;
+  margin: 2px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--outline);
+}
+
+.rg .ms {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.ro {
+  padding-top: 8px;
+}
+
+.other-field {
+  padding: 8px 0 8px 40px;
+}
+
+.note-wrap {
+  padding-top: 12px;
+}
+
+.tf.ta {
+  height: auto;
+  min-height: 56px;
+  align-items: stretch;
+  padding: 0;
+}
+
+.tf.ta textarea {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  resize: none;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  padding: 16px;
+  min-height: 56px;
+  color: var(--on-surface);
+  overflow-y: auto;
+}
+
+.tf.ta textarea::placeholder {
+  color: var(--on-surface-variant);
+  opacity: 1;
+}
+
+.tf.ta.rows-4 textarea {
+  max-height: 126px;
+}
+
+.tf.ta.rows-6 textarea {
+  min-height: 88px;
+  max-height: 174px;
+}
+
+.tf.ta:focus-within {
+  padding: 0;
+}
+
+.tf.ta.err {
+  padding: 0;
+}
+
+.help {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--on-surface-variant);
+  padding: 4px 16px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.help.err {
+  color: var(--error);
+}
+
+.help .hl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.help .hl .ms,
+.perr .ms {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.perr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--error);
+  padding-top: 4px;
+}
+
+.send {
+  padding-top: 8px;
+}
+
+.send-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.send-wrap .tip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 4px);
+  background: var(--inverse-surface);
+  color: var(--surface);
+  font-size: 12px;
+  line-height: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 2;
+}
+
+.send-wrap:hover .tip,
+.send-wrap:has(.btn:focus-visible) .tip {
+  opacity: 1;
+}
+
+.btn[aria-disabled="true"] {
+  cursor: progress;
+}
+
+.closes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--on-surface-variant);
+  padding-bottom: 4px;
+}
+
+.closes.soon {
+  color: var(--error);
+  font-weight: 500;
+}
+
+.res {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.res .t2 {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.res .t2.wrap {
+  white-space: pre-wrap;
+}
+
+.res .ahead {
+  overflow-wrap: anywhere;
+}
+
+.snack {
+  position: fixed;
+  left: 521px;
+  bottom: 16px;
+  width: 340px;
+  min-height: 48px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  background: var(--inverse-surface);
+  color: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 16px;
+  font-size: 14px;
+  line-height: 20px;
+  z-index: 60;
+}
+
+.snack-text {
+  flex: 1;
+}
+
+.snack-action {
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0 8px;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--inverse-primary);
+}
+
+@media (max-width: 839.98px) {
+  /* At phone width Send answer fills the card; on a wide page it keeps its own width. */
+  .send-wrap {
+    display: block;
+  }
+
+  .send-wrap .btn {
+    display: flex;
+    width: 100%;
+  }
+
+  .snack {
+    left: 8px;
+    right: 8px;
+    bottom: 96px;
+    width: auto;
+  }
+}
+
+.answerer-row {
+  max-width: 640px;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.stay {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  max-width: 640px;
+  padding: 8px 0;
+}
+
+.stay .tx {
+  display: flex;
+  flex-direction: column;
+}
+
+.check-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 48px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.check-row .t1 {
+  flex: 1;
+  min-width: 0;
+}
+
+.check-row input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.check-row:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+}
+
+.check-row input:checked ~ .cb {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.check-row input:checked ~ .cb .ms {
+  display: block;
 }
 
 @media (prefers-reduced-motion: reduce) {

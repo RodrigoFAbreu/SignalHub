@@ -516,9 +516,12 @@ public class ProducerService {
             ? List.<ProducerEntity>of()
             : producers.list("id in ?1", Sort.by("name"), visibleIds);
     var subscribed = access.subscribedProducerIds(userId);
+    var answerable = access.answerableProducerIds(userId);
     var owners = users.find(found.stream().map(ProducerEntity::ownerId).collect(toSet()));
     return new VisibleProducer.Items(
-        found.stream().map(p -> visible(p, owners, subscribed.contains(p.id()))).toList());
+        found.stream()
+            .map(p -> visible(p, owners, subscribed.contains(p.id()), answerable.contains(p.id())))
+            .toList());
   }
 
   /**
@@ -551,18 +554,20 @@ public class ProducerService {
                 visible(
                     p,
                     users.find(java.util.Set.of(p.ownerId())),
-                    access.isSubscribed(userId, producerId)));
+                    access.isSubscribed(userId, producerId),
+                    access.canAnswer(userId, producerId)));
   }
 
   private static VisibleProducer visible(
-      ProducerEntity producer, Map<UUID, UserRef> owners, boolean subscribed) {
+      ProducerEntity producer, Map<UUID, UserRef> owners, boolean subscribed, boolean canAnswer) {
     return new VisibleProducer(
         producer.id(),
         producer.name(),
         NamedUser.of(owners.get(producer.ownerId())),
         producer.visibility(),
         !producer.enabled(),
-        subscribed);
+        subscribed,
+        canAnswer);
   }
 
   /** The producer, only if this user owns it; locked for update when the caller will change it. */
