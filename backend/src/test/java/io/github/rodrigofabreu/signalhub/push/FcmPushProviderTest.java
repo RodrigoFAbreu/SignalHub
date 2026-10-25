@@ -81,6 +81,27 @@ class FcmPushProviderTest {
   }
 
   @Test
+  void mapsTheTagToTheAndroidNotificationTag() {
+    provider.send(TOKEN, new PushMessage("Build failed", "3 tests failed", Map.of(), "event-1"));
+    provider.send(TOKEN, MESSAGE);
+
+    var tagged = fcm.sends().get(0).body().path("message").path("android");
+    assertEquals("event-1", tagged.path("notification").path("tag").asText());
+    assertFalse(fcm.sends().get(1).body().path("message").path("android").has("notification"));
+  }
+
+  @Test
+  void sendsADataOnlyMessageWithNoNotificationAtNormalPriority() {
+    provider.send(TOKEN, PushMessage.dataOnly(Map.of("notice", "answered", "eventId", "e-1")));
+
+    var message = fcm.sends().get(0).body().path("message");
+    assertFalse(message.has("notification"));
+    assertEquals("NORMAL", message.path("android").path("priority").asText());
+    assertEquals("answered", message.path("data").path("notice").asText());
+    assertEquals("e-1", message.path("data").path("eventId").asText());
+  }
+
+  @Test
   void leavesOutAnAbsentBodyAndEmptyData() {
     provider.send(TOKEN, new PushMessage("Title only", null, Map.of()));
 

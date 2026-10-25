@@ -91,6 +91,31 @@ class EventRetentionTest {
   }
 
   @Test
+  void anExpiredOpenQuestionLeavesADeletedNoticeForTheDevicesItWasShownTo() throws SQLException {
+    var producerId = TestProducers.register("retention-notice").id();
+    var clientId = TestClients.register("retention-notice").id();
+    var createdAt = NOW.minus(Duration.ofDays(60));
+    var eventId = insertEvent(producerId, createdAt);
+    execute(
+        ("UPDATE events SET ask = '{\"choices\": [], \"multiple\": false, \"text\": \"REQUIRED\"}'"
+                + " WHERE id = '%s'")
+            .formatted(eventId));
+    execute(
+        ("INSERT INTO event_deliveries (event_id, client_id, attempt, outcome, at)"
+                + " VALUES ('%s', '%s', 1, 'DELIVERED', '%s')")
+            .formatted(eventId, clientId, createdAt));
+
+    assertEquals(1, retention.deleteExpired(NOW));
+
+    assertEquals(0, count("events WHERE id = '" + eventId + "'"));
+    assertEquals(
+        1,
+        count(
+            "push_notices WHERE event_id = '%s' AND notice = 'deleted' AND '%s' = ANY(client_ids)"
+                .formatted(eventId, clientId)));
+  }
+
+  @Test
   void deletesMoreEventsThanOneBatchHolds() throws SQLException {
     var producerId = TestProducers.register("retention-batches").id();
     var events = EventRetention.BATCH_SIZE * 2 + 3;

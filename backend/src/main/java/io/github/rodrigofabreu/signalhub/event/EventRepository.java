@@ -365,25 +365,33 @@ class EventRepository implements PanacheRepositoryBase<EventEntity, UUID> {
     }
   }
 
+  /** The IDs of the events that match the delete filter and ask. */
+  List<UUID> askingIdsMatching(Optional<UUID> producerId, Optional<Instant> createdBefore) {
+    var filter = DeleteFilter.of(producerId, createdBefore);
+    return find(filter.query() + " and ask is not null", filter.parameters()).stream()
+        .map(EventEntity::id)
+        .toList();
+  }
+
   /**
-   * Deletes up to {@code limit} of the oldest events created before {@code cutoff}, found through
-   * the {@code (created_at, id)} index of V3. The foreign keys of {@code push_dispatches} and
-   * {@code push_retries} cascade. Rows another transaction holds (being marked read) are left for
-   * the next run.
+   * Locks up to {@code limit} of the oldest events created before {@code cutoff}, found through the
+   * {@code (created_at, id)} index of V3, and returns their IDs, to be deleted. Rows another
+   * transaction holds (being marked read) are left for the next run.
    */
-  int deleteCreatedBefore(Instant cutoff, int limit) {
-    return getEntityManager()
-        .createNativeQuery(
-            """
-            DELETE FROM events WHERE id IN (
+  List<UUID> lockExpired(Instant cutoff, int limit) {
+    List<?> ids =
+        getEntityManager()
+            .createNativeQuery(
+                """
                 SELECT id FROM events
                 WHERE created_at < :cutoff
                 ORDER BY created_at, id
                 LIMIT :limit
-                FOR UPDATE SKIP LOCKED)
-            """)
-        .setParameter("cutoff", cutoff)
-        .setParameter("limit", limit)
-        .executeUpdate();
+                FOR UPDATE SKIP LOCKED
+                """)
+            .setParameter("cutoff", cutoff)
+            .setParameter("limit", limit)
+            .getResultList();
+    return ids.stream().map(UUID.class::cast).toList();
   }
 }

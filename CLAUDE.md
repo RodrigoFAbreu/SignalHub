@@ -84,8 +84,8 @@ request and each producer key last published (to within a minute) and the server
 for any client key at `/api/v1/client/server`, each event's delivery
 records per device (`/api/v1/admin/events/{id}/deliveries`), and a provider-neutral
 push delivery boundary (`push` package) with a Firebase Cloud Messaging
-provider enabled by a service account key file (every push sent with
-high Android priority, so it reaches a dozing phone at once; and the app's push options
+provider enabled by a service account key file (every push that shows a notification sent with
+high Android priority, so it reaches a dozing phone at once, and data-only notices at normal priority; and the app's push options
 served to clients at `/api/v1/client/push-config`), and event-triggered push
 dispatch through a PostgreSQL outbox with bounded retries of temporary
 failures, Prometheus metrics (`/q/metrics`) including event and push

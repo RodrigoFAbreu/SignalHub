@@ -89,6 +89,11 @@ class EventQuestions {
             && context.answerable().contains(event.producerId()));
   }
 
+  /** How the event's question stands at {@code now}. */
+  QuestionState stateOf(EventEntity event, Instant now) {
+    return stateOf(event.askClosesAt(), answers.find(event.id()).orElse(null), now);
+  }
+
   /** How the question stands at {@code now}, given how it ended, if it did. */
   static QuestionState stateOf(Instant closesAt, EventAnswerEntity ended, Instant now) {
     if (ended != null) {
