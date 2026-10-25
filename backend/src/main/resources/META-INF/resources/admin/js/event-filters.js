@@ -26,6 +26,15 @@ export const READ_STATES = [
   { value: "true", text: "Read only" },
 ];
 
+// The Question chip: the list markers' own words, mapped to the listing's answerState.
+export const QUESTIONS = [
+  { value: "", text: "Any" },
+  { value: "OPEN", text: "Waiting" },
+  { value: "ANSWERED", text: "Answered" },
+  { value: "CLOSED", text: "Closed" },
+  { value: "NONE", text: "No question" },
+];
+
 export const RELATIONS = [
   { value: "", text: "Owned or subscribed to" },
   { value: "OWNED", text: "Owned" },
@@ -42,7 +51,7 @@ export const severityOf = (value) => SEVERITIES.find((item) => item.value === va
 export const categoryOf = (value) => CATEGORIES.find((item) => item.value === value);
 
 export function emptyFilters() {
-  return { read: "", severity: [], push: false, producer: [], category: [], user: "", relation: "", from: "", before: "" };
+  return { read: "", question: "", severity: [], push: false, producer: [], category: [], user: "", relation: "", from: "", before: "" };
 }
 
 const known = (list, values) => list.map((item) => item.value).filter((value) => values.includes(value));
@@ -53,6 +62,7 @@ export function fromQuery(params) {
   const many = (name) => (params.get(name) ?? "").split(",").filter(Boolean);
   const read = params.get("read");
   if (read === "true" || read === "false") filters.read = read;
+  filters.question = known(QUESTIONS.slice(1), [params.get("question")])[0] ?? "";
   filters.severity = known(SEVERITIES, many("severity"));
   filters.category = known(CATEGORIES, many("category"));
   filters.producer = [...new Set(many("producer").filter((id) => ID.test(id)))];
@@ -73,6 +83,7 @@ export function fromQuery(params) {
 export function toQuery(filters) {
   const params = new URLSearchParams();
   if (filters.read) params.set("read", filters.read);
+  if (filters.question) params.set("question", filters.question);
   if (filters.severity.length) params.set("severity", filters.severity.join(","));
   if (filters.push) params.set("push", "problems");
   if (filters.producer.length) params.set("producer", filters.producer.join(","));
@@ -96,6 +107,7 @@ export function toApi(filters) {
   for (const value of filters.category) params.append("category", value);
   for (const value of filters.severity) params.append("severity", value);
   if (filters.read) params.set("read", filters.read);
+  if (filters.question) params.set("answerState", filters.question);
   if (filters.user) {
     params.set("userId", filters.user);
     if (filters.relation) params.set("relation", filters.relation);
@@ -112,7 +124,7 @@ export function isFiltered(filters) {
 
 /** How many of the chips are in force: the number on the phone's Filters button. */
 export function filterCount(filters) {
-  const on = [filters.read, filters.severity.length, filters.push, filters.producer.length, filters.category.length, filters.user, filters.from || filters.before];
+  const on = [filters.read, filters.question, filters.severity.length, filters.push, filters.producer.length, filters.category.length, filters.user, filters.from || filters.before];
   return on.filter(Boolean).length;
 }
 
@@ -158,6 +170,7 @@ export function describe(filters, names) {
   if (filters.severity.length) parts.push(`Severity ${filters.severity.map((value) => severityOf(value).text).join(" or ")}`);
   if (filters.category.length) parts.push(`Category ${filters.category.map((value) => categoryOf(value).text).join(" or ")}`);
   if (filters.read) parts.push(`Read state ${READ_STATES.find((item) => item.value === filters.read).text}`);
+  if (filters.question) parts.push(`Question ${QUESTIONS.find((item) => item.value === filters.question).text}`);
   if (filters.push) parts.push("Push problems");
   if (filters.from || filters.before) parts.push(`Received ${rangeText(filters)}`);
   if (filters.user) parts.push(`User ${names.user(filters.user)}`);

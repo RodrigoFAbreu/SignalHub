@@ -3964,3 +3964,121 @@ a.rrow:hover {
     margin-right: 12px;
   }
 }
+
+
+/* ---- Questions and answers, read-only for the operator (DESIGN.md 10.7; the drawing's
+   admin-answers.css, R81) ------------------------------------------------------------------ */
+/* R81 admin page: questions and answers, read-only for the operator. Loaded after admin-events.css and admin-fix-a.css; only adds classes. */
+.qbox{border:1px solid var(--outline-variant);border-radius:12px;background:var(--sc-low);padding:4px 16px 8px;margin:8px 0 4px}
+.qhd{display:flex;align-items:center;gap:8px;min-height:40px;font-size:14px;font-weight:500;color:var(--primary)}
+.qhd .cnt{font-weight:400;color:var(--on-surface-variant)}
+.qrules{display:grid;grid-template-columns:72px 1fr;gap:4px 12px;font-size:14px;line-height:20px;padding:0 0 8px}
+.qrules b{font-weight:500;color:var(--on-surface-variant)}
+.qch{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--outline-variant)}
+.qch>.ms{color:var(--on-surface-variant);margin-top:2px}
+.qch .tx,.qst .tx,.rdd .tx,.askf .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+.qch .tx .t1{white-space:normal;font-size:15px;line-height:22px}
+.qch.pk>.ms{color:var(--primary)}
+.qch.pk .t1{font-weight:500}
+.qch .tg{margin:1px 0 0}
+.qst{display:flex;gap:12px;align-items:flex-start;border-radius:12px;padding:12px 16px;font-size:14px;line-height:20px;margin:4px 0 8px}
+.qst>.tx{padding:0}
+.qst b{font-weight:500;display:block}
+/* R81 fix: a quiet surface with a 1 px primary edge (as a Status row that needs attention), not a filled block: the pane keeps one expressive element */
+.qst.open{background:var(--sc-high);color:var(--on-surface);box-shadow:inset 1px 0 0 var(--primary)}
+.qst.open>.ms{color:var(--primary)}
+.qst.done{background:var(--sc-high);color:var(--on-surface)}
+.qst.shut{border:1px solid var(--outline);color:var(--on-surface)}
+.qst .t2{color:inherit;opacity:.9}
+.qst.open .t2{color:var(--on-surface-variant);opacity:1}
+.qwho{display:flex;align-items:center;gap:10px;min-height:44px;font-size:15px;font-weight:500}
+.qwho .t2{font-weight:400}
+.qnote{background:var(--sc-lowest);border-radius:12px;padding:12px 14px;font-size:14px;line-height:20px;margin:4px 0 4px}
+.qnote .t2{display:block;font-size:12px;line-height:16px;margin-bottom:4px}
+.qrev{margin:2px 0 6px 34px;font-size:13px;line-height:18px;color:var(--on-surface-variant)}
+.qm{display:inline-flex;align-items:center;gap:4px;flex:none;margin-left:8px;height:24px;padding:0 8px 0 4px;border-radius:8px;font-size:12px;font-weight:500;white-space:nowrap;box-sizing:border-box;background:var(--primary-container);color:var(--on-primary-container)}
+.qm .ms{font-size:16px;width:16px;height:16px}
+.qm.ans{background:transparent;border:1px solid var(--outline);color:var(--on-surface-variant)}
+.qm.shut{background:transparent;color:var(--on-surface-variant);padding-left:4px}
+/* a row that asks: the tag sits on a second line under the title, so the title is never cut by it */
+.nmc:has(.qm){display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;row-gap:0}
+.nmc:has(.qm)>.ud,.nmc:has(.qm)>.udz,.nmc:has(.qm)>.cic{grid-row:1/3}
+.nmc:has(.qm)>.nm{grid-column:3;grid-row:1;font-size:15px;line-height:20px}
+.nmc:has(.qm)>.qm{grid-column:3;grid-row:2;margin:0;justify-self:start;height:20px}
+.nmc:has(.qm)>.pp{grid-column:4;grid-row:1}
+.fc.dash{border-style:dashed}
+.askf{display:flex;align-items:center;gap:12px;min-height:56px;margin-top:16px;border-top:1px solid var(--outline-variant);font-size:14px;font-weight:500}
+.askf .tx .t2{font-weight:400}
+.dsk{font-size:12px;line-height:16px;color:var(--on-surface-variant);border:1px dashed var(--outline-variant);border-radius:8px;padding:6px 10px;margin-top:12px}
+.crow{display:flex;align-items:flex-start;gap:4px}
+.crow .tf{flex:1;margin-top:16px}
+.crow .ib{margin-top:20px}
+.cinfo{display:flex;align-items:center;gap:8px;min-height:32px;padding:0 4px 0 16px;font-size:12px;line-height:16px;color:var(--on-surface-variant)}
+.cinfo.err{color:var(--error)}
+.cinfo .btn-x{height:48px;font-size:13px}
+.addc{display:flex;align-items:center;gap:8px;min-height:48px;margin-top:4px}
+.addc .btn-x.dis{color:var(--off-fg)}
+/* R81 redraw: a segment that is dimmed but still focusable (aria-disabled), as Add choice at 10 of 10 */
+.seg>span.off{color:var(--off-fg,var(--on-surface-variant));opacity:.5}
+.alab{font-size:12px;line-height:16px;color:var(--on-surface-variant);padding:16px 0 4px 4px}
+.rdd{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 0;border-top:1px solid var(--outline-variant)}
+.rdd .sp{flex:1}
+.rdo{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px 0 8px;border:1px solid var(--outline-variant);border-radius:18px;font-size:14px;font-weight:500;box-sizing:border-box}
+.ph .qbox{margin:4px 0}
+.ph .pbody2.qb{padding:0 16px 8px;overflow:hidden}
+.qm.shut .ms,
+.qm.ans .ms {
+  color: inherit;
+}
+
+.qbox .qch .tg {
+  margin-left: 8px;
+}
+
+.qrules span,
+.qch .t1,
+.qch .t2,
+.qnote,
+.qwho,
+.qst .tx {
+  overflow-wrap: anywhere;
+}
+
+.qnote {
+  white-space: pre-wrap;
+}
+
+.seg > button.off {
+  color: var(--off-fg, var(--on-surface-variant));
+  opacity: 0.5;
+}
+
+.ask .alab-top {
+  padding-top: 8px;
+}
+
+.ask .crow .field,
+.ask .cdesc {
+  flex: 1;
+}
+
+.ask .cdesc {
+  margin-right: 52px;
+}
+
+.ask .cinfo .sp {
+  flex: 1;
+}
+
+.ask .askf {
+  width: 100%;
+  text-align: left;
+}
+
+.ask .cdesc .help {
+  text-align: right;
+}
+
+.ask .cinfo.err {
+  padding-left: 4px;
+}

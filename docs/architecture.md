@@ -1899,6 +1899,23 @@ question. The header's *Send a test event* and the *More* menu's *Delete events 
 dialogs (full screens on a phone); a rule is counted by a dry run first and deleted only after the
 count is confirmed. A refresh that fails keeps the older list under a banner.
 
+**Questions (R82b, part 2).** The operator never answers, so nothing on the admin page is a control
+for answering. An event that asks shows, under its message and link, the question as text (*Pick*,
+*Note*, *Closes*, each choice with its description; the chosen ones with a check and *Picked*, the
+others a dash), its state (*Waiting for an answer · closes 09:00 · Rodrigo or Ana can answer*,
+*Answered*, *Closed · nobody answered in time* or *Closed by NAME · note*, with `lock_clock` for a
+time-out and `lock` for a producer's close) and, once answered, who (the name stored with the
+answer, with *Revoked* when that user has been revoked), when, where (*in the app*, *on the web
+page*), what was chosen and the note, or the typed answer, in a box of its own, as text. The list
+marks such a row *Waiting*, *Answered* or *Closed* under its title, and the *Question* chip
+(*Any*, *Waiting*, *Answered*, *Closed*, *No question*; `answerState` of the listing, `question=`
+in the address) filters on it. Deleting an event that asks says who is waiting or that its answer
+goes too, and a bulk delete counts the events with a question (`asking`, also in the dry run).
+*Send a test event* has a folded *Ask for an answer* section that builds the question a producer
+would send (labels with their derived ids, descriptions, *Pick*, *Note*, *Typed answer as*,
+*Closes*), with the same checks as the API on the field; a producer's *Who can answer* (its
+owner and answerers) is read-only in its pane.
+
 **Status** reads `/q/info`, `/q/health`, `/api/v1/admin/status` (its `startedAt` is *Running since*),
 the device list and the newest event, and says *SignalHub needs attention* when the database is
 down, no push service is set up, every device with a push address failed its last push, the events

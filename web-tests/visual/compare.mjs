@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { BASE } from "../support/server.mjs";
 import { adminFrames } from "./admin-frames.mjs";
+import { adminAnswerFrames } from "./admin-answer-frames.mjs";
 import { answerFrames } from "./answer-frames.mjs";
 import { frames as webFrames } from "./frames.mjs";
 import { seedWorld } from "./world.mjs";
@@ -26,7 +27,7 @@ const only = process.argv.slice(2).filter((argument) => !argument.startsWith("--
 // The users' page's frames, then the admin page's (admin-frames.mjs: ids that start with the family's
 // letters, such as SI1 or DV2, never clash with the web page's 6a, 7b). A frame of the admin page
 // asks for no world (`world: false`): it is rendered from the drawings' sample data, mocked.
-const frames = [...webFrames, ...adminFrames, ...answerFrames];
+const frames = [...webFrames, ...adminFrames, ...answerFrames, ...adminAnswerFrames];
 
 mkdirSync(out, { recursive: true });
 
