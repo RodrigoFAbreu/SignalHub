@@ -965,8 +965,8 @@ class AppController extends ChangeNotifier implements ApiGateway {
     await _store.clear();
   }
 
-  /// The clock the people and devices screens read (countdowns, when a device
-  /// was last active); tests replace it.
+  /// The clock the people, devices and event screens read (countdowns, when a
+  /// device was last active, when a question closes); tests replace it.
   DateTime Function() clock = DateTime.now;
 
   DevicesController _newDeviceList() => DevicesController(

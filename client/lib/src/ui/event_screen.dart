@@ -38,6 +38,7 @@ class EventScreen extends StatefulWidget {
     this.myUserId,
     this.answer,
     this.reload,
+    this.now = DateTime.now,
   });
 
   /// Reads the event, from the inbox or the server.
@@ -68,6 +69,9 @@ class EventScreen extends StatefulWidget {
   /// Reads the event from the server again, for a question that may have
   /// been answered or closed meanwhile.
   final Future<Event> Function()? reload;
+
+  /// The clock, for a question's closing time; tests replace it.
+  final DateTime Function() now;
 
   @override
   State<EventScreen> createState() => _EventScreenState();
@@ -256,6 +260,8 @@ class _EventScreenState extends State<EventScreen> with WidgetsBindingObserver {
                 answer: widget.answer!,
                 onState: _questionState,
                 onRead: _follow,
+                reread: _refresh,
+                now: widget.now,
                 onGone: () => setState(() => _gone = true),
               ),
       ),
