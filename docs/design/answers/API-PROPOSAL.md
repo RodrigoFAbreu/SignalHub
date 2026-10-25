@@ -269,15 +269,16 @@ critical alert, `PushAlertReceiver` and the channel stay as they are.
     message with no `notification` block, at NORMAL priority.
   - Every event push carries the tag, so a retried push replaces its card instead of adding a
     second one.
-- **The "Tap to answer" line:** for a question this device's user may answer, the server adds a last
+- **The "Tap to answer" line:** for a question this device's user may answer, the server adds a first
   line to the push body. The server knows who may answer, and the line is built from the ask alone:
   - "Tap to answer · Merge or Hold" for at most 3 single choices;
   - "Tap to answer · 7 choices", or "Tap to answer · pick one or more";
   - "Tap to answer" for a typed question.
   - Up to 3 choices are listed by label, joined as "Merge or Hold", or "Restart, Wait or Ignore".
     When the whole line would pass 80 characters, it says "Tap to answer · 3 choices" instead.
-  - The line follows the shortened message after a line break. With no message, the body is the
-    line alone.
+  - The line comes first; the shortened message follows after a line break, so a collapsed card
+    (heads-up, lock screen) shows the title and the line. With no message, the body is the line
+    alone.
   - `multiple` gives "pick one or more" whatever the count.
   - The *Other* row is never named or counted.
   - The 80 characters count the whole line.
@@ -320,7 +321,8 @@ critical alert, `PushAlertReceiver` and the channel stay as they are.
   - A device that is offline or dozing keeps the question until the push arrives; a tap then opens
     the event and shows its current state.
 - **Effect on the roadmap:** R83 (notification action buttons) is dropped (section 10). The
-  notification work above is split between R82a (tag, line, notices) and R82b (the app's receiver).
+  notification work above is split between R82a (tag, notices) and R82b (the line, the app's
+  receiver), so a push never says "Tap to answer" before the screens can answer.
 
 ## 7. Python SDK and the `signalhub` command
 
@@ -393,9 +395,9 @@ event ends any state. `CLOSED`/`TIME` is derived when read, never written; the r
 
 - Everything is additive (`feat`, minor): a new optional field, new endpoints, new response fields.
   Old apps ignore `ask` and show the event as today.
-- Decided at G8: **R82a** (server, SDK and command, with an example; the tag, the "Tap to answer"
-  line, the removal notices, the producer's close) and **R82b** (answering in the app, on the web
-  page and on the admin page, the answerers setting, the receiver removing a question's
+- Decided at G8: **R82a** (server, SDK and command, with an example; the tag, the removal notices,
+  the producer's close) and **R82b** (answering in the app, on the web page and on the admin page,
+  the answerers setting, the "Tap to answer" line, the receiver removing a question's
   notification, and the admin events list's *Question* filter). R83 is dropped.
 
 ## 10. Decided at G8 (2026-10-25)
@@ -436,3 +438,25 @@ maintainer chose the recommended answer for each:
 - The notices go with NORMAL priority on Android; event pushes keep HIGH.
 - Before R82b, the *Other* row, the closed-by-producer card and a 1000-character description are
   drawn; the rest is built from DESIGN.md section 10.
+
+### Settled at the full design review (2026-10-25)
+
+A full review of the designs and the flows, after those answers, raised eight more questions, and
+the maintainer chose the recommended answer for each:
+
+- The "Tap to answer" line is the first line of the notification's text, before the shortened
+  message, so a collapsed card shows it (section 6, DESIGN.md 10.5).
+- When nothing is unread and there are questions to answer, the Inbox badge is a dot without a
+  number, named "Inbox, N to answer"; it uses `toAnswer` of `unread-count` (DESIGN.md 3.3).
+- The note of a choice question is a text area that grows to 4 lines, then scrolls; Enter adds a
+  line and never sends (DESIGN.md 10.1 and 10.8).
+- The answerers picker only adds ("Add people who can answer", with *Add*); removing is the row's
+  close button, confirmed (DESIGN.md 10.6).
+- A producer's close note past about 40 characters goes on its own line, in curly quotes, under
+  "Closed by PRODUCER" (DESIGN.md 10.3).
+- A closed question's icon is `lock_clock` when it closed by its time and `lock` when its producer
+  closed it, on every surface (DESIGN.md 10.4 and 10.7).
+- The admin test dialog with no choices replaces the *Note* control with one line, "No choices: the
+  answer is typed, and the person must type one.", instead of an error (DESIGN.md 10.7).
+- The "Tap to answer" line ships in R82b, not R82a, so a push never promises what the screens
+  cannot do yet (section 9).

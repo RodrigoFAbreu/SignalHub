@@ -6580,9 +6580,8 @@ Scope:
 - what clients see (`ask`, `answer`, `answerState`, `canAnswer`, `whoCanAnswer`,
   the `toAnswer` filter; section 5) and the admin events list's `answerState`
   filter, and `asking` in the bulk delete's count (Q3b)
-- pushes (section 6): the notification tag, the "Tap to answer" line per
-  recipient, the data-only `answered`, `closed` and `deleted` notices, and the
-  close due at `closesAt`
+- pushes (section 6): the notification tag, the data-only `answered`,
+  `closed` and `deleted` notices, and the close due at `closesAt`
 - the Python SDK and the `signalhub` command (`send` with an ask,
   `wait-answer`, `close-question`; section 7) and an example in `examples/`
 - tests against real PostgreSQL for first-answer-wins, the held wait and every
@@ -6591,8 +6590,9 @@ Scope:
 Compatible (`feat`, minor): additive fields and endpoints; an event that asks
 for nothing behaves as today, and today's apps ignore `ask`.
 
-Non-goals: the app, web page and admin page screens (R82b); a callback or a feed
-of answers; iOS.
+Non-goals: the app, web page and admin page screens and the push's "Tap to
+answer" line (R82b, so a push never promises what the screens cannot do yet); a
+callback or a feed of answers; iOS.
 
 ### R82b - Answering an event in the app, on the web page and on the admin page
 
@@ -6608,9 +6608,11 @@ that show the older limits).
 Scope: the answer card and every state, the *Other* row, the read-only and
 closed-by-producer cards; the inbox's *Unread* and *To answer* chips and row
 lines; the answerers setting; Ctrl+Enter on the web page; refresh on focus or
-resume; the app's receiver removing a question's notification on a notice; the
-admin page's Event tab, list markers, *Question* filter, test-event section and
-delete warnings; and the *Action required* icon `pending_actions` everywhere.
+resume; the "Tap to answer" line per recipient, first in the push's text
+(section 6 of `docs/design/answers/API-PROPOSAL.md`); the app's receiver
+removing a question's notification on a notice; the admin page's Event tab,
+list markers, *Question* filter, test-event section and delete warnings; and
+the *Action required* icon `pending_actions` everywhere.
 
 Before R82b starts, the riskiest of the frames not yet drawn are drawn in the
 design project and exported: the *Other* row on the app and on the web page,
@@ -6618,7 +6620,8 @@ the card of a question its producer closed, and a 1000-character description
 (the maintainer, 2026-10-25, after reviewing the designs). Everything else is
 built from section 10 of `docs/design/users/DESIGN.md`.
 
-Compatible (`feat`, minor): the screens only, on R82a's API.
+Compatible (`feat`, minor): the screens and the push's "Tap to answer" line, on
+R82a's API.
 
 Non-goals: notification buttons (R83, dropped); iOS.
 
