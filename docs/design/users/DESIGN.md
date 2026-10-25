@@ -149,8 +149,8 @@ These are rebuilt from the screenshots of app 2.26.6 (1 px is 1 dp).
 - **Category icons**, the same on the app, the web page and the admin page (the
   maintainer, G8, 2026-10-25): *Action required* `pending_actions`, *Blocked*
   `block`, *Completed* `check_circle`, *Info* `info`, an unknown category `label`.
-  Older images show the raised hand (`pan_tool`) for *Action required*; this
-  line supersedes them.
+  Older images and the R81 drawing sources show the raised hand (`pan_tool`)
+  for *Action required*; this line supersedes them.
 - **Event details:** a headlineSmall title, outlined chips for category and
   severity, a tonal button for the link, and label and value pairs.
 - **Folding settings group:** a one-line summary of its values. It stays open
@@ -739,8 +739,9 @@ place, so a state never moves.
   choices is *Other*, with the field *Your answer* under it once it is picked
   (counter *0 / 3000*). A single choice picks a choice or *Other*; a multiple
   choice may tick *Other* with the choices. The producer chooses the style per
-  question. [2c](../answers/images/app-answering/2c-a-typed-question-only-with-the.webp)
-- **Send answer.** A filled button, full width. **Select then send is the
+  question.
+- **Send answer.** A filled button. Full width on the app and at phone width; at
+  its own width, left-aligned, on the web page's desktop layout. **Select then send is the
   confirmation** of 4.1: an answer goes to a producer and cannot be taken back,
   so choosing sends nothing and the button is the one deliberate step. There is
   no extra dialog and no Undo. It stays enabled; pressed with an error it moves
@@ -778,12 +779,12 @@ the inbox. Curly quotes and the middle dot as separator, as in section 5.
 | Open, may answer | *Your answer*, *Pick one.* / *Pick one or more.* / *Type your answer.*, *Send answer* | 10.1. [1a](../answers/images/app-answering/1a-option-a-an-answer-card-under.webp), [1a](../answers/images/web-answering/1a-the-question-a-single-choice-with.webp) |
 | Closes at | *Closes at 09:00*, grey; in the last hour *Closes at 09:00 · in 12 min* in the error colour with a clock icon. On another day *Closes 17 Oct at 09:00*. No closing time shows no line. | The words carry the urgency, so colour is not the only signal. The web page updates the minutes once a minute and does not announce them. [2j](../answers/images/app-answering/2j-it-closes-soon.webp), [1k](../answers/images/web-answering/1k-it-closes-soon.webp) |
 | Sending | The choices and the note dim, the button shows a progress ring and reads *Sending* (announced *Sending answer*) | Cannot be pressed twice. Leaving does not cancel the send. The ring stops turning for reduced motion and stays visible. [2d](../answers/images/app-answering/2d-sending.webp), [1d](../answers/images/web-answering/1d-sending.webp) |
-| You answered | *You answered · Merge · 19:02*, then *Note: After lunch* when a note was sent, then *Sent to ci-pipeline.* | Several choices read *You answered · Unit tests, Lint · 19:02*. A typed-only answer reads *You answered · ‘after lunch’*; past about 40 characters the title says *You answered* and the text follows in full. [2e](../answers/images/app-answering/2e-answered-by-you.webp), [2e2](../answers/images/app-answering/2e2-a-typed-question-answered.webp), [1e](../answers/images/web-answering/1e-you-answered.webp), [1q](../answers/images/web-answering/1q-you-answered-a-typed-question.webp) |
-| Someone else answered | *Ana answered · Hold · 18:55*, then *Sent to ci-pipeline. Nobody else can answer now.* | The name stored with the answer, even if Ana is renamed. The icon is grey, not primary. [2f](../answers/images/app-answering/2f-answered-by-someone-else.webp), [1f](../answers/images/web-answering/1f-someone-else-answered.webp) |
+| You answered | *You answered · Merge · 19:02*, then *Note: After lunch* when a note was sent, then *Sent to ci-pipeline.* | Several choices read *You answered · Unit tests, Lint · 19:02*. A typed-only answer reads *You answered · ‘after lunch’*; past about 40 characters the title says *You answered* and the text follows in full. A long label wraps in the title, never cut; the time stays at the end of the last line. The 40-character rule applies to a typed answer only. [2e](../answers/images/app-answering/2e-answered-by-you.webp), [2e2](../answers/images/app-answering/2e2-a-typed-question-answered.webp), [1e](../answers/images/web-answering/1e-you-answered.webp), [1q](../answers/images/web-answering/1q-you-answered-a-typed-question.webp) |
+| Someone else answered | *Ana answered · Hold · 18:55*, then *Sent to ci-pipeline. Nobody else can answer now.* | The name stored with the answer, even if Ana is renamed. The icon is grey, not primary. A long label wraps, as in *You answered*. [2f](../answers/images/app-answering/2f-answered-by-someone-else.webp), [1f](../answers/images/web-answering/1f-someone-else-answered.webp) |
 | Answered first | *Ana answered first: Hold*, then *18:55. Your answer wasn't sent, and ci-pipeline has Ana's.* | The `409` carries the winner, so the card swaps at once. No error colour, no retry, the choice and the note dropped. The same person on another device with a different answer reads *You already answered: Merge. Your new answer wasn't sent.* [2l](../answers/images/app-answering/2l-someone-answered-first-while-you-were.webp), [1j](../answers/images/web-answering/1j-someone-answered-first.webp) |
 | Closed | *Closed · nobody answered in time*, then *It closed on 17 Oct at 09:00. ci-pipeline got no answer.* | A clock icon, no warning colour. Seen by everyone, including people who may not answer. [2g](../answers/images/app-answering/2g-closed-with-no-answer.webp), [1g](../answers/images/web-answering/1g-closed-with-no-answer.webp) |
-| Closed while choosing | *Closed while you were choosing · nobody can answer it now*, then *Your answer wasn't sent. ci-pipeline got no answer.* | The `409` closed. [2l2](../answers/images/app-answering/2l2-it-closed-while-you-were-choosing.webp) |
-| Closed by the producer | *Closed by ci-pipeline · Answered in the session* (without the part after the dot when no note was sent), then *ci-pipeline closed this question.* | The producer answered elsewhere and closed it (`closedBy: PRODUCER`). Seen by everyone; no warning colour; notifications removed. On the admin page as on the app and web page. |
+| Closed while choosing | *Closed while you were choosing · nobody can answer it now*, then *Your answer wasn't sent. ci-pipeline got no answer.* (closed by its time) or *Your answer wasn't sent. ci-pipeline closed this question.* (closed by the producer) | The `409` closed. [2l2](../answers/images/app-answering/2l2-it-closed-while-you-were-choosing.webp) |
+| Closed by the producer | *Closed by ci-pipeline · Answered in the session* (without the part after the dot when no note was sent), then *ci-pipeline closed this question on 17 Oct at 08:41.* | The producer answered elsewhere and closed it (`closedBy: PRODUCER`, the time from `closedAt`). Seen by everyone; no warning colour; notifications removed. On the admin page as on the app and web page. A note of up to 200 characters wraps; it is never cut. |
 | Read-only | 10.2 | [2h](../answers/images/app-answering/2h-open-but-you-may-not-answer.webp), [1h](../answers/images/web-answering/1h-open-but-you-may-not-answer.webp) |
 | Send failed | A snackbar *Answer not sent* with *Retry* | The failed-change pattern of 4. The choice and the note are kept as typed. Retry and the button do the same. Offline before the tap has no frame of its own: the offline banner covers it. [2k](../answers/images/app-answering/2k-send-failed-offline-or-server-error.webp), [1i](../answers/images/web-answering/1i-send-failed.webp) |
 | Nothing picked | *Pick an answer to send.* / *Pick at least one answer.* / *Type an answer to send.* | Under the list with an icon, read out when it appears (`role="alert"`). Focus moves to the first choice. [2o](../answers/images/app-answering/2o-field-error-nothing-picked.webp), [1m](../answers/images/web-answering/1m-field-error-nothing-picked.webp) |
@@ -805,8 +806,9 @@ state is never only an icon or a colour. The unread dot stays read state only.
 | --- | --- | --- |
 | *To answer* (with *· Closes 09:00* when there is a closing time) | An open question this person may answer now | primary, 14/20, weight 500, `question_answer` |
 | *Waiting for Rodrigo* / *Waiting for Rodrigo or Ana* / *Waiting for Rodrigo, Ana or Rui* | An open question this person may only read | grey, hourglass. The names are `whoCanAnswer`, the owner first. |
-| *You answered · Merge*, *Ana answered · Hold* | An answered question | grey, check |
-| *Closed · nobody answered* | A closed question | grey, `lock_clock` |
+| *You answered · Merge*, *Ana answered · Hold* | An answered question | grey, check. One line: a long label ends with an ellipsis, the only place a label is cut; the accessible name has it in full. |
+| *Closed · nobody answered* | A question that closed by its time | grey, `lock_clock` |
+| *Closed by ci-pipeline* | A question the producer closed | grey, `lock_clock`. The note is not in the row. |
 
 - **Chips.** R81 adds a chip row above the list, app and web page: *Unread* and
   *To answer*. They are the only chips of the inbox. *Unread* is the same switch
@@ -841,7 +843,7 @@ server adds one last line, shown when the card is expanded.
 | More than 3 choices | *Tap to answer · 7 choices* |
 | Multiple choice | *Tap to answer · pick one or more* |
 | Typed question | *Tap to answer* |
-| The labels would make the line pass 80 characters | *Tap to answer · 3 choices* (a guess to confirm) |
+| The labels would make the line pass 80 characters | *Tap to answer · 3 choices* |
 | A person who may not answer | The event's usual text, unchanged |
 
 The line is plain text and never shows a description. The stored message is
@@ -893,20 +895,30 @@ The operator never answers, so nothing on the admin page is a control for
 answering, and the page never says *To answer*.
 
 - **The question block** sits in the event pane under the message and link, above
-  *Producer*. It repeats the question as text: *Pick* (*One* or *One or more*),
-  *Note* (*Not allowed*, *Allowed, optional* or *Required*), *Closes* (the time,
+  *Producer*. It repeats the question as text: *Pick* (*One*, *One or more* or
+  *No choices, typed answer*), *Note* (*Not allowed*, *Allowed, optional* or
+  *Required*; *Other row, optional* for an *Other* row), *Closes* (the time,
   or *Never*), then each choice with its description. The state is a word and an
   icon: *Waiting for an answer · closes 09:00 · Rodrigo or Ana can answer*, *Answered
   · Nobody else can answer now.* or *Closed · nobody answered in time*. [Q1](../answers/images/admin/q1-open-waiting-for-an-answer.webp)
 - **The answer** shows who (the name stored with the answer), when and where in
   words (*in the app*, *on the web page*), what was chosen, and the note in its own
-  box as text. The chosen row has a filled radio and the word *Picked*. A revoked
+  box as text, titled *Note from NAME*. A typed-only answer's box is titled
+  *Answer typed by NAME*, and an *Other* answer's *Other typed by NAME*
+ . The chosen row has a filled radio and the word *Picked*. A revoked
   answerer keeps the name with a *Revoked* tag. [Q1b](../answers/images/admin/q1b-answered-in-the-app-with-a.webp), [Q1c](../answers/images/admin/q1c-several-choices-answered-on-the-web.webp),
   [Q1d](../answers/images/admin/q1d-a-typed-question-answered.webp), [Q1e](../answers/images/admin/q1e-closed-with-no-answer.webp), [Q1f](../answers/images/admin/q1f-the-answerer-was-revoked-later.webp)
 - **List markers.** One word with an icon under the title of an event that asks:
   *Waiting* (tonal tag, hourglass), *Answered* (outlined tag, check) and *Closed*
   (plain tag, timer-off). The accessible name ends with it (*Merge R82 into main?,
   waiting*). On a phone the marker joins the second line. [L1](../answers/images/admin/l1-the-list-with-questions.webp)
+- **Question filter.** One filter chip, *Question*, in the filter row of the
+  Events section, a single-choice menu like Read state: *Any*, *Waiting*,
+  *Answered*, *Closed* and *No question*. They are the list
+  markers' words and map to `answerState` `OPEN`, `ANSWERED`, `CLOSED` and
+  `NONE`. A chosen value shows in the chip with a check and is in the address.
+  With nothing matching, the list says *No events match.* with *Clear filters*,
+  as the other filters do. The page never says *To answer*.
 - **Deleting** an event that asks adds *Its question and any answer are deleted
   too.* to the confirmation, and a bulk delete adds *N of them ask a question*.
   [Q3](../answers/images/admin/q3-delete-an-event-that-asks-still.webp), [Q3b](../answers/images/admin/q3b-delete-several-events-some-ask.webp)
@@ -939,13 +951,33 @@ answering, and the page never says *To answer*.
   line. Enter on the focused button sends. Escape does nothing. On the web page
   **Ctrl+Enter** (Cmd+Enter on a Mac) sends from anywhere in the card, as the
   button does, with the same checks; the button's tooltip names it.
-- **Accessible names.** A choice's name includes its description and its state:
-  *Merge, Squash-merge now; CI passed., selected, 1 of 2*; a checkbox *Unit
-  tests, About 2 minutes., checked* and *Lint, not checked*. The group is named
+  The shortcut is not the only way: the button works as always. It works from
+  any control of the card, the note, the *Other* field and the typed answer
+  included, and in a text area it does not insert a line. The button has
+  `aria-keyshortcuts="Control+Enter Meta+Enter"` and its tooltip reads *Send
+  answer (Ctrl+Enter)*, or *Send answer (Cmd+Enter)* on a Mac; it shows on
+  hover and on keyboard focus of the button. A tooltip is not the only hint,
+  so touch and screen reader users lose nothing. Ctrl+Enter does what a press
+  does: with an error (nothing picked, past 3000 characters) it moves the
+  focus and says why (10.3); while sending it is ignored; during an input
+  method composition it does nothing. Because the note's field disappears
+  when the card turns into the result, focus moves to the result's title
+  (made focusable, `tabindex="-1"`) so keyboard focus is never lost; the
+  result is announced once in the polite live region, whether it came from
+  the button or from the shortcut. The app has no shortcut.
+- **Accessible names.** A choice's name is its label and its state: *Merge,
+  selected, 1 of 2*; a checkbox *Unit tests, checked* and *Lint, not checked*.
+  Its description is its accessible description (`aria-describedby` on the web
+  page, the hint on the app), read after the name and not repeated while focus
+  moves inside the group. The group is named
   *Your answer*. The button while sending is *Sending answer*. A row of a
   question ends its name with its line: *Merge R82 into main?, Action required,
   High, ci-pipeline, 18:50, To answer, closes 09:00, unread*. The chip is *To
   answer, 2*. The close button of an answerer is *Remove Ana*.
+  The *Other* row's field is named *Your answer for Other* (not the group's
+  name), is tied to its counter and its error with `aria-describedby`, and the
+  row's radio or checkbox has `aria-controls` pointing at it. Picking *Other*
+  moves focus to the field; leaving it keeps the text (10.3).
 - **Messages** (nothing picked, too long, the result) are tied to their field with
   `aria-describedby` or announced in a live region when they appear. Every error
   has an icon and words, never colour alone.
