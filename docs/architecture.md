@@ -3129,6 +3129,16 @@ internals, and everything it does is documented as plain HTTP too.
   older SDK can send values a newer server adds. The server's violations are
   reported as they are. Only a timestamp without an offset is refused
   locally, since it cannot be sent unambiguously.
+- **Questions.** `publish(ask=Ask(...))` and `send --choice ...` add a
+  question (see [Answering an event](#answering-an-event)); `wait_answer` and
+  `signalhub wait-answer` repeat 60 s held reads until the question is answered,
+  closed or the caller's timeout passes (exit `0`, `5` or `6`; a read that comes
+  back `OPEN` in under 5 s is followed by a 5 s pause, and temporary errors are
+  retried after 5 s until the timeout), and `close_question` and `signalhub
+  close-question` close it (exit `7` when someone answered first). A choice
+  without an id gets one derived from its label by one rule (lower case,
+  accents removed, runs of other characters become `-`, `choice-N` if nothing
+  is left, `-2` on a collision).
 - **Errors say whether to retry.** The command exits `1` when the event or key
   was rejected, `2` on a usage or configuration error, and `3` on a
   temporary failure (unreachable, timeout, `429`, `5xx`); the library raises

@@ -33,8 +33,13 @@ events of the producers they subscribed to (public or private, with
 allow-lists), managed in the *Users* section of the admin page and through
 `/api/v1/admin/users`, with generic event ingestion
 (`POST /api/v1/events`, idempotent with an optional `Idempotency-Key`, with
-an optional `link` URL, `GET /api/v1/events/{id}` with a client key or the
-admin token), a paginated event listing
+an optional `link` URL, an optional question (`ask`: choices and/or text) that
+the producer's owner and the answerers it names answer, the first answer winning
+(`PUT /api/v1/events/{id}/answer`), read by the producer with a held
+`GET .../answer?wait=` or closed by it (`POST .../answer/close`), and removed
+from the devices' notifications by data-only notices once answered, closed or
+deleted (the screens for it are R82b), `GET /api/v1/events/{id}` with a client
+key or the admin token), a paginated event listing
 (`GET /api/v1/events`, with a client key or the admin token, filterable by
 read state among others, and browsed in the *Events* section of the
 admin page, a page at a time with the inbox's filters, opening an event
@@ -130,7 +135,7 @@ as a QR code with its countdown and a link to copy, saying which device used
 it), and signing a browser in (the *Sign in a browser* row of Settings: scan or
 type the page's code and approve), as drawn in `docs/design/users/`; every
 release attaches it as an Android APK signed with SignalHub's release key), and the
-Python producer package and `signalhub` command in `sdk/python/` (its wheel
+Python producer package and `signalhub` command in `sdk/python/` (which also ask a question and wait for its answer; its wheel
 attached to every release, reporting that release), and
 integration examples for unrelated producers in `examples/`, which use only
 the public API. Do not build components beyond
