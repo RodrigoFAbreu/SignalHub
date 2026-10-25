@@ -3411,6 +3411,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 76    | R82a - Answering an event: the server, the SDK and the command                                   | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 77    | R83 - Notification action buttons                                                                | Increment (`feat`)                     | Dropped at G8 (2026-10-25)                                                       |
 | 78    | R82b - Answering an event in the app, on the web page and on the admin page                      | Increment (`feat`)                     | Done (see section 3)                                                             |
+| 79    | R84 - Fixes from testing answering an event on the phone                                         | Increment (`fix`)                      | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3941,6 +3942,8 @@ G1 → G2 → R19 v1.0.0
   building items, which may be split or reworded at that approval.
 - **G8 passed on 2026-10-25**: R83 was dropped and R82 split into R82a
   (the server, the SDK and the command) and R82b (the screens), in that order.
+- **R84 was added by the maintainer on 2026-10-25**, after testing R82b on the phone:
+  two app gaps in following a question's end (see its entry).
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -6694,6 +6697,35 @@ Status: dropped at G8 (2026-10-25). The maintainer chose no buttons on
 notifications: every question is answered by opening the event, and R82a and
 R82b carry the small notification work that remains.
 
+### R84 - Fixes from testing answering an event on the phone
+
+Status: next. Added by the maintainer (2026-10-25) from testing R82b on the phone.
+
+Goal: in the app, a question's notification and its open event screen always follow the question,
+however it is answered or ended.
+
+Found by the maintainer on the phone with release 3.18.1:
+
+- the phone that answered keeps the question's notification when the question was opened from the
+  inbox rather than from the notification. The server rightly sends the `answered` notice to the
+  other devices only (`docs/design/answers/API-PROPOSAL.md`, section 6), so the answering app must
+  clear its own notification once its answer is accepted;
+- a question that ends while its event screen is open (closed by its producer, answered by someone
+  else, or deleted) does not move the card until a send fails or the person leaves the screen.
+  The phone does receive the data-only notice for it, so the open screen must re-read the event
+  when a notice for that event arrives, and show the current state with the "while you were
+  choosing" or "answered first" wording of `docs/design/users/DESIGN.md` 10.3 when something was
+  picked or typed. A close by `closesAt` is already followed since #188.
+
+Scope: those two, in `client/` (the app's push handling and the event screen), with widget and
+unit tests that fail without the fixes; then the maintainer re-checks both, and the close by
+`closesAt` fixed in #188, on the phone.
+
+Compatible (`fix`, patch): the app only; no API or schema change.
+
+Non-goals: live updates on the web page (it re-reads on focus and after a `409`; a later design
+decision); anything else.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -6847,7 +6879,8 @@ gave the go-ahead at G7, and R81 (designs for answering an event) is done.
 The maintainer approved them at G8 with changes, dropped R83 and split R82,
 R82a (answering an event: the server, the SDK and the command) and R82b
 (answering an event in the app, on the web page and on the admin page) are
-done. **Nothing is Next.** A new item is added only by the maintainer, in a reviewed pull
+done. The maintainer then added R84 (fixes from testing answering an event on
+the phone). **Next is R84.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 
