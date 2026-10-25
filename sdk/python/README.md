@@ -223,14 +223,17 @@ event = hub.publish(
     severity="HIGH",
     title="Deploy build 1842 to production?",
     ask=Ask(
-        [Choice("deploy", "Deploy", description="Tests passed on main"), Choice("hold", "Hold")],
-        multiple=False,           # sent only when given, like text, text_style and closes_at
-        text="optional",          # "none", "optional" or "required" typed text
-        text_style="note",        # or "other"
+        [
+            Choice("deploy", "Deploy", description="Tests passed on main"),
+            Choice("hold", "Hold"),
+        ],
+        multiple=False,  # sent only when given, like text, text_style and closes_at
+        text="optional",  # "none", "optional" or "required" typed text
+        text_style="note",  # or "other"
         closes_at=datetime.now(timezone.utc) + timedelta(hours=2),
     ),
 )
-state = hub.wait_answer(event["id"], timeout=1800)   # None: no limit
+state = hub.wait_answer(event["id"], timeout=1800)  # None: no limit
 if state["state"] == "ANSWERED":
     print(state["answer"]["choices"], state["answer"]["text"])
 ```
