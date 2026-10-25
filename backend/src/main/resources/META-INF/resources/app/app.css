@@ -2330,10 +2330,13 @@ ul {
   font-weight: 500;
 }
 
+/* Room inside the ring, as the other rings have around their controls; the negative margin keeps the layout. */
 .ahead:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 8px;
+  padding: 4px 8px;
+  margin: -4px -8px;
 }
 
 .acard .p {
@@ -2480,11 +2483,12 @@ ul {
   padding-top: 12px;
 }
 
+/* The field's own padding clips what scrolls: text never runs up under the label on the border. */
 .tf.ta {
   height: auto;
   min-height: 56px;
   align-items: stretch;
-  padding: 0;
+  padding: 16px 0;
 }
 
 .tf.ta textarea {
@@ -2498,8 +2502,8 @@ ul {
   font: inherit;
   font-size: 16px;
   line-height: 24px;
-  padding: 16px;
-  min-height: 56px;
+  padding: 0 16px;
+  min-height: 24px;
   color: var(--on-surface);
   overflow-y: auto;
 }
@@ -2510,20 +2514,20 @@ ul {
 }
 
 .tf.ta.rows-4 textarea {
-  max-height: 126px;
+  max-height: 94px;
 }
 
 .tf.ta.rows-6 textarea {
-  min-height: 88px;
-  max-height: 174px;
+  min-height: 56px;
+  max-height: 142px;
 }
 
 .tf.ta:focus-within {
-  padding: 0;
+  padding: 16px 0;
 }
 
 .tf.ta.err {
-  padding: 0;
+  padding: 16px 0;
 }
 
 .help {
@@ -2575,7 +2579,8 @@ ul {
 .send-wrap .tip {
   position: absolute;
   left: 0;
-  bottom: calc(100% + 4px);
+  /* Below the button: above it the tip covered the error line that sits over the button. */
+  top: calc(100% + 4px);
   background: var(--inverse-surface);
   color: var(--surface);
   font-size: 12px;

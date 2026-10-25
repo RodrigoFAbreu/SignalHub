@@ -205,8 +205,20 @@ export function answerCard(event, hooks) {
     if (open() && current.ask.closesAt) {
       // The state is the server's: re-read when the question closes by its time.
       const ms = Math.min(new Date(current.ask.closesAt).getTime() - Date.now() + 1000, 2 ** 31 - 1);
-      later(() => hooks.reread(), Math.max(ms, 1000));
+      later(closeByTime, Math.max(ms, 1000));
     }
+  }
+
+  // The question reached its closing time. A person who had picked or typed something is told it
+  // closed while they were choosing (the same card a 409 gives); one with nothing in hand sees the
+  // plain closed state.
+  async function closeByTime() {
+    const draft = drafts.get(current.id);
+    const inHand = Boolean(draft && (draft.picked.size > 0 || draft.otherOn || draft.note.trim() || draft.other.trim()));
+    if (inHand) attempts.set(current.id, "closed");
+    const fresh = await hooks.reread();
+    if (inHand && fresh?.answerState !== "CLOSED") attempts.delete(current.id);
+    else if (inHand) drafts.delete(current.id);
   }
 
   // ---- A decided question

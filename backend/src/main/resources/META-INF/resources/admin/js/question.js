@@ -32,7 +32,7 @@ export function markerOf(event) {
 export function markerNode(event) {
   const marker = markerOf(event);
   if (!marker) return null;
-  return el("span", { class: `qm${marker.kind ? ` ${marker.kind}` : ""}` }, icon(marker.glyph), marker.word);
+  return el("span", { class: `qmk${marker.kind ? ` ${marker.kind}` : ""}` }, icon(marker.glyph), marker.word);
 }
 
 function rule(ask) {
