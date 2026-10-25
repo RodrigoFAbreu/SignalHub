@@ -87,6 +87,7 @@ class _InboxScreenState extends State<InboxScreen> {
           answer: (choices, text) =>
               _controller.answerEvent(id, choices: choices, text: text),
           reload: () => _controller.reloadEvent(id),
+          now: () => _controller.clock(),
         ),
       ),
     );

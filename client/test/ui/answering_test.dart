@@ -44,8 +44,10 @@ void main() {
     bool canAnswer = true,
     String title = 'Merge R82 into main?',
     void Function(FakeBackend backend)? setUp,
+    DateTime Function()? clock,
   }) async {
     final app = AppHarness();
+    if (clock != null) app.controller.clock = clock;
     app.backend.publish(
       'e-1',
       title,
@@ -559,6 +561,140 @@ void main() {
       tester.widget<TextField>(inner('noteField')).controller!.text,
       'kept',
     );
+  });
+
+  group('when its closing time passes with the event open', () {
+    // The fake server closes a question by its time at 08:41, as close() says.
+    late DateTime now;
+    setUp(() => now = DateTime.utc(2026, 10, 17, 8, 39, 30));
+
+    Future<AppHarness> openClosing(
+      WidgetTester tester, {
+      Map<String, Object?>? ask,
+    }) => open(
+      tester,
+      ask:
+          ask ??
+          FakeBackend.question(
+            choices: [
+              ('merge', 'Merge', 'Squash-merge now; CI passed.'),
+              ('hold', 'Hold', null),
+            ],
+            text: 'OPTIONAL',
+            closesAt: '2026-10-17T08:41:00Z',
+          ),
+      clock: () => now,
+    );
+
+    /// Moves the clock past the closing time, with no resume, and lets the
+    /// card's timer and its read run.
+    Future<void> passClosingTime(WidgetTester tester, AppHarness app) async {
+      now = now.add(const Duration(minutes: 2));
+      await tester.pump(const Duration(minutes: 2));
+      await app.settle(tester);
+    }
+
+    testWidgets('a choice picked: closed while you were choosing', (
+      tester,
+    ) async {
+      final app = await openClosing(tester);
+      await press(tester, 'choice-merge');
+      await app.settle(tester);
+
+      app.backend.close('e-1', by: 'TIME');
+      await passClosingTime(tester, app);
+
+      expect(
+        find.text('Closed while you were choosing · nobody can answer it now'),
+        findsOneWidget,
+      );
+      expect(
+        find.text("Your answer wasn't sent. ci-pipeline got no answer."),
+        findsOneWidget,
+      );
+      expect(byKey('sendAnswer'), findsNothing);
+      expect(app.backend.answers, isEmpty);
+    });
+
+    testWidgets('something typed: closed while you were choosing', (
+      tester,
+    ) async {
+      final app = await openClosing(
+        tester,
+        ask: FakeBackend.question(closesAt: '2026-10-17T08:41:00Z'),
+      );
+      await tester.enterText(inner('noteField'), 'after lunch');
+      await app.settle(tester);
+
+      app.backend.close('e-1', by: 'TIME');
+      await passClosingTime(tester, app);
+
+      expect(
+        find.text('Closed while you were choosing · nobody can answer it now'),
+        findsOneWidget,
+      );
+      expect(byKey('noteField'), findsNothing);
+      expect(app.backend.answers, isEmpty);
+    });
+
+    testWidgets('nothing picked: closed, nobody answered in time', (
+      tester,
+    ) async {
+      final app = await openClosing(tester);
+
+      app.backend.close('e-1', by: 'TIME');
+      await passClosingTime(tester, app);
+
+      expect(find.text('Closed · nobody answered in time'), findsOneWidget);
+      expect(find.textContaining('ci-pipeline got no answer.'), findsOneWidget);
+      expect(
+        find.text('Closed while you were choosing · nobody can answer it now'),
+        findsNothing,
+      );
+      expect(byKey('sendAnswer'), findsNothing);
+    });
+
+    testWidgets('answered meanwhile: the answer that came first', (
+      tester,
+    ) async {
+      final app = await openClosing(tester);
+      await press(tester, 'choice-merge');
+      await app.settle(tester);
+
+      app.backend.answerBy('e-1', 'Ana', ['hold']);
+      await passClosingTime(tester, app);
+
+      final at = formatClock(DateTime.utc(2026, 10, 16, 18, 55));
+      expect(find.text('Ana answered · Hold · $at'), findsOneWidget);
+      expect(
+        find.text('Sent to ci-pipeline. Nobody else can answer now.'),
+        findsOneWidget,
+      );
+      expect(byKey('sendAnswer'), findsNothing);
+    });
+
+    testWidgets('a read that fails keeps the card and tries again on resume', (
+      tester,
+    ) async {
+      final app = await openClosing(tester);
+      await press(tester, 'choice-merge');
+      await app.settle(tester);
+
+      app.backend.close('e-1', by: 'TIME');
+      app.backend.offline = true;
+      await passClosingTime(tester, app);
+
+      expect(byKey('sendAnswer'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+
+      app.backend.offline = false;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await app.settle(tester);
+      expect(
+        find.text('Closed while you were choosing · nobody can answer it now'),
+        findsOneWidget,
+      );
+    });
   });
 
   testWidgets('the event deleted meanwhile says it is not in the inbox', (

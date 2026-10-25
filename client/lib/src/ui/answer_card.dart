@@ -45,6 +45,7 @@ class AnswerCard extends StatefulWidget {
     required this.answer,
     required this.onState,
     required this.onRead,
+    required this.reread,
     required this.onGone,
     this.now = DateTime.now,
   });
@@ -60,9 +61,14 @@ class AnswerCard extends StatefulWidget {
   /// A new state of the question: an accepted answer, the winner of a `409`.
   final void Function(QuestionState state) onState;
 
-  /// The event read again from the server: after a refusal that may be
-  /// "not allowed", or when the question closes by its time.
+  /// The event read again from the server, after a refusal that may be
+  /// "not allowed".
   final void Function(Event event) onRead;
+
+  /// Reads the event from the server again, once the question's closing time
+  /// passes; the card follows the event the screen then holds. A read that
+  /// fails changes nothing.
+  final Future<void> Function() reread;
 
   /// The event is not in the inbox any more.
   final VoidCallback onGone;
@@ -90,6 +96,11 @@ class _AnswerCardState extends State<AnswerCard> {
   Attempt _attempt = Attempt.none;
   bool _lostRight = false;
   Timer? _timer;
+  Timer? _closer;
+
+  /// Whether the closing time passed with something picked or typed: if the
+  /// server then says the question closed, it closed while choosing.
+  bool _closedInHand = false;
 
   Ask get _ask => widget.event.ask!;
 
@@ -116,12 +127,24 @@ class _AnswerCardState extends State<AnswerCard> {
   @override
   void didUpdateWidget(AnswerCard old) {
     super.didUpdateWidget(old);
+    final closed =
+        old.event.answerState == AnswerState.open &&
+        widget.event.answerState == AnswerState.closed;
+    if (closed && _closedInHand && _attempt == Attempt.none) {
+      // As a send's 409 would say; what was picked and typed is dropped.
+      _attempt = Attempt.closedWhileChoosing;
+      _drafts.remove(widget.event.id);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _resultTitle.requestFocus();
+      });
+    }
     _tick();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _closer?.cancel();
     _note.dispose();
     _other.dispose();
     _firstChoice.dispose();
@@ -132,20 +155,36 @@ class _AnswerCardState extends State<AnswerCard> {
   }
 
   /// Keeps the closing line current once a minute and reads the event again
-  /// when the question closes by its time. The minutes are not announced.
+  /// when the question closes by its time, then each minute while it still
+  /// reads open (a clock ahead of the server's, or a read that failed). The
+  /// minutes are not announced.
   void _tick() {
     _timer?.cancel();
+    _closer?.cancel();
     final closes = _ask.closesAt;
     if (!_open || closes == null) return;
+    // A moment past it, so the server already says the question closed.
+    final left = closes.difference(widget.now()) + const Duration(seconds: 1);
+    _closer = Timer(left, _closesByTime);
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (!mounted) return;
-      if (!widget.now().isBefore(closes)) {
-        _timer?.cancel();
-        widget.onRead(widget.event);
-      }
+      if (!widget.now().isBefore(closes)) _closesByTime();
       setState(() {});
     });
   }
+
+  void _closesByTime() {
+    if (!mounted) return;
+    _closedInHand = _inHand;
+    unawaited(widget.reread());
+  }
+
+  /// Whether the person has picked or typed something.
+  bool get _inHand =>
+      _draft.picked.isNotEmpty ||
+      _draft.otherOn ||
+      _note.text.trim().isNotEmpty ||
+      _other.text.trim().isNotEmpty;
 
   /// Said as soon as the text passes 3000, never by cutting it.
   void _check(TextEditingController controller, void Function(String?) set) {
