@@ -283,7 +283,10 @@ class EventListApiTest {
   @Test
   void theUnreadListingIsServedByThePartialUnreadIndex() throws SQLException {
     // The predicates the listing sends for read=false, first page and later pages. Sequential
-    // scans are disabled because the test database is small enough to prefer them.
+    // scans are disabled because the test database is small enough to prefer them, and the
+    // general (created_at, id) index is dropped inside the rolled-back transaction: it orders the
+    // rows just as well, so with a few rows the planner may pick it at an equal cost, depending on
+    // the table's statistics. What is checked is that the unread index can serve the listing.
     var firstPage =
         "SELECT id FROM events WHERE read_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 51";
     var laterPage =
@@ -294,6 +297,7 @@ class EventListApiTest {
       connection.setAutoCommit(false);
       try {
         statement.execute("SET LOCAL enable_seqscan = off");
+        statement.execute("DROP INDEX events_created_at_id_idx");
         for (var query : List.of(firstPage, laterPage)) {
           assertTrue(
               plan(statement, query).contains("events_unread_created_at_id_idx"),
