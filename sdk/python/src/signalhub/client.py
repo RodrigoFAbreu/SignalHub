@@ -8,9 +8,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import time
+import unicodedata
 import urllib.error
+import urllib.parse
 import urllib.request
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -24,6 +28,15 @@ USER_AGENT = "signalhub-python"
 
 EVENTS_PATH = "/api/v1/events"
 IDEMPOTENCY_KEY_HEADER = "Idempotency-Key"
+
+# The longest the server holds a read of an answer, and how long past it the
+# socket waits before giving up on the answer to a held read.
+MAX_WAIT_SECONDS = 60
+WAIT_SOCKET_MARGIN = 15.0
+# A held read that returns still OPEN well before its wait did not really wait
+# (a proxy cut it, or the server is busy); asking again at once would spin.
+EARLY_RETURN_SECONDS = 5.0
+RETRY_PAUSE_SECONDS = 5.0
 
 
 class _NoRedirects(urllib.request.HTTPRedirectHandler):
@@ -100,6 +113,14 @@ class ValidationError(RequestError):
         return f"{self.args[0]}: {details}" if details else self.args[0]
 
 
+class QuestionAnsweredError(RequestError):
+    """Someone answered the question first; `state` is the question's state, with the answer."""
+
+    def __init__(self, status: int, message: str, state: dict[str, Any]) -> None:
+        super().__init__(status, message)
+        self.state = state
+
+
 class UnreachableError(SignalHubError):
     """SignalHub could not be reached, or did not answer in time."""
 
@@ -115,6 +136,92 @@ def read_api_key_file(path: str) -> str:
     if not key:
         raise ConfigurationError(f"the API key file {path} is empty")
     return key
+
+
+@dataclass(frozen=True)
+class Choice:
+    """One choice of a question.
+
+    `id` is what an answer carries back. Leave it out (`None`) and the id is
+    derived from the label by `derive_choice_ids`.
+    """
+
+    id: str | None
+    label: str
+    description: str | None = None
+
+
+@dataclass(frozen=True)
+class Ask:
+    """A question on an event (docs/architecture.md, "Answering an event").
+
+    `text` is `none`, `optional` or `required` typed text; `text_style` is
+    `note` or `other`; both, and `multiple`, are sent only when given, so the
+    server's defaults apply. `closes_at` is when nobody can answer any more.
+    """
+
+    choices: Sequence[Choice] = ()
+    multiple: bool | None = None
+    text: str | None = None
+    text_style: str | None = None
+    closes_at: datetime | str | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        ids = derive_choice_ids(self.choices)
+        document: dict[str, Any] = {
+            "choices": [
+                {"id": id_, "label": choice.label}
+                | (
+                    {"description": choice.description}
+                    if choice.description is not None
+                    else {}
+                )
+                for id_, choice in zip(ids, self.choices)
+            ]
+        }
+        if self.multiple is not None:
+            document["multiple"] = self.multiple
+        if self.text is not None:
+            document["text"] = _enum_value(self.text)
+        if self.text_style is not None:
+            document["textStyle"] = _enum_value(self.text_style)
+        if self.closes_at is not None:
+            document["closesAt"] = _timestamp(self.closes_at, "closes_at")
+        return document
+
+
+_ID_RUN = re.compile(r"[^a-z0-9]+")
+_ID_ROOM = 60  # of the server's 64, leaving room for a "-2" ... "-10" suffix
+
+
+def derive_choice_ids(choices: Sequence[Choice]) -> list[str]:
+    """The id of each choice: the one it has, else one derived from its label.
+
+    Derived: lower-case, accents removed, every run of characters other than
+    `a`-`z` and `0`-`9` becomes `-`, trimmed of `-` and cut to 60 characters;
+    `choice-N` (its 1-based position) when nothing is left; `-2`, `-3` and so
+    on added on a collision. The same rule is used by the command and the
+    admin page.
+    """
+    ids: list[str] = []
+    for position, choice in enumerate(choices, start=1):
+        if choice.id:
+            ids.append(choice.id)
+            continue
+        ascii_label = (
+            unicodedata.normalize("NFKD", choice.label)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+            .lower()
+        )
+        base = _ID_RUN.sub("-", ascii_label).strip("-")[:_ID_ROOM].strip("-")
+        candidate = base or f"choice-{position}"
+        suffix = 2
+        while candidate in ids or candidate in {c.id for c in choices if c.id}:
+            candidate = f"{base or f'choice-{position}'}-{suffix}"
+            suffix += 1
+        ids.append(candidate)
+    return ids
 
 
 class SignalHub:
@@ -161,6 +268,7 @@ class SignalHub:
         link: str | None = None,
         occurred_at: datetime | str | None = None,
         idempotency_key: str | None = None,
+        ask: Ask | Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Publishes one event and returns it as SignalHub stored it.
 
@@ -178,6 +286,11 @@ class SignalHub:
         again returns the event already stored instead of storing another, so
         the call can be repeated after a temporary failure. The key is sent as
         the `Idempotency-Key` header.
+
+        With an `ask` (an `Ask`, or the JSON object itself) the event is also
+        a question: the people allowed to answer it do so in their client, and
+        `wait_answer` reads the answer. Servers older than the release that
+        added questions reject it.
         """
         body: dict[str, Any] = {
             "category": _enum_value(category),
@@ -194,27 +307,116 @@ class SignalHub:
             body["link"] = link
         if occurred_at is not None:
             body["occurredAt"] = _timestamp(occurred_at)
+        if ask is not None:
+            body["ask"] = ask.to_json() if isinstance(ask, Ask) else dict(ask)
         headers = {}
         if idempotency_key is not None:
             headers[IDEMPOTENCY_KEY_HEADER] = _idempotency_key(idempotency_key)
-        return self._post(body, headers)
+        return self._request("POST", self._events_url, body, headers, self._timeout)
 
-    def _post(self, body: dict[str, Any], headers: dict[str, str]) -> dict[str, Any]:
+    def close_question(self, event_id: str, note: str | None = None) -> dict[str, Any]:
+        """Closes the question of the producer's event without an answer.
+
+        For a question answered somewhere else. Returns the question's state
+        (`state` `CLOSED`, also when it had closed already, by the producer or
+        by its time). Raises `QuestionAnsweredError`, whose `state` holds the
+        answer, if someone answered in SignalHub first.
+        """
+        body = {"note": note} if note is not None else None
+        return self._request(
+            "POST", self._answer_url(event_id) + "/close", body, {}, self._timeout
+        )
+
+    def read_answer(self, event_id: str, *, wait: int = 0) -> dict[str, Any]:
+        """The question's state now, or held up to `wait` seconds (0 to 60).
+
+        `state` is `OPEN`, `ANSWERED` (with `answer`) or `CLOSED` (with
+        `closedBy`, `closedAt` and `closeNote`).
+        """
+        if not 0 <= wait <= MAX_WAIT_SECONDS:
+            raise ValueError(f"wait must be 0 to {MAX_WAIT_SECONDS} seconds")
+        url = self._answer_url(event_id) + (f"?wait={wait}" if wait else "")
+        timeout = wait + WAIT_SOCKET_MARGIN if wait else self._timeout
+        return self._request("GET", url, None, {}, timeout)
+
+    def wait_answer(
+        self,
+        event_id: str,
+        timeout: float | None = None,
+        *,
+        sleep: Callable[[float], None] = time.sleep,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> dict[str, Any]:
+        """Waits until the question is answered or closed, and returns its state.
+
+        Repeats 60 second held reads until the state leaves `OPEN` or `timeout`
+        seconds pass (`None`: no limit); on timeout it returns the last state,
+        still `OPEN`. A read that comes back `OPEN` in under 5 seconds, well
+        before its wait, is followed by a pause of 5 seconds; a temporary
+        error (SignalHub unreachable, a `502`, `503` or `429`, a restart during
+        an upgrade) is retried after 5 seconds until `timeout`, and raised if
+        that was all there was. A `404` (a deleted event, or not this
+        producer's) is raised at once.
+        """
+        deadline = None if timeout is None else clock() + timeout
+        state: dict[str, Any] | None = None
+        while True:
+            remaining = None if deadline is None else deadline - clock()
+            if remaining is not None and remaining <= 0:
+                break
+            wait = MAX_WAIT_SECONDS
+            if remaining is not None:
+                wait = max(1, min(MAX_WAIT_SECONDS, int(remaining)))
+            started = clock()
+            try:
+                state = self.read_answer(event_id, wait=wait)
+            except UnreachableError as error:
+                failure: SignalHubError = error
+            except RequestError as error:
+                if not error.temporary:
+                    raise
+                failure = error
+            else:
+                if state.get("state") != "OPEN":
+                    return state
+                if clock() - started < min(wait, EARLY_RETURN_SECONDS):
+                    _pause(sleep, deadline, clock)
+                continue
+            if deadline is None or clock() + RETRY_PAUSE_SECONDS < deadline:
+                sleep(RETRY_PAUSE_SECONDS)
+                continue
+            if state is None:
+                raise failure
+            break
+        return state if state is not None else {"state": "OPEN"}
+
+    def _answer_url(self, event_id: str) -> str:
+        return f"{self._events_url}/{urllib.parse.quote(event_id, safe='')}/answer"
+
+    def _request(
+        self,
+        method: str,
+        url: str,
+        body: dict[str, Any] | None,
+        headers: dict[str, str],
+        timeout: float,
+    ) -> dict[str, Any]:
+        data = json.dumps(body).encode("utf-8") if body is not None else None
         request = urllib.request.Request(
-            self._events_url,
-            data=json.dumps(body).encode("utf-8"),
-            method="POST",
+            url,
+            data=data,
+            method=method,
             headers={
                 "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
+                **({"Content-Type": "application/json"} if data is not None else {}),
                 "Accept": "application/json",
                 "User-Agent": USER_AGENT,
                 **headers,
             },
         )
         try:
-            with _OPENER.open(request, timeout=self._timeout) as response:
-                event = json.load(response)
+            with _OPENER.open(request, timeout=timeout) as response:
+                document = json.load(response)
         except urllib.error.HTTPError as error:
             raise _request_error(error) from None
         except (urllib.error.URLError, TimeoutError, OSError) as error:
@@ -226,7 +428,7 @@ class SignalHub:
             raise SignalHubError(
                 f"{self._events_url} did not answer with JSON; is it a SignalHub server?"
             ) from error
-        return event
+        return document
 
 
 def api_key_from_env(environ: Mapping[str, str] | None = None) -> str:
@@ -247,12 +449,20 @@ def _enum_value(value: Enum | str) -> str:
     return value.strip().upper().replace("-", "_")
 
 
-def _timestamp(value: datetime | str) -> str:
+def _pause(
+    sleep: Callable[[float], None], deadline: float | None, clock: Callable[[], float]
+) -> None:
+    left = RETRY_PAUSE_SECONDS if deadline is None else deadline - clock()
+    if left > 0:
+        sleep(min(RETRY_PAUSE_SECONDS, left))
+
+
+def _timestamp(value: datetime | str, name: str = "occurred_at") -> str:
     if isinstance(value, str):
         return value
     # SignalHub rejects timestamps without an offset, as they are ambiguous.
     if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("occurred_at must be timezone-aware")
+        raise ValueError(f"{name} must be timezone-aware")
     return value.isoformat()
 
 
@@ -278,6 +488,11 @@ def _request_error(error: urllib.error.HTTPError) -> RequestError:
         return AuthenticationError(
             status,
             f"{message}: the API key is invalid or revoked, or its producer is disabled",
+        )
+    question = body.get("question")
+    if status == 409 and isinstance(question, dict):
+        return QuestionAnsweredError(
+            status, f"{message}: someone answered the question first", question
         )
     if 400 <= status < 500 and status not in (404, 429):
         violations = [

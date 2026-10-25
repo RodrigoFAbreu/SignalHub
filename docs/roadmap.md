@@ -2720,6 +2720,44 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   removal, the answerers setting and the admin page). Documentation only
   (`docs`)
 
+---
+
+### R82a - Answering an event: the server, the SDK and the command
+
+- built as three pull requests, each releasable on its own (#180, #181 and
+  the SDK's), from `docs/design/answers/API-PROPOSAL.md` as approved at G8
+- **the API (#180)**: the event's optional `ask` (up to 10 choices; labels
+  up to 100 characters, descriptions 1000, typed answers 3000; `textStyle`
+  `NOTE` or `OTHER`; `closesAt` at most 30 days ahead), validated, stored
+  normalized with the event (V21) and part of the idempotency comparison
+  (checked before the `closesAt` rules), accepted on the operator's test
+  event; a producer's answerers, named by its owner, read-only in the admin
+  API and ended on revoke, on losing sight of the producer and by the owner;
+  `PUT /api/v1/events/{id}/answer` with the first answer winning, atomically
+  with the producer's close (one `event_answers` record; the event row held
+  `FOR KEY SHARE`); the producer's read `GET .../answer?wait=0..60` (held on
+  a virtual thread, an in-process notifier registered before the read, at
+  most 200 waits) and close `POST .../answer/close` (also after `closesAt`);
+  `ask`, `answer`, `answerState`, `canAnswer`, `whoCanAnswer`, `closedBy`,
+  `closedAt` and `closeNote` on events, the `toAnswer` filter and count, the
+  admin list's `answerState` filter and `asking` in bulk deletes; `409`
+  bodies in the `ApiError` shape with `question`
+- **the pushes (#181)**: the notification tag on every event push; durable
+  `answered`, `closed` and `deleted` notices (V22 `push_notices`: stored,
+  sent once to the right devices, no delivery records, data-only at NORMAL
+  Android priority, the close due at `closesAt`, on every delete path); an
+  event push still due after its question left `OPEN` is skipped and
+  recorded `FILTERED`; the "Tap to answer" line is left to R82b
+- **the SDK, the command and the example**: `publish(ask=...)`,
+  `wait_answer` with its back-off and retries, `close_question`;
+  `signalhub send --choice ... --closes-in`, `wait-answer` (exit 0, 5, 6, 1)
+  and `close-question` (exit 0, 7); `examples/ask-to-continue`; a container
+  test that the 60 s held read passes through the proxy
+- tested against real PostgreSQL: first answer wins and the answer-versus-close
+  race, the held read returning at once on an answer, a close, a deletion
+  and `closesAt`, every row of sections 8 and 8b, the notices and the skip
+- minor (`feat`); additive, and an event that asks nothing behaves as before
+
 ## 4. Planned roadmap
 
 Roadmap items are ordered by dependency, but each item may be split into smaller releasable increments if implementation evidence shows that doing so is safer or more reviewable.
@@ -3348,9 +3386,9 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 73    | G7 - The maintainer's go-ahead for replies and notification actions                              | Human gate                             | Passed (2026-10-16, go-ahead given)                                              |
 | 74    | R81 - Designs for replying to an event and notification actions                                  | Increment (`docs`)                     | Done (see section 3)                                                             |
 | 75    | G8 - The maintainer approves the reply and notification action designs                           | Human gate                             | Passed (2026-10-25, approved with changes)                                       |
-| 76    | R82a - Answering an event: the server, the SDK and the command                                   | Increment (`feat`)                     | Next                                                                             |
+| 76    | R82a - Answering an event: the server, the SDK and the command                                   | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 77    | R83 - Notification action buttons                                                                | Increment (`feat`)                     | Dropped at G8 (2026-10-25)                                                       |
-| 78    | R82b - Answering an event in the app, on the web page and on the admin page                      | Increment (`feat`)                     | Blocked by R82a                                                                  |
+| 78    | R82b - Answering an event in the app, on the web page and on the admin page                      | Increment (`feat`)                     | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -3949,6 +3987,7 @@ advance; they follow from the queue.
 | R79           | minor (`feat`)                                                                                                                                        | the admin page's Events and Users; no API change                                                            |
 | R80           | patch (`fix`)                                                                                                                                         | web sign-in codes follow the server's clock: a `Date` header on starting a sign-in; no field or schema change |
 | R81           | patch (`docs`)                                                                                                                                        | drawings and a proposal only                                                                                  |
+| R82a          | minor (`feat`)                                                                                                                                        | an optional `ask` on events, answering, the producer's read and close, notices, the SDK and command; additive |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6561,7 +6600,7 @@ stops here and never answers it.
 
 ### R82a - Answering an event: the server, the SDK and the command
 
-Status: next. Added by the maintainer (2026-10-16), split at G8 (2026-10-25).
+Status: complete (see section 3). Added by the maintainer (2026-10-16), split at G8 (2026-10-25).
 
 Goal: a producer asks on an event, the people allowed answer it, and the
 producer reads the answer or closes the question, through the public API, as
@@ -6596,7 +6635,7 @@ callback or a feed of answers; iOS.
 
 ### R82b - Answering an event in the app, on the web page and on the admin page
 
-Status: blocked by R82a. Added by the maintainer (2026-10-16), split at G8
+Status: next. Added by the maintainer (2026-10-16), split at G8
 (2026-10-25).
 
 Goal: the people allowed answer questions in the app and on the web page, see
@@ -6781,9 +6820,10 @@ Users). The maintainer then added R80 (web sign-in codes follow the server's
 clock), and R80 is done. The maintainer then added replying to an event
 and notification action buttons (G7, R81, G8, R82, R83). The maintainer
 gave the go-ahead at G7, and R81 (designs for answering an event) is done.
-The maintainer approved them at G8 with changes, dropped R83 and split R82.
-**Next is R82a (answering an event: the server, the SDK and the command), then
-R82b (the app, the web page and the admin page).** A new item is added only by the maintainer, in a reviewed pull
+The maintainer approved them at G8 with changes, dropped R83 and split R82,
+and R82a (answering an event: the server, the SDK and the command) is done.
+**Next is R82b (answering an event in the app, on the web page and on the
+admin page).** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 

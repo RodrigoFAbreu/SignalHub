@@ -1116,7 +1116,7 @@ with the command against the real backend.
 ## Integration examples
 
 `examples/` holds small producers (shell, a disk monitor, GitHub Actions, a
-coding-agent hook, a usage-threshold monitor) that use only the public API;
+coding-agent hook, a usage-threshold monitor, a script that asks a question and waits for the answer) that use only the public API;
 see [`examples/README.md`](../examples/README.md). They are copied and
 adapted by owners, not installed. After `pip install ./sdk/python`, from the
 repository root:

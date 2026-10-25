@@ -24,13 +24,20 @@ class FakeSignalHub:
 
         class Handler(BaseHTTPRequestHandler):
             def do_POST(self) -> None:
+                self._handle("POST")
+
+            def do_GET(self) -> None:
+                self._handle("GET")
+
+            def _handle(self, method: str) -> None:
                 length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(length).decode("utf-8")
                 fake.requests.append(
                     {
+                        "method": method,
                         "path": self.path,
                         "headers": dict(self.headers),
-                        "body": json.loads(body),
+                        "body": json.loads(body) if body else None,
                     }
                 )
                 status, text = (
@@ -58,7 +65,7 @@ class FakeSignalHub:
         )
 
     def _stored(self, body: str) -> tuple[int, str]:
-        event = json.loads(body)
+        event = json.loads(body) if body else {}
         event.setdefault("metadata", {})
         event.update(
             {

@@ -6,6 +6,7 @@ SIGNALHUB_PROXY_URL.
 """
 
 import re
+import time
 import unittest
 from urllib.parse import urljoin, urlsplit
 
@@ -92,6 +93,45 @@ class ProxyProductApi(StackTestCase):
             f"https://{domain}/api/v1/events",
             urljoin(response.url, response.header("Location")),
         )
+
+
+class ProxyHeldRead(StackTestCase):
+    def test_a_sixty_second_held_read_of_an_answer_passes_through_the_proxy(self):
+        # Neither the proxy nor the backend sets a response timeout, so the
+        # longest wait the API allows comes back as the open question it is.
+        created = create_producer("ci-held-read")
+        event = published_id(
+            created["apiKey"],
+            "Merge it?",
+            ask={"choices": [{"id": "merge", "label": "Merge"}]},
+        )
+        started = time.monotonic()
+
+        response = proxy().get(
+            f"/api/v1/events/{event}/answer",
+            token=created["apiKey"],
+            query={"wait": 60},
+            timeout=90,
+        )
+
+        self.assertStatus(response, 200)
+        self.assertEqual("OPEN", response.json()["state"])
+        self.assertGreaterEqual(time.monotonic() - started, 58)
+
+    def test_the_producers_close_goes_through_the_proxy(self):
+        created = create_producer("ci-proxied-close")
+        event = published_id(
+            created["apiKey"],
+            "Merge it?",
+            ask={"choices": [{"id": "merge", "label": "Merge"}]},
+        )
+
+        response = proxy().post(
+            f"/api/v1/events/{event}/answer/close", token=created["apiKey"]
+        )
+
+        self.assertStatus(response, 200)
+        self.assertEqual("CLOSED", response.json()["state"])
 
 
 class ProxyWebPage(StackTestCase):
