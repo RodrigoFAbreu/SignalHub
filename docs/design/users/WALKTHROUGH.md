@@ -32,7 +32,7 @@ and no idea what SignalHub is. The flow takes Rui from the invitation to a
 first subscription. Screens before the app is connected have no bottom bar.
 
 1. **Setup.** Rui opens the app and sees *Connect to SignalHub*. The camera
-   scans the invitation code. *Paste link* is the keyboard and TalkBack path.
+   scans the invitation code. *Paste link* is the keyboard path.
    A code works once and for a few minutes. ![4a: Setup: scan the invitation](images/first-run/4a-setup-scan-invitation.webp)
 2. **When setup fails.** Each failure says what happened and what to do, in one
    sentence, and leaves the scanner usable.
