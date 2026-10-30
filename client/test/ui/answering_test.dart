@@ -373,6 +373,7 @@ void main() {
       find.text("Your answer wasn't sent. ci-pipeline got no answer."),
       findsOneWidget,
     );
+    expect(byKey('resultText'), findsNothing);
   });
 
   testWidgets('closed by its producer while choosing says who closed it', (
@@ -386,6 +387,32 @@ void main() {
     await press(tester, 'sendAnswer');
     await app.settle(tester);
 
+    expect(
+      find.text("Your answer wasn't sent. ci-pipeline closed this question."),
+      findsOneWidget,
+    );
+    expect(byKey('resultText'), findsNothing);
+  });
+
+  testWidgets('closed by its producer with a note while choosing shows it', (
+    tester,
+  ) async {
+    final app = await open(tester);
+
+    await press(tester, 'choice-merge');
+    await app.settle(tester);
+    app.backend.close('e-1', note: 'Answered in the session');
+    await press(tester, 'sendAnswer');
+    await app.settle(tester);
+
+    expect(
+      find.text('Closed while you were choosing · nobody can answer it now'),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Text>(byKey('resultText')).data,
+      '‘Answered in the session’',
+    );
     expect(
       find.text("Your answer wasn't sent. ci-pipeline closed this question."),
       findsOneWidget,
@@ -614,6 +641,7 @@ void main() {
         find.text("Your answer wasn't sent. ci-pipeline got no answer."),
         findsOneWidget,
       );
+      expect(byKey('resultText'), findsNothing);
       expect(byKey('sendAnswer'), findsNothing);
       expect(app.backend.answers, isEmpty);
     });
@@ -815,6 +843,27 @@ void main() {
       );
       expect(byKey('noteField'), findsNothing);
       expect(app.backend.answers, isEmpty);
+    });
+
+    testWidgets('closed with a note, with a choice picked: the note too', (
+      tester,
+    ) async {
+      final app = await open(tester);
+      await press(tester, 'choice-merge');
+      await app.settle(tester);
+
+      app.backend.close('e-1', note: 'Answered in the session');
+      await notice(tester, app, 'closed');
+
+      expect(
+        find.text('Closed while you were choosing · nobody can answer it now'),
+        findsOneWidget,
+      );
+      expect(find.text('‘Answered in the session’'), findsOneWidget);
+      expect(
+        find.text("Your answer wasn't sent. ci-pipeline closed this question."),
+        findsOneWidget,
+      );
     });
 
     testWidgets('closed, with nothing picked: closed by its producer', (
