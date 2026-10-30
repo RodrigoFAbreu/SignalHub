@@ -145,20 +145,24 @@ class _InboxScreenState extends State<InboxScreen> {
 
   AppBar _appBar() {
     final unread = _controller.unreadCount ?? 0;
+    final filter = _controller.filter;
     return AppBar(
       title: const Text('SignalHub'),
       actions: [
         IconButton(
           key: const Key('filter'),
           tooltip: 'Filter events',
-          isSelected: _controller.filter.isActive,
+          // Filled for what the Filter sheet holds; the To answer chip is
+          // not in it and shows its own state (frames 3b and 3c).
+          isSelected: filter.unreadOnly || filter.narrowsBySheet,
           icon: const Icon(Icons.filter_list),
           selectedIcon: const Icon(Icons.filter_alt),
           onPressed: _editFilter,
         ),
         // Nothing to mark while there are no events, and no change is made
-        // while the server cannot be reached.
-        if (_controller.events.isNotEmpty)
+        // while the server cannot be reached. The To answer view keeps it
+        // when its last question leaves, so its bar does not change (3c).
+        if (_controller.events.isNotEmpty || filter.toAnswer)
           IconButton(
             key: const Key('markAllRead'),
             tooltip: 'Mark all as read',

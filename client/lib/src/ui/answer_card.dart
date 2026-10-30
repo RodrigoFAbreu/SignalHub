@@ -221,15 +221,21 @@ class _AnswerCardState extends State<AnswerCard> {
     final over = _length(controller.text) - _maxText;
     final before = _tooLongShown(controller);
     setState(() => set(over > 0 ? _tooLong(over) : null));
-    if (over > 0 && !before) {
-      unawaited(
-        SemanticsService.sendAnnouncement(
-          View.of(context),
-          _tooLong(over),
-          Directionality.of(context),
-        ),
-      );
-    }
+    if (over > 0 && !before) _announce(_tooLong(over));
+  }
+
+  /// Says a message of the card once, as it appears. Where the platform has
+  /// no announcements (Android 16 and later), the message is a live region
+  /// instead: [_FieldError]'s, or the text field's own error.
+  void _announce(String message) {
+    if (!MediaQuery.supportsAnnounceOf(context)) return;
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        message,
+        Directionality.of(context),
+      ),
+    );
   }
 
   bool _tooLongShown(TextEditingController controller) =>
@@ -269,47 +275,49 @@ class _AnswerCardState extends State<AnswerCard> {
   // ---- Sending
 
   /// The first thing wrong with what is picked and typed, or `null`. It moves
-  /// the focus there; the message is that control's own.
+  /// the focus there and says why; the message is that control's own.
   bool _blocked() {
     final ask = _ask;
     final pickedNone = _draft.picked.isEmpty && !_draft.otherOn;
     if (!ask.isTyped && pickedNone) {
-      setState(
-        () => _pickError = ask.multiple
-            ? 'Pick at least one answer.'
-            : 'Pick an answer to send.',
-      );
-      _firstChoice.requestFocus();
-      return true;
+      final message = ask.multiple
+          ? 'Pick at least one answer.'
+          : 'Pick an answer to send.';
+      setState(() => _pickError = message);
+      return _stop(_firstChoice, message);
     }
     if (_draft.otherOn) {
       if (_other.text.trim().isEmpty) {
-        setState(() => _otherError = 'Type your answer for Other.');
-        _otherFocus.requestFocus();
-        return true;
+        const message = 'Type your answer for Other.';
+        setState(() => _otherError = message);
+        return _stop(_otherFocus, message);
       }
       if (_length(_other.text) > _maxText) {
-        _otherFocus.requestFocus();
-        return true;
+        return _stop(_otherFocus, _otherError);
       }
     }
     if (ask.isTyped || ask.hasNote) {
       final required = ask.isTyped || ask.text == AskText.required;
       if (required && _note.text.trim().isEmpty) {
-        setState(
-          () => _noteError = ask.isTyped
-              ? 'Type an answer to send.'
-              : 'Type a note to send.',
-        );
-        _noteFocus.requestFocus();
-        return true;
+        final message = ask.isTyped
+            ? 'Type an answer to send.'
+            : 'Type a note to send.';
+        setState(() => _noteError = message);
+        return _stop(_noteFocus, message);
       }
       if (_length(_note.text) > _maxText) {
-        _noteFocus.requestFocus();
-        return true;
+        return _stop(_noteFocus, _noteError);
       }
     }
     return false;
+  }
+
+  /// Moves the focus to what is wrong and says why. TalkBack's focus does
+  /// not follow the input focus, so the message is spoken, not left to it.
+  bool _stop(FocusNode focus, String? message) {
+    focus.requestFocus();
+    if (message != null) _announce(message);
+    return true;
   }
 
   Future<void> _send() async {
@@ -635,22 +643,27 @@ class _FieldError extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = theme.colorScheme.error;
-    return Padding(
-      key: const Key('pickError'),
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          ExcludeSemantics(
-            child: Icon(Icons.error_outline, size: 16, color: color),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodySmall?.copyWith(color: color),
+    // Its own node, as a text field's error is, so it can be spoken.
+    return Semantics(
+      container: true,
+      liveRegion: !MediaQuery.supportsAnnounceOf(context),
+      child: Padding(
+        key: const Key('pickError'),
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          children: [
+            ExcludeSemantics(
+              child: Icon(Icons.error_outline, size: 16, color: color),
             ),
-          ),
-        ],
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                text,
+                style: theme.textTheme.bodySmall?.copyWith(color: color),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -198,6 +198,50 @@ void main() {
     expect(byKey('chipToAnswer'), findsNothing);
   });
 
+  testWidgets('the To answer view keeps the app bar as drawn (3b and 3c)', (
+    tester,
+  ) async {
+    final app = inbox();
+    useDesignPhone(tester);
+    await app.start(tester);
+    await tester.tap(byKey('chipToAnswer'));
+    await app.settle(tester);
+
+    // The chip is not one of the Filter sheet's filters: the icon stays
+    // outlined, and Mark all as read is there but off.
+    void expectBar() {
+      expect(tester.widget<IconButton>(byKey('filter')).isSelected, isFalse);
+      expect(find.byIcon(Icons.filter_list), findsOneWidget);
+      expect(find.byIcon(Icons.filter_alt), findsNothing);
+      expect(byKey('markAllRead'), findsOneWidget);
+      expect(tester.widget<IconButton>(byKey('markAllRead')).onPressed, isNull);
+    }
+
+    expectBar();
+    app.backend
+      ..answerBy('e-1', 'Ana', ['hold'])
+      ..answerBy('e-2', 'Ana', ['hold']);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 300));
+    await app.settle(tester);
+
+    expect(find.text('Nothing to answer'), findsOneWidget);
+    expectBar();
+  });
+
+  testWidgets('the filter icon fills for the Filter sheet\'s filters', (
+    tester,
+  ) async {
+    final app = inbox();
+    useDesignPhone(tester);
+    await app.start(tester);
+    expect(tester.widget<IconButton>(byKey('filter')).isSelected, isFalse);
+
+    await tester.tap(byKey('chipUnread'));
+    await app.settle(tester);
+    expect(tester.widget<IconButton>(byKey('filter')).isSelected, isTrue);
+    expect(find.byIcon(Icons.filter_alt), findsOneWidget);
+  });
+
   testWidgets('a person who never gets questions never sees To answer', (
     tester,
   ) async {

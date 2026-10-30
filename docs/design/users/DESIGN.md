@@ -837,6 +837,9 @@ state is never only an icon or a colour. The unread dot stays read state only.
   it on and nothing left, the list shows *Nothing to answer* with a button
   *Show all events*, which switches the chip off. A selected chip is
   secondaryContainer with a check, as in 3.2. On the web page the row wraps (R6).
+  In the app the chip shows its own state: the app bar's Filter icon stays
+  outlined for it (it fills for what the Filter sheet holds), and *Mark all as
+  read* stays in the bar, off, also with nothing left (3b, 3c).
   [3b](../answers/images/app-answering/3b-the-to-answer-filter-on.webp), [3c](../answers/images/app-answering/3c-the-to-answer-filter-nothing-left.webp), [2a](../answers/images/web-answering/2a-inbox-a-question-to-answer-answered.webp), [2b](../answers/images/web-answering/2b-the-to-answer-chip-on.webp), [2c](../answers/images/web-answering/2c-the-to-answer-chip-on-nothing.webp)
 - **Read state and the question are separate.** Opening a question marks it read,
   and it stays in *To answer* until it is answered or closed. *Mark all as read*
@@ -879,6 +882,12 @@ reached, the answerer's other devices included, and not the one that answered.
 [1d](../answers/images/notification/1d-answered-the-notification-goes.webp), [1e](../answers/images/notification/1e-closed-the-notification-goes.webp), [1e2](../answers/images/notification/1e2-deleted-the-notification-goes.webp). A phone that is offline, dozing (the
 notices go at normal priority) or has the app force-stopped keeps the card until the notice arrives, and a tap then opens
 the event in its current state. A swiped-away card has nothing to remove.
+
+**With the app open.** A question that arrives while the app is in the
+foreground shows in the inbox, which re-reads itself, and plays SignalHub's
+alert (R57); Android shows no notification in the shade. That is Firebase's
+foreground behaviour and intended (the maintainer, 2026-10-30): the person is
+already looking at the inbox.
 
 ### 10.6 Who can answer: the answerers setting
 
@@ -1020,7 +1029,11 @@ answering, and the page never says *To answer*.
 - **Messages** (nothing picked, too long, the result) are tied to their field with
   `aria-describedby`; the too-long message, which appears while typing, is
   announced once politely; a message that comes with a focus move is not a live
-  region. Every error
+  region. In the app, TalkBack's focus does not follow the focus move, so every
+  message of the card (nothing picked, an empty *Other* field or typed answer,
+  too long) is its own node and is spoken as it appears and at each press of
+  *Send answer*: announced politely where Android takes announcements, and a
+  live region where it does not (Android 16 and later). Every error
   has an icon and words, never colour alone.
 - **Focus** follows 6.3: a 2 px primary ring, never removed, on the checked
   radio's row. A dialog starts on *Cancel* when it removes something.
