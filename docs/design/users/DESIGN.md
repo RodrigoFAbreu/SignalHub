@@ -844,8 +844,14 @@ state is never only an icon or a colour. The unread dot stays read state only.
 - **Read state and the question are separate.** Opening a question marks it read,
   and it stays in *To answer* until it is answered or closed. *Mark all as read*
   marks it read like any event and does not remove it from *To answer*.
-- **Refresh.** The web page re-reads an open event when its tab regains focus
-  and after any `409`. The app re-reads it on resume. A first load always shows
+- **Refresh.** The web page re-reads an open event when its tab regains focus,
+  after any `409` and, while a question on screen is open and its tab is
+  visible, every 15 seconds, and swaps the card to what it finds (10.3: a person
+  with something picked or typed reads *while you were choosing* or *answered
+  first*; a deleted event reads *isn't in your inbox any more*). The re-reads
+  pause while the tab is hidden and end with the question or when the pane
+  closes; one that fails keeps the card as it is, with no error. The app re-reads
+  it on resume and follows a question's end as it happens. A first load always shows
   the current state. A question leaves *To answer* on the next re-read after it
   is answered or closes.
 

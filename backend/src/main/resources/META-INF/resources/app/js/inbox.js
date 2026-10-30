@@ -7,11 +7,13 @@ import { CATEGORIES, SEVERITIES, categoryOf, severityLabel, toneOf } from "./eve
 import { clock, rowTime, timestamp } from "./format.js";
 import { chip, paneHeader, selectPrompt } from "./parts.js";
 import { go, hashFor, parseHash } from "./router.js";
-import { answerCard, disposeQuestion, lineNode, questionLine, signature } from "./question.js";
+import { answerCard, disposeQuestion, lineNode, noteLostAttempt, questionLine, signature } from "./question.js";
 import { setToAnswer, setUnread, state } from "./state.js";
 import { announce, bannerSlot, button, emptyState, hideBanner, iconButton, openDialog, setBusy, showBanner, skeletonRows, spinner, banner } from "./ui.js";
 
 const PAGE = 50;
+// How often an open question on screen is read again (the page has no push channel).
+const QUESTION_REREAD_MS = 15_000;
 
 /** The filter in the address: `?unread=1&toAnswer=1&producer=ID&category=INFO&severity=HIGH`. */
 export function readFilter(query) {
@@ -473,6 +475,7 @@ export function mountInbox(container, route, { wide }) {
     }
     if (gone || selected !== id) return fresh;
     if (current?.id === id && signature(fresh) !== signature(current)) {
+      noteLostAttempt(current, fresh);
       current = fresh;
       replaceInList(fresh);
       refreshUnread();
@@ -570,6 +573,12 @@ export function mountInbox(container, route, { wide }) {
 
   // ---- Public ---------------------------------------------------------------------------
 
+  // An open question shown on a visible tab is read again, so its end appears without a reload.
+  const questionTimer = setInterval(() => {
+    if (gone || document.visibilityState !== "visible") return;
+    if (selected && current?.id === selected && current.ask && current.answerState === "OPEN") reread(selected);
+  }, QUESTION_REREAD_MS);
+
   paintHeader();
   paintChips();
   paintFilterBar();
@@ -609,12 +618,13 @@ export function mountInbox(container, route, { wide }) {
       }
     },
     refresh() {
-      // The tab came back or the page is current again: the list, and an open question's state.
-      return Promise.all([load(true), selected && current?.ask ? reread(selected) : null]);
+      // The tab came back or the page is current again: the list, and an open question's state (a decided one is final).
+      return Promise.all([load(true), selected && current?.ask && current.answerState === "OPEN" ? reread(selected) : null]);
     },
     unmount() {
       gone = true;
       disposeQuestion();
+      clearInterval(questionTimer);
       observer?.disconnect();
       clearTimeout(retryTimer);
       hideBanner("inbox");

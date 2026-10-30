@@ -177,6 +177,19 @@ export function signature(event) {
   return [event.answerState, event.canAnswer, event.answer?.at, event.closedBy, event.ask?.closesAt].join("|");
 }
 
+/**
+ * A re-read found the question decided. A person with something picked or typed is told their
+ * answer wasn't sent (the card a 409 gives); one with nothing in hand sees the plain result.
+ */
+export function noteLostAttempt(before, fresh) {
+  if (before?.id !== fresh.id || before.answerState !== "OPEN" || fresh.answerState === "OPEN") return;
+  const draft = drafts.get(fresh.id);
+  const inHand = Boolean(draft && (draft.picked.size > 0 || draft.otherOn || draft.note.trim() || draft.other.trim()));
+  if (!inHand) return;
+  attempts.set(fresh.id, fresh.answerState === "ANSWERED" ? "first" : "closed");
+  drafts.delete(fresh.id);
+}
+
 // ---- The card --------------------------------------------------------------------------
 
 /**
