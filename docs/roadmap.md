@@ -2818,6 +2818,24 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   they fail without the fixes
 - patch (`fix`); the app and the design document only, no API or schema change
 
+### R86 - The web page follows an open question's end
+
+- **the re-read**: while an event whose question is open is shown and the
+  tab is visible, the users' web page reads that event again every 15 seconds
+  and swaps the card to its current state (closed by its producer, answered
+  from elsewhere, closed by its time, or deleted), as the app does since R84;
+  it tells a person who had picked or typed something that it closed while
+  they were choosing, or who answered first, as a `409` does
+- **when it stops**: the re-reads pause while the tab is hidden and end with
+  the question or when the pane closes; a failed re-read keeps the card as it
+  is, with no error; the 30-second refresh no longer reads a question that has
+  ended
+- `docs/design/users/DESIGN.md` 10.4 records it
+- `web-tests/` tests for each end, with and without a draft, the pause while
+  hidden, a failed re-read and the stop, on Playwright's clock; they fail
+  without the fix
+- patch (`fix`); the web page only, no API or schema change
+
 ## 4. Planned roadmap
 
 Roadmap items are ordered by dependency, but each item may be split into smaller releasable increments if implementation evidence shows that doing so is safer or more reviewable.
@@ -3451,7 +3469,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 78    | R82b - Answering an event in the app, on the web page and on the admin page                      | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 79    | R84 - Fixes from testing answering an event on the phone                                         | Increment (`fix`)                      | Done (see section 3)                                                             |
 | 80    | R85 - Polish from the second phone test of answering an event                                    | Increment (`fix`)                      | Done (see section 3)                                                             |
-| 81    | R86 - The web page follows an open question's end                                                | Increment (`fix`)                      | Next                                                                             |
+| 81    | R86 - The web page follows an open question's end                                                | Increment (`fix`)                      | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -4058,6 +4076,7 @@ advance; they follow from the queue.
 | R82b          | minor (`feat`)                                                                                                                                        | the screens for questions in the app, on the web page and on the admin page, `canAnswer` on the visible producers, the push's first line; additive|
 | R84           | patch (`fix`)                                                                                                                                         | the app follows a question's end on an open event screen, and the answering phone clears its notification; no API change |
 | R85           | patch (`fix`)                                                                                                                                         | the app's To answer view keeps its bar as drawn, and the answer card's messages are spoken; no API change |
+| R86           | patch (`fix`)                                                                                                                                         | the web page follows an open question's end every 15 seconds while its tab is visible; no API change |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6793,7 +6812,7 @@ row, which matches frame 3a.
 
 ### R86 - The web page follows an open question's end
 
-Status: next. Added by the maintainer (2026-10-30), right after R85.
+Status: done (see section 3). Added by the maintainer (2026-10-30), right after R85.
 
 Goal: on the users' web page, a question shown on screen follows its end without a reload or a
 change of tab, as the app does since R84: closed by its producer, answered by someone else, deleted,
@@ -6973,7 +6992,7 @@ R82a (answering an event: the server, the SDK and the command) and R82b
 done. The maintainer then added R84 (fixes from testing answering an event on
 the phone), and R84 is done. The maintainer then added R85 (polish from the
 second phone test), then R86 (the web page follows an open question's end),
-and R85 is done. **Next is R86.** A new item is added only by the maintainer, in a reviewed pull
+and R85 and R86 are done. **Nothing is Next.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 
