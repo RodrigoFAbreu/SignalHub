@@ -4,6 +4,7 @@ import 'package:signalhub_client/src/push/push_service.dart';
 import 'package:signalhub_client/src/ui/answer_card.dart';
 import 'package:signalhub_client/src/ui/event_style.dart';
 
+import '../support/fake_platform.dart';
 import '../support/fakes.dart';
 import '../support/harness.dart';
 import '../support/phone.dart';
@@ -885,6 +886,108 @@ void main() {
       find.text("This event isn't in your inbox any more"),
       findsOneWidget,
     );
+  });
+
+  group('its messages are spoken as they appear', () {
+    final port = FakeBackend.question(
+      choices: [('a', '8443', null), ('b', '9443', null)],
+      text: 'OPTIONAL',
+      textStyle: 'OTHER',
+    );
+
+    /// A phone whose platform takes announcements, or not (Android 16 and
+    /// later), with what the screen reader is told recorded.
+    FakePlatform phone(WidgetTester tester, {required bool announces}) {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          FakeAccessibilityFeatures(supportsAnnounce: announces);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      return FakePlatform(tester);
+    }
+
+    testWidgets('nothing picked is announced at every press', (tester) async {
+      final platform = phone(tester, announces: true);
+      final app = await open(tester);
+
+      await press(tester, 'sendAnswer');
+      await app.settle(tester);
+      expect(platform.announced, ['Pick an answer to send.']);
+      await press(tester, 'sendAnswer');
+      await app.settle(tester);
+      expect(platform.announced, [
+        'Pick an answer to send.',
+        'Pick an answer to send.',
+      ]);
+    });
+
+    testWidgets('an empty Other field is announced', (tester) async {
+      final platform = phone(tester, announces: true);
+      final app = await open(tester, ask: port);
+
+      await press(tester, 'choice-other');
+      await app.settle(tester);
+      await press(tester, 'sendAnswer');
+      await app.settle(tester);
+
+      expect(platform.announced, ['Type your answer for Other.']);
+    });
+
+    testWidgets('an empty typed answer is announced', (tester) async {
+      final platform = phone(tester, announces: true);
+      final app = await open(tester, ask: FakeBackend.question());
+
+      await press(tester, 'sendAnswer');
+      await app.settle(tester);
+
+      expect(platform.announced, ['Type an answer to send.']);
+    });
+
+    testWidgets('too long is announced once while typing, and on a press', (
+      tester,
+    ) async {
+      final platform = phone(tester, announces: true);
+      final app = await open(tester, ask: FakeBackend.question());
+
+      await tester.enterText(inner('noteField'), 'x' * 3043);
+      await app.settle(tester);
+      await tester.enterText(inner('noteField'), 'x' * 3044);
+      await app.settle(tester);
+      expect(platform.announced, ['Too long: 43 characters over the limit.']);
+
+      await press(tester, 'sendAnswer');
+      await app.settle(tester);
+      expect(platform.announced, [
+        'Too long: 43 characters over the limit.',
+        'Too long: 44 characters over the limit.',
+      ]);
+    });
+
+    testWidgets('without announcements, each message is a live region', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final platform = phone(tester, announces: false);
+      final app = await open(tester, ask: port);
+
+      await press(tester, 'sendAnswer');
+      await app.settle(tester);
+      expect(
+        tester.getSemantics(find.text('Pick an answer to send.')),
+        isSemantics(label: 'Pick an answer to send.', isLiveRegion: true),
+      );
+
+      await press(tester, 'choice-other');
+      await app.settle(tester);
+      await press(tester, 'sendAnswer');
+      await app.settle(tester);
+      expect(
+        tester.getSemantics(find.text('Type your answer for Other.')),
+        isSemantics(label: 'Type your answer for Other.', isLiveRegion: true),
+      );
+      expect(platform.announced, isEmpty);
+      semantics.dispose();
+    });
   });
 
   testWidgets('an event that asks nothing has no card', (tester) async {

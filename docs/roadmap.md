@@ -2798,6 +2798,26 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   draft, and with a fake platform for the removal; they fail without the fixes
 - patch (`fix`); the app only, no API or schema change
 
+### R85 - Polish from the second phone test of answering an event
+
+- **the To answer view as drawn** (frames 3b and 3c): the chip no longer
+  fills the app bar's Filter icon, which fills only for what the Filter sheet
+  holds (unread only, producer, category, severity), and *Mark all as read*
+  stays in the bar, off, when the last question leaves the view
+- **spoken validation messages**: the answer card's messages (nothing
+  picked, an empty *Other* field or typed answer, a note required, too long)
+  are spoken as they appear and at each press of *Send answer*, announced
+  where Android takes announcements and a live region where it does not
+  (Android 16 and later); the message under the choices is its own node
+- **a question with the app open**: `docs/design/users/DESIGN.md` 10.5 records
+  that it shows in the inbox and plays SignalHub's alert, with nothing in the
+  shade (Firebase's foreground behaviour); the code was checked: the native
+  `PushAlertReceiver` plays the alert for every FCM push, open or not (R57),
+  and the app's foreground `onMessage` re-reads the inbox
+- widget tests for the app bar and for the announcements and live regions;
+  they fail without the fixes
+- patch (`fix`); the app and the design document only, no API or schema change
+
 ## 4. Planned roadmap
 
 Roadmap items are ordered by dependency, but each item may be split into smaller releasable increments if implementation evidence shows that doing so is safer or more reviewable.
@@ -3430,8 +3450,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 77    | R83 - Notification action buttons                                                                | Increment (`feat`)                     | Dropped at G8 (2026-10-25)                                                       |
 | 78    | R82b - Answering an event in the app, on the web page and on the admin page                      | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 79    | R84 - Fixes from testing answering an event on the phone                                         | Increment (`fix`)                      | Done (see section 3)                                                             |
-| 80    | R85 - Polish from the second phone test of answering an event                                    | Increment (`fix`)                      | Next                                                                             |
-| 81    | R86 - The web page follows an open question's end                                                | Increment (`fix`)                      | Blocked by R85                                                                   |
+| 80    | R85 - Polish from the second phone test of answering an event                                    | Increment (`fix`)                      | Done (see section 3)                                                             |
+| 81    | R86 - The web page follows an open question's end                                                | Increment (`fix`)                      | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -4037,6 +4057,7 @@ advance; they follow from the queue.
 | R82a          | minor (`feat`)                                                                                                                                        | an optional `ask` on events, answering, the producer's read and close, notices, the SDK and command; additive |
 | R82b          | minor (`feat`)                                                                                                                                        | the screens for questions in the app, on the web page and on the admin page, `canAnswer` on the visible producers, the push's first line; additive|
 | R84           | patch (`fix`)                                                                                                                                         | the app follows a question's end on an open event screen, and the answering phone clears its notification; no API change |
+| R85           | patch (`fix`)                                                                                                                                         | the app's To answer view keeps its bar as drawn, and the answer card's messages are spoken; no API change |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6751,7 +6772,7 @@ decision); anything else.
 
 ### R85 - Polish from the second phone test of answering an event
 
-Status: next. Added by the maintainer (2026-10-30) from the second phone test (release 3.18.4).
+Status: done (see section 3). Added by the maintainer (2026-10-30) from the second phone test (release 3.18.4).
 
 Goal: the last small differences found on the phone are settled, as the maintainer chose.
 
@@ -6772,7 +6793,7 @@ row, which matches frame 3a.
 
 ### R86 - The web page follows an open question's end
 
-Status: blocked by R85. Added by the maintainer (2026-10-30), right after R85.
+Status: next. Added by the maintainer (2026-10-30), right after R85.
 
 Goal: on the users' web page, a question shown on screen follows its end without a reload or a
 change of tab, as the app does since R84: closed by its producer, answered by someone else, deleted,
@@ -6951,8 +6972,8 @@ R82a (answering an event: the server, the SDK and the command) and R82b
 (answering an event in the app, on the web page and on the admin page) are
 done. The maintainer then added R84 (fixes from testing answering an event on
 the phone), and R84 is done. The maintainer then added R85 (polish from the
-second phone test), then R86 (the web page follows an open question's end).
-**Next is R85, then R86.** A new item is added only by the maintainer, in a reviewed pull
+second phone test), then R86 (the web page follows an open question's end),
+and R85 is done. **Next is R86.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 
