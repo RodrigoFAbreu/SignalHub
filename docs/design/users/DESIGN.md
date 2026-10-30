@@ -292,11 +292,9 @@ curl -X POST https://signalhub.example/api/v1/events \
 
 **Inbox badge.** The number of unread events of the producers you subscribe to,
 on the Inbox tab only. Up to 99 it shows the number. Above that it shows
-`99+`. At zero it is absent. The screen reader says the real count
-(`Inbox, 124 unread`). When nothing is unread and there are questions to
-answer, the badge is a dot without a number, named *Inbox, N to answer*; with
-both, the number is the unread count and the name is *Inbox, N unread, M to
-answer*.
+`99+`. At zero it is absent. When nothing is unread and there are questions to
+answer, the badge is a dot without a number; with both, the number is the
+unread count.
 
 **Browser device row.** A browser is a device in every rule, so it uses the
 device row on the app and the web page: the `language` (globe) icon, the name,
@@ -414,29 +412,11 @@ The canonical strings. The app and the web page use these and no others.
 
 ![s7: Accessibility, text size and motion](images/design-system/s7-accessibility-text-size-motion.webp)
 
-### 6.1 Accessible names for icon-only controls
+### 6.1 Screen readers
 
-| Control | Name a screen reader speaks |
-| --- | --- |
-| Back arrow | Back |
-| Close (forms, the key screen, the scanner) | Close |
-| Inbox filter | Filter events |
-| Mark all as read | Mark all as read |
-| People search | Search people |
-| Clear search | Clear search |
-| Row menu | More actions for NAME |
-| Rename pencil | Rename NAME |
-| x on an allow-list chip | Remove NAME |
-| x on an answerer's row | Remove NAME from Who can answer |
-| x on a filter chip | Remove filter NAME |
-| Revoke on a key row | Revoke key shpk1_EXAMPLE… |
-| Bell toggle | Subscribed to NAME. Double tap to unsubscribe. / Not subscribed to NAME. Double tap to subscribe. / Subscribing to NAME / Unsubscribing from NAME |
-| Segmented button and switch | The state is spoken: "Private, selected", "Info, on" |
-| The disabled Admin segment | Admin, not available. Set on the admin page |
-| Inbox tab with a badge | Inbox, 3 unread |
-| The camera region of the scanner | Camera, point at the invitation code |
-| The sign-in QR code (web) | Sign-in QR code. To sign in without scanning, use a code instead. |
-| The account button (web) | Account menu, NAME |
+Not a SignalHub consideration (the maintainer, 2026-10-30): designs, builds, reviews and tests
+do not plan for screen readers such as TalkBack. Icon-only controls still carry a short label where
+the automated tests select them by it.
 
 ### 6.2 Text size and long names
 
@@ -789,8 +769,8 @@ the inbox. Curly quotes and the middle dot as separator, as in section 5.
 | State | Words | Notes and frames |
 | --- | --- | --- |
 | Open, may answer | *Your answer*, *Pick one.* / *Pick one or more.* / *Type your answer.*, *Send answer* | 10.1. [1a](../answers/images/app-answering/1a-option-a-an-answer-card-under.webp), [1a](../answers/images/web-answering/1a-the-question-a-single-choice-with.webp) |
-| Closes at | *Closes at 09:00*, grey; in the last hour *Closes at 09:00 · in 12 min* in the error colour with a clock icon. On another day *Closes 17 Oct at 09:00*. No closing time shows no line. | The words carry the urgency, so colour is not the only signal. The web page updates the minutes once a minute and does not announce them. [2j](../answers/images/app-answering/2j-it-closes-soon.webp), [1k](../answers/images/web-answering/1k-it-closes-soon.webp) |
-| Sending | The choices and the note dim, the button shows a progress ring and reads *Sending* (announced *Sending answer*) | Cannot be pressed twice. Leaving does not cancel the send. The ring stops turning for reduced motion and stays visible. [2d](../answers/images/app-answering/2d-sending.webp), [1d](../answers/images/web-answering/1d-sending.webp) |
+| Closes at | *Closes at 09:00*, grey; in the last hour *Closes at 09:00 · in 12 min* in the error colour with a clock icon. On another day *Closes 17 Oct at 09:00*. No closing time shows no line. | The words carry the urgency, so colour is not the only signal. The web page updates the minutes once a minute. [2j](../answers/images/app-answering/2j-it-closes-soon.webp), [1k](../answers/images/web-answering/1k-it-closes-soon.webp) |
+| Sending | The choices and the note dim, the button shows a progress ring and reads *Sending* | Cannot be pressed twice. Leaving does not cancel the send. The ring stops turning for reduced motion and stays visible. [2d](../answers/images/app-answering/2d-sending.webp), [1d](../answers/images/web-answering/1d-sending.webp) |
 | You answered | *You answered · Merge · 19:02*, then *Note: After lunch* when a note was sent, then *Sent to ci-pipeline.* | Several choices read *You answered · Unit tests, Lint · 19:02*. A typed-only answer reads *You answered · ‘after lunch’*, then *19:02 · Sent to ci-pipeline.*; past about 40 characters the title says *You answered* and the text follows in full. A long label wraps in the title, never cut; the time stays at the end of the last line. The 40-character rule applies to a typed answer only. [2e](../answers/images/app-answering/2e-answered-by-you.webp), [2e2](../answers/images/app-answering/2e2-a-typed-question-answered.webp), [1e](../answers/images/web-answering/1e-you-answered.webp), [1q](../answers/images/web-answering/1q-you-answered-a-typed-question.webp) |
 | Someone else answered | *Ana answered · Hold · 18:55*, then *Sent to ci-pipeline. Nobody else can answer now.* | The name stored with the answer, even if Ana is renamed. The icon is grey, not primary. A long label wraps, as in *You answered*. A typed answer: *Ana answered · ‘after lunch’*, then *18:55 · Sent to ci-pipeline. Nobody else can answer now.* [2f](../answers/images/app-answering/2f-answered-by-someone-else.webp), [1f](../answers/images/web-answering/1f-someone-else-answered.webp) |
 | Answered first | *Ana answered first: Hold*, then *18:55. Your answer wasn't sent, and ci-pipeline has Ana's.* | The `409` carries the winner, so the card swaps at once. No error colour, no retry, the choice and the note dropped. The same person on another device with a different answer reads *You already answered: Merge. Your new answer wasn't sent.* [2l](../answers/images/app-answering/2l-someone-answered-first-while-you-were.webp), [1j](../answers/images/web-answering/1j-someone-answered-first.webp) |
@@ -802,13 +782,12 @@ the inbox. Curly quotes and the middle dot as separator, as in section 5.
 | Closed by the producer | *Closed by ci-pipeline · Answered in the session* (without the part after the dot when no note was sent), then *ci-pipeline closed this question on 17 Oct at 08:41.* | The producer answered elsewhere and closed it (`closedBy: PRODUCER`, the time from `closedAt`). Seen by everyone; no warning colour; notifications removed. On the admin page as on the app and web page. Past about 40 characters the title says *Closed by ci-pipeline* and the note follows in full on its own line, in curly quotes. It is never cut. The icon is a grey `lock`, not the clock of a time-out (10.4). |
 | Read-only | 10.2 | [2h](../answers/images/app-answering/2h-open-but-you-may-not-answer.webp), [1h](../answers/images/web-answering/1h-open-but-you-may-not-answer.webp) |
 | Send failed | A snackbar *Answer not sent* with *Retry* | The failed-change pattern of 4. The choice and the note are kept as typed. Retry and the button do the same. Offline before the tap has no frame of its own: the offline banner covers it. [2k](../answers/images/app-answering/2k-send-failed-offline-or-server-error.webp), [1i](../answers/images/web-answering/1i-send-failed.webp) |
-| Nothing picked | *Pick an answer to send.* / *Pick at least one answer.* / *Type an answer to send.* | Under the list with an icon. Focus moves to the first choice (to the field for a typed question or an empty *Other*), and the message is that group's or field's accessible description (`aria-describedby`, with `aria-invalid="true"`), so it is read once, with the focus. No `role="alert"`: with the focus move it would be read twice. [2o](../answers/images/app-answering/2o-field-error-nothing-picked.webp), [1m](../answers/images/web-answering/1m-field-error-nothing-picked.webp) |
+| Nothing picked | *Pick an answer to send.* / *Pick at least one answer.* / *Type an answer to send.* | Under the list with an icon. Focus moves to the first choice (to the field for a typed question or an empty *Other*). [2o](../answers/images/app-answering/2o-field-error-nothing-picked.webp), [1m](../answers/images/web-answering/1m-field-error-nothing-picked.webp) |
 | Text too long | *Too long: 43 characters over the limit.* with the counter *3043 / 3000* | Shown as soon as the text passes 3000, in the error colour. The text is never cut, and *Send answer* stays pressable and only moves the focus. [2n](../answers/images/app-answering/2n-field-error-the-text-is-too.webp), [1l](../answers/images/web-answering/1l-field-error-the-text-is-too.webp) |
 | Event deleted | *This event isn't in your inbox any more* | The existing state; the answer went with the event. [2m](../answers/images/app-answering/2m-the-event-was-deleted-meanwhile.webp) |
 | Owner unsubscribed | On the producer's page, under the *Subscribed* switch: *Stay subscribed to answer. While you're unsubscribed, NAME's questions don't reach you, and you can't answer them.* | Shown only to the owner or an answerer who is unsubscribed. An unsubscribed owner cannot open the event, so this page is the only place. [2i](../answers/images/app-answering/2i-you-own-the-producer-but-unsubscribed.webp), [4f](../answers/images/web-answering/4f-your-producer-unsubscribed-stay-subscribed-to.webp) |
 
-The card's result is announced once, in a polite live region. Sending turns
-into the result without animation.
+Sending turns into the result without animation.
 
 ### 10.4 The inbox: lines, chips and refresh
 
@@ -821,7 +800,7 @@ state is never only an icon or a colour. The unread dot stays read state only.
 | --- | --- | --- |
 | *To answer* (with *· Closes 09:00* when there is a closing time) | An open question this person may answer now | primary, 14/20, weight 500, `question_answer` |
 | *Waiting for Rodrigo* / *Waiting for Rodrigo or Ana* / *Waiting for Rodrigo, Ana or Rui* | An open question this person may only read | grey, hourglass. The names are `whoCanAnswer`, the owner first. *Waiting · nobody can answer* when nobody can. |
-| *You answered · Merge*, *Ana answered · Hold* | An answered question | grey, check. One line: a long label ends with an ellipsis, the only place a label is cut; the accessible name has it in full. An *Other* answer reads *You answered · Other*. |
+| *You answered · Merge*, *Ana answered · Hold* | An answered question | grey, check. One line: a long label ends with an ellipsis, the only place a label is cut. An *Other* answer reads *You answered · Other*. |
 | *Closed · nobody answered* | A question that closed by its time | grey, `lock_clock` |
 | *Closed by ci-pipeline* | A question the producer closed | grey, `lock`. The note is not in the row. |
 
@@ -829,7 +808,7 @@ state is never only an icon or a colour. The unread dot stays read state only.
   *To answer*. They are the only chips of the inbox. *Unread* is the same switch
   as the unread-only option of the Filter sheet, which keeps it, and producer,
   category and severity. *To answer* carries the number of open questions this
-  person may answer (accessible name *To answer, 2*). The chip row is hidden
+  person may answer. The chip row is hidden
   while the inbox has no events at all and no filter is on, so the empty inbox
   (*No events yet*, `App - First run` 4c) is unchanged.
 - **The chip rule.** *To answer* is shown only while its count is above 0 or
@@ -905,9 +884,7 @@ only.
 
 - **Rows.** The owner is the first row, *Rodrigo (you)*, with the second line
   *Owner · can always answer* and no control. Each added person's row says
-  *Can answer its questions* and has a 48 dp close button, accessible name
-  *Remove Ana from Who can answer* (the allow-list chip on the same screen is
-  *Remove Ana*). The last row is *Add people who can answer*.
+  *Can answer its questions* and has a 48 dp close button. The last row is *Add people who can answer*.
 - **Nobody added.** *Only you can answer this producer's questions.* under the
   owner's row. [4b](../answers/images/app-answering/4b-nobody-added-yet.webp)
 - **The picker** is the one of sharing: titled *Add people who can answer*,
@@ -953,8 +930,7 @@ answering, and the page never says *To answer*.
 - **List markers.** One word with an icon under the title of an event that asks:
   *Waiting* (tonal tag, hourglass), *Answered* (outlined tag, check) and *Closed*
   (plain tag, `lock_clock` when it closed by its time, `lock` when its producer
-  closed it). The accessible name ends with it (*Merge R82 into main?,
-  waiting*). On a phone the marker joins the second line. [L1](../answers/images/admin/l1-the-list-with-questions.webp)
+  closed it). On a phone the marker joins the second line. [L1](../answers/images/admin/l1-the-list-with-questions.webp)
 - **Question filter.** One filter chip, *Question*, in the filter row of the
   Events section, a single-choice menu like Read state: *Any*, *Waiting*,
   *Answered*, *Closed* and *No question*. They are the list
@@ -1006,41 +982,17 @@ answering, and the page never says *To answer*.
   button does, with the same checks; the button's tooltip names it.
   The shortcut is not the only way: the button works as always. It works from
   any control of the card, the note, the *Other* field and the typed answer
-  included, and in a text area it does not insert a line. The button has
-  `aria-keyshortcuts="Control+Enter Meta+Enter"` and its tooltip reads *Send
+  included, and in a text area it does not insert a line. The button's tooltip reads *Send
   answer (Ctrl+Enter)*, or *Send answer (Cmd+Enter)* on a Mac; it shows on
-  hover and on keyboard focus of the button. A tooltip is not the only hint,
-  so touch and screen reader users lose nothing. Ctrl+Enter does what a press
+  hover and on keyboard focus of the button. Ctrl+Enter does what a press
   does: with an error (nothing picked, past 3000 characters) it moves the
   focus and says why (10.3); while sending it is ignored; during an input
   method composition it does nothing. Because the note's field disappears
   when the card turns into the result, focus moves to the result's title
-  (made focusable, `tabindex="-1"`) so keyboard focus is never lost; the
-  result is announced once in the polite live region, whether it came from
-  the button or from the shortcut. The app has no shortcut.
-- **Accessible names.** A choice's name is its label and its state: *Merge,
-  selected, 1 of 2*; a checkbox *Unit tests, checked* and *Lint, not checked*.
-  Its description is its accessible description (`aria-describedby` on the web
-  page, the hint on the app), read after the name and not repeated while focus
-  moves inside the group. The group is named
-  *Your answer*. The button while sending is *Sending answer*. A row of a
-  question ends its name with its line: *Merge R82 into main?, Action required,
-  High, ci-pipeline, 18:50, To answer, closes 09:00, unread*. The chip is *To
-  answer, 2*. The close button of an answerer is *Remove Ana from Who can
-  answer*.
-  The *Other* row's field is named *Your answer for Other* (not the group's
-  name), is tied to its counter and its error with `aria-describedby`, and the
-  row's radio or checkbox has `aria-controls` pointing at it. Picking *Other*
-  moves focus to the field; leaving it keeps the text (10.3).
-- **Messages** (nothing picked, too long, the result) are tied to their field with
-  `aria-describedby`; the too-long message, which appears while typing, is
-  announced once politely; a message that comes with a focus move is not a live
-  region. In the app, TalkBack's focus does not follow the focus move, so every
-  message of the card (nothing picked, an empty *Other* field or typed answer,
-  too long) is its own node and is spoken as it appears and at each press of
-  *Send answer*: announced politely where Android takes announcements, and a
-  live region where it does not (Android 16 and later). Every error
-  has an icon and words, never colour alone.
+  (made focusable, `tabindex="-1"`) so keyboard focus is never lost. The app has no shortcut.
+- **The *Other* row.** Picking *Other* moves focus to its field; leaving it keeps the text (10.3).
+- **Messages** (nothing picked, an empty *Other* field or typed answer, too long)
+  show under their field, each with an icon and words, never colour alone.
 - **Focus** follows 6.3: a 2 px primary ring, never removed, on the checked
   radio's row. A dialog starts on *Cancel* when it removes something.
 - **Targets** are 48 dp (48 px on the web) for every row, chip and button.
