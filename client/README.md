@@ -198,7 +198,8 @@ at the top of the inbox, once.
   deleted, takes the notification off the shade, and an answer sent from the
   app takes its own off once accepted. An open event screen follows such a
   notice at once: the card shows the current state (*Ana answered first*, or
-  *Closed while you were choosing* when something was picked or typed).
+  *Closed while you were choosing* when something was picked or typed, with
+  the producer's close note when it sent one).
 - **People** (admins) lists everyone in sections by role, invites someone
   with a pairing code, and shows a person's role (*Basic* or *Mod*; *Admin* is
   set on the admin page), devices and producers.

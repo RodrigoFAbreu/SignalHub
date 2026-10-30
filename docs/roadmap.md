@@ -2836,6 +2836,20 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   without the fix
 - patch (`fix`); the web page only, no API or schema change
 
+### R87 - The producer's close note on a card closed while choosing
+
+- **the note**: in the app and on the users' web page, the *Closed while you
+  were choosing* card of a question its producer closed with a note shows that
+  note in full on its own line, in curly quotes, between the title and *Your
+  answer wasn't sent. ci-pipeline closed this question.*, as the
+  closed-by-producer card does; whether the card came from a `409` or swapped
+  by itself (R84, R86). A close by its time, or by the producer with no note,
+  is unchanged
+- `docs/design/users/DESIGN.md` 10.3 records it
+- widget tests and `web-tests/` tests with a note, with no note and closed by
+  its time; the ones with a note fail without the fix
+- patch (`fix`); the app and the web page only, no API or schema change
+
 ## 4. Planned roadmap
 
 Roadmap items are ordered by dependency, but each item may be split into smaller releasable increments if implementation evidence shows that doing so is safer or more reviewable.
@@ -3470,7 +3484,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 79    | R84 - Fixes from testing answering an event on the phone                                         | Increment (`fix`)                      | Done (see section 3)                                                             |
 | 80    | R85 - Polish from the second phone test of answering an event                                    | Increment (`fix`)                      | Done (see section 3)                                                             |
 | 81    | R86 - The web page follows an open question's end                                                | Increment (`fix`)                      | Done (see section 3)                                                             |
-| 82    | R87 - The producer's close note on a card closed while choosing                                  | Increment (`fix`)                      | Next                                                                             |
+| 82    | R87 - The producer's close note on a card closed while choosing                                  | Increment (`fix`)                      | Done (see section 3)                                                             |
 
 How an autonomous run uses it:
 
@@ -4079,6 +4093,7 @@ advance; they follow from the queue.
 | R84           | patch (`fix`)                                                                                                                                         | the app follows a question's end on an open event screen, and the answering phone clears its notification; no API change |
 | R85           | patch (`fix`)                                                                                                                                         | the app's To answer view keeps its bar as drawn, and the answer card's messages are spoken; no API change |
 | R86           | patch (`fix`)                                                                                                                                         | the web page follows an open question's end every 15 seconds while its tab is visible; no API change |
+| R87           | patch (`fix`)                                                                                                                                         | a card closed while choosing shows the producer's close note, in the app and on the web page; no API change |
 
 R26 was the first major release after 1.0 (`v2.0.0`). R61 is the next
 (`v3.0.0`): the only client API change it breaks is setting a device's
@@ -6840,7 +6855,7 @@ Non-goals: a push or streaming channel to the web page; live updates of the inbo
 
 ### R87 - The producer's close note on a card closed while choosing
 
-Status: next. Added by the maintainer (2026-10-30) from the third phone test (finding P11).
+Status: done (see section 3). Added by the maintainer (2026-10-30) from the third phone test (finding P11).
 
 Goal: when a question's producer closes it while someone is choosing an answer, the card that
 follows says why, as it does for someone who wasn't choosing.
@@ -7015,7 +7030,7 @@ done. The maintainer then added R84 (fixes from testing answering an event on
 the phone), and R84 is done. The maintainer then added R85 (polish from the
 second phone test), then R86 (the web page follows an open question's end),
 and R85 and R86 are done. The maintainer then added R87 (the producer's close note on a card closed while
-choosing). **Next is R87.** A new item is added only by the maintainer, in a reviewed pull
+choosing), and R87 is done. **Nothing is Next.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 

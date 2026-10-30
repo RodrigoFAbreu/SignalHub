@@ -195,6 +195,16 @@ test("closed while choosing: the 409 says the answer wasn't sent", async ({ cont
   await expect(card(page)).toContainText(`Your answer wasn't sent. ${producer.name} closed this question.`);
 });
 
+test("closed while choosing with a note: the 409 shows the producer's note in curly quotes", async ({ context, page }) => {
+  const { producer, posted } = await scene(context, page);
+  await page.goto(`/app/#inbox/${posted.id}`);
+  await card(page).getByRole("radio", { name: "Merge" }).check();
+  await asProducer(producer, "POST", `/api/v1/events/${posted.id}/answer/close`, { note: "Answered in the session" });
+  await card(page).getByRole("button", { name: "Send answer" }).click();
+  await expect(card(page).locator(".ahead")).toHaveText("Closed while you were choosing · nobody can answer it now");
+  await expect(card(page).locator(".t2")).toHaveText(["‘Answered in the session’", `Your answer wasn't sent. ${producer.name} closed this question.`]);
+});
+
 test("an open card follows the server when the tab regains focus", async ({ context, page }) => {
   const { producer, posted } = await scene(context, page);
   await page.goto(`/app/#inbox/${posted.id}`);

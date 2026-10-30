@@ -247,15 +247,19 @@ QuestionResult? resultOf(
     final icon = byProducer ? Icons.lock_outline : Icons.lock_clock;
     final closedAt = event.closedAt;
     if (attempt == Attempt.closedWhileChoosing) {
+      // The producer's note says why, as on the closed-by-producer card.
+      final note = byProducer ? event.closeNote : null;
       return QuestionResult(
         icon: icon,
         filled: false,
         title: 'Closed while you were choosing · nobody can answer it now',
         lines: [
+          if (note != null) '‘$note’',
           byProducer
               ? "Your answer wasn't sent. $producer closed this question."
               : "Your answer wasn't sent. $producer got no answer.",
         ],
+        textLine: note != null ? 0 : null,
       );
     }
     if (!byProducer) {
