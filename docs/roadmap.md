@@ -3470,6 +3470,7 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 79    | R84 - Fixes from testing answering an event on the phone                                         | Increment (`fix`)                      | Done (see section 3)                                                             |
 | 80    | R85 - Polish from the second phone test of answering an event                                    | Increment (`fix`)                      | Done (see section 3)                                                             |
 | 81    | R86 - The web page follows an open question's end                                                | Increment (`fix`)                      | Done (see section 3)                                                             |
+| 82    | R87 - The producer's close note on a card closed while choosing                                  | Increment (`fix`)                      | Next                                                                             |
 
 How an autonomous run uses it:
 
@@ -4004,6 +4005,7 @@ G1 → G2 → R19 v1.0.0
   two app gaps in following a question's end (see its entry).
 - **R85 and R86 were added by the maintainer on 2026-10-30**, after the second phone test:
   R85 polishes the app, then R86 makes the web page follow an open question's end.
+- **R87 was added by the maintainer on 2026-10-30**, after the third phone test.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -6836,6 +6838,26 @@ Compatible (`fix`, patch): the web page only; no API change.
 
 Non-goals: a push or streaming channel to the web page; live updates of the inbox list.
 
+### R87 - The producer's close note on a card closed while choosing
+
+Status: next. Added by the maintainer (2026-10-30) from the third phone test (finding P11).
+
+Goal: when a question's producer closes it while someone is choosing an answer, the card that
+follows says why, as it does for someone who wasn't choosing.
+
+Found on the phone with release 3.18.7: the card swaps by itself (R84, R86), to "Closed while you
+were choosing · nobody can answer it now", but it leaves out the producer's note (for example
+"Answered in the session"), which the closed-by-producer card shows (`docs/design/users/DESIGN.md`
+10.3).
+
+Scope: on the app and on the web page, the "closed while you were choosing" card for a question its
+producer closed with a note shows that note on its own line, in quotes, as the closed-by-producer
+card does; DESIGN.md 10.3 records it; widget and `web-tests/` tests that fail without it.
+
+Compatible (`fix`, patch): the app and the web page; no API change.
+
+Non-goals: anything else.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -6992,7 +7014,8 @@ R82a (answering an event: the server, the SDK and the command) and R82b
 done. The maintainer then added R84 (fixes from testing answering an event on
 the phone), and R84 is done. The maintainer then added R85 (polish from the
 second phone test), then R86 (the web page follows an open question's end),
-and R85 and R86 are done. **Nothing is Next.** A new item is added only by the maintainer, in a reviewed pull
+and R85 and R86 are done. The maintainer then added R87 (the producer's close note on a card closed while
+choosing). **Next is R87.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 
