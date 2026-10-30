@@ -45,7 +45,17 @@ test("a question its producer closes while a choice is picked says it closed whi
   await later(page);
   await expect(card(page).locator(".ahead")).toHaveText("Closed while you were choosing · nobody can answer it now");
   await expect(card(page)).toContainText(`Your answer wasn't sent. ${producer.name} closed this question.`);
+  await expect(card(page).locator(".t2")).toHaveText([`Your answer wasn't sent. ${producer.name} closed this question.`]);
   await expect(card(page).locator("input")).toHaveCount(0);
+});
+
+test("a question its producer closes with a note while a choice is picked shows the note in curly quotes", async ({ context, page }) => {
+  const { producer, posted } = await shown(context, page);
+  await draft(page);
+  await asProducer(producer, "POST", `/api/v1/events/${posted.id}/answer/close`, { note: "Answered in the session" });
+  await later(page);
+  await expect(card(page).locator(".ahead")).toHaveText("Closed while you were choosing · nobody can answer it now");
+  await expect(card(page).locator(".t2")).toHaveText(["‘Answered in the session’", `Your answer wasn't sent. ${producer.name} closed this question.`]);
 });
 
 async function answeredElsewhere(context, page) {
@@ -110,8 +120,9 @@ test("a question that reached its closing time shows closed within 15 seconds", 
 });
 
 test("a question that reached its closing time while a choice is picked says it closed while you were choosing", async ({ context, page }) => {
-  await closesOnTheServer(context, page, true);
+  const { producer } = await closesOnTheServer(context, page, true);
   await expect(card(page).locator(".ahead")).toHaveText("Closed while you were choosing · nobody can answer it now");
+  await expect(card(page).locator(".t2")).toHaveText([`Your answer wasn't sent. ${producer.name} got no answer.`]);
 });
 
 test("the re-reads pause while the tab is hidden and go on when it is visible again", async ({ context, page }) => {

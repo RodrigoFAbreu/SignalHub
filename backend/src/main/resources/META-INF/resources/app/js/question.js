@@ -111,12 +111,11 @@ export function resultOf(event) {
     const byProducer = event.closedBy === "PRODUCER";
     const glyph = byProducer ? "lock" : "lock_clock";
     if (attempt === "closed") {
-      return {
-        glyph,
-        tone: "c-var",
-        title: "Closed while you were choosing · nobody can answer it now",
-        lines: [byProducer ? `Your answer wasn't sent. ${producer} closed this question.` : `Your answer wasn't sent. ${producer} got no answer.`],
-      };
+      // The producer's note says why, as on the closed-by-producer card.
+      const note = byProducer ? event.closeNote : null;
+      const lines = [byProducer ? `Your answer wasn't sent. ${producer} closed this question.` : `Your answer wasn't sent. ${producer} got no answer.`];
+      if (note) lines.unshift(`‘${note}’`);
+      return { glyph, tone: "c-var", title: "Closed while you were choosing · nobody can answer it now", lines, textLine: note ? 0 : undefined };
     }
     if (!byProducer) {
       return { glyph, tone: "c-var", title: "Closed · nobody answered in time", lines: [`It closed on ${onDay(event.closedAt)}. ${producer} got no answer.`] };
