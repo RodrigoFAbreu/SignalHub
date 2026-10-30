@@ -3430,6 +3430,8 @@ rows are described in section 5, [After v1.0.0](#5-after-v100).
 | 77    | R83 - Notification action buttons                                                                | Increment (`feat`)                     | Dropped at G8 (2026-10-25)                                                       |
 | 78    | R82b - Answering an event in the app, on the web page and on the admin page                      | Increment (`feat`)                     | Done (see section 3)                                                             |
 | 79    | R84 - Fixes from testing answering an event on the phone                                         | Increment (`fix`)                      | Done (see section 3)                                                             |
+| 80    | R85 - Polish from the second phone test of answering an event                                    | Increment (`fix`)                      | Next                                                                             |
+| 81    | R86 - The web page follows an open question's end                                                | Increment (`fix`)                      | Blocked by R85                                                                   |
 
 How an autonomous run uses it:
 
@@ -3962,6 +3964,8 @@ G1 → G2 → R19 v1.0.0
   (the server, the SDK and the command) and R82b (the screens), in that order.
 - **R84 was added by the maintainer on 2026-10-25**, after testing R82b on the phone:
   two app gaps in following a question's end (see its entry).
+- **R85 and R86 were added by the maintainer on 2026-10-30**, after the second phone test:
+  R85 polishes the app, then R86 makes the web page follow an open question's end.
 - Notification grouping on the device was considered with them and left
   deferred: Android already bundles an app's notifications once several
   arrive, and grouping beyond that cannot be verified without a device.
@@ -6745,6 +6749,53 @@ Compatible (`fix`, patch): the app only; no API or schema change.
 Non-goals: live updates on the web page (it re-reads on focus and after a `409`; a later design
 decision); anything else.
 
+### R85 - Polish from the second phone test of answering an event
+
+Status: next. Added by the maintainer (2026-10-30) from the second phone test (release 3.18.4).
+
+Goal: the last small differences found on the phone are settled, as the maintainer chose.
+
+Scope:
+
+- the inbox's *To answer* view with nothing left (frame 3c in `docs/design/answers/images/app-answering/`):
+  the app bar keeps its *Mark all as read* action and shows the filter icon outlined, as drawn;
+- the answer card's validation messages ("Pick an answer to send.", the empty *Other* field, the
+  text too long) are announced by TalkBack when they appear, with a test that proves the semantics;
+- a question that arrives while the app is open: the app shows it in the inbox and plays
+  SignalHub's alert, and Android shows nothing in the shade (Firebase's foreground behaviour).
+  This is recorded in `docs/design/users/DESIGN.md` 10.5 as the intended behaviour.
+
+Compatible (`fix`, patch): the app and the design document only.
+
+Non-goals: live updates on the web page (a later design decision); a truncated producer name on a
+row, which matches frame 3a.
+
+### R86 - The web page follows an open question's end
+
+Status: blocked by R85. Added by the maintainer (2026-10-30), right after R85.
+
+Goal: on the users' web page, a question shown on screen follows its end without a reload or a
+change of tab, as the app does since R84: closed by its producer, answered by someone else, deleted,
+or closed by its time.
+
+Found in the first phone test (finding P4): the web page re-reads an open event only when its tab
+regains focus and after a `409` (`docs/design/users/DESIGN.md` 10.4), and it has no push channel.
+
+Scope:
+
+- while an event whose question is open is shown and the tab is visible, the page re-reads that
+  event every 15 seconds and swaps the card to its current state, with the "while you were
+  choosing" or "answered first" wording of DESIGN 10.3 when something was picked or typed; the
+  re-reads stop while the tab is hidden and once the question has ended, and a failed re-read keeps
+  the card as it is, with no error;
+- DESIGN.md 10.4 records the behaviour;
+- `web-tests/` tests for each end (producer close, an answer from elsewhere, deletion, the closing
+  time), with and without a draft, and for the pause while hidden.
+
+Compatible (`fix`, patch): the web page only; no API change.
+
+Non-goals: a push or streaming channel to the web page; live updates of the inbox list.
+
 ### Already in place (not scheduled again)
 
 Considered for this queue and already covered: producer keys with rotation
@@ -6899,7 +6950,9 @@ The maintainer approved them at G8 with changes, dropped R83 and split R82,
 R82a (answering an event: the server, the SDK and the command) and R82b
 (answering an event in the app, on the web page and on the admin page) are
 done. The maintainer then added R84 (fixes from testing answering an event on
-the phone), and R84 is done. **Nothing is Next.** A new item is added only by the maintainer, in a reviewed pull
+the phone), and R84 is done. The maintainer then added R85 (polish from the
+second phone test), then R86 (the web page follows an open question's end).
+**Next is R85, then R86.** A new item is added only by the maintainer, in a reviewed pull
 request; the deferred candidates of section 5 are not
 started without that.
 
