@@ -46,7 +46,7 @@ jobs:
             tests: [compose]
           - name: Stacks (web page)
             arch: amd64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             tests: [web]
           - name: Stacks (end-to-end, fresh install, upgrade from v0.13.0)
             arch: amd64
