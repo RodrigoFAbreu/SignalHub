@@ -86,8 +86,8 @@ jobs:
           NEXT: ${{ needs.version.outputs.next }}
         run: echo "digest=$(scripts/release/build-image.sh "${NEXT#v}" "$GITHUB_SHA" push)" >> "$GITHUB_OUTPUT"
 
-  # Tags the two platforms as one multi-platform image, ghcr.io/...:X.Y.Z. Only
-  # that exact version is tagged: no `latest`, no `X.Y`.
+  # Publish the versioned multi-platform image before its runtime checks.
+  # The rolling latest alias is promoted after the complete release succeeds.
   image:
     needs: [version, image-amd64, image-arm64]
     runs-on: ubuntu-latest
@@ -258,3 +258,23 @@ jobs:
           # files, the app and their checksums are the release's assets.
           gh release create "$NEXT" --target "$GITHUB_SHA" --title "$NEXT" --notes "$notes" --generate-notes \
             "$RUNNER_TEMP"/assets/*
+
+  latest:
+    name: Promote released image to latest
+    needs: [version, image, release]
+    if: needs.version.outputs.next != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - name: Promote the released manifest
+        env:
+          TOKEN: ${{ github.token }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          printf '%s' "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null' EXIT
+          docker buildx imagetools create --prefer-index=false \
+            --tag "$IMAGE:latest" "$IMAGE@$DIGEST"

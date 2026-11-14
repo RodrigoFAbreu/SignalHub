@@ -93,9 +93,8 @@ On every push to `main`:
    digest, with BuildKit's provenance (`mode=max`) and SBOM attestations,
    stored beside the image in the registry.
 4. The two are tagged as one multi-platform image,
-   `ghcr.io/rodrigofabreu/signalhub:X.Y.Z`. Only the exact version is
-   tagged: no `latest` and no `X.Y`, so an image reference always names one
-   release, and the docs always name an exact version.
+   `ghcr.io/rodrigofabreu/signalhub:X.Y.Z`. This version tag identifies the
+   candidate that the remaining release jobs validate.
 5. On both platforms the tagged image is pulled and checked by
    `scripts/release/check-image.sh`: the labels, the architecture, and,
    started with PostgreSQL, the version and commit at `/q/info` and in the
@@ -130,6 +129,16 @@ On every push to `main`:
    notes name the image and its digest and the app's signing certificate,
    followed by the generated notes, with the deployment files, the SDK's
    files, the app and `SHA256SUMS` (all of them) attached.
+10. After the GitHub release succeeds, the `latest` job copies that released
+    multi-platform manifest to `ghcr.io/rodrigofabreu/signalhub:latest`.
+    It preserves the source manifest and both supported platforms. A failed
+    image check, APK build or release prevents this promotion. If promotion
+    itself fails, rerun the failed job to publish the alias for that release.
+
+The rolling `latest` tag follows successful releases. Existing version tags and
+release deployment bundles continue to identify their recorded image. A running
+Kubernetes Pod needs an image update controller or a new rollout to adopt a
+changed tag. `imagePullPolicy: Always` resolves the tag when a container starts.
 
 The release is complete only when its GitHub release exists. If a run fails
 after pushing the image but before the GitHub release, the version is not
