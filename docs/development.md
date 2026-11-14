@@ -135,12 +135,12 @@ On every push to `main`:
     image check, APK build or release prevents this promotion. If promotion
     itself fails, rerun the failed job to publish the alias for that release.
 
-The Main workflow handles pushes to main and manual runs by calling the reusable
-Release workflow. Release calls CI, whose reusable component workflows also
-support manual dispatch. A direct Release dispatch reruns validation through CI
-before release calculation. The PR CI workflow validates pull requests.
+The CI workflow handles pull requests, pushes to main and manual validation.
+Every run executes the reusable validation components. A push to main calls the
+reusable Release workflow after the CI passed gate succeeds. Manual CI runs
+validate the selected revision. Release retries use the original main CI run.
 
-PR-title validation and released-manifest promotion use the version-tagged
+PR-title validation and released-manifest promotion use the shared
 reusable workflows in RodrigoFAbreu/action-workflows@main. This repository's
 release.py computes versions, and its own image, application and signing jobs
 provide the release completion gate.
@@ -1249,11 +1249,10 @@ drawings (they show fixed sample times), and the QR codes are real ones.
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` is a short main workflow. It runs on every pull
-request, every part of it (no part is skipped by the files a change touches:
-every merge to `main` is a release), and the release workflow calls it again on
-the merged commit. Each part is a reusable workflow of its own, which can also
-be run alone, from the *Actions* tab (*Run workflow*, on a branch) or with
+`.github/workflows/ci.yml` is the CI entry point for pull requests, pushes to
+main and manual validation. Each run checks every component, and a successful
+main push then calls the reusable release workflow. Each validation component
+can also run alone from the *Actions* tab (*Run workflow*, on a branch) or with
 `gh workflow run <file> --ref <branch>`:
 
 | Part (workflow) | What it checks |
@@ -1263,6 +1262,14 @@ be run alone, from the *Actions* tab (*Run workflow*, on a branch) or with
 | `ci-app.yml` | The app: format, analysis and tests; the release's Android build, signed with a throwaway key; the iOS build |
 | `ci-image.yml` | The release's build of the backend image on x86-64 and natively on ARM64, and its checks. The only place CI builds the image |
 | `ci-containers.yml` | Everything that starts the backend as a container, in four jobs: the users' web page in a browser (`web-tests/`), the Compose stack on both architectures, the upgrades, the fresh install of [deployment.md](deployment.md#setup) and the end-to-end path of an event, all but the first checked by `container-tests/` |
+
+Python validation calls the shared python-checks.yml workflow at main with
+scripts/ci/check-python.sh and a separate workflow-lint command. Backend
+validation calls the shared java-build-publish.yml workflow at main with
+publishing disabled and a PostgreSQL-image prerequisite script. Their project
+checks stay in this repository. The common npm workflow provides npm test/build
+execution for JavaScript and TypeScript packages. Flutter and container
+acceptance retain their component workflows.
 
 **Less repeated work.** The image part builds the backend image once per
 architecture, the way the release builds it (`signalhub-backend:check`, version
@@ -1278,7 +1285,7 @@ tests), never fixed waits.
 
 **One required check.** The ruleset *Main Protected* requires `CI passed` and
 `Conventional Commit title`, and nothing else. `CI passed` is the last job of
-`ci.yml`: it needs every part, runs even when one failed, and fails unless every
+`ci.yml` before release: it needs every part, runs even when one failed, and fails unless every
 part succeeded (a part that was skipped or cancelled does not pass it either), so
 no check is less checked for being reported by one name. The failing job itself is
 listed above it. A new job needs no change to the ruleset: it belongs to a part

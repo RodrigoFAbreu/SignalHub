@@ -1,39 +1,35 @@
 name: CI
 
-# Runs on every pull request, every part of it: no part is skipped by the files a
-# change touches, since every merge to main is a release. The release workflow
-# also calls it, so the exact commit on main is re-validated before it is tagged.
-#
-# Each part is a reusable workflow that can also be run alone from the Actions
-# tab (docs/development.md#continuous-integration):
-#
-#   ci-python.yml      the repository's Python tooling, the SDK, the examples
-#                      and the workflows' own lint, in one job
-#   ci-backend.yml     the backend's build and tests
-#   ci-app.yml         the Flutter app: checks, Android and iOS builds
-#   ci-image.yml       the backend image, built once per architecture
-#   ci-containers.yml  every test that starts the backend as a container: the
-#                      users' web page in a browser, the Compose stack, the
-#                      upgrades, a fresh install, end to end
-#
-# A pull request holds few runners at once (docs/development.md#continuous-integration):
-# the parts pack their short jobs into one and the two that start a stack wait for
-# the images, and a single job, CI passed, reports whether every part passed.
+# Validate every PR and main push before publishing a release from main.
+# Component workflows remain reusable and individually runnable.
 on:
   pull_request:
-  workflow_call:
+    types: [opened, edited, reopened, synchronize]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Supersede outdated runs for the same PR. When called by the release workflow,
-# the group is unique per run and the caller serializes releases itself.
+# Supersede outdated PR validation. Main runs retain their release completion gates.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+  group: ci-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  title:
+    if: github.event_name == 'pull_request'
+    uses: RodrigoFAbreu/action-workflows/.github/workflows/pr-title.yml@main
+  title-passed:
+    name: Conventional Commit title
+    needs: title
+    if: github.event_name == 'pull_request' && always()
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          TITLE_RESULT: ${{ needs.title.result }}
+        run: test "$TITLE_RESULT" = success
   python:
     uses: ./.github/workflows/ci-python.yml
   backend:
@@ -69,3 +65,14 @@ jobs:
             echo "::error::These parts of CI did not succeed: $failed; see their jobs above."
             exit 1
           fi
+
+  release:
+    needs: passed
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/release.yml
+    secrets: inherit

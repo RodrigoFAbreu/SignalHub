@@ -1,13 +1,12 @@
 name: Release
 
-# Every commit on main is a release: re-run CI on the merged commit, publish the
+# CI calls this workflow after the merged commit passes validation. Publish the
 # backend image for it, check that image on both platforms, then tag the commit
 # with the next semantic version and publish a GitHub release naming the image,
 # with the deployment files that run it, the Python SDK's files and the signed
 # Android app attached.
 on:
   workflow_call:
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,11 +23,7 @@ env:
   FLUTTER_VERSION: 3.47.5 # the same as in ci-app.yml
 
 jobs:
-  ci:
-    uses: ./.github/workflows/ci.yml
-
   version:
-    needs: ci
     runs-on: ubuntu-latest
     outputs:
       next: ${{ steps.version.outputs.next }}
