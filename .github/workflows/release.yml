@@ -263,18 +263,10 @@ jobs:
     name: Promote released image to latest
     needs: [version, image, release]
     if: needs.version.outputs.next != ''
-    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    steps:
-      - uses: docker/setup-buildx-action@v3
-      - name: Promote the released manifest
-        env:
-          TOKEN: ${{ github.token }}
-          DIGEST: ${{ needs.image.outputs.digest }}
-        run: |
-          printf '%s' "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          trap 'docker logout ghcr.io >/dev/null' EXIT
-          docker buildx imagetools create --prefer-index=false \
-            --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
+    uses: RodrigoFAbreu/action-workflows/.github/workflows/promote-image.yml@v1
+    with:
+      image: ghcr.io/rodrigofabreu/signalhub
+      source: ghcr.io/rodrigofabreu/signalhub@${{ needs.image.outputs.digest }}

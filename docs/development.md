@@ -135,6 +135,11 @@ On every push to `main`:
     image check, APK build or release prevents this promotion. If promotion
     itself fails, rerun the failed job to publish the alias for that release.
 
+PR-title validation and released-manifest promotion use the version-tagged
+reusable workflows in RodrigoFAbreu/action-workflows@v1. This repository's
+release.py computes versions, and its own image, application and signing jobs
+provide the release completion gate.
+
 The rolling `latest` tag follows successful releases. Existing version tags and
 release deployment bundles continue to identify their recorded image. A running
 Kubernetes Pod needs an image update controller or a new rollout to adopt a
