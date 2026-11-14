@@ -13,7 +13,7 @@ class LatestCallerTests(unittest.TestCase):
         self.assertIn("needs: [version, image, release]", job)
         self.assertIn("needs.version.outputs.next != ''", job)
         self.assertIn(
-            "uses: RodrigoFAbreu/action-workflows/.github/workflows/promote-image.yml@v1",
+            "uses: RodrigoFAbreu/action-workflows/.github/workflows/promote-image.yml@main",
             job,
         )
         self.assertIn(

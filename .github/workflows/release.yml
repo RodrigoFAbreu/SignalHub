@@ -266,7 +266,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: RodrigoFAbreu/action-workflows/.github/workflows/promote-image.yml@v1
+    uses: RodrigoFAbreu/action-workflows/.github/workflows/promote-image.yml@main
     with:
       image: ghcr.io/rodrigofabreu/signalhub
       source: ghcr.io/rodrigofabreu/signalhub@${{ needs.image.outputs.digest }}

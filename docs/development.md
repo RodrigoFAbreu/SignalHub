@@ -141,7 +141,7 @@ support manual dispatch. A direct Release dispatch reruns validation through CI
 before release calculation. The PR CI workflow validates pull requests.
 
 PR-title validation and released-manifest promotion use the version-tagged
-reusable workflows in RodrigoFAbreu/action-workflows@v1. This repository's
+reusable workflows in RodrigoFAbreu/action-workflows@main. This repository's
 release.py computes versions, and its own image, application and signing jobs
 provide the release completion gate.
 
