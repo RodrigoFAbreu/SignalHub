@@ -6,8 +6,8 @@ name: Release
 # with the deployment files that run it, the Python SDK's files and the signed
 # Android app attached.
 on:
-  push:
-    branches: [main]
+  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read

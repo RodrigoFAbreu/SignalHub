@@ -135,6 +135,11 @@ On every push to `main`:
     image check, APK build or release prevents this promotion. If promotion
     itself fails, rerun the failed job to publish the alias for that release.
 
+The Main workflow handles pushes to main and manual runs by calling the reusable
+Release workflow. Release calls CI, whose reusable component workflows also
+support manual dispatch. A direct Release dispatch reruns validation through CI
+before release calculation. The PR CI workflow validates pull requests.
+
 PR-title validation and released-manifest promotion use the version-tagged
 reusable workflows in RodrigoFAbreu/action-workflows@v1. This repository's
 release.py computes versions, and its own image, application and signing jobs
