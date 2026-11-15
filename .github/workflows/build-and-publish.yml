@@ -24,12 +24,7 @@ env:
   FLUTTER_VERSION: 3.47.5 # the same as in ci-app.yml
 
 jobs:
-  manual-tests:
-    if: github.event_name == 'workflow_dispatch'
-    uses: ./.github/workflows/test.yml
   version:
-    needs: manual-tests
-    if: ${{ !cancelled() && (needs.manual-tests.result == 'success' || (github.event_name != 'workflow_dispatch' && needs.manual-tests.result == 'skipped')) }}
     runs-on: ubuntu-latest
     outputs:
       next: ${{ steps.version.outputs.next }}

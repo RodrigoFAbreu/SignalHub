@@ -24,7 +24,7 @@ class OrchestrationTests(unittest.TestCase):
         release = ci.split("\n  release:\n", 1)[1]
         self.assertIn("    needs: passed", release)
         self.assertIn(
-            "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+            "if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')",
             release,
         )
         self.assertIn("uses: ./.github/workflows/build-and-publish.yml", release)
@@ -34,8 +34,7 @@ class OrchestrationTests(unittest.TestCase):
         release = (WORKFLOWS / "build-and-publish.yml").read_text()
         self.assertIn("  workflow_call:", release)
         self.assertIn("  workflow_dispatch:", release)
-        self.assertIn("    needs: manual-tests", release)
-        self.assertIn("uses: ./.github/workflows/test.yml", release)
+        self.assertNotIn("uses: ./.github/workflows/test.yml", release)
         self.assertNotIn("uses: ./.github/workflows/ci.yml", release)
         self.assertNotIn("    needs: ci\n", release)
 

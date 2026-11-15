@@ -137,8 +137,7 @@ On every push to `main`:
 
 The CI workflow handles pull requests, pushes to main and manual validation.
 Every run executes the reusable validation components. A push to main calls the
-reusable Release workflow after the CI passed gate succeeds. Manual CI runs
-validate the selected revision. Release retries use the original main CI run.
+reusable Release workflow after the CI passed gate succeeds. Manual CI runs validate the selected revision and publish only from main.
 
 PR-title validation and released-manifest promotion use the shared
 reusable workflows in RodrigoFAbreu/action-workflows@main. This repository's
@@ -1488,6 +1487,6 @@ repository:
 
 CI runs automatically for PRs and main pushes. Test is callable and manually
 runnable and collects all component validation. Build and publish is callable
-and manually runnable. A direct manual publication runs Test first and requires
-main. Automatic main CI supplies the completed validation gate once. The existing
+and manually runnable. CI supplies the validation gate for automated and manually dispatched main
+releases. Direct Build and publish dispatch performs publication work on main. The existing
 version, signing, image acceptance and release promotion rules apply to both paths.
