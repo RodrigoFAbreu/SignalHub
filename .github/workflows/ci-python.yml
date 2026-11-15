@@ -5,16 +5,75 @@ on:
 permissions:
   contents: read
 jobs:
-  python:
+  tests:
+    name: ${{ matrix.suite }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - suite: Release tests
+            python: '3.12'
+            directory: scripts/release
+          - suite: Device-review tests
+            python: '3.12'
+            directory: scripts/device-review
+          - suite: CI tooling tests
+            python: '3.12'
+            directory: scripts/ci
+          - suite: Container helper tests
+            python: '3.12'
+            directory: container-tests
+            pattern: test_helpers.py
+          - suite: Integration example tests
+            python: '3.12'
+            directory: examples/tests
+            package: sdk/python
+          - suite: SDK tests (Python 3.10)
+            python: '3.10'
+            working-directory: sdk/python
+            directory: tests
+            top-level-directory: .
+            package: .
+          - suite: SDK tests (Python 3.12)
+            python: '3.12'
+            working-directory: sdk/python
+            directory: tests
+            top-level-directory: .
+            package: .
     uses: RodrigoFAbreu/action-workflows/.github/workflows/python-tests.yml@main
     with:
-      # The last version is the default. The SDK also supports Python 3.10.
-      python-version: |
-        3.10
-        3.12
-      requirements-file: .github/tools/requirements.txt
-      cache-dependency-path: |
-        .github/tools/requirements.txt
-        sdk/python/pyproject.toml
-      test-command: bash scripts/ci/check-python.sh
-      after-test-command: bash scripts/ci/check-workflows.sh
+      python-version: ${{ matrix.python }}
+      working-directory: ${{ matrix.working-directory || '.' }}
+      test-directory: ${{ matrix.directory }}
+      test-pattern: ${{ matrix.pattern || 'test*.py' }}
+      top-level-directory: ${{ matrix.top-level-directory || '' }}
+      package-directory: ${{ matrix.package || '' }}
+  tooling:
+    name: Python lint and SDK build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            .github/tools/requirements.txt
+            sdk/python/pyproject.toml
+      - run: python -m pip install --requirement .github/tools/requirements.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: shellcheck examples/*/*.sh scripts/release/*.sh scripts/ci/*.sh
+      - name: Check SDK console entry point
+        run: |
+          python -m pip install ./sdk/python
+          signalhub send --help
+      - name: Build SDK release files
+        run: python scripts/release/sdk_files.py 0.0.0+ci "$RUNNER_TEMP/sdk"
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: bash scripts/ci/check-workflows.sh

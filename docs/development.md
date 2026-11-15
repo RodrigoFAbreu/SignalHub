@@ -1257,18 +1257,20 @@ can also run alone from the *Actions* tab (*Run workflow*, on a branch) or with
 
 | Part (workflow) | What it checks |
 |---|---|
-| `ci-python.yml` | One job: `ruff`, the release scripts, the device-review script, the Python SDK (also on its oldest Python), the integration examples, the container tests' helpers, and the workflows themselves (*GitHub Actions lint*) |
+| `ci-python.yml` | Shared unittest jobs for each suite and both supported SDK interpreters, plus separate lint, SDK build and workflow-lint jobs |
 | `ci-backend.yml` | `./mvnw verify` in `backend/`: build, tests against real PostgreSQL, format and SpotBugs |
 | `ci-app.yml` | The app: format, analysis and tests; the release's Android build, signed with a throwaway key; the iOS build |
 | `ci-image.yml` | The release's build of the backend image on x86-64 and natively on ARM64, and its checks. The only place CI builds the image |
 | `ci-containers.yml` | Everything that starts the backend as a container, in four jobs: the users' web page in a browser (`web-tests/`), the Compose stack on both architectures, the upgrades, the fresh install of [deployment.md](deployment.md#setup) and the end-to-end path of an event, all but the first checked by `container-tests/` |
 
-Python validation calls the shared python-tests.yml workflow at main with
-scripts/ci/check-python.sh and a separate workflow-lint command. Backend
-validation calls the shared java-tests.yml workflow at main and a PostgreSQL-image prerequisite script. Their project
-checks stay in this repository. The common npm-tests.yml workflow provides npm test/build
-execution for JavaScript and TypeScript packages. Flutter and container
-acceptance retain their component workflows.
+Python tests call the shared python-tests.yml workflow at main with directories,
+patterns, import roots and local-package settings. The suite matrix runs at most
+two jobs simultaneously and includes the SDK on Python 3.10 and 3.12. Ruff,
+ShellCheck, SDK release-file builds and workflow linting run in caller-owned jobs.
+Backend CI checks PostgreSQL-image consistency in its own job before calling the
+shared java-tests.yml workflow with the backend directory and Java version.
+The shared npm-tests.yml workflow runs npm test for JavaScript/TypeScript
+packages. Flutter and container acceptance retain their component workflows.
 
 **Less repeated work.** The image part builds the backend image once per
 architecture, the way the release builds it (`signalhub-backend:check`, version
@@ -1290,17 +1292,12 @@ no check is less checked for being reported by one name. The failing job itself 
 listed above it. A new job needs no change to the ruleset: it belongs to a part
 the aggregate already needs. A new part is added to the aggregate's `needs`.
 
-**Few runners at once.** The free plan shares 20 runners (5 on macOS) between all
-of the maintainer's repositories, so a pull request's CI holds few of them at the
-same time rather than many for a short while: at most 6 Linux jobs and 1 macOS
-job at once, in about the time it took with many more. Short jobs that fit within
-the longest one run one after another in one job (the Python checks and the
-workflow lint; the stack tests of `ci-containers.yml`, in lanes of about the
-same length, each test a composite action `.github/actions/stack-*` that leaves no
-stack, file or setting for the next, and that does not stop the others when it
-fails), and parts start in stages: the two that start a stack wait for the images
-of the image part (`needs`). Add a test to the lane that keeps the run no longer;
-measure it (below) before and after.
+**Runner concurrency.** The Python suite matrix runs at most two jobs at once.
+Its lint, SDK build and workflow-lint checks have separate jobs. Container tests
+share their loaded images within each lane, and the lanes start after the image
+builds finish. Each stack test leaves its workspace ready for the next test and
+preserves its own failure result. Add a test to the appropriate lane and measure
+runner usage before and after changes.
 
 ### Measuring a run
 

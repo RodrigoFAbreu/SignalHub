@@ -33,16 +33,36 @@ class OrchestrationTests(unittest.TestCase):
         self.assertNotIn("uses: ./.github/workflows/ci.yml", release)
         self.assertNotIn("    needs: ci\n", release)
 
-    def test_shared_checks_keep_project_assertions(self):
+    def test_generic_tests_and_project_checks_have_separate_jobs(self):
         python = (WORKFLOWS / "ci-python.yml").read_text()
         self.assertIn("python-tests.yml@main", python)
-        self.assertIn("test-command: bash scripts/ci/check-python.sh", python)
-        self.assertIn("after-test-command: bash scripts/ci/check-workflows.sh", python)
+        self.assertIn("test-directory: ${{ matrix.directory }}", python)
+        self.assertIn("test-pattern: ${{ matrix.pattern || 'test*.py' }}", python)
+        self.assertIn("  tooling:", python)
+        self.assertIn("  workflow-lint:", python)
+        self.assertNotIn("test-command:", python)
+        self.assertNotIn("after-test-command:", python)
         backend = (WORKFLOWS / "ci-backend.yml").read_text()
         self.assertIn("java-tests.yml@main", backend)
-        self.assertIn(
-            "before-test-command: bash ../scripts/ci/check-postgres-image.sh", backend
-        )
+        self.assertIn("    needs: postgres-image", backend)
+        self.assertIn("run: bash ../scripts/ci/check-postgres-image.sh", backend)
+        self.assertNotIn("before-test-command:", backend)
+
+    def test_python_matrix_preserves_all_previous_suites_and_interpreters(self):
+        python = (WORKFLOWS / "ci-python.yml").read_text()
+        for directory in [
+            "scripts/release",
+            "scripts/device-review",
+            "scripts/ci",
+            "container-tests",
+            "examples/tests",
+        ]:
+            self.assertIn("directory: " + directory, python)
+        self.assertIn("suite: SDK tests (Python 3.10)", python)
+        self.assertIn("suite: SDK tests (Python 3.12)", python)
+        self.assertIn("pattern: test_helpers.py", python)
+        self.assertIn("fail-fast: false", python)
+        self.assertIn("max-parallel: 2", python)
 
 
 if __name__ == "__main__":
