@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   python:
-    uses: RodrigoFAbreu/action-workflows/.github/workflows/python-checks.yml@main
+    uses: RodrigoFAbreu/action-workflows/.github/workflows/python-tests.yml@main
     with:
       # The last version is the default. The SDK also supports Python 3.10.
       python-version: |
@@ -16,5 +16,5 @@ jobs:
       cache-dependency-path: |
         .github/tools/requirements.txt
         sdk/python/pyproject.toml
-      check-command: bash scripts/ci/check-python.sh
-      after-check-command: bash scripts/ci/check-workflows.sh
+      test-command: bash scripts/ci/check-python.sh
+      after-test-command: bash scripts/ci/check-workflows.sh

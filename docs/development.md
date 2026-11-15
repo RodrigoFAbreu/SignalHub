@@ -1263,11 +1263,10 @@ can also run alone from the *Actions* tab (*Run workflow*, on a branch) or with
 | `ci-image.yml` | The release's build of the backend image on x86-64 and natively on ARM64, and its checks. The only place CI builds the image |
 | `ci-containers.yml` | Everything that starts the backend as a container, in four jobs: the users' web page in a browser (`web-tests/`), the Compose stack on both architectures, the upgrades, the fresh install of [deployment.md](deployment.md#setup) and the end-to-end path of an event, all but the first checked by `container-tests/` |
 
-Python validation calls the shared python-checks.yml workflow at main with
+Python validation calls the shared python-tests.yml workflow at main with
 scripts/ci/check-python.sh and a separate workflow-lint command. Backend
-validation calls the shared java-build-publish.yml workflow at main with
-publishing disabled and a PostgreSQL-image prerequisite script. Their project
-checks stay in this repository. The common npm workflow provides npm test/build
+validation calls the shared java-tests.yml workflow at main and a PostgreSQL-image prerequisite script. Their project
+checks stay in this repository. The common npm-tests.yml workflow provides npm test/build
 execution for JavaScript and TypeScript packages. Flutter and container
 acceptance retain their component workflows.
 

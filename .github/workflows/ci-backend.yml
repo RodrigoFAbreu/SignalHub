@@ -6,9 +6,8 @@ permissions:
   contents: read
 jobs:
   backend:
-    uses: RodrigoFAbreu/action-workflows/.github/workflows/java-build-publish.yml@main
+    uses: RodrigoFAbreu/action-workflows/.github/workflows/java-tests.yml@main
     with:
       java-version: '25'
       working-directory: backend
-      before-check-command: bash ../scripts/ci/check-postgres-image.sh
-      publish: false
+      before-test-command: bash ../scripts/ci/check-postgres-image.sh

@@ -35,15 +35,14 @@ class OrchestrationTests(unittest.TestCase):
 
     def test_shared_checks_keep_project_assertions(self):
         python = (WORKFLOWS / "ci-python.yml").read_text()
-        self.assertIn("python-checks.yml@main", python)
-        self.assertIn("check-command: bash scripts/ci/check-python.sh", python)
-        self.assertIn("after-check-command: bash scripts/ci/check-workflows.sh", python)
+        self.assertIn("python-tests.yml@main", python)
+        self.assertIn("test-command: bash scripts/ci/check-python.sh", python)
+        self.assertIn("after-test-command: bash scripts/ci/check-workflows.sh", python)
         backend = (WORKFLOWS / "ci-backend.yml").read_text()
-        self.assertIn("java-build-publish.yml@main", backend)
+        self.assertIn("java-tests.yml@main", backend)
         self.assertIn(
-            "before-check-command: bash ../scripts/ci/check-postgres-image.sh", backend
+            "before-test-command: bash ../scripts/ci/check-postgres-image.sh", backend
         )
-        self.assertIn("publish: false", backend)
 
 
 if __name__ == "__main__":
