@@ -208,8 +208,8 @@ owner. Removing it in a later commit is not enough.
   in CI and in lockfiles.
 - A PR that adds a component (backend, client app, SDK) also adds its build,
   lint, and test jobs to CI (a reusable workflow `.github/workflows/ci-*.yml`
-  called from `ci.yml`, whose `CI passed` job fails unless every part
-  succeeded and is the check the ruleset requires), the local commands to
+  called from `test.yml`, whose aggregate requires every component to
+  succeed. `ci.yml` exposes that result as the required `CI passed` check), the local commands to
   `docs/development.md`, and the component to `README.md` status.
 - Keep documentation true: if behaviour changes, update the docs in the same PR.
 

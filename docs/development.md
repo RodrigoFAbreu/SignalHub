@@ -1283,13 +1283,11 @@ downloads and pip's are cached by `setup-java` and `setup-python`. Stacks come
 up with readiness checks (`docker compose up --wait`, `wait_until` in the
 tests), never fixed waits.
 
-**One required check.** The ruleset *Main Protected* requires `CI passed` and
-`Conventional Commit title`, and nothing else. `CI passed` is the last job of
-`ci.yml` before release: it needs every part, runs even when one failed, and fails unless every
-part succeeded (a part that was skipped or cancelled does not pass it either), so
-no check is less checked for being reported by one name. The failing job itself is
-listed above it. A new job needs no change to the ruleset: it belongs to a part
-the aggregate already needs. A new part is added to the aggregate's `needs`.
+**Required checks.** The ruleset requires `CI passed` and `Conventional Commit
+title`. The Test workflow's result gate requires every component to succeed.
+CI exposes that overall result through `CI passed` before publication. Add new
+validation components and their aggregate dependencies in test.yml. Failed,
+cancelled and skipped components fail the aggregate.
 
 **Runner concurrency.** The Python suite matrix runs at most two jobs at once.
 Its lint, SDK build and workflow-lint checks have separate jobs. Container tests
