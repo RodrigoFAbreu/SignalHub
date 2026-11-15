@@ -2459,8 +2459,8 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
 ### R70 - CI in reusable workflows, container checks as tests, and faster
 
 - **built**: `ci.yml` is a short main workflow that calls one reusable
-  workflow per part (`ci-python.yml`, `ci-backend.yml`, `ci-app.yml`,
-  `ci-image.yml`, `ci-web.yml`, `ci-containers.yml`), each also runnable alone
+  workflow per part (`test-python.yml`, `test-backend.yml`, `test-app.yml`,
+  `test-image.yml`, `ci-web.yml`, `test-integration.yml`), each also runnable alone
   from the Actions tab; every part runs on every pull request, and the
   release workflow still re-validates the exact commit through `ci.yml`. The
   `curl` steps of the container jobs are Python tests in `container-tests/`
@@ -2513,7 +2513,7 @@ PATCH` (refusing a `MINOR` or `PATCH` over 999), `SIGNALHUB_VERSION` and
   page's browser tests, the Compose smoke test, the end-to-end test, the
   fresh install and the three upgrades are composite actions
   (`.github/actions/stack-*`, each leaving no stack, file or setting behind)
-  that four jobs of `ci-containers.yml` run one after another, sharing the
+  that four jobs of `test-integration.yml` run one after another, sharing the
   checkout, the loaded images and Python; the stack jobs wait for the images
   (`needs`). `scripts/ci/run_stats.py` reports a run's jobs, the peak of jobs
   at once (Linux and macOS apart), runner-minutes, waits and wall time

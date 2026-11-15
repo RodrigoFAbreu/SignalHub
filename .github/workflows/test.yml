@@ -1,0 +1,52 @@
+name: Test
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow == 'Test' && 'signalhub-execution' || format('signalhub-test-{0}', github.run_id) }}
+  queue: max
+  cancel-in-progress: false
+jobs:
+  python:
+    uses: ./.github/workflows/test-python.yml
+  backend:
+    needs: [python, image]
+    if: ${{ !cancelled() }}
+    uses: ./.github/workflows/test-backend.yml
+  app:
+    needs: [python, image]
+    if: ${{ !cancelled() }}
+    uses: ./.github/workflows/test-app.yml
+  image:
+    uses: ./.github/workflows/test-image.yml
+  # It starts stacks from the images the image part built.
+  containers:
+    needs: [python, image, backend, app]
+    if: ${{ !cancelled() && needs.image.result == 'success' }}
+    uses: ./.github/workflows/test-integration.yml
+    with:
+      images: backend-images
+
+  # The only check the branch protection of main requires from this workflow
+  # (besides Conventional Commit title, which only a pull request has). It fails
+  # unless every part succeeded, so a part that is skipped, cancelled or failed
+  # never passes it. A new part is added to `needs` and to the loop below.
+  passed:
+    name: Test result
+    if: ${{ always() }}
+    needs: [python, backend, app, image, containers]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq --raw-output 'to_entries[] | "\(.key): \(.value.result)"'
+          failed=$(echo "$RESULTS" | jq --raw-output '[to_entries[] | select(.value.result != "success") | .key] | join(", ")')
+          if [ -n "$failed" ]; then
+            echo "::error::These parts of CI did not succeed: $failed; see their jobs above."
+            exit 1
+          fi
+

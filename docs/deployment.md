@@ -276,8 +276,10 @@ release, as `signalhub-X.Y.Z-deployment.tar.gz`, with their checksum in
 | `proxy/Caddyfile` | The TLS reverse proxy's configuration. |
 
 The backend image, `ghcr.io/rodrigofabreu/signalhub:X.Y.Z`, is one image
-for x86-64 and ARM64; the release notes name it and its digest, and only
-exact versions are tagged (no `latest`). It identifies its release and
+for x86-64 and ARM64. The release notes name the version and digest. After
+the complete release succeeds, `ghcr.io/rodrigofabreu/signalhub:latest` is
+updated to that same multi-platform image. Release bundles retain their
+recorded version and digest. The backend identifies its release and
 commit at `/q/info` and at the start of its startup summary (see
 [Version](architecture.md#version)):
 

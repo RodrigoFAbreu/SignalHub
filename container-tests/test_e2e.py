@@ -4,7 +4,7 @@ The workflow starts scripts/e2e/fake_fcm.py (a stand-in for Google's token
 endpoint and the FCM HTTP v1 API), records what it receives in
 SIGNALHUB_FCM_SENDS, and starts the stack with a throwaway service account key
 and the app's Firebase options in SIGNALHUB_FIREBASE_OPTIONS (see the job in
-.github/workflows/ci-containers.yml).
+.github/workflows/test-integration.yml).
 
 Old steps "Start a fake FCM, PostgreSQL and the backend with FCM push enabled"
 (its log lines), "Register a producer and two clients with push targets", "The

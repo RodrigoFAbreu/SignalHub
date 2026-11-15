@@ -1,71 +1,58 @@
 name: CI
 
-# Runs on every pull request, every part of it: no part is skipped by the files a
-# change touches, since every merge to main is a release. The release workflow
-# also calls it, so the exact commit on main is re-validated before it is tagged.
-#
-# Each part is a reusable workflow that can also be run alone from the Actions
-# tab (docs/development.md#continuous-integration):
-#
-#   ci-python.yml      the repository's Python tooling, the SDK, the examples
-#                      and the workflows' own lint, in one job
-#   ci-backend.yml     the backend's build and tests
-#   ci-app.yml         the Flutter app: checks, Android and iOS builds
-#   ci-image.yml       the backend image, built once per architecture
-#   ci-containers.yml  every test that starts the backend as a container: the
-#                      users' web page in a browser, the Compose stack, the
-#                      upgrades, a fresh install, end to end
-#
-# A pull request holds few runners at once (docs/development.md#continuous-integration):
-# the parts pack their short jobs into one and the two that start a stack wait for
-# the images, and a single job, CI passed, reports whether every part passed.
+# Validate every PR and main push before publishing a release from main.
+# Component workflows remain reusable through the Test entry point.
 on:
   pull_request:
-  workflow_call:
+    types: [opened, edited, reopened, synchronize]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Supersede outdated runs for the same PR. When called by the release workflow,
-# the group is unique per run and the caller serializes releases itself.
+# All public entry points serialize against the same repository execution group.
+# Reusable children use distinct groups so they do not wait on their own caller.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+  group: signalhub-execution
+  queue: max
+  cancel-in-progress: false
 
 jobs:
-  python:
-    uses: ./.github/workflows/ci-python.yml
-  backend:
-    uses: ./.github/workflows/ci-backend.yml
-  app:
-    uses: ./.github/workflows/ci-app.yml
-  image:
-    uses: ./.github/workflows/ci-image.yml
-  # It starts stacks from the images the image part built.
-  containers:
-    needs: image
-    uses: ./.github/workflows/ci-containers.yml
-    with:
-      images: backend-images
-
-  # The only check the branch protection of main requires from this workflow
-  # (besides Conventional Commit title, which only a pull request has). It fails
-  # unless every part succeeded, so a part that is skipped, cancelled or failed
-  # never passes it. A new part is added to `needs` and to the loop below.
-  passed:
-    name: CI passed
-    if: ${{ always() }}
-    needs: [python, backend, app, image, containers]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+  title:
+    if: github.event_name == 'pull_request'
+    uses: RodrigoFAbreu/action-workflows/.github/workflows/pr-title.yml@main
+  title-passed:
+    name: Conventional Commit title
+    needs: title
+    if: github.event_name == 'pull_request' && always()
+    runs-on: ubuntu-24.04
     steps:
       - env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          echo "$RESULTS" | jq --raw-output 'to_entries[] | "\(.key): \(.value.result)"'
-          failed=$(echo "$RESULTS" | jq --raw-output '[to_entries[] | select(.value.result != "success") | .key] | join(", ")')
-          if [ -n "$failed" ]; then
-            echo "::error::These parts of CI did not succeed: $failed; see their jobs above."
-            exit 1
-          fi
+          TITLE_RESULT: ${{ needs.title.result }}
+        run: test "$TITLE_RESULT" = success
+  tests:
+    needs: title-passed
+    if: ${{ !cancelled() && (needs.title-passed.result == 'success' || needs.title-passed.result == 'skipped') }}
+    uses: ./.github/workflows/test.yml
+  passed:
+    name: CI passed
+    needs: tests
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          RESULT: ${{ needs.tests.result }}
+        run: test "$RESULT" = success
+
+  release:
+    needs: passed
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/build-and-publish.yml
+    secrets: inherit

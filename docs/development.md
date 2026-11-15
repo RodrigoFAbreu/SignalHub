@@ -75,7 +75,7 @@ bootstrap PR releases `v0.1.0`.
 
 ## Release process
 
-Releases are fully automated by `.github/workflows/release.yml`. There is no
+Releases are fully automated by `.github/workflows/build-and-publish.yml`. There is no
 release PR and no manual step.
 
 On every push to `main`:
@@ -93,9 +93,8 @@ On every push to `main`:
    digest, with BuildKit's provenance (`mode=max`) and SBOM attestations,
    stored beside the image in the registry.
 4. The two are tagged as one multi-platform image,
-   `ghcr.io/rodrigofabreu/signalhub:X.Y.Z`. Only the exact version is
-   tagged: no `latest` and no `X.Y`, so an image reference always names one
-   release, and the docs always name an exact version.
+   `ghcr.io/rodrigofabreu/signalhub:X.Y.Z`. This version tag identifies the
+   candidate that the remaining release jobs validate.
 5. On both platforms the tagged image is pulled and checked by
    `scripts/release/check-image.sh`: the labels, the architecture, and,
    started with PostgreSQL, the version and commit at `/q/info` and in the
@@ -130,6 +129,25 @@ On every push to `main`:
    notes name the image and its digest and the app's signing certificate,
    followed by the generated notes, with the deployment files, the SDK's
    files, the app and `SHA256SUMS` (all of them) attached.
+10. After the GitHub release succeeds, the `latest` job copies that released
+    multi-platform manifest to `ghcr.io/rodrigofabreu/signalhub:latest`.
+    It preserves the source manifest and both supported platforms. A failed
+    image check, APK build or release prevents this promotion. If promotion
+    itself fails, rerun the failed job to publish the alias for that release.
+
+The CI workflow handles pull requests, pushes to main and manual validation.
+Every run executes the reusable validation components. A push to main calls the
+reusable Release workflow after the CI passed gate succeeds. Manual CI runs validate the selected revision and publish only from main.
+
+PR-title validation and released-manifest promotion use the shared
+reusable workflows in RodrigoFAbreu/action-workflows@main. This repository's
+release.py computes versions, and its own image, application and signing jobs
+provide the release completion gate.
+
+The rolling `latest` tag follows successful releases. Existing version tags and
+release deployment bundles continue to identify their recorded image. A running
+Kubernetes Pod needs an image update controller or a new rollout to adopt a
+changed tag. `imagePullPolicy: Always` resolves the tag when a container starts.
 
 The release is complete only when its GitHub release exists. If a run fails
 after pushing the image but before the GitHub release, the version is not
@@ -980,7 +998,7 @@ and setting up push with your Firebase project.
 ### Prerequisites
 
 - **Flutter 3.47.5** (stable), the version CI pins in `FLUTTER_VERSION` in
-  `.github/workflows/ci-app.yml`. It includes Dart.
+  `.github/workflows/test-app.yml`. It includes Dart.
 - For Android builds: the Android SDK (Android Studio or the command-line
   tools) and JDK 17.
 - For iOS builds: macOS with Xcode.
@@ -1230,20 +1248,28 @@ drawings (they show fixed sample times), and the QR codes are real ones.
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` is a short main workflow. It runs on every pull
-request, every part of it (no part is skipped by the files a change touches:
-every merge to `main` is a release), and the release workflow calls it again on
-the merged commit. Each part is a reusable workflow of its own, which can also
-be run alone, from the *Actions* tab (*Run workflow*, on a branch) or with
-`gh workflow run <file> --ref <branch>`:
+`.github/workflows/ci.yml` is the CI entry point for pull requests, pushes to
+main and manual runs. Each run checks every component. Main pushes and manual
+CI runs from main then call Build and publish. Test and Build and publish also
+have their own manual entry points. The components below are call-only workflows
+inside Test, so they cannot bypass repository scheduling through direct dispatch:
 
 | Part (workflow) | What it checks |
 |---|---|
-| `ci-python.yml` | One job: `ruff`, the release scripts, the device-review script, the Python SDK (also on its oldest Python), the integration examples, the container tests' helpers, and the workflows themselves (*GitHub Actions lint*) |
-| `ci-backend.yml` | `./mvnw verify` in `backend/`: build, tests against real PostgreSQL, format and SpotBugs |
-| `ci-app.yml` | The app: format, analysis and tests; the release's Android build, signed with a throwaway key; the iOS build |
-| `ci-image.yml` | The release's build of the backend image on x86-64 and natively on ARM64, and its checks. The only place CI builds the image |
-| `ci-containers.yml` | Everything that starts the backend as a container, in four jobs: the users' web page in a browser (`web-tests/`), the Compose stack on both architectures, the upgrades, the fresh install of [deployment.md](deployment.md#setup) and the end-to-end path of an event, all but the first checked by `container-tests/` |
+| `test-python.yml` | Shared unittest jobs for each suite and both supported SDK interpreters, plus separate lint, SDK build and workflow-lint jobs |
+| `test-backend.yml` | `./mvnw verify` in `backend/`: build, tests against real PostgreSQL, format and SpotBugs |
+| `test-app.yml` | The app: format, analysis and tests; the release's Android build, signed with a throwaway key; the iOS build |
+| `test-image.yml` | The release's build of the backend image on x86-64 and natively on ARM64, and its checks. The only place CI builds the image |
+| `test-integration.yml` | Everything that starts the backend as a container, in four jobs: the users' web page in a browser (`web-tests/`), the Compose stack on both architectures, the upgrades, the fresh install of [deployment.md](deployment.md#setup) and the end-to-end path of an event, all but the first checked by `container-tests/` |
+
+Python tests call the shared python-tests.yml workflow at main with directories,
+patterns, import roots and local-package settings. The suite matrix runs at most
+two jobs simultaneously and includes the SDK on Python 3.10 and 3.12. Ruff,
+ShellCheck, SDK release-file builds and workflow linting run in caller-owned jobs.
+Backend CI checks PostgreSQL-image consistency in its own job before calling the
+shared java-tests.yml workflow with the backend directory and Java version.
+The shared javascript-tests.yml workflow runs npm test for JavaScript/TypeScript
+packages. Flutter and container acceptance retain their component workflows.
 
 **Less repeated work.** The image part builds the backend image once per
 architecture, the way the release builds it (`signalhub-backend:check`, version
@@ -1251,31 +1277,43 @@ architecture, the way the release builds it (`signalhub-backend:check`, version
 (`signalhub-backend:local`, a development build; the second build reuses every
 layer of the first), and saves both as an artifact. The web page and the
 container jobs load them instead of building (`.github/actions/load-backend-images`,
-which builds them itself when a part runs alone). The Flutter SDK and its pub
+which can build them itself when a reusable caller supplies no artifact). The Flutter SDK and its pub
 packages are cached (`.github/actions/setup-flutter`), and Gradle's and Maven's
 downloads and pip's are cached by `setup-java` and `setup-python`. Stacks come
 up with readiness checks (`docker compose up --wait`, `wait_until` in the
 tests), never fixed waits.
 
-**One required check.** The ruleset *Main Protected* requires `CI passed` and
-`Conventional Commit title`, and nothing else. `CI passed` is the last job of
-`ci.yml`: it needs every part, runs even when one failed, and fails unless every
-part succeeded (a part that was skipped or cancelled does not pass it either), so
-no check is less checked for being reported by one name. The failing job itself is
-listed above it. A new job needs no change to the ruleset: it belongs to a part
-the aggregate already needs. A new part is added to the aggregate's `needs`.
+**Required checks.** The ruleset requires `CI passed` and `Conventional Commit
+title`. The Test workflow's result gate requires every component to succeed.
+CI exposes that overall result through `CI passed` before publication. Add new
+validation components and their aggregate dependencies in test.yml. Failed,
+cancelled and skipped components fail the aggregate.
 
-**Few runners at once.** The free plan shares 20 runners (5 on macOS) between all
-of the maintainer's repositories, so a pull request's CI holds few of them at the
-same time rather than many for a short while: at most 6 Linux jobs and 1 macOS
-job at once, in about the time it took with many more. Short jobs that fit within
-the longest one run one after another in one job (the Python checks and the
-workflow lint; the stack tests of `ci-containers.yml`, in lanes of about the
-same length, each test a composite action `.github/actions/stack-*` that leaves no
-stack, file or setting for the next, and that does not stop the others when it
-fails), and parts start in stages: the two that start a stack wait for the images
-of the image part (`needs`). Add a test to the lane that keeps the run no longer;
-measure it (below) before and after.
+**Runner concurrency.** CI, Test and Build and publish share one execution group
+for direct entry-point runs. Reusable children use distinct run-scoped groups to
+avoid waiting on their caller's lock. Running work is not cancelled. `queue: max` retains up to 100 pending runs,
+so a new PR cannot replace a waiting release. The pinned actionlint version
+predates this GitHub option, so the lint script ignores only its unknown-queue
+diagnostic until a supporting linter version is available.
+
+Test executes in three stages, with at most six runners across Linux and macOS:
+
+1. Python (two matrix jobs, tooling and workflow lint) plus two image builds: six.
+2. Backend (one job at a time) plus three app jobs: four.
+3. Four integration jobs reusing the image artifacts: four.
+
+Title checks precede these stages. Result gates and publication follow them.
+Publication uses at most three runners. Independent tests still run after an
+earlier stage fails, but integration requires usable images and release requires
+all tests to pass. Keep these budgets when adding components. The cap applies to
+runs using this configuration, including manual entry points, not older branches
+with different workflows.
+
+The release reuses the cached Flutter setup and Gradle downloads. Docker builds
+export BuildKit layers into an Actions cache separated by OS and architecture.
+Cache keys include the build inputs and run, with fallback to previous builds.
+Only disposable build layers and dependency downloads are cached, never signing
+keys or application credentials. A missing cache must still allow a full build.
 
 ### Measuring a run
 
@@ -1421,8 +1459,8 @@ Two versions have to follow others by hand:
   [deployment.md](deployment.md#a-new-postgresql-major-version)), never a routine
   update.
 - **Flutter.** No Dependabot ecosystem updates the Flutter SDK.
-  `FLUTTER_VERSION` in `.github/workflows/ci-app.yml` and
-  `.github/workflows/release.yml` (a test in `scripts/release` fails while
+  `FLUTTER_VERSION` in `.github/workflows/test-app.yml` and
+  `.github/workflows/build-and-publish.yml` (a test in `scripts/release` fails while
   they differ) and the version under [Client](#client) are raised together
   by hand, from the stable releases;
   the packages in `client/pubspec.lock` are tracked by `pub`.
@@ -1461,3 +1499,11 @@ repository:
   is the only way to replace them. Losing the key means official installs
   can no longer be updated (see
   [client/README.md](../client/README.md#signing)).
+
+### Workflow entry points
+
+CI runs automatically for PRs and main pushes. Test is callable and manually
+runnable and collects all component validation. Build and publish is callable
+and manually runnable. CI supplies the validation gate for automated and manually dispatched main
+releases. Direct Build and publish dispatch performs publication work on main. The existing
+version, signing, image acceptance and release promotion rules apply to both paths.

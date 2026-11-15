@@ -1,0 +1,19 @@
+name: Test - Backend
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  postgres-image:
+    name: PostgreSQL image consistency
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: bash ../scripts/ci/check-postgres-image.sh
+        working-directory: backend
+  backend:
+    needs: postgres-image
+    uses: RodrigoFAbreu/action-workflows/.github/workflows/java-tests.yml@main
+    with:
+      java-version: '25'
+      working-directory: backend
