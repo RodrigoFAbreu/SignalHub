@@ -1,7 +1,7 @@
 name: CI
 
 # Validate every PR and main push before publishing a release from main.
-# Component workflows remain reusable and individually runnable.
+# Component workflows remain reusable through the Test entry point.
 on:
   pull_request:
     types: [opened, edited, reopened, synchronize]
@@ -12,10 +12,12 @@ on:
 permissions:
   contents: read
 
-# Supersede outdated PR validation. Main runs retain their release completion gates.
+# All public entry points serialize against the same repository execution group.
+# Reusable children use distinct groups so they do not wait on their own caller.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: signalhub-execution
+  queue: max
+  cancel-in-progress: false
 
 jobs:
   title:
@@ -31,6 +33,8 @@ jobs:
           TITLE_RESULT: ${{ needs.title.result }}
         run: test "$TITLE_RESULT" = success
   tests:
+    needs: title-passed
+    if: ${{ !cancelled() && (needs.title-passed.result == 'success' || needs.title-passed.result == 'skipped') }}
     uses: ./.github/workflows/test.yml
   passed:
     name: CI passed

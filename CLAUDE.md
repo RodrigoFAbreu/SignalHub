@@ -207,7 +207,7 @@ owner. Removing it in a later commit is not enough.
 - Prefer the standard library and well-established dependencies. Pin versions
   in CI and in lockfiles.
 - A PR that adds a component (backend, client app, SDK) also adds its build,
-  lint, and test jobs to CI (a reusable workflow `.github/workflows/ci-*.yml`
+  lint, and test jobs to CI (a reusable workflow `.github/workflows/test-*.yml`
   called from `test.yml`, whose aggregate requires every component to
   succeed. `ci.yml` exposes that result as the required `CI passed` check), the local commands to
   `docs/development.md`, and the component to `README.md` status.

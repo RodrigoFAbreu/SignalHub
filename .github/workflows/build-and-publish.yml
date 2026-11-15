@@ -16,12 +16,13 @@ permissions:
 # are never cancelled mid-flight; a superseded pending run is covered by the
 # next one (see docs/development.md).
 concurrency:
-  group: release
+  group: ${{ github.workflow == 'Build and publish' && 'signalhub-execution' || format('signalhub-release-{0}', github.run_id) }}
+  queue: max
   cancel-in-progress: false
 
 env:
   IMAGE: ghcr.io/rodrigofabreu/signalhub
-  FLUTTER_VERSION: 3.47.5 # the same as in ci-app.yml
+  FLUTTER_VERSION: 3.47.5 # the same as in test-app.yml
 
 jobs:
   version:
@@ -59,6 +60,15 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
+      - name: Configure image cache
+        run: echo "BUILDX_CACHE_DIR=$RUNNER_TEMP/buildkit-cache" >> "$GITHUB_ENV"
+      - uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/buildkit-cache
+          key: backend-layers-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('backend/pom.xml', 'backend/Dockerfile') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            backend-layers-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('backend/pom.xml', 'backend/Dockerfile') }}-
+            backend-layers-${{ runner.os }}-${{ runner.arch }}-
       - env:
           TOKEN: ${{ github.token }}
         run: echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
@@ -78,6 +88,15 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
+      - name: Configure image cache
+        run: echo "BUILDX_CACHE_DIR=$RUNNER_TEMP/buildkit-cache" >> "$GITHUB_ENV"
+      - uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/buildkit-cache
+          key: backend-layers-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('backend/pom.xml', 'backend/Dockerfile') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            backend-layers-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('backend/pom.xml', 'backend/Dockerfile') }}-
+            backend-layers-${{ runner.os }}-${{ runner.arch }}-
       - env:
           TOKEN: ${{ github.token }}
         run: echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
@@ -157,11 +176,13 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Install Flutter
-        run: |
-          git clone --quiet --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
-          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
-      - run: flutter --disable-analytics && flutter --version
+          cache: gradle
+          cache-dependency-path: |
+            client/android/**/*.gradle*
+            client/android/gradle/wrapper/gradle-wrapper.properties
+      - uses: ./.github/actions/setup-flutter
+        with:
+          version: ${{ env.FLUTTER_VERSION }}
       - working-directory: client
         run: flutter pub get --enforce-lockfile
       - id: build
@@ -215,6 +236,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .github/tools/requirements.txt
       - run: pip install --requirement .github/tools/requirements.txt
       - uses: actions/download-artifact@v8
         with:

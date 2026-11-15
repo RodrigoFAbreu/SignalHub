@@ -13,7 +13,7 @@ class OrchestrationTests(unittest.TestCase):
         self.assertIn("  pull_request:", ci)
         self.assertIn("types: [opened, edited, reopened, synchronize]", ci)
         self.assertIn("name: Conventional Commit title", ci)
-        self.assertIn("github.event_name == 'push' && github.ref)", ci)
+        self.assertIn("group: signalhub-execution", ci)
         self.assertIn("  push:\n    branches: [main]", ci)
         self.assertIn("  workflow_dispatch:", ci)
         tests = (WORKFLOWS / "test.yml").read_text()
@@ -39,7 +39,7 @@ class OrchestrationTests(unittest.TestCase):
         self.assertNotIn("    needs: ci\n", release)
 
     def test_generic_tests_and_project_checks_have_separate_jobs(self):
-        python = (WORKFLOWS / "ci-python.yml").read_text()
+        python = (WORKFLOWS / "test-python.yml").read_text()
         self.assertIn("python-tests.yml@main", python)
         self.assertIn("test-directory: ${{ matrix.directory }}", python)
         self.assertIn("test-pattern: ${{ matrix.pattern || 'test*.py' }}", python)
@@ -47,14 +47,32 @@ class OrchestrationTests(unittest.TestCase):
         self.assertIn("  workflow-lint:", python)
         self.assertNotIn("test-command:", python)
         self.assertNotIn("after-test-command:", python)
-        backend = (WORKFLOWS / "ci-backend.yml").read_text()
+        backend = (WORKFLOWS / "test-backend.yml").read_text()
         self.assertIn("java-tests.yml@main", backend)
         self.assertIn("    needs: postgres-image", backend)
         self.assertIn("run: bash ../scripts/ci/check-postgres-image.sh", backend)
         self.assertNotIn("before-test-command:", backend)
 
+    def test_entry_points_share_queue_without_locking_their_caller(self):
+        for filename, display in [
+            ("test.yml", "Test"),
+            ("build-and-publish.yml", "Build and publish"),
+        ]:
+            workflow = (WORKFLOWS / filename).read_text()
+            self.assertIn(
+                f"github.workflow == '{display}' && 'signalhub-execution'", workflow
+            )
+            self.assertIn("github.run_id", workflow)
+            self.assertIn("queue: max", workflow)
+            self.assertIn("cancel-in-progress: false", workflow)
+        for filename in WORKFLOWS.glob("test-*.yml"):
+            self.assertNotIn("workflow_dispatch:", filename.read_text())
+        tests = (WORKFLOWS / "test.yml").read_text()
+        self.assertIn("needs: [python, image, backend, app]", tests)
+        self.assertEqual(tests.count("needs: [python, image]"), 2)
+
     def test_python_matrix_preserves_all_previous_suites_and_interpreters(self):
-        python = (WORKFLOWS / "ci-python.yml").read_text()
+        python = (WORKFLOWS / "test-python.yml").read_text()
         for directory in [
             "scripts/release",
             "scripts/device-review",

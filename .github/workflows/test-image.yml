@@ -1,14 +1,12 @@
-name: CI - Backend image
+name: Test - Backend image
 
 # The release's build of the backend image (scripts/release/build-image.sh), on
 # each platform it publishes, with a test version, and the same checks the
 # release runs on the images it pushed. This is the only place CI builds the
 # image: the images are saved as an artifact for the jobs that start a stack
-# (the web page and the container tests). Called by ci.yml; also runnable alone
-# from the Actions tab.
+# (the web page and the container tests). Called by test.yml.
 on:
   workflow_call:
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -28,6 +26,15 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
+      - name: Configure image cache
+        run: echo "BUILDX_CACHE_DIR=$RUNNER_TEMP/buildkit-cache" >> "$GITHUB_ENV"
+      - uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/buildkit-cache
+          key: backend-layers-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('backend/pom.xml', 'backend/Dockerfile') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            backend-layers-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('backend/pom.xml', 'backend/Dockerfile') }}-
+            backend-layers-${{ runner.os }}-${{ runner.arch }}-
       # The release's build, and the development build that `docker compose up
       # --build` makes from the same layers.
       - name: Build the image as the release does

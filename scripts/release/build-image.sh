@@ -35,6 +35,14 @@ args=(
   --build-arg "SIGNALHUB_REVISION=$revision"
   --build-arg "SIGNALHUB_CREATED=$created"
 )
+# The export replaces the previous local cache, preventing accumulated old layers.
+# Local callers need no cache configuration. CI supplies an Actions-cached path.
+if [ -n "${BUILDX_CACHE_DIR:-}" ]; then
+  if [ -f "$BUILDX_CACHE_DIR/index.json" ]; then
+    args+=(--cache-from "type=local,src=$BUILDX_CACHE_DIR")
+  fi
+  args+=(--cache-to "type=local,dest=$BUILDX_CACHE_DIR-next,mode=max")
+fi
 if [ "$mode" = load ]; then
   # The local image store takes no attestations; everything else is as released.
   docker buildx build "${args[@]}" --provenance=false --sbom=false \
@@ -46,4 +54,9 @@ else
     --output "type=image,name=$repository,push-by-digest=true,name-canonical=true,push=true" \
     --metadata-file "$metadata" "$root/backend" >&2
   jq --raw-output '."containerimage.digest"' "$metadata"
+fi
+
+if [ -n "${BUILDX_CACHE_DIR:-}" ]; then
+  rm -rf -- "$BUILDX_CACHE_DIR"
+  mv -- "$BUILDX_CACHE_DIR-next" "$BUILDX_CACHE_DIR"
 fi

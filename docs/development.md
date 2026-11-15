@@ -998,7 +998,7 @@ and setting up push with your Firebase project.
 ### Prerequisites
 
 - **Flutter 3.47.5** (stable), the version CI pins in `FLUTTER_VERSION` in
-  `.github/workflows/ci-app.yml`. It includes Dart.
+  `.github/workflows/test-app.yml`. It includes Dart.
 - For Android builds: the Android SDK (Android Studio or the command-line
   tools) and JDK 17.
 - For iOS builds: macOS with Xcode.
@@ -1249,18 +1249,18 @@ drawings (they show fixed sample times), and the QR codes are real ones.
 ## Continuous integration
 
 `.github/workflows/ci.yml` is the CI entry point for pull requests, pushes to
-main and manual validation. Each run checks every component, and a successful
-main push then calls the reusable release workflow. Each validation component
-can also run alone from the *Actions* tab (*Run workflow*, on a branch) or with
-`gh workflow run <file> --ref <branch>`:
+main and manual runs. Each run checks every component. Main pushes and manual
+CI runs from main then call Build and publish. Test and Build and publish also
+have their own manual entry points. The components below are call-only workflows
+inside Test, so they cannot bypass repository scheduling through direct dispatch:
 
 | Part (workflow) | What it checks |
 |---|---|
-| `ci-python.yml` | Shared unittest jobs for each suite and both supported SDK interpreters, plus separate lint, SDK build and workflow-lint jobs |
-| `ci-backend.yml` | `./mvnw verify` in `backend/`: build, tests against real PostgreSQL, format and SpotBugs |
-| `ci-app.yml` | The app: format, analysis and tests; the release's Android build, signed with a throwaway key; the iOS build |
-| `ci-image.yml` | The release's build of the backend image on x86-64 and natively on ARM64, and its checks. The only place CI builds the image |
-| `ci-containers.yml` | Everything that starts the backend as a container, in four jobs: the users' web page in a browser (`web-tests/`), the Compose stack on both architectures, the upgrades, the fresh install of [deployment.md](deployment.md#setup) and the end-to-end path of an event, all but the first checked by `container-tests/` |
+| `test-python.yml` | Shared unittest jobs for each suite and both supported SDK interpreters, plus separate lint, SDK build and workflow-lint jobs |
+| `test-backend.yml` | `./mvnw verify` in `backend/`: build, tests against real PostgreSQL, format and SpotBugs |
+| `test-app.yml` | The app: format, analysis and tests; the release's Android build, signed with a throwaway key; the iOS build |
+| `test-image.yml` | The release's build of the backend image on x86-64 and natively on ARM64, and its checks. The only place CI builds the image |
+| `test-integration.yml` | Everything that starts the backend as a container, in four jobs: the users' web page in a browser (`web-tests/`), the Compose stack on both architectures, the upgrades, the fresh install of [deployment.md](deployment.md#setup) and the end-to-end path of an event, all but the first checked by `container-tests/` |
 
 Python tests call the shared python-tests.yml workflow at main with directories,
 patterns, import roots and local-package settings. The suite matrix runs at most
@@ -1289,12 +1289,31 @@ CI exposes that overall result through `CI passed` before publication. Add new
 validation components and their aggregate dependencies in test.yml. Failed,
 cancelled and skipped components fail the aggregate.
 
-**Runner concurrency.** The Python suite matrix runs at most two jobs at once.
-Its lint, SDK build and workflow-lint checks have separate jobs. Container tests
-share their loaded images within each lane, and the lanes start after the image
-builds finish. Each stack test leaves its workspace ready for the next test and
-preserves its own failure result. Add a test to the appropriate lane and measure
-runner usage before and after changes.
+**Runner concurrency.** CI, Test and Build and publish share one execution group
+for direct entry-point runs. Reusable children use distinct run-scoped groups to
+avoid waiting on their caller's lock. Running work is not cancelled. `queue: max` retains up to 100 pending runs,
+so a new PR cannot replace a waiting release. The pinned actionlint version
+predates this GitHub option, so the lint script ignores only its unknown-queue
+diagnostic until a supporting linter version is available.
+
+Test executes in three stages, with at most six runners across Linux and macOS:
+
+1. Python (two matrix jobs, tooling and workflow lint) plus two image builds: six.
+2. Backend (one job at a time) plus three app jobs: four.
+3. Four integration jobs reusing the image artifacts: four.
+
+Title checks precede these stages. Result gates and publication follow them.
+Publication uses at most three runners. Independent tests still run after an
+earlier stage fails, but integration requires usable images and release requires
+all tests to pass. Keep these budgets when adding components. The cap applies to
+runs using this configuration, including manual entry points, not older branches
+with different workflows.
+
+The release reuses the cached Flutter setup and Gradle downloads. Docker builds
+export BuildKit layers into an Actions cache separated by OS and architecture.
+Cache keys include the build inputs and run, with fallback to previous builds.
+Only disposable build layers and dependency downloads are cached, never signing
+keys or application credentials. A missing cache must still allow a full build.
 
 ### Measuring a run
 
@@ -1440,7 +1459,7 @@ Two versions have to follow others by hand:
   [deployment.md](deployment.md#a-new-postgresql-major-version)), never a routine
   update.
 - **Flutter.** No Dependabot ecosystem updates the Flutter SDK.
-  `FLUTTER_VERSION` in `.github/workflows/ci-app.yml` and
+  `FLUTTER_VERSION` in `.github/workflows/test-app.yml` and
   `.github/workflows/build-and-publish.yml` (a test in `scripts/release` fails while
   they differ) and the version under [Client](#client) are raised together
   by hand, from the stable releases;

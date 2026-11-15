@@ -4,19 +4,28 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow == 'Test' && 'signalhub-execution' || format('signalhub-test-{0}', github.run_id) }}
+  queue: max
+  cancel-in-progress: false
 jobs:
   python:
-    uses: ./.github/workflows/ci-python.yml
+    uses: ./.github/workflows/test-python.yml
   backend:
-    uses: ./.github/workflows/ci-backend.yml
+    needs: [python, image]
+    if: ${{ !cancelled() }}
+    uses: ./.github/workflows/test-backend.yml
   app:
-    uses: ./.github/workflows/ci-app.yml
+    needs: [python, image]
+    if: ${{ !cancelled() }}
+    uses: ./.github/workflows/test-app.yml
   image:
-    uses: ./.github/workflows/ci-image.yml
+    uses: ./.github/workflows/test-image.yml
   # It starts stacks from the images the image part built.
   containers:
-    needs: image
-    uses: ./.github/workflows/ci-containers.yml
+    needs: [python, image, backend, app]
+    if: ${{ !cancelled() && needs.image.result == 'success' }}
+    uses: ./.github/workflows/test-integration.yml
     with:
       images: backend-images
 

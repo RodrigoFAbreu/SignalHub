@@ -1,4 +1,4 @@
-name: CI - Stacks
+name: Test - Stacks
 
 # Everything that starts the backend as a container, in a few jobs that each run
 # some of its tests one after another (the "lanes" below), sharing the checkout,
@@ -16,7 +16,6 @@ on:
         description: The prefix of the image part's artifacts (backend-images); empty to build the images in each job.
         type: string
         default: ""
-  workflow_dispatch:
 
 permissions:
   contents: read

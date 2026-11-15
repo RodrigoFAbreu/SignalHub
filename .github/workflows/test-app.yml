@@ -1,10 +1,9 @@
-name: CI - App
+name: Test - App
 
 # The Flutter app: format, analysis and unit tests, the release's Android build
-# and the iOS build. Called by ci.yml; also runnable alone from the Actions tab.
+# and the iOS build. Called by test.yml.
 on:
   workflow_call:
-  workflow_dispatch:
 
 permissions:
   contents: read

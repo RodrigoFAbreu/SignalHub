@@ -1,7 +1,6 @@
-name: CI - Python and workflows
+name: Test - Python and workflows
 on:
   workflow_call:
-  workflow_dispatch:
 permissions:
   contents: read
 jobs:
