@@ -7,8 +7,8 @@ name: Test - Stacks
 # last four checked by the Python tests of container-tests/
 # (container-tests/README.md). Each test is a composite action in
 # .github/actions/stack-*, which leaves no stack, file or setting behind.
-# Called by ci.yml, which hands it the images its image part built, one build per
-# architecture; run alone from the Actions tab, every job builds them itself.
+# Called by test.yml with the image artifacts, one build per architecture.
+# Other reusable callers may omit images to build them inside each job.
 on:
   workflow_call:
     inputs:

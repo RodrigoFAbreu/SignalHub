@@ -11,7 +11,8 @@
 # The build image's Maven version matches .mvn/wrapper/maven-wrapper.properties.
 FROM maven:3.9.16-eclipse-temurin-25-noble@sha256:93b8a14ea2f412782e4e842651273b4d903e35cc496284f178fbbe2d67d00976 AS build
 WORKDIR /build
-# Resolve dependencies in their own layer so source changes do not re-download them.
+# Resolve dependencies in an exported layer so later runners can reuse them.
+# BuildKit cache mounts would not be included in the exported layer cache.
 COPY pom.xml ./
 RUN mvn --batch-mode --quiet quarkus:go-offline
 COPY src/ src/

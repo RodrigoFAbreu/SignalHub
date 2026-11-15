@@ -1277,7 +1277,7 @@ architecture, the way the release builds it (`signalhub-backend:check`, version
 (`signalhub-backend:local`, a development build; the second build reuses every
 layer of the first), and saves both as an artifact. The web page and the
 container jobs load them instead of building (`.github/actions/load-backend-images`,
-which builds them itself when a part runs alone). The Flutter SDK and its pub
+which can build them itself when a reusable caller supplies no artifact). The Flutter SDK and its pub
 packages are cached (`.github/actions/setup-flutter`), and Gradle's and Maven's
 downloads and pip's are cached by `setup-java` and `setup-python`. Stacks come
 up with readiness checks (`docker compose up --wait`, `wait_until` in the
