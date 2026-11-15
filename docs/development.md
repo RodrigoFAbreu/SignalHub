@@ -1269,7 +1269,7 @@ two jobs simultaneously and includes the SDK on Python 3.10 and 3.12. Ruff,
 ShellCheck, SDK release-file builds and workflow linting run in caller-owned jobs.
 Backend CI checks PostgreSQL-image consistency in its own job before calling the
 shared java-tests.yml workflow with the backend directory and Java version.
-The shared npm-tests.yml workflow runs npm test for JavaScript/TypeScript
+The shared javascript-tests.yml workflow runs npm test for JavaScript/TypeScript
 packages. Flutter and container acceptance retain their component workflows.
 
 **Less repeated work.** The image part builds the backend image once per
