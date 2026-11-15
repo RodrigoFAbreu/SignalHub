@@ -16,20 +16,26 @@ class OrchestrationTests(unittest.TestCase):
         self.assertIn("github.event_name == 'push' && github.ref)", ci)
         self.assertIn("  push:\n    branches: [main]", ci)
         self.assertIn("  workflow_dispatch:", ci)
-        self.assertIn("    needs: [python, backend, app, image, containers]", ci)
+        tests = (WORKFLOWS / "test.yml").read_text()
+        self.assertIn("  workflow_call:", tests)
+        self.assertIn("  workflow_dispatch:", tests)
+        self.assertIn("    needs: [python, backend, app, image, containers]", tests)
+        self.assertIn("uses: ./.github/workflows/test.yml", ci)
         release = ci.split("\n  release:\n", 1)[1]
         self.assertIn("    needs: passed", release)
         self.assertIn(
             "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
             release,
         )
-        self.assertIn("uses: ./.github/workflows/release.yml", release)
+        self.assertIn("uses: ./.github/workflows/build-and-publish.yml", release)
         self.assertFalse((WORKFLOWS / "main.yml").exists())
 
     def test_release_is_called_after_validation_without_recursive_ci(self):
-        release = (WORKFLOWS / "release.yml").read_text()
+        release = (WORKFLOWS / "build-and-publish.yml").read_text()
         self.assertIn("  workflow_call:", release)
-        self.assertNotIn("  workflow_dispatch:", release)
+        self.assertIn("  workflow_dispatch:", release)
+        self.assertIn("    needs: manual-tests", release)
+        self.assertIn("uses: ./.github/workflows/test.yml", release)
         self.assertNotIn("uses: ./.github/workflows/ci.yml", release)
         self.assertNotIn("    needs: ci\n", release)
 

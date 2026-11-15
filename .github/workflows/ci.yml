@@ -30,41 +30,17 @@ jobs:
       - env:
           TITLE_RESULT: ${{ needs.title.result }}
         run: test "$TITLE_RESULT" = success
-  python:
-    uses: ./.github/workflows/ci-python.yml
-  backend:
-    uses: ./.github/workflows/ci-backend.yml
-  app:
-    uses: ./.github/workflows/ci-app.yml
-  image:
-    uses: ./.github/workflows/ci-image.yml
-  # It starts stacks from the images the image part built.
-  containers:
-    needs: image
-    uses: ./.github/workflows/ci-containers.yml
-    with:
-      images: backend-images
-
-  # The only check the branch protection of main requires from this workflow
-  # (besides Conventional Commit title, which only a pull request has). It fails
-  # unless every part succeeded, so a part that is skipped, cancelled or failed
-  # never passes it. A new part is added to `needs` and to the loop below.
+  tests:
+    uses: ./.github/workflows/test.yml
   passed:
     name: CI passed
-    if: ${{ always() }}
-    needs: [python, backend, app, image, containers]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    needs: tests
+    if: always()
+    runs-on: ubuntu-24.04
     steps:
       - env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          echo "$RESULTS" | jq --raw-output 'to_entries[] | "\(.key): \(.value.result)"'
-          failed=$(echo "$RESULTS" | jq --raw-output '[to_entries[] | select(.value.result != "success") | .key] | join(", ")')
-          if [ -n "$failed" ]; then
-            echo "::error::These parts of CI did not succeed: $failed; see their jobs above."
-            exit 1
-          fi
+          RESULT: ${{ needs.tests.result }}
+        run: test "$RESULT" = success
 
   release:
     needs: passed
@@ -74,5 +50,5 @@ jobs:
       packages: write
       id-token: write
       attestations: write
-    uses: ./.github/workflows/release.yml
+    uses: ./.github/workflows/build-and-publish.yml
     secrets: inherit

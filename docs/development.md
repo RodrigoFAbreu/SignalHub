@@ -75,7 +75,7 @@ bootstrap PR releases `v0.1.0`.
 
 ## Release process
 
-Releases are fully automated by `.github/workflows/release.yml`. There is no
+Releases are fully automated by `.github/workflows/build-and-publish.yml`. There is no
 release PR and no manual step.
 
 On every push to `main`:
@@ -1444,7 +1444,7 @@ Two versions have to follow others by hand:
   update.
 - **Flutter.** No Dependabot ecosystem updates the Flutter SDK.
   `FLUTTER_VERSION` in `.github/workflows/ci-app.yml` and
-  `.github/workflows/release.yml` (a test in `scripts/release` fails while
+  `.github/workflows/build-and-publish.yml` (a test in `scripts/release` fails while
   they differ) and the version under [Client](#client) are raised together
   by hand, from the stable releases;
   the packages in `client/pubspec.lock` are tracked by `pub`.
@@ -1483,3 +1483,11 @@ repository:
   is the only way to replace them. Losing the key means official installs
   can no longer be updated (see
   [client/README.md](../client/README.md#signing)).
+
+### Workflow entry points
+
+CI runs automatically for PRs and main pushes. Test is callable and manually
+runnable and collects all component validation. Build and publish is callable
+and manually runnable. A direct manual publication runs Test first and requires
+main. Automatic main CI supplies the completed validation gate once. The existing
+version, signing, image acceptance and release promotion rules apply to both paths.
