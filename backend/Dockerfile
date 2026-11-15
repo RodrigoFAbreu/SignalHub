@@ -9,7 +9,7 @@
 
 # Base images are pinned by digest for reproducible builds; Dependabot updates them.
 # The build image's Maven version matches .mvn/wrapper/maven-wrapper.properties.
-FROM maven:3.9.16-eclipse-temurin-25-noble@sha256:93b8a14ea2f412782e4e842651273b4d903e35cc496284f178fbbe2d67d00976 AS build
+FROM maven:3.9-eclipse-temurin-26-noble@sha256:b2c1ad85954592f9928e84327c65201f308ad9b5d8ed7d5b823717c97bf23fbb AS build
 WORKDIR /build
 # Resolve dependencies in an exported layer so later runners can reuse them.
 # BuildKit cache mounts would not be included in the exported layer cache.
@@ -18,7 +18,7 @@ RUN mvn --batch-mode --quiet quarkus:go-offline
 COPY src/ src/
 RUN mvn --batch-mode --quiet package -DskipTests -Dspotless.check.skip -Dspotbugs.skip
 
-FROM eclipse-temurin:25-jre-noble@sha256:30772b161c319f9a10c82e30fd77b7b6702c6b051e44e0e9f3d7ab5dd389a5ab
+FROM eclipse-temurin:25-jre-noble@sha256:e3b6f7887a50f20d8f07abf279d8a81a5953fb398a9555bd9edd56b9bd15968c
 # The health check below uses curl, which the Java 25 JRE image no longer includes.
 RUN apt-get update \
   && apt-get install --yes --no-install-recommends curl \
